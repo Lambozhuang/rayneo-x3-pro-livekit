@@ -1,0 +1,6 @@
+.env.local
+.env
+.venv/
+__pycache__/
+*.py[cod]
+console-recordings/

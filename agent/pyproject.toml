@@ -1,0 +1,12 @@
+[project]
+name = "rayneo-x3-pro-agent"
+version = "0.1.0"
+description = "Live AI assistant agent for RayNeo X3 Pro AR glasses"
+requires-python = ">=3.10"
+dependencies = [
+    "livekit-agents[google]~=1.5",
+    "python-dotenv~=1.0",
+]
+
+[tool.uv]
+package = false
