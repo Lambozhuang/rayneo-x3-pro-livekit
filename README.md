@@ -34,6 +34,32 @@ That seam is why the phases are ordered the way they are. A browser publishes tr
 same way the glasses will, so once phase 1 passes, the server is known-good and any later
 failure is on the client side by elimination.
 
+### Transports
+
+The `WebRTC` labels above are shorthand. Each link to the server is really more than one
+connection:
+
+| Connection | Transport | Purpose |
+| --- | --- | --- |
+| Worker registration | WebSocket, `:7880` | The agent announces itself and receives job assignments. Agent only — the glasses have no equivalent. |
+| Room signaling | WebSocket, `:7880` | SDP/ICE negotiation, participant and track events |
+| Media | SRTP over UDP `:7882`, TCP `:7881` as fallback | The audio and video packets themselves |
+
+Only the last one is WebRTC media, and it's what buys us jitter buffering, packet loss
+concealment, and congestion control over flaky Wi-Fi. Streaming raw PCM over a WebSocket
+would mean reimplementing all of that, and TCP head-of-line blocking turns one lost packet
+into an audible stall.
+
+The agent is an ordinary room participant, not a privileged backend service — the SFU
+treats the Python worker exactly as it treats a browser tab or the glasses. The Python
+`livekit` package ships `livekit_ffi.dll`, Rust bindings around libwebrtc, the same engine
+Chrome uses.
+
+On the far side the transport flips: agent → Gemini is a WebSocket, with audio and video
+frames muxed into one message stream. So part of the agent's job is translating between the
+two worlds, depacketizing WebRTC audio for Gemini and packetizing Gemini's speech back into
+an outbound WebRTC track.
+
 ### Layout
 
 ```
@@ -185,6 +211,11 @@ A `token_server.py` (~40 lines, same language and credentials as the agent) land
 Two things to expect when the headset joins: run the server with `--bind 0.0.0.0` and
 point `LIVEKIT_URL` at this machine's LAN IP, and if the server is in Docker, pass
 `--node-ip <lan-ip>` so the SFU advertises an address the glasses can actually reach.
+
+`--bind` only moves the signaling port. In dev mode `:7880` listens on loopback alone,
+while the media ports `:7881` and `:7882` are already on every interface — so a headset
+that fails to connect at all is a signaling problem, whereas one that connects but hears
+silence is a media routing or advertised-address problem.
 
 ## Reference
 
