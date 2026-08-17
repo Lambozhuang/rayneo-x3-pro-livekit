@@ -2314,12 +2314,14 @@ name = "rayneo-x3-pro-agent"
 version = "0.1.0"
 source = { virtual = "." }
 dependencies = [
+    { name = "aiohttp" },
     { name = "livekit-agents", extra = ["google"] },
     { name = "python-dotenv" },
 ]
 
 [package.metadata]
 requires-dist = [
+    { name = "aiohttp", specifier = "~=3.14" },
     { name = "livekit-agents", extras = ["google"], specifier = "~=1.5" },
     { name = "python-dotenv", specifier = "~=1.0" },
 ]

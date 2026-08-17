@@ -71,7 +71,9 @@ agent/                  Python worker
     config.py           env + session model factory
     prompts.py          system instructions
     tools.py            @function_tool defs
-android/                Kotlin + Compose app for the glasses (phase 2)
+    token_server.py     join-token endpoint for the glasses
+android/                Kotlin + Compose app for the glasses
+  app/src/main/.../TokenExt.kt    where to find the token server
 ```
 
 `config.py` holds the only real abstraction: `build_session_model()` returns keyword
@@ -200,29 +202,95 @@ custom `video_sampler` goes when we tune for battery.
 
 ## Phase 2 — Android client
 
-Not started. `android/` is intentionally empty until phase 1 passes.
+`android/` is Kotlin + Jetpack Compose, derived from
+[`agent-starter-android`](https://github.com/livekit-examples/agent-starter-android)
+(MIT, kept at `android/LICENSE`). It publishes microphone and camera and subscribes to the
+agent's audio. It holds no Google credentials and never speaks to Gemini.
 
-Planned: Kotlin + Jetpack Compose starting from
-[`agent-starter-android`](https://github.com/livekit-examples/agent-starter-android),
-using the LiveKit Android SDK to publish mic + camera and subscribe to the agent's audio.
-A `token_server.py` (~40 lines, same language and credentials as the agent) lands in
-`agent/src/` at that point so the glasses can fetch a join token.
+`agent/src/token_server.py` mints the join tokens. The glasses `POST /getToken` and get
+back a server URL and a JWT, following LiveKit's
+[standard token endpoint](https://docs.livekit.io/frontends/build/authentication/endpoint/)
+so the client's built-in `TokenSource.fromEndpoint` works unmodified.
 
-Two things to expect when the headset joins: run the server with `--bind 0.0.0.0` and
-point `LIVEKIT_URL` at this machine's LAN IP, and if the server is in Docker, pass
-`--node-ip <lan-ip>` so the SFU advertises an address the glasses can actually reach.
+### Running it
+
+Three processes, in this order:
+
+```powershell
+livekit-server --dev --bind 0.0.0.0     # signaling reachable from the LAN
+uv run src/token_server.py              # port 3000
+uv run src/agent.py start               # or `dev`
+```
+
+`.env.local` needs `LIVEKIT_URL` set to this machine's **LAN IP**, not `127.0.0.1` — that
+URL is handed to the glasses verbatim, and the token server warns on startup if it looks
+like loopback. The app's endpoint address lives in `android/.../TokenExt.kt`.
+
+Then build and sideload:
+
+```powershell
+cd android
+./gradlew :app:assembleDebug
+adb install -r app/build/outputs/apk/debug/app-debug.apk
+```
+
+Gradle needs a JDK. Android Studio ships one, so `$env:JAVA_HOME =
+"C:\Program Files\Android\Android Studio\jbr"` is enough; `local.properties` (gitignored)
+points at the SDK. The debug variant is required — `app/src/debug` carries the network
+security config that permits cleartext `http://` and `ws://` to a LAN IP, which a release
+build refuses.
+
+### What changed from the starter
+
+- **One token path.** The starter tries a LiveKit Cloud sandbox, then a hardcoded token,
+  then falls back to livekit.com's public homepage agent. That last fallback would silently
+  put the wearer in a room with someone else's agent, so it's gone; a bad endpoint now
+  fails loudly.
+- **Camera on by default.** `requestedVideo` starts `true`. Reaching up to tap a toggle
+  defeats the point of glasses, and it gets both permission prompts out of the way at once.
+- **Own identity.** `applicationId` is `com.rayneo.x3pro.assistant` so it installs
+  alongside the upstream starter instead of replacing it. The Kotlin package is untouched,
+  which keeps the diff against upstream readable.
+- Dropped upstream's `taskfile.yaml`, `.env.example`, `renovate.json`, and CI workflow —
+  all of it existed to wire up a Cloud sandbox or to build a submodule we don't have.
+
+### Networking notes
 
 `--bind` only moves the signaling port. In dev mode `:7880` listens on loopback alone,
 while the media ports `:7881` and `:7882` are already on every interface — so a headset
 that fails to connect at all is a signaling problem, whereas one that connects but hears
-silence is a media routing or advertised-address problem.
+silence is a media routing or advertised-address problem. If the server runs in Docker,
+pass `--node-ip <lan-ip>` so the SFU advertises an address the glasses can reach.
+
+Dev mode uses the well-known `devkey` / `secret` pair, and the token endpoint has no
+authentication at all. Both are exposed to the whole local network while this is running.
+That is acceptable on a trusted network for development and nowhere else.
+
+### Open on-device questions
+
+None of the following can be settled without the glasses connected:
+
+- **Whether the default camera capture works.** LiveKit enumerates cameras through
+  Camera2/CameraX; the X3 Pro may expose its camera unusually. The
+  [earlier prototype](https://github.com/Lambozhuang/rayneo-x3-pro-gemini-live) uses
+  CameraX at **640×480, 1 fps**, and 16 kHz capture / 24 kHz playback for audio — a known-good
+  reference if defaults misbehave. LiveKit and the Gemini plugin negotiate audio rates
+  themselves, so only the camera is likely to need attention.
+- **Whether a frame ever reaches Gemini.** `video_input=True` has been wired and the agent
+  logs `using video io: RoomIO > AgentSession`, but no client has published a camera track
+  yet, so the video path is unproven end to end.
+- **Battery and token cost.** 640×480 at 1 fps is the reference point for the
+  `video_sampler` TODO in `agent.py`.
+- **UI fit.** The starter's layout is designed for a phone, not a heads-up display.
 
 ## Reference
 
 - [Gemini Live API plugin](https://docs.livekit.io/agents/models/realtime/plugins/gemini/)
 - [Live video input](https://docs.livekit.io/agents/multimodality/vision/video/)
 - [Agent dispatch](https://docs.livekit.io/agents/server/agent-dispatch/) — the agent uses
-  automatic dispatch (no `agent_name` set) while there's no token server
+  automatic dispatch (no `agent_name` set), so it joins every room the token server hands
+  out. `token_server.py` therefore issues a fresh room name per request
+- [Token endpoint spec](https://docs.livekit.io/frontends/build/authentication/endpoint/)
 - [Running LiveKit locally](https://docs.livekit.io/transport/self-hosting/local/)
 - [RayNeo dev docs](https://rayneo-en.gitbook.io/rayneo-devdoc/x-series/android-sdk) —
   camera and audio capture on the X-series

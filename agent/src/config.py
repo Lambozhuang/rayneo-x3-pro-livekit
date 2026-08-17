@@ -11,7 +11,7 @@ from livekit.plugins import google
 logger = logging.getLogger("rayneo-agent.config")
 
 
-def _require(name: str) -> str:
+def require_env(name: str) -> str:
     value = os.environ.get(name)
     if not value:
         raise RuntimeError(
@@ -28,13 +28,13 @@ def build_session_model() -> dict[str, Any]:
     would return {"llm": ..., "tts": ...} from here and agent.py would not
     change. Callers stay unaware of which shape they got.
     """
-    model = _require("GEMINI_MODEL")
+    model = require_env("GEMINI_MODEL")
     logger.info("session model: %s", model)
 
     return {
         "llm": google.realtime.RealtimeModel(
             model=model,
-            api_key=_require("GOOGLE_API_KEY"),
+            api_key=require_env("GOOGLE_API_KEY"),
             voice=os.environ.get("GEMINI_VOICE", "Puck"),
         )
     }

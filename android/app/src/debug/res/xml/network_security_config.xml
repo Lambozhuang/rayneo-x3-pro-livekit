@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+    Debug builds only. The development LiveKit server and token server both speak
+    cleartext on the LAN (http:// and ws://), which Android blocks by default from
+    API 28 on. A release build would refuse both and would need real TLS.
+-->
+<network-security-config>
+    <base-config cleartextTrafficPermitted="true">
+        <trust-anchors>
+            <certificates src="system" />
+        </trust-anchors>
+    </base-config>
+</network-security-config>
