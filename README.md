@@ -5,24 +5,17 @@ Gemini Live API.
 
 ## Architecture
 
-```
-┌─────────────────────┐         ┌──────────────────┐         ┌──────────────────┐
-│  RayNeo X3 Pro      │  WebRTC │  livekit-server  │  WebRTC │  Python agent    │
-│  (android/)         │────────▶│  (self-hosted,   │◀────────│  (agent/)        │
-│                     │         │   local Docker   │         │                  │
-│  publishes mic      │         │   or binary)     │         │  joins the room, │
-│  publishes camera   │         │                  │         │  streams A/V to  │
-│  subscribes to      │◀────────│                  │────────▶│  Gemini Live     │
-│  agent audio        │         └──────────────────┘         └────────┬─────────┘
-└─────────────────────┘                                              │
-                                                                     │ WebSocket
-                                                                     ▼
-                                                            ┌──────────────────┐
-                                                            │  Gemini Live API │
-                                                            │  (speech-to-     │
-                                                            │   speech + video)│
-                                                            └──────────────────┘
-```
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="docs/architecture-dark.png">
+  <img alt="Architecture: the glasses and the Python agent meet in one self-hosted
+LiveKit room; the agent alone talks to Gemini Live, over a WebSocket"
+       src="docs/architecture-light.png">
+</picture>
+
+<sub>Hand-laid-out SVG, no diagram engine — sources are
+[`docs/architecture-dark.svg`](docs/architecture-dark.svg) and
+[`-light.svg`](docs/architecture-light.svg), both transparent.
+`python docs/make_diagram.py` regenerates them and re-renders the PNGs.</sub>
 
 Both halves live in this repo and meet at exactly one place: **a LiveKit room**. The
 glasses publish microphone and camera tracks into it; the agent joins the same room,
