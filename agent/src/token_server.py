@@ -65,22 +65,36 @@ async def get_token(request: web.Request) -> web.Response:
         # example implies.
         logger.warning("ignoring room_config from client: %s", body["room_config"])
 
-    url = require_env("LIVEKIT_URL")
+    url = public_url()
     logger.info("issued token: room=%s url=%s", room, url)
     return web.json_response(
         {"server_url": url, "participant_token": token.to_jwt()}, status=201
     )
 
 
+def public_url() -> str:
+    """The server URL handed to the glasses, which is not always our own.
+
+    The agent runs alongside livekit-server and can always reach it on loopback.
+    The glasses reach it from wherever they are, so the two can need different
+    addresses: `LIVEKIT_URL` is what this process and the agent dial, and
+    `LIVEKIT_PUBLIC_URL` overrides what gets advertised to the headset.
+    """
+    return os.environ.get("LIVEKIT_PUBLIC_URL") or require_env("LIVEKIT_URL")
+
+
 def main() -> None:
     logging.basicConfig(level=logging.INFO)
     load_dotenv(".env.local")
 
-    url = require_env("LIVEKIT_URL")
+    url = public_url()
     if "127.0.0.1" in url or "localhost" in url:
         logger.warning(
-            "LIVEKIT_URL is %s, which the glasses cannot reach. Point it at this "
-            "machine's LAN IP and start livekit-server with --bind 0.0.0.0.",
+            "advertising %s to the glasses, which resolves to the headset itself. "
+            "Set LIVEKIT_PUBLIC_URL to this machine's LAN IP. Forwarding the ports "
+            "over USB is not a substitute: `adb reverse` gets the headset a token "
+            "and a signaling session but cannot carry media, because the client "
+            "never gathers a loopback ICE candidate. See the README.",
             url,
         )
 

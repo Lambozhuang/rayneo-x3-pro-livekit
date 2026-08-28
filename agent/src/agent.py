@@ -1,14 +1,25 @@
 """Entrypoint for the RayNeo X3 Pro live assistant."""
 
+import logging
+
 from dotenv import load_dotenv
 from livekit import agents
-from livekit.agents import Agent, AgentServer, AgentSession, JobContext, room_io
+from livekit.agents import (
+    Agent,
+    AgentServer,
+    AgentSession,
+    JobContext,
+    SessionUsageUpdatedEvent,
+    room_io,
+)
 
 from config import build_session_model
 from prompts import SYSTEM_INSTRUCTIONS
 from tools import remember_note
 
 load_dotenv(".env.local")
+
+logger = logging.getLogger("rayneo-agent")
 
 server = AgentServer()
 
@@ -22,13 +33,34 @@ server = AgentServer()
 async def rayneo_assistant(ctx: JobContext) -> None:
     session = AgentSession(
         **build_session_model(),
-        # TODO(battery): cut the frame rate for the glasses by passing
-        #   video_sampler=VoiceActivityVideoSampler(speaking_fps=..., silent_fps=...)
-        #   here, from livekit.agents.voice. Defaults are 1 fps while the wearer
-        #   speaks and 0.3 fps otherwise. media_resolution on the model in
-        #   config.py is the other knob on the same cost/battery tradeoff.
-        #   https://docs.livekit.io/agents/logic/sessions/#video-sampling
+        # The default video_sampler is kept on purpose. It is
+        # VoiceActivityVideoSampler(speaking_fps=1.0, silent_fps=0.3), and at
+        # 640x480 a frame measured at exactly 63 input image tokens -- so about
+        # 1130 tokens/min while the wearer is silent and 3780 while speaking,
+        # against 1500 tokens/min for the audio. Overriding it means passing
+        # video_sampler=VoiceActivityVideoSampler(...) from livekit.agents.voice
+        # here. Lowering silent_fps is the lever with the best ratio of savings
+        # to lost context; media_resolution on the model in config.py is not one
+        # -- MEDIA_RESOLUTION_MEDIUM changed the measured token count by zero.
+        # https://docs.livekit.io/agents/logic/sessions/#video-sampling
     )
+
+    # Usage, straight to the log. `input_image_tokens` is the number to watch:
+    # it is the entire cost of the camera, and it is also the only signal that
+    # video is working at all -- a broken video path does not make the session
+    # fail, it makes the model confidently describe a picture it never got. See
+    # the README. `session_usage_updated` is cumulative per session, so the
+    # last line of a call is its total.
+    @session.on("session_usage_updated")
+    def _log_usage(ev: SessionUsageUpdatedEvent) -> None:
+        for use in ev.usage.model_usage:
+            # repr() hides zero fields, so spell out the image tokens: "absent"
+            # and "zero" have to read differently when zero is the bug.
+            logger.info(
+                "usage: %r image_tokens=%s",
+                use,
+                getattr(use, "input_image_tokens", 0),
+            )
 
     await session.start(
         agent=Agent(

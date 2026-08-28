@@ -7,7 +7,12 @@ dependencies = [
     # aiohttp already arrives with livekit-agents; token_server.py imports it
     # directly, so declare it rather than lean on a transitive dependency.
     "aiohttp~=3.14",
-    "livekit-agents[google]~=1.5",
+    # `images` (Pillow) is not optional for us. Without it the Gemini plugin's
+    # push_video() raises ImportError on every frame, the exception is swallowed
+    # into a log line, and the session keeps working -- the model just never
+    # sees a picture and answers anyway. Measured: it invented eight digits and
+    # a white background for a frame that showed four digits on navy.
+    "livekit-agents[google,images]~=1.5",
     "python-dotenv~=1.0",
 ]
 
