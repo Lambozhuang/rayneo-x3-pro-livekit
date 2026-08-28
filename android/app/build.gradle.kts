@@ -23,6 +23,13 @@ android {
         vectorDrawables {
             useSupportLibrary = true
         }
+
+        // The X3 Pro reports `ro.product.cpu.abilist` as arm64-v8a and nothing
+        // else. libwebrtc.so is by far the largest thing in the APK, so
+        // shipping the other three ABIs quadrupled it for no reachable device.
+        ndk {
+            abiFilters += "arm64-v8a"
+        }
     }
 
     buildTypes {

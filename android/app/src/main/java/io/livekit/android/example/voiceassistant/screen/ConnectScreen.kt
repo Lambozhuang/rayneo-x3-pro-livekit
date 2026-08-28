@@ -1,44 +1,33 @@
 package io.livekit.android.example.voiceassistant.screen
 
-import androidx.compose.animation.AnimatedVisibility
-import androidx.compose.foundation.Image
-import androidx.compose.foundation.background
-import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
-import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.res.painterResource
-import androidx.compose.ui.text.LinkAnnotation
-import androidx.compose.ui.text.SpanStyle
-import androidx.compose.ui.text.TextLinkStyles
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.TextStyle
-import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.font.FontFamily
-import androidx.compose.ui.text.style.TextAlign
-import androidx.compose.ui.text.style.TextDecoration
-import androidx.compose.ui.text.withLink
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import io.livekit.android.example.voiceassistant.R
-import io.livekit.android.example.voiceassistant.tokenEndpoint
+import io.livekit.android.example.voiceassistant.TokenEndpoint
+import io.livekit.android.example.voiceassistant.ui.Eyes
 import io.livekit.android.example.voiceassistant.ui.theme.Blue500
 import kotlinx.serialization.Serializable
 
@@ -49,82 +38,71 @@ object ConnectRoute
 fun ConnectScreen(
     navigateToVoiceAssistant: (VoiceAssistantRoute) -> Unit
 ) {
-    Box(
-        contentAlignment = Alignment.Center,
-        modifier = Modifier
-            .fillMaxSize()
-            .background(MaterialTheme.colorScheme.background)
-    ) {
+    // Hoisted above Eyes on purpose: the content below is composed once per eye,
+    // so state declared inside it would exist twice and the two copies would
+    // disagree the moment either one changed. See Eyes.
+    val context = LocalContext.current
+    var endpoint by rememberSaveable { mutableStateOf(TokenEndpoint.get(context)) }
 
-        Column(horizontalAlignment = Alignment.CenterHorizontally) {
-            Image(painter = painterResource(R.drawable.connect_icon), contentDescription = "Connect icon")
-
-            Spacer(Modifier.size(16.dp))
+    Eyes {
+        // Everything here has to fit one 640x480 panel, less the safe-area
+        // margin Eyes applies — so roughly 592x432 dp to work with.
+        Column(
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.Center,
+            modifier = Modifier.fillMaxSize()
+        ) {
             Text(
-                text = buildAnnotatedString {
-                    append("Start a call to chat with your voice agent. Need help getting set up?\nCheck out the ")
-                    withLink(
-                        LinkAnnotation.Url(
-                            "https://docs.livekit.io/agents/start/voice-ai/",
-                            TextLinkStyles(style = SpanStyle(textDecoration = TextDecoration.Underline))
-                        )
-                    ) {
-                        append("Voice AI quickstart.")
-                    }
-                },
-                textAlign = TextAlign.Center,
-                modifier = Modifier.fillMaxWidth(0.8f)
+                text = "RayNeo X3 Pro assistant",
+                color = MaterialTheme.colorScheme.onBackground,
+                fontSize = 20.sp
             )
 
-            var hasError by rememberSaveable { mutableStateOf(false) }
-            var isConnecting by remember { mutableStateOf(false) }
+            Spacer(Modifier.size(20.dp))
 
-            Spacer(Modifier.size(8.dp))
-
-            AnimatedVisibility(hasError) {
-                Text(
-                    text = "Error connecting. Make sure your agent is properly configured and try again.",
-                    color = Color.Red,
-                    fontSize = 12.sp,
-                    textAlign = TextAlign.Center,
-                    modifier = Modifier.fillMaxWidth(0.8f)
-                )
-            }
+            // On screen only for the case where no cable is attached. Prefer
+            // `adb shell am start ... -e token_endpoint <url>` when one is: the
+            // IME is laid out across the full 1280 px surface, so it straddles
+            // both eyes and is genuinely hard to use. See TokenEndpoint.
+            OutlinedTextField(
+                value = endpoint,
+                onValueChange = { endpoint = it },
+                label = { Text("Token endpoint") },
+                singleLine = true,
+                textStyle = TextStyle(fontFamily = FontFamily.Monospace, fontSize = 13.sp),
+                modifier = Modifier.fillMaxWidth()
+            )
 
             Spacer(Modifier.size(24.dp))
 
-            val buttonColors = ButtonDefaults.buttonColors(
-                containerColor = Blue500,
-                contentColor = Color.White
-            )
+            // Deliberately the full width of the eye. A temple-touchpad tap
+            // lands somewhere you cannot see your own finger, which is why
+            // RayNeo's SDK drives selection by focus (FocusHolder, the
+            // *FocusTracker classes) instead of by pointing. A single target
+            // that fills the panel needs neither approach to be hittable.
             Button(
-                colors = buttonColors,
-                shape = RoundedCornerShape(20),
                 onClick = {
-                    // Token endpoint from TokenExt.kt
-                    navigateToVoiceAssistant(VoiceAssistantRoute(tokenEndpoint = tokenEndpoint))
-                }
+                    // Persist whatever is in the field so the next launch keeps it.
+                    TokenEndpoint.set(context, endpoint)
+                    navigateToVoiceAssistant(VoiceAssistantRoute(tokenEndpoint = endpoint.trim()))
+                },
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = Blue500,
+                    contentColor = Color.White
+                ),
+                shape = RoundedCornerShape(16.dp),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(64.dp)
             ) {
-
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    AnimatedVisibility(isConnecting) {
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            CircularProgressIndicator(
-                                modifier = Modifier.size(20.dp),
-                                color = Color.White,
-                                trackColor = Color.Gray,
-                            )
-                            Spacer(Modifier.size(8.dp))
-                        }
-                    }
-                    Text(
-                        text = if (isConnecting) "CONNECTING" else "START CALL",
-                        style = TextStyle(
-                            fontFamily = FontFamily.Monospace,
-                            letterSpacing = 2.sp,
-                        )
+                Text(
+                    text = "START CALL",
+                    style = TextStyle(
+                        fontFamily = FontFamily.Monospace,
+                        letterSpacing = 2.sp,
+                        fontSize = 18.sp
                     )
-                }
+                )
             }
         }
     }

@@ -61,6 +61,7 @@ import io.livekit.android.example.voiceassistant.ui.AgentVisualization
 import io.livekit.android.example.voiceassistant.ui.ChatBar
 import io.livekit.android.example.voiceassistant.ui.ChatLog
 import io.livekit.android.example.voiceassistant.ui.ControlBar
+import io.livekit.android.example.voiceassistant.ui.Eyes
 import io.livekit.android.example.voiceassistant.viewmodel.VoiceAssistantViewModel
 import io.livekit.android.room.track.screencapture.ScreenCaptureParams
 import kotlinx.coroutines.Dispatchers
@@ -120,6 +121,9 @@ fun VoiceAssistant(
                 return@LaunchedEffect
             }
 
+            // No ICE overrides here on purpose. `adb reverse` cannot carry WebRTC
+            // media at all, and ICE-TCP does not rescue it — see the README section
+            // on the USB tunnel. Standard WebRTC over the LAN is the only media path.
             val result = session.start()
 
             // Handle if the session fails to connect.
@@ -145,6 +149,12 @@ fun VoiceAssistant(
         val isCameraEnabled by localMedia::isCameraEnabled
         val isScreenShareEnabled by localMedia::isScreenShareEnabled
 
+        // Neither of these starts capture until the session is fully connected:
+        // `waitUntilConnected()` does not return while the peer connections are
+        // still negotiating, so with an unreachable SFU both effects park here
+        // forever and the mic and camera are never opened. That is why neither
+        // device can be exercised through this path over a USB tunnel. See the
+        // README section on capture on the glasses.
         LaunchedEffect(canEnableMic, requestedAudio) {
             session.waitUntilConnected()
             localMedia.setMicrophoneEnabled(canEnableMic && requestedAudio)
@@ -162,127 +172,137 @@ fun VoiceAssistant(
         val agent = rememberAgent()
 
         val constraints = getConstraints(chatVisible, isCameraEnabled, isScreenShareEnabled)
-        ConstraintLayout(
-            constraintSet = constraints,
-            modifier = modifier,
-            animateChangesSpec = spring()
-        ) {
-            val coroutineScope = rememberCoroutineScope { Dispatchers.IO }
 
-            ChatLog(
-                room = room,
-                messages = sessionMessages.messages,
-                modifier = Modifier.layoutId(LAYOUT_ID_CHAT_LOG)
-            )
-
-            var message by rememberSaveable {
-                mutableStateOf("")
-            }
-            ChatBar(
-                value = message,
-                onValueChange = { message = it },
-                onChatSend = { msg ->
-                    coroutineScope.launch {
-                        sessionMessages.send(msg)
-                    }
-                    message = ""
-                },
-                modifier = Modifier.layoutId(LAYOUT_ID_CHAT_BAR)
-            )
-
-            // Amplitude visualization of the Assistant's voice track.
-            val agentBorderAlpha by animateFloatAsState(if (chatVisible) 1f else 0f, label = "agentBorderAlpha")
-            AgentVisualization(
-                agent = agent,
-                modifier = Modifier
-                    .layoutId(LAYOUT_ID_AGENT)
-                    .clip(RoundedCornerShape(8.dp))
-                    .border(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = agentBorderAlpha), RoundedCornerShape(8.dp))
-            )
-
-            val context = LocalContext.current
-            val screenSharePermissionLauncher =
-                rememberLauncherForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
-                    val resultCode = result.resultCode
-                    val data = result.data
-                    if (resultCode != Activity.RESULT_OK || data == null) {
-                        return@rememberLauncherForActivityResult
-                    }
-                    coroutineScope.launch {
-                        // Agents only support one video stream at a time.
-                        requestedVideo = false
-                        localMedia.setScreenShareEnabled(true, ScreenCaptureParams(data))
-                    }
+        // Everything above the Eyes call below is hoisted on purpose. That layout
+        // is composed once per eye, so a `remember` placed inside it would exist
+        // twice over: two chat drafts that disagree as you type, two
+        // activity-result launchers registered for one screenshare permission,
+        // two independent copies of every animation. The session itself is set up
+        // out here for the same reason — mirroring is a presentation concern and
+        // must not reach the room. See Eyes.
+        val coroutineScope = rememberCoroutineScope { Dispatchers.IO }
+        var message by rememberSaveable { mutableStateOf("") }
+        val agentBorderAlpha by animateFloatAsState(if (chatVisible) 1f else 0f, label = "agentBorderAlpha")
+        val cameraAlpha by animateFloatAsState(targetValue = if (isCameraEnabled) 1f else 0f, label = "Camera Alpha")
+        val screenShareAlpha by animateFloatAsState(targetValue = if (isScreenShareEnabled) 1f else 0f, label = "Screen Share Alpha")
+        val screenSharePermissionLauncher =
+            rememberLauncherForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
+                val resultCode = result.resultCode
+                val data = result.data
+                if (resultCode != Activity.RESULT_OK || data == null) {
+                    return@rememberLauncherForActivityResult
                 }
+                coroutineScope.launch {
+                    // Agents only support one video stream at a time.
+                    requestedVideo = false
+                    localMedia.setScreenShareEnabled(true, ScreenCaptureParams(data))
+                }
+            }
 
-            ControlBar(
-                isMicEnabled = isMicEnabled,
-                onMicClick = { requestedAudio = !requestedAudio },
-                localAudioTrack = localMedia.microphoneTrack,
-                isCameraEnabled = isCameraEnabled,
-                onCameraClick = {
-                    requestedVideo = !requestedVideo
-                    if (requestedVideo) {
-                        // Agents only support one video stream at a time.
-                        coroutineScope.launch { localMedia.setScreenShareEnabled(false) }
-                    }
-                },
-                isScreenShareEnabled = isScreenShareEnabled,
-                onScreenShareClick = {
-                    if (!isScreenShareEnabled) {
-                        // Screenshare permission needs to be requested each time.
-                        val mediaProjectionManager = context.getSystemService(MEDIA_PROJECTION_SERVICE) as MediaProjectionManager
-                        screenSharePermissionLauncher.launch(mediaProjectionManager.createScreenCaptureIntent())
-                    } else {
-                        coroutineScope.launch { localMedia.setScreenShareEnabled(false) }
-                    }
-                },
-                isChatEnabled = chatVisible,
-                onChatClick = { chatVisible = !chatVisible },
-                onExitClick = onEndCall,
-                modifier = Modifier
-                    .layoutId(LAYOUT_ID_CONTROL_BAR)
-            )
-
-            val cameraAlpha by animateFloatAsState(targetValue = if (isCameraEnabled) 1f else 0f, label = "Camera Alpha")
-            Box(
-                modifier = Modifier
-                    .layoutId(LAYOUT_ID_CAMERA)
-                    .clickable { localMedia.switchCamera() }
-                    .clip(RoundedCornerShape(8.dp))
-                    .alpha(cameraAlpha)
+        Eyes {
+            ConstraintLayout(
+                constraintSet = constraints,
+                modifier = modifier,
+                animateChangesSpec = spring()
             ) {
-                VideoTrackView(
-                    trackReference = localMedia.cameraTrack,
-                    modifier = Modifier.fillMaxSize()
+                ChatLog(
+                    room = room,
+                    messages = sessionMessages.messages,
+                    modifier = Modifier.layoutId(LAYOUT_ID_CHAT_LOG)
                 )
 
-                Box(
-                    contentAlignment = Alignment.Center,
-                    modifier = Modifier
-                        .align(Alignment.BottomEnd)
-                        .padding(end = 8.dp, bottom = 8.dp)
-                        .background(Color.Black.copy(alpha = 0.5f), RoundedCornerShape(50))
-                        .fillMaxWidth(.35f)
-                        .aspectRatio(1f)
-                ) {
-                    Icon(
-                        Icons.Default.Cameraswitch,
-                        tint = Color.White.copy(alpha = 0.7f),
-                        contentDescription = "Flip Camera",
-                        modifier = Modifier.fillMaxSize(0.6f)
-                    )
-                }
-            }
+                ChatBar(
+                    value = message,
+                    onValueChange = { message = it },
+                    onChatSend = { msg ->
+                        coroutineScope.launch {
+                            sessionMessages.send(msg)
+                        }
+                        message = ""
+                    },
+                    modifier = Modifier.layoutId(LAYOUT_ID_CHAT_BAR)
+                )
 
-            val screenShareAlpha by animateFloatAsState(targetValue = if (isScreenShareEnabled) 1f else 0f, label = "Screen Share Alpha")
-            VideoTrackView(
-                trackReference = localMedia.screenShareTrack,
-                modifier = Modifier
-                    .layoutId(LAYOUT_ID_SCREENSHARE)
-                    .clip(RoundedCornerShape(8.dp))
-                    .alpha(screenShareAlpha)
-            )
+                // Amplitude visualization of the Assistant's voice track.
+                AgentVisualization(
+                    agent = agent,
+                    modifier = Modifier
+                        .layoutId(LAYOUT_ID_AGENT)
+                        .clip(RoundedCornerShape(8.dp))
+                        .border(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = agentBorderAlpha), RoundedCornerShape(8.dp))
+                )
+
+                ControlBar(
+                    isMicEnabled = isMicEnabled,
+                    onMicClick = { requestedAudio = !requestedAudio },
+                    localAudioTrack = localMedia.microphoneTrack,
+                    isCameraEnabled = isCameraEnabled,
+                    onCameraClick = {
+                        requestedVideo = !requestedVideo
+                        if (requestedVideo) {
+                            // Agents only support one video stream at a time.
+                            coroutineScope.launch { localMedia.setScreenShareEnabled(false) }
+                        }
+                    },
+                    isScreenShareEnabled = isScreenShareEnabled,
+                    onScreenShareClick = {
+                        if (!isScreenShareEnabled) {
+                            // Screenshare permission needs to be requested each time.
+                            val mediaProjectionManager = context.getSystemService(MEDIA_PROJECTION_SERVICE) as MediaProjectionManager
+                            screenSharePermissionLauncher.launch(mediaProjectionManager.createScreenCaptureIntent())
+                        } else {
+                            coroutineScope.launch { localMedia.setScreenShareEnabled(false) }
+                        }
+                    },
+                    isChatEnabled = chatVisible,
+                    onChatClick = { chatVisible = !chatVisible },
+                    onExitClick = onEndCall,
+                    modifier = Modifier
+                        .layoutId(LAYOUT_ID_CONTROL_BAR)
+                )
+
+                // Self-preview. Redundant on glasses — the wearer is looking at
+                // the scene directly — and mirroring puts a second renderer on
+                // the same camera track. Kept for now because it is the only
+                // on-device confirmation that capture is actually running.
+                Box(
+                    modifier = Modifier
+                        .layoutId(LAYOUT_ID_CAMERA)
+                        .clickable { localMedia.switchCamera() }
+                        .clip(RoundedCornerShape(8.dp))
+                        .alpha(cameraAlpha)
+                ) {
+                    VideoTrackView(
+                        trackReference = localMedia.cameraTrack,
+                        modifier = Modifier.fillMaxSize()
+                    )
+
+                    Box(
+                        contentAlignment = Alignment.Center,
+                        modifier = Modifier
+                            .align(Alignment.BottomEnd)
+                            .padding(end = 8.dp, bottom = 8.dp)
+                            .background(Color.Black.copy(alpha = 0.5f), RoundedCornerShape(50))
+                            .fillMaxWidth(.35f)
+                            .aspectRatio(1f)
+                    ) {
+                        Icon(
+                            Icons.Default.Cameraswitch,
+                            tint = Color.White.copy(alpha = 0.7f),
+                            contentDescription = "Flip Camera",
+                            modifier = Modifier.fillMaxSize(0.6f)
+                        )
+                    }
+                }
+
+                VideoTrackView(
+                    trackReference = localMedia.screenShareTrack,
+                    modifier = Modifier
+                        .layoutId(LAYOUT_ID_SCREENSHARE)
+                        .clip(RoundedCornerShape(8.dp))
+                        .alpha(screenShareAlpha)
+                )
+            }
         }
     }
 }
