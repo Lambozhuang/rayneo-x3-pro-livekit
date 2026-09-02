@@ -1,0 +1,21 @@
+# livekit-server for the lab: one PC on a private network with the glasses, no
+# TLS, no NAT. Replace the key pair before use (`livekit-server generate-keys`);
+# the agent and token server read the same pair from agent/.env.local.
+#
+#   livekit-server --config deploy/livekit.lab.yaml
+#
+# Signaling is plain ws:// on 7880 and media uses the default UDP range, both
+# straight to this machine's LAN IP. Set LIVEKIT_PUBLIC_URL=ws://<LAN IP>:7880
+# in agent/.env.local so the token server advertises the right address.
+
+port: 7880
+
+rtc:
+  port_range_start: 50000
+  port_range_end: 60000
+  tcp_port: 7881
+  use_external_ip: false
+
+keys:
+  # REPLACE: livekit-server generate-keys
+  APIxxxxxxxx: xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx

@@ -6,9 +6,13 @@ LiveKit API secret and no Google key of their own; they ask for a token and
 connect with it.
 https://docs.livekit.io/frontends/build/authentication/endpoint/
 
-Development only. There is no authentication on this endpoint, so anything that
-can reach it can mint a token for our server. Run it only while the glasses are
-actually in use, and never expose it beyond the local network.
+Anything that can reach this endpoint can mint a token for our server and, since
+the agent joins every new room, start a Gemini session on our bill. On a private
+LAN that is acceptable and TOKEN_SERVER_SECRET stays unset. Anywhere else, set it:
+requests must then carry it as `?k=<secret>`, which is the one place the glasses
+can put a credential without changing the app, because `token_endpoint` is passed
+in whole as an adb extra. Only do this behind TLS; a query string over plain http
+is readable by everyone on the path.
 """
 
 from __future__ import annotations
@@ -31,6 +35,11 @@ routes = web.RouteTableDef()
 
 @routes.post("/getToken")
 async def get_token(request: web.Request) -> web.Response:
+    secret = os.environ.get("TOKEN_SERVER_SECRET")
+    if secret and request.query.get("k") != secret:
+        logger.warning("rejected token request from %s", request.remote)
+        raise web.HTTPUnauthorized()
+
     try:
         body = await request.json()
     except ValueError:
@@ -86,6 +95,12 @@ def public_url() -> str:
 def main() -> None:
     logging.basicConfig(level=logging.INFO)
     load_dotenv(".env.local")
+
+    if not os.environ.get("TOKEN_SERVER_SECRET"):
+        logger.warning(
+            "TOKEN_SERVER_SECRET is unset: anyone who can reach this endpoint can "
+            "start a session. Fine on a private LAN, not anywhere else."
+        )
 
     url = public_url()
     if "127.0.0.1" in url or "localhost" in url:
