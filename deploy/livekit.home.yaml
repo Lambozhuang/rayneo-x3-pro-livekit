@@ -30,6 +30,12 @@ rtc:
   # router does not hairpin, so validation failed on every interface and cost
   # five seconds before falling back to the same address anyway. Skip it.
   skip_external_ip_validation: true
+  # Gather candidates on the physical NIC only. Without this the server also
+  # advertised its Tailscale and Docker bridge addresses, which the glasses can
+  # never reach and which leak the host's other networks to every client.
+  interfaces:
+    includes:
+      - enp1s0f0
 
 keys:
   # REPLACE: docker run --rm livekit/livekit-server generate-keys
