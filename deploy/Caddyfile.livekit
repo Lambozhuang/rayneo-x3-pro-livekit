@@ -1,0 +1,13 @@
+# Append to /etc/caddy/Caddyfile, then `sudo systemctl reload caddy`.
+#
+# One hostname for both the token endpoint and LiveKit signaling. The DNS record
+# must be DNS-only (grey cloud) in Cloudflare: media never touches this name, but
+# a proxied record would put Cloudflare in the WebSocket path for no benefit.
+# Caddy fetches the certificate itself over TCP 80.
+
+livekit.lambozhuang.me {
+    handle /getToken {
+        reverse_proxy 127.0.0.1:3003
+    }
+    reverse_proxy 127.0.0.1:7880
+}

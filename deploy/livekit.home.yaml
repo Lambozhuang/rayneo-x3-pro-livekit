@@ -1,0 +1,34 @@
+# livekit-server behind a home router that forwards only 80 and 443, TCP and UDP.
+# Caddy already owns TCP 80, TCP 443 and UDP 443 (HTTP/3) on this host, so:
+#
+#   TCP 443  Caddy terminates TLS -> 127.0.0.1:7880   (signaling, wss://)
+#            Caddy routes /getToken -> 127.0.0.1:3003 (token server, https://)
+#   UDP 80   livekit-server directly, every media stream muxed on one port
+#   TCP 80   Caddy, for ACME only. There is no ICE-TCP fallback in this setup;
+#            both 80 and 443 are taken. Media is UDP or nothing.
+#
+# The port is below 1024, so run as root or in Docker with host networking:
+#
+#   docker run -d --name livekit --restart unless-stopped --network host \
+#     -v "$PWD/deploy/livekit.home.yaml:/livekit.yaml:ro" \
+#     livekit/livekit-server --config /livekit.yaml
+#
+# Replace the key pair (`docker run --rm livekit/livekit-server generate-keys`)
+# and mirror it into agent/.env.local. Nothing in the agent or the Android app
+# knows or cares which of these two files the server was started with.
+
+port: 7880
+
+rtc:
+  # All media on UDP 80. port_range_start/end must stay unset for this to apply.
+  # The server's own docs allow only 53/80/443 below 1024.
+  udp_port: 80
+  # Discover the public IP via STUN and advertise it in ICE candidates; the
+  # host itself only has a LAN address. The server self-pings that IP on start
+  # to validate it; if the router does not hairpin and startup logs complain,
+  # add `skip_external_ip_validation: true`.
+  use_external_ip: true
+
+keys:
+  # REPLACE: docker run --rm livekit/livekit-server generate-keys
+  APIxxxxxxxx: xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx

@@ -68,6 +68,8 @@ agent/                  Python worker
 android/                Kotlin + Compose app for the glasses
   app/src/main/.../TokenExt.kt    where to find the token server
   app/src/main/.../ui/Eyes.kt     draws the UI once per eye
+deploy/                 livekit-server configs: lab LAN, and a home server behind
+                        Caddy on 80/443 (see "Deploying somewhere real")
 ```
 
 `config.py` holds the only real abstraction: `build_session_model()` returns keyword
@@ -355,10 +357,56 @@ silence is a media routing or advertised-address problem. If the server runs in 
 pass `--node-ip <lan-ip>` so the SFU advertises an address the glasses can reach.
 
 Dev mode uses the well-known `devkey` / `secret` pair, and the token endpoint has no
-authentication at all. Both are therefore exposed to the whole local network while this is
-running — acceptable on a trusted network for development and nowhere else. There is no
-loopback-only shape to hide behind: media needs a reachable IP (see above), so run this on a
-network you control.
+authentication unless `TOKEN_SERVER_SECRET` is set. Both are therefore exposed to the
+whole local network while this is running — acceptable on a trusted network for development
+and nowhere else. There is no loopback-only shape to hide behind: media needs a reachable IP
+(see above), so run this on a network you control, or read on.
+
+### Deploying somewhere real
+
+The lab deployment and the interim one look different on the wire but identical to the
+code. Nothing in `agent/` or `android/` changes between them; only `.env.local`, which
+`livekit.yaml` the server starts with, and the `token_endpoint` extra on the glasses.
+
+| | Lab: private LAN | Interim: home server behind a router |
+|---|---|---|
+| Config | `deploy/livekit.lab.yaml` | `deploy/livekit.home.yaml` |
+| Signaling | `ws://<lan-ip>:7880` | `wss://livekit.lambozhuang.me` via Caddy on 443 |
+| Media | UDP 50000–60000 to the LAN IP | UDP 80 to the public IP, muxed on one port |
+| ICE-TCP | 7881 | none — 80 and 443 TCP both belong to Caddy |
+| Token endpoint | `http://<lan-ip>:3000/getToken` | `https://livekit.lambozhuang.me/getToken?k=…` |
+| `TOKEN_SERVER_SECRET` | unset | set |
+| API keys | generated, not `devkey` | generated, not `devkey` |
+
+**Why the home shape is what it is.** The router forwards only 80 and 443, TCP and UDP,
+and Caddy already holds TCP 80, TCP 443 and UDP 443 (HTTP/3). That leaves UDP 80 for
+media, which `rtc.udp_port: 80` takes in full — the server's own docs permit 53/80/443
+below 1024. `use_external_ip: true` makes it discover the public address over STUN and
+advertise that in ICE candidates. Signaling and the token endpoint share one Caddy site,
+`deploy/Caddyfile.livekit`, which routes `/getToken` to the token server on `:3003`
+(`:3000` is taken on that host) and everything else to `:7880`.
+
+**Media does not go through Cloudflare, and cannot.** Cloudflare's proxy forwards HTTP and
+WebSocket; WebRTC media is DTLS-SRTP over UDP to whatever IP the ICE candidates name, and
+the candidates name the home IP. So the DNS record for `livekit.lambozhuang.me` is
+DNS-only (grey cloud), added to ddclient's host list so it follows the dynamic IP, and
+Caddy fetches its own certificate over TCP 80. A proxied record would only add Cloudflare
+to the signaling path. Note that a grey-cloud CNAME to an orange-cloud name still resolves
+to Cloudflare, so the record has to be its own A record.
+
+**What "standard secure" means here.** Signaling and the token exchange are TLS. Media is
+encrypted by WebRTC itself. The API key pair is random. Minting a token requires
+`TOKEN_SERVER_SECRET`, carried as `?k=` because the glasses' `token_endpoint` is a whole
+URL passed in as an adb extra, so the app needs no change to send a credential — but a
+query string is only a credential behind TLS, which is why the lab config, being plain
+`ws://`, leaves it unset rather than pretending. The one thing the public exposes that the
+lab does not is the home IP in DNS and in ICE candidates; every client would learn it
+from the candidates regardless.
+
+**What this interim setup cannot measure.** Latency, and anything downstream of it: the
+path is a phone hotspot to a residential uplink. It can verify everything else the lab is
+waiting on — that the glasses actually publish through an SFU, that `image_tokens` goes
+non-zero, audio quality, the lost first utterance, battery.
 
 ### Open on-device questions
 
