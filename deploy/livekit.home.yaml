@@ -24,10 +24,12 @@ rtc:
   # The server's own docs allow only 53/80/443 below 1024.
   udp_port: 80
   # Discover the public IP via STUN and advertise it in ICE candidates; the
-  # host itself only has a LAN address. The server self-pings that IP on start
-  # to validate it; if the router does not hairpin and startup logs complain,
-  # add `skip_external_ip_validation: true`.
+  # host itself only has a LAN address.
   use_external_ip: true
+  # The server self-pings the discovered IP on start to validate it. This
+  # router does not hairpin, so validation failed on every interface and cost
+  # five seconds before falling back to the same address anyway. Skip it.
+  skip_external_ip_validation: true
 
 keys:
   # REPLACE: docker run --rm livekit/livekit-server generate-keys
