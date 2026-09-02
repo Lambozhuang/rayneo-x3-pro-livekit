@@ -1,6 +1,7 @@
 """Entrypoint for the RayNeo X3 Pro live assistant."""
 
 import logging
+import os
 
 from dotenv import load_dotenv
 from livekit import agents
@@ -21,7 +22,16 @@ load_dotenv(".env.local")
 
 logger = logging.getLogger("rayneo-agent")
 
-server = AgentServer()
+# On Linux the default context is "forkserver", and the forkserver preloads
+# livekit.agents.inference._warmup, which initialises the native local VAD and
+# turn-detection models. That native library needs AVX2; on a CPU without it
+# (the 2012 Mac mini this is deployed on, Ivy Bridge) the forkserver dies with
+# SIGILL on every job and the worker registers but can never take a call. We
+# use a realtime speech-to-speech model and never touch those models, so
+# "spawn" costs nothing but a slower cold start. Leave it unset on modern CPUs.
+server = AgentServer(
+    multiprocessing_context=os.environ.get("AGENT_MP_CONTEXT", "forkserver"),  # type: ignore[arg-type]
+)
 
 
 # agent_name is deliberately left unset. Without it the server uses automatic

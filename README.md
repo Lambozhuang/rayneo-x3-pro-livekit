@@ -403,6 +403,15 @@ query string is only a credential behind TLS, which is why the lab config, being
 lab does not is the home IP in DNS and in ICE candidates; every client would learn it
 from the candidates regardless.
 
+**The host is a 2012 Mac mini, and that mattered once.** Its Ivy Bridge CPU has AVX but not
+AVX2. On Linux, livekit-agents defaults to a `forkserver` multiprocessing context and
+preloads `livekit.agents.inference._warmup` into it, which initialises the native local
+VAD and turn-detection library — compiled for AVX2. The forkserver died with SIGILL
+(`exit=132`) on every job: the worker registered fine and could never take a call, and
+nothing in the log said why beyond `EOFError: unexpected EOF` from the forkserver pipe.
+`AGENT_MP_CONTEXT=spawn` in `.env.local` sidesteps the preload; a realtime model never
+uses those models anyway. Modern CPUs leave it unset.
+
 **What this interim setup cannot measure.** Latency, and anything downstream of it: the
 path is a phone hotspot to a residential uplink. It can verify everything else the lab is
 waiting on — that the glasses actually publish through an SFU, that `image_tokens` goes
