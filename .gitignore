@@ -4,3 +4,6 @@
 __pycache__/
 *.py[cod]
 console-recordings/
+
+# a deployed livekit-server config with real keys, kept next to the repo
+/livekit.yaml
