@@ -2,7 +2,7 @@
 # Caddy already owns TCP 80, TCP 443 and UDP 443 (HTTP/3) on this host, so:
 #
 #   TCP 443  Caddy terminates TLS -> 127.0.0.1:7880   (signaling, wss://)
-#            Caddy routes /getToken -> 127.0.0.1:3003 (token server, https://)
+#            Caddy routes /getToken -> 127.0.0.1:3003 (agent.py's token endpoint, https://)
 #   UDP 80   livekit-server directly, every media stream muxed on one port
 #   TCP 80   Caddy, for ACME only. There is no ICE-TCP fallback in this setup;
 #            both 80 and 443 are taken. Media is UDP or nothing.
@@ -30,6 +30,9 @@ rtc:
   # router does not hairpin, so validation failed on every interface and cost
   # five seconds before falling back to the same address anyway. Skip it.
   skip_external_ip_validation: true
+  # Also advertise the LAN address, so a client sitting inside the same home
+  # network connects directly instead of trying to hairpin through the router.
+  advertise_internal_ip: true
   # Gather candidates on the physical NIC only. Without this the server also
   # advertised its Tailscale and Docker bridge addresses, which the glasses can
   # never reach and which leak the host's other networks to every client.

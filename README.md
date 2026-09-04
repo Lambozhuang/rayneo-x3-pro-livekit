@@ -60,13 +60,12 @@ agent/                  Python worker
   pyproject.toml
   .env.example          copy to .env.local and fill in
   src/
-    agent.py            entrypoint, server, session start
+    agent.py            entrypoint, server, session start, /getToken endpoint
     config.py           env + session model factory
     prompts.py          system instructions
     tools.py            @function_tool defs
-    token_server.py     join-token endpoint for the glasses
 android/                Kotlin + Compose app for the glasses
-  app/src/main/.../TokenExt.kt    where to find the token server
+  app/src/main/.../TokenExt.kt    where to find the token endpoint
   app/src/main/.../ui/Eyes.kt     draws the UI once per eye
 deploy/                 livekit-server configs: lab LAN, and a home server behind
                         Caddy on 80/443 (see "Deploying somewhere real")
@@ -212,20 +211,23 @@ otherwise. What each frame costs is measured below.
 (MIT, kept at `android/LICENSE`). It publishes microphone and camera and subscribes to the
 agent's audio. It holds no Google credentials and never speaks to Gemini.
 
-`agent/src/token_server.py` mints the join tokens. The glasses `POST /getToken` and get
+The agent process also mints the join tokens. The glasses `POST /getToken` and get
 back a server URL and a JWT, following LiveKit's
 [standard token endpoint](https://docs.livekit.io/frontends/build/authentication/endpoint/)
 so the client's built-in `TokenSource.fromEndpoint` works unmodified.
 
 ### Running it
 
-Three processes, in this order:
+Two processes, in this order:
 
 ```powershell
 livekit-server --dev                    # add --bind 0.0.0.0 for the Wi-Fi shape below
-uv run src/token_server.py              # port 3000
-uv run src/agent.py start               # or `dev`
+uv run src/agent.py start               # or `dev`; also serves /getToken on port 3000
 ```
+
+livekit-server only verifies tokens, it never issues them, so whoever holds the API
+secret has to sign them. Here that is the agent: it opens a second aiohttp site on
+`TOKEN_SERVER_PORT` (default 3000) once its worker is up.
 
 Then build and sideload:
 
@@ -237,7 +239,7 @@ adb install -r app/build/outputs/apk/debug/app-debug.apk
 
 ### Reaching the host
 
-The glasses have to find the token server and the SFU on the same network as the host.
+The glasses have to find the token endpoint and the SFU on the same network as the host.
 Retargeting needs no rebuild — see `TokenEndpoint` in `android/.../TokenExt.kt`.
 
 ```powershell
@@ -246,7 +248,7 @@ $env:LIVEKIT_PUBLIC_URL = "ws://<lan-ip>:7880"
 ```
 
 `LIVEKIT_URL` stays on loopback for the agent's own connection; `LIVEKIT_PUBLIC_URL` is
-what the token server hands the glasses. Then retarget the app, no rebuild:
+what `/getToken` hands the glasses. Then retarget the app, no rebuild:
 
 ```powershell
 adb shell am start -n com.rayneo.x3pro.assistant/io.livekit.android.example.voiceassistant.MainActivity `
@@ -383,7 +385,7 @@ and Caddy already holds TCP 80, TCP 443 and UDP 443 (HTTP/3). That leaves UDP 80
 media, which `rtc.udp_port: 80` takes in full — the server's own docs permit 53/80/443
 below 1024. `use_external_ip: true` makes it discover the public address over STUN and
 advertise that in ICE candidates. Signaling and the token endpoint share one Caddy site,
-`deploy/Caddyfile.livekit`, which routes `/getToken` to the token server on `:3003`
+`deploy/Caddyfile.livekit`, which routes `/getToken` to the agent's token endpoint on `:3003`
 (`:3000` is taken on that host) and everything else to `:7880`.
 
 **Media does not go through Cloudflare, and cannot.** Cloudflare's proxy forwards HTTP and
@@ -519,7 +521,7 @@ nothing until you have run `adb logcat -G 16M`.
   removes a room within seconds of the last participant leaving; a room left behind is a
   client still half-connected, not a leak. The one real waste is that the Android SDK's
   `prepareConnection()` fetches a token during `rememberSession` and throws it away, so every
-  tap of START CALL mints two tokens and burns two of the token server's generated room
+  tap of START CALL mints two tokens and burns two of the endpoint's generated room
   names. Only the joined room is ever created, and there is no in-flight guard to add here —
   it is upstream behaviour.
 
@@ -547,8 +549,8 @@ agent" state on the call screen is for.
 - [Gemini Live API plugin](https://docs.livekit.io/agents/models/realtime/plugins/gemini/)
 - [Live video input](https://docs.livekit.io/agents/multimodality/vision/video/)
 - [Agent dispatch](https://docs.livekit.io/agents/server/agent-dispatch/) — the agent uses
-  automatic dispatch (no `agent_name` set), so it joins every room the token server hands
-  out. `token_server.py` therefore issues a fresh room name per request
+  automatic dispatch (no `agent_name` set), so it joins every room `/getToken` hands
+  out, which is why the endpoint issues a fresh room name per request
 - [Token endpoint spec](https://docs.livekit.io/frontends/build/authentication/endpoint/)
 - [Running LiveKit locally](https://docs.livekit.io/transport/self-hosting/local/)
 - [RayNeo dev docs](https://rayneo-en.gitbook.io/rayneo-devdoc/x-series/android-sdk) —

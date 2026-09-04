@@ -7,7 +7,7 @@
 
 livekit.lambozhuang.me {
     handle /getToken {
-        reverse_proxy 127.0.0.1:3003
+        reverse_proxy 127.0.0.1:3003   # agent.py, TOKEN_SERVER_PORT=3003
     }
     reverse_proxy 127.0.0.1:7880
 }
