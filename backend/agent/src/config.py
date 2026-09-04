@@ -15,7 +15,7 @@ def require_env(name: str) -> str:
     value = os.environ.get(name)
     if not value:
         raise RuntimeError(
-            f"{name} is not set. Copy agent/.env.example to agent/.env.local and fill it in."
+            f"{name} is not set. Copy backend/.env.example to backend/.env and fill it in."
         )
     return value
 
