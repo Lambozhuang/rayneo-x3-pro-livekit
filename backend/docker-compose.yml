@@ -1,0 +1,36 @@
+# The backend, minus livekit-server.
+#
+# livekit-server runs on the host, not in here, on purpose: WebRTC media needs
+# the SFU's UDP ports reachable at the address it advertises, and every Docker
+# networking mode gets that wrong somewhere (Docker Desktop on Windows most of
+# all). One binary with one yaml is simpler than working around that. Start it
+# first, e.g. `livekit-server --dev` or `--config ../deploy/livekit.lab.yaml`,
+# then `docker compose up -d` here. Both containers reach it through
+# host.docker.internal, which the extra_hosts line makes work on Linux too.
+#
+# All settings come from ./.env (copy .env.example). AUTH_MODE decides who may
+# start a session; see api/src/auth.py.
+
+services:
+  api:
+    build: ./api
+    env_file: .env
+    environment:
+      # Inside the container the api always listens on 3000; API_PORT from
+      # .env only picks the host port it is published on.
+      API_PORT: "3000"
+      API_HOST: "0.0.0.0"
+    ports:
+      - "${API_PORT:-3000}:3000"
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    restart: unless-stopped
+
+  agent:
+    build: ./agent
+    env_file: .env
+    # No ports. The agent is dispatched into rooms by livekit-server and talks
+    # to Gemini outbound; nothing needs to reach it.
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    restart: unless-stopped

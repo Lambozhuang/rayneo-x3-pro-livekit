@@ -28,7 +28,12 @@ class VoiceAssistantViewModel(application: Application, savedStateHandle: SavedS
         // quietly put the wearer in a room with someone else's agent instead of
         // failing. A connection error is far easier to diagnose on a headset.
         Log.i(TAG, "fetching token from ${route.tokenEndpoint}")
-        tokenSource = TokenSource.fromEndpoint(URI(route.tokenEndpoint).toURL())
+        // The credential rides in the Authorization header, which is where the
+        // standard endpoint spec puts it and what backend/api reads. Never in
+        // the URL: query strings end up in access logs.
+        val headers = if (route.credential.isBlank()) emptyMap()
+        else mapOf("Authorization" to "Bearer ${route.credential}")
+        tokenSource = TokenSource.fromEndpoint(url = URI(route.tokenEndpoint).toURL(), headers = headers)
     }
 
     override fun onCleared() {

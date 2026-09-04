@@ -56,20 +56,44 @@ an outbound WebRTC track.
 ### Layout
 
 ```
-agent/                  Python worker
-  pyproject.toml
-  .env.example          copy to .env.local and fill in
-  src/
-    agent.py            entrypoint, server, session start, /getToken endpoint
-    config.py           env + session model factory
-    prompts.py          system instructions
-    tools.py            @function_tool defs
+backend/
+  docker-compose.yml    api + agent. livekit-server runs on the host, outside compose
+  .env.example          copy to .env and fill in; one file for both services
+  api/                  the one HTTP service the glasses call
+    src/server.py       POST /getToken: LiveKit's standard token endpoint
+    src/auth.py         who is asking -- AUTH_MODE = dev | static | jwt
+  agent/                the LiveKit agent, dispatched into rooms by name
+    src/agent.py        entrypoint, server, session start
+    src/config.py       env + session model factory
+    src/prompts.py      system instructions
+    src/tools.py        @function_tool defs
 android/                Kotlin + Compose app for the glasses
-  app/src/main/.../TokenExt.kt    where to find the token endpoint
+  app/src/main/.../TokenExt.kt    where the backend is, and what credential to show it
   app/src/main/.../ui/Eyes.kt     draws the UI once per eye
 deploy/                 livekit-server configs: lab LAN, and a home server behind
                         Caddy on 80/443 (see "Deploying somewhere real")
 ```
+
+Three processes at runtime, and the split is the product's shape, not an accident:
+
+- **livekit-server** verifies join tokens and forwards media. It never issues tokens and
+  never knows who a user is. It runs on the host rather than in compose because WebRTC
+  needs its UDP ports reachable at the address it advertises, and every Docker networking
+  mode gets that wrong somewhere, Docker Desktop on Windows most of all.
+- **api** is the door. The glasses `POST /getToken` with a credential; `auth.py` turns that
+  into a user id or a 401; `server.py` signs a ten-minute LiveKit JWT whose identity is that
+  user id and whose `room_config` names the agent. This is where a real product's login,
+  entitlements and billing would go. Everything behind it only ever sees the user id.
+- **agent** registers under `AGENT_NAME` and waits. Explicit dispatch means it joins exactly
+  the rooms the api created and nothing else. Nothing connects to it; it is reachable only
+  through the room, and it alone holds the Gemini key.
+
+`AUTH_MODE` is what makes the same code usable on a private LAN and in production.
+`dev` accepts everyone and logs a warning at startup; `static` wants one shared bearer
+token; `jwt` verifies a token from an account system we do not have yet and takes the
+user id from its `sub`. It is a documented switch in `.env`, not a back door: the
+production path is the only path, and `dev` just answers the "who is this" question with
+"whoever". See `backend/api/src/auth.py`.
 
 `config.py` holds the only real abstraction: `build_session_model()` returns keyword
 arguments for `AgentSession`. Today that's a single realtime speech-to-speech model.
@@ -77,7 +101,7 @@ Swapping in a half-cascade setup later means returning `{"llm": ..., "tts": ...}
 that one function; `agent.py` doesn't change.
 
 The model string is never hardcoded — it's read from `GEMINI_MODEL` so we can A/B models
-by editing `.env.local`.
+by editing `backend/.env`.
 
 ## Phase 1 — the agent
 
@@ -105,9 +129,10 @@ docker run --rm -it -p 7880:7880 -p 7881:7881 -p 7882:7882/udp livekit/livekit-s
 ### 2. Configure the agent
 
 ```shell
-cd agent
-cp .env.example .env.local
-# then put your Gemini API key in GOOGLE_API_KEY
+cd backend
+cp .env.example .env
+# then put your Gemini API key in GOOGLE_API_KEY, and for `uv run` outside compose set
+# LIVEKIT_URL=ws://127.0.0.1:7880
 ```
 
 Get a key at [aistudio.google.com/apikey](https://aistudio.google.com/apikey). The plugin
@@ -116,6 +141,7 @@ reads it via `GOOGLE_API_KEY`; it never touches LiveKit Cloud.
 ### 3. Install and run
 
 ```shell
+cd backend/agent
 uv sync
 uv run src/agent.py console   # talk to the agent in your terminal
 ```
@@ -211,23 +237,28 @@ otherwise. What each frame costs is measured below.
 (MIT, kept at `android/LICENSE`). It publishes microphone and camera and subscribes to the
 agent's audio. It holds no Google credentials and never speaks to Gemini.
 
-The agent process also mints the join tokens. The glasses `POST /getToken` and get
-back a server URL and a JWT, following LiveKit's
-[standard token endpoint](https://docs.livekit.io/frontends/build/authentication/endpoint/)
+`backend/api` mints the join tokens. The glasses `POST /getToken` with their credential
+in an `Authorization: Bearer` header and get back a server URL and a JWT, following
+LiveKit's [standard token endpoint](https://docs.livekit.io/frontends/build/authentication/endpoint/)
 so the client's built-in `TokenSource.fromEndpoint` works unmodified.
 
 ### Running it
 
-Two processes, in this order:
+livekit-server first, on the host; then the two services, either in compose or directly:
 
 ```powershell
 livekit-server --dev                    # add --bind 0.0.0.0 for the Wi-Fi shape below
-uv run src/agent.py start               # or `dev`; also serves /getToken on port 3000
+
+cd backend
+docker compose up -d --build            # api on :3000, agent unpublished
+# or, without Docker (LIVEKIT_URL=ws://127.0.0.1:7880 in .env):
+cd api;   uv sync; uv run src/server.py
+cd agent; uv sync; uv run src/agent.py start
 ```
 
-livekit-server only verifies tokens, it never issues them, so whoever holds the API
-secret has to sign them. Here that is the agent: it opens a second aiohttp site on
-`TOKEN_SERVER_PORT` (default 3000) once its worker is up.
+`docker compose` itself has not been run yet: the machine this was written on has no Docker,
+so the two services were verified with `uv run` against a local `livekit-server --dev`, end
+to end through a synthetic client, and the Dockerfiles and compose file are unexercised.
 
 Then build and sideload:
 
@@ -252,11 +283,12 @@ what `/getToken` hands the glasses. Then retarget the app, no rebuild:
 
 ```powershell
 adb shell am start -n com.rayneo.x3pro.assistant/io.livekit.android.example.voiceassistant.MainActivity `
-  -e token_endpoint http://<lan-ip>:3000/getToken
+  -e token_endpoint http://<lan-ip>:3000/getToken `
+  -e credential ""                      # blank for AUTH_MODE=dev; the static token or a user JWT otherwise
 ```
 
-With no cable, the connect screen's endpoint field does the same thing. Either way the
-value persists across restarts.
+With no cable, the connect screen's two fields do the same thing. Either way the values
+persist across restarts.
 
 #### USB is not an alternative
 
@@ -358,17 +390,17 @@ that fails to connect at all is a signaling problem, whereas one that connects b
 silence is a media routing or advertised-address problem. If the server runs in Docker,
 pass `--node-ip <lan-ip>` so the SFU advertises an address the glasses can reach.
 
-Dev mode uses the well-known `devkey` / `secret` pair, and the token endpoint has no
-authentication unless `TOKEN_SERVER_SECRET` is set. Both are therefore exposed to the
-whole local network while this is running — acceptable on a trusted network for development
+Dev mode uses the well-known `devkey` / `secret` pair, and with `AUTH_MODE=dev` the token
+endpoint accepts anyone. Both are therefore exposed to the whole local network while this is
+running — acceptable on a trusted network for development
 and nowhere else. There is no loopback-only shape to hide behind: media needs a reachable IP
 (see above), so run this on a network you control, or read on.
 
 ### Deploying somewhere real
 
 The lab deployment and the interim one look different on the wire but identical to the
-code. Nothing in `agent/` or `android/` changes between them; only `.env.local`, which
-`livekit.yaml` the server starts with, and the `token_endpoint` extra on the glasses.
+code. Nothing in `backend/` or `android/` changes between them; only `backend/.env`, which
+`livekit.yaml` the server starts with, and the two extras on the glasses.
 
 | | Lab: private LAN | Interim: home server behind a router |
 |---|---|---|
@@ -376,8 +408,8 @@ code. Nothing in `agent/` or `android/` changes between them; only `.env.local`,
 | Signaling | `ws://<lan-ip>:7880` | `wss://livekit.lambozhuang.me` via Caddy on 443 |
 | Media | UDP 50000–60000 to the LAN IP | UDP 80 to the public IP, muxed on one port |
 | ICE-TCP | 7881 | none — 80 and 443 TCP both belong to Caddy |
-| Token endpoint | `http://<lan-ip>:3000/getToken` | `https://livekit.lambozhuang.me/getToken?k=…` |
-| `TOKEN_SERVER_SECRET` | unset | set |
+| Token endpoint | `http://<lan-ip>:3000/getToken` | `https://livekit.lambozhuang.me/getToken` |
+| `AUTH_MODE` | `dev` | `static` (or `jwt` once there is an issuer) |
 | API keys | generated, not `devkey` | generated, not `devkey` |
 
 **Why the home shape is what it is.** The router forwards only 80 and 443, TCP and UDP,
@@ -385,8 +417,8 @@ and Caddy already holds TCP 80, TCP 443 and UDP 443 (HTTP/3). That leaves UDP 80
 media, which `rtc.udp_port: 80` takes in full — the server's own docs permit 53/80/443
 below 1024. `use_external_ip: true` makes it discover the public address over STUN and
 advertise that in ICE candidates. Signaling and the token endpoint share one Caddy site,
-`deploy/Caddyfile.livekit`, which routes `/getToken` to the agent's token endpoint on `:3003`
-(`:3000` is taken on that host) and everything else to `:7880`.
+`deploy/Caddyfile.livekit`, which routes `/getToken` to the api on `:3003` (`:3000` is taken
+on that host, so `API_PORT=3003`) and everything else to `:7880`.
 
 **Media does not go through Cloudflare, and cannot.** Cloudflare's proxy forwards HTTP and
 WebSocket; WebRTC media is DTLS-SRTP over UDP to whatever IP the ICE candidates name, and
@@ -397,13 +429,12 @@ to the signaling path. Note that a grey-cloud CNAME to an orange-cloud name stil
 to Cloudflare, so the record has to be its own A record.
 
 **What "standard secure" means here.** Signaling and the token exchange are TLS. Media is
-encrypted by WebRTC itself. The API key pair is random. Minting a token requires
-`TOKEN_SERVER_SECRET`, carried as `?k=` because the glasses' `token_endpoint` is a whole
-URL passed in as an adb extra, so the app needs no change to send a credential — but a
-query string is only a credential behind TLS, which is why the lab config, being plain
-`ws://`, leaves it unset rather than pretending. The one thing the public exposes that the
-lab does not is the home IP in DNS and in ICE candidates; every client would learn it
-from the candidates regardless.
+encrypted by WebRTC itself. The API key pair is random. Minting a token requires a
+credential, sent as `Authorization: Bearer` and checked by `AUTH_MODE=static` or `jwt`. A
+bearer token is only a credential behind TLS, which is why the lab config, being plain
+`ws://` and `http://`, runs `dev` rather than pretending. The one thing the public exposes
+that the lab does not is the home IP in DNS and in ICE candidates; every client would learn
+it from the candidates regardless.
 
 **The host is a 2012 Mac mini, and that mattered once.** Its Ivy Bridge CPU has AVX but not
 AVX2. On Linux, livekit-agents defaults to a `forkserver` multiprocessing context and
@@ -411,7 +442,7 @@ preloads `livekit.agents.inference._warmup` into it, which initialises the nativ
 VAD and turn-detection library — compiled for AVX2. The forkserver died with SIGILL
 (`exit=132`) on every job: the worker registered fine and could never take a call, and
 nothing in the log said why beyond `EOFError: unexpected EOF` from the forkserver pipe.
-`AGENT_MP_CONTEXT=spawn` in `.env.local` sidesteps the preload; a realtime model never
+`AGENT_MP_CONTEXT=spawn` in `backend/.env` sidesteps the preload; a realtime model never
 uses those models anyway. Modern CPUs leave it unset.
 
 **What this interim setup cannot measure.** Latency, and anything downstream of it: the
@@ -521,7 +552,7 @@ nothing until you have run `adb logcat -G 16M`.
   removes a room within seconds of the last participant leaving; a room left behind is a
   client still half-connected, not a leak. The one real waste is that the Android SDK's
   `prepareConnection()` fetches a token during `rememberSession` and throws it away, so every
-  tap of START CALL mints two tokens and burns two of the endpoint's generated room
+  tap of START CALL mints two tokens and burns two of the api's generated room
   names. Only the joined room is ever created, and there is no in-flight guard to add here —
   it is upstream behaviour.
 
@@ -549,8 +580,8 @@ agent" state on the call screen is for.
 - [Gemini Live API plugin](https://docs.livekit.io/agents/models/realtime/plugins/gemini/)
 - [Live video input](https://docs.livekit.io/agents/multimodality/vision/video/)
 - [Agent dispatch](https://docs.livekit.io/agents/server/agent-dispatch/) — the agent uses
-  automatic dispatch (no `agent_name` set), so it joins every room `/getToken` hands
-  out, which is why the endpoint issues a fresh room name per request
+  explicit dispatch: the api names it in every token's `room_config`, and it joins
+  nothing else
 - [Token endpoint spec](https://docs.livekit.io/frontends/build/authentication/endpoint/)
 - [Running LiveKit locally](https://docs.livekit.io/transport/self-hosting/local/)
 - [RayNeo dev docs](https://rayneo-en.gitbook.io/rayneo-devdoc/x-series/android-sdk) —

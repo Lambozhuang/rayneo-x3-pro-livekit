@@ -2,7 +2,7 @@
 # Caddy already owns TCP 80, TCP 443 and UDP 443 (HTTP/3) on this host, so:
 #
 #   TCP 443  Caddy terminates TLS -> 127.0.0.1:7880   (signaling, wss://)
-#            Caddy routes /getToken -> 127.0.0.1:3003 (agent.py's token endpoint, https://)
+#            Caddy routes /getToken -> 127.0.0.1:3003 (backend/api, https://)
 #   UDP 80   livekit-server directly, every media stream muxed on one port
 #   TCP 80   Caddy, for ACME only. There is no ICE-TCP fallback in this setup;
 #            both 80 and 443 are taken. Media is UDP or nothing.
@@ -14,7 +14,7 @@
 #     livekit/livekit-server --config /livekit.yaml
 #
 # Replace the key pair (`docker run --rm livekit/livekit-server generate-keys`)
-# and mirror it into agent/.env.local. Nothing in the agent or the Android app
+# and mirror it into backend/.env. Nothing in the agent or the Android app
 # knows or cares which of these two files the server was started with.
 
 port: 7880

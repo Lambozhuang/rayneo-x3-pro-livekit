@@ -70,7 +70,9 @@ import kotlinx.serialization.Serializable
 
 @Serializable
 data class VoiceAssistantRoute(
-    val tokenEndpoint: String
+    val tokenEndpoint: String,
+    /** Bearer credential for the token endpoint; empty sends no header. */
+    val credential: String = "",
 )
 
 @Composable

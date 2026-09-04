@@ -43,6 +43,7 @@ fun ConnectScreen(
     // disagree the moment either one changed. See Eyes.
     val context = LocalContext.current
     var endpoint by rememberSaveable { mutableStateOf(TokenEndpoint.get(context)) }
+    var credential by rememberSaveable { mutableStateOf(TokenEndpoint.getCredential(context)) }
 
     Eyes {
         // Everything here has to fit one 640x480 panel, less the safe-area
@@ -73,7 +74,20 @@ fun ConnectScreen(
                 modifier = Modifier.fillMaxWidth()
             )
 
-            Spacer(Modifier.size(24.dp))
+            Spacer(Modifier.size(8.dp))
+
+            // Sent as `Authorization: Bearer ...`. Blank is right when the
+            // backend runs AUTH_MODE=dev. See TokenEndpoint.
+            OutlinedTextField(
+                value = credential,
+                onValueChange = { credential = it },
+                label = { Text("Credential (blank for dev)") },
+                singleLine = true,
+                textStyle = TextStyle(fontFamily = FontFamily.Monospace, fontSize = 13.sp),
+                modifier = Modifier.fillMaxWidth()
+            )
+
+            Spacer(Modifier.size(16.dp))
 
             // Deliberately the full width of the eye. A temple-touchpad tap
             // lands somewhere you cannot see your own finger, which is why
@@ -84,7 +98,13 @@ fun ConnectScreen(
                 onClick = {
                     // Persist whatever is in the field so the next launch keeps it.
                     TokenEndpoint.set(context, endpoint)
-                    navigateToVoiceAssistant(VoiceAssistantRoute(tokenEndpoint = endpoint.trim()))
+                    TokenEndpoint.setCredential(context, credential)
+                    navigateToVoiceAssistant(
+                        VoiceAssistantRoute(
+                            tokenEndpoint = endpoint.trim(),
+                            credential = credential.trim(),
+                        )
+                    )
                 },
                 colors = ButtonDefaults.buttonColors(
                     containerColor = Blue500,
