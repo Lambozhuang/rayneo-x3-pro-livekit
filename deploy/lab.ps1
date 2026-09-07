@@ -19,10 +19,11 @@
 # not in Docker or WSL: WSL2 on Win10 is NAT-only and the glasses' media UDP has
 # to land on this host's real address. See backend/docker-compose.yml.
 #
-# With the engine in WSL, `host.docker.internal` resolves to the WSL VM, not to
-# Windows, so `up` rewrites LIVEKIT_URL in backend\.env to Windows' address as
-# seen from WSL (its default gateway, which can change across reboots), and
-# Windows Firewall must let that subnet in on 7880; `status` prints the rule.
+# The containers reach livekit-server at this PC's LAN address, never at
+# host.docker.internal: Docker Desktop maps that name to Windows, but Rancher
+# and a bare Engine in WSL map it (and compose's host-gateway) to the WSL VM
+# itself, where nothing listens. The LAN IP works under all three, so `up`
+# writes LIVEKIT_URL=ws://<lan-ip>:7880 into backend\.env every time.
 
 param(
     [Parameter(Position = 0)][ValidateSet("setup", "up", "down", "status")][string]$Verb = "status",
@@ -44,11 +45,6 @@ $dockerExe = Get-Command docker -CommandType Application -ErrorAction SilentlyCo
 $DockerInWsl = $DockerCmd[0] -eq "wsl"
 
 function Invoke-Docker { & $DockerCmd[0] @($DockerCmd | Select-Object -Skip 1) @args }
-
-function Get-WslHostIp {
-    # Windows, as WSL sees it: the default gateway of the WSL VM.
-    (wsl -e sh -c "ip route show default | awk '{print `$3}'").Trim()
-}
 
 function Get-LanIp {
     if ($LanIp) { return $LanIp }
@@ -99,6 +95,7 @@ function Invoke-Setup {
         $ip = Get-LanIp
         $google = Read-Host "GOOGLE_API_KEY (https://aistudio.google.com/apikey)"
         $env_ = Get-Content (Join-Path $Root "backend\.env.example")
+        $env_ = $env_ -replace "^LIVEKIT_URL=.*", "LIVEKIT_URL=ws://${ip}:7880"
         $env_ = $env_ -replace "^LIVEKIT_PUBLIC_URL=.*", "LIVEKIT_PUBLIC_URL=ws://${ip}:7880"
         $env_ = $env_ -replace "^LIVEKIT_API_KEY=.*", "LIVEKIT_API_KEY=$apiKey"
         $env_ = $env_ -replace "^LIVEKIT_API_SECRET=.*", "LIVEKIT_API_SECRET=$apiSecret"
@@ -122,11 +119,9 @@ function Invoke-Up {
     }
     Write-Host "livekit-server: $(try { (Invoke-WebRequest http://127.0.0.1:7880/ -UseBasicParsing).StatusCode } catch { 'not answering' })"
 
-    if ($DockerInWsl) {
-        $hostIp = Get-WslHostIp
-        (Get-Content $EnvFile) -replace "^LIVEKIT_URL=.*", "LIVEKIT_URL=ws://${hostIp}:7880" | Set-Content $EnvFile -Encoding ascii
-        Write-Host "engine is in WSL: LIVEKIT_URL=ws://${hostIp}:7880 (Windows as seen from WSL)"
-    }
+    $ip = Get-LanIp
+    (Get-Content $EnvFile) -replace "^LIVEKIT_URL=.*", "LIVEKIT_URL=ws://${ip}:7880" | Set-Content $EnvFile -Encoding ascii
+    Write-Host "containers reach livekit-server at ws://${ip}:7880"
     Push-Location (Join-Path $Root "backend")
     try { Invoke-Docker compose up -d --build } finally { Pop-Location }
     Start-Sleep -Seconds 10
@@ -167,14 +162,7 @@ if the glasses cannot connect, Windows Firewall is the usual reason; run as admi
   New-NetFirewallRule -DisplayName "livekit media"     -Direction Inbound -Protocol UDP -LocalPort 50000-60000 -Profile Private -Action Allow
   New-NetFirewallRule -DisplayName "rayneo api"        -Direction Inbound -Protocol TCP -LocalPort ${port} -Profile Private -Action Allow
 "@
-    if ($DockerInWsl) {
-        Write-Host @"
-with the engine in WSL the containers reach livekit-server through the WSL adapter, which Windows
-treats as a separate network; if the agent never registers, also (as admin):
-  New-NetFirewallRule -DisplayName "livekit from WSL" -Direction Inbound -Protocol TCP -LocalPort 7880 -InterfaceAlias "vEthernet (WSL)" -Action Allow
-  (Get-NetAdapter | Where-Object Name -like "vEthernet (WSL*") shows the exact alias if that one does not match
-"@
-    }
+
 }
 
 switch ($Verb) {
