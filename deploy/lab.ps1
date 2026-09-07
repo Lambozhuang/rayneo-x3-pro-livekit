@@ -1,4 +1,7 @@
-# The lab PC, by hand. Windows 10 with Docker Desktop (WSL2 backend).
+# The lab PC, by hand. Windows 10; Docker is either Docker Desktop or, to stay
+# clear of Desktop's licensing, plain Docker Engine inside the WSL Ubuntu. The
+# script picks whichever `docker` it finds: on the Windows PATH first, else via
+# `wsl -e docker`.
 #
 # This machine is on its own network; nothing else can reach it, so everything
 # here is meant to be typed by a person. One script, four verbs:
@@ -12,6 +15,11 @@
 # overwrites a file that already exists. livekit-server runs on Windows itself,
 # not in Docker or WSL: WSL2 on Win10 is NAT-only and the glasses' media UDP has
 # to land on this host's real address. See backend/docker-compose.yml.
+#
+# With the engine in WSL, `host.docker.internal` resolves to the WSL VM, not to
+# Windows, so `up` rewrites LIVEKIT_URL in backend\.env to Windows' address as
+# seen from WSL (its default gateway, which can change across reboots), and
+# Windows Firewall must let that subnet in on 7880; `status` prints the rule.
 
 param(
     [Parameter(Position = 0)][ValidateSet("setup", "up", "down", "status")][string]$Verb = "status",
@@ -25,6 +33,18 @@ $Yaml = Join-Path $Root "livekit.yaml"        # gitignored; real keys
 $EnvFile = Join-Path $Root "backend\.env"     # gitignored; real keys
 $BinDir = Join-Path $env:LOCALAPPDATA "livekit"
 $Exe = Join-Path $BinDir "livekit-server.exe"
+
+# How to reach docker: native, or through WSL. Everything below calls Docker
+# with `Docker compose ...`, and wsl.exe inherits the Windows cwd as /mnt/...
+$DockerCmd = if (Get-Command docker -ErrorAction SilentlyContinue) { @("docker") } else { @("wsl", "-e", "docker") }
+$DockerInWsl = $DockerCmd[0] -eq "wsl"
+
+function Docker { & $DockerCmd[0] @($DockerCmd[1..$DockerCmd.Length] + $args) }
+
+function Get-WslHostIp {
+    # Windows, as WSL sees it: the default gateway of the WSL VM.
+    (wsl -e sh -c "ip route show default | awk '{print `$3}'").Trim()
+}
 
 function Get-LanIp {
     if ($LanIp) { return $LanIp }
@@ -51,8 +71,9 @@ function Invoke-Setup {
     }
     Write-Host "livekit-server: $(& $Exe --version)"
 
-    docker info 2>&1 | Out-Null
-    if ($LASTEXITCODE -ne 0) { throw "Docker Desktop is not running" }
+    Docker info 2>&1 | Out-Null
+    if ($LASTEXITCODE -ne 0) { throw "docker is not reachable (Docker Desktop not running, or dockerd not started in WSL)" }
+    Write-Host ("docker: " + $(if ($DockerInWsl) { "engine in WSL" } else { "native / Docker Desktop" }))
 
     if (Test-Path $Yaml) {
         Write-Host "keeping existing $Yaml"
@@ -97,15 +118,20 @@ function Invoke-Up {
     }
     Write-Host "livekit-server: $(try { (Invoke-WebRequest http://127.0.0.1:7880/ -UseBasicParsing).StatusCode } catch { 'not answering' })"
 
+    if ($DockerInWsl) {
+        $hostIp = Get-WslHostIp
+        (Get-Content $EnvFile) -replace "^LIVEKIT_URL=.*", "LIVEKIT_URL=ws://${hostIp}:7880" | Set-Content $EnvFile -Encoding ascii
+        Write-Host "engine is in WSL: LIVEKIT_URL=ws://${hostIp}:7880 (Windows as seen from WSL)"
+    }
     Push-Location (Join-Path $Root "backend")
-    try { docker compose up -d --build } finally { Pop-Location }
+    try { Docker compose up -d --build } finally { Pop-Location }
     Start-Sleep -Seconds 10
     Invoke-Status
 }
 
 function Invoke-Down {
     Push-Location (Join-Path $Root "backend")
-    try { docker compose down } finally { Pop-Location }
+    try { Docker compose down } finally { Pop-Location }
     Get-Process livekit-server -ErrorAction SilentlyContinue | Stop-Process
     Write-Host "stopped"
 }
@@ -117,8 +143,8 @@ function Invoke-Status {
     Write-Host ("livekit-server 7880: " + $(if ($lk) { "listening" } else { "DOWN" }))
     Push-Location (Join-Path $Root "backend")
     try {
-        docker compose ps --format "table {{.Name}}\t{{.Status}}\t{{.Ports}}"
-        $reg = docker compose logs --no-log-prefix agent 2>&1 | Select-String '"registered worker"' | Select-Object -Last 1
+        Docker compose ps --format "table {{.Name}}\t{{.Status}}\t{{.Ports}}"
+        $reg = Docker compose logs --no-log-prefix agent 2>&1 | Select-String '"registered worker"' | Select-Object -Last 1
         Write-Host ("agent: " + $(if ($reg) { "registered with livekit-server" } else { "NOT registered yet (docker compose logs agent)" }))
     } finally { Pop-Location }
     try {
@@ -130,13 +156,21 @@ function Invoke-Status {
 glasses on the same Wi-Fi, then:
   adb shell am start -n com.rayneo.x3pro.assistant/io.livekit.android.example.voiceassistant.MainActivity ``
     -e token_endpoint http://${ip}:${port}/getToken -e credential ""
-watch:  cd backend; docker compose logs -f agent      (look for "session for user=" and image_tokens)
+watch:  cd backend; $($DockerCmd -join ' ') compose logs -f agent      (look for "session for user=" and image_tokens)
 
 if the glasses cannot connect, Windows Firewall is the usual reason; run as admin once:
   New-NetFirewallRule -DisplayName "livekit signaling" -Direction Inbound -Protocol TCP -LocalPort 7880,7881 -Profile Private -Action Allow
   New-NetFirewallRule -DisplayName "livekit media"     -Direction Inbound -Protocol UDP -LocalPort 50000-60000 -Profile Private -Action Allow
   New-NetFirewallRule -DisplayName "rayneo api"        -Direction Inbound -Protocol TCP -LocalPort ${port} -Profile Private -Action Allow
 "@
+    if ($DockerInWsl) {
+        Write-Host @"
+with the engine in WSL the containers reach livekit-server through the WSL adapter, which Windows
+treats as a separate network; if the agent never registers, also (as admin):
+  New-NetFirewallRule -DisplayName "livekit from WSL" -Direction Inbound -Protocol TCP -LocalPort 7880 -InterfaceAlias "vEthernet (WSL)" -Action Allow
+  (Get-NetAdapter | Where-Object Name -like "vEthernet (WSL*") shows the exact alias if that one does not match
+"@
+    }
 }
 
 switch ($Verb) {

@@ -412,8 +412,11 @@ code. Nothing in `backend/` or `android/` changes between them; only `backend/.e
 | `AUTH_MODE` | `dev` | `static` (or `jwt` once there is an issuer) |
 | API keys | generated, not `devkey` | generated, not `devkey` |
 
-**The lab PC, by hand.** It is Windows 10 with Docker Desktop on a network nothing else can
-reach, so there is no remote way in; `deploy/lab.ps1` folds the whole procedure into four
+**The lab PC, by hand.** It is Windows 10 on a network nothing else can reach, so there is
+no remote way in; Docker is either Docker Desktop or, to stay clear of its licensing, plain
+Docker Engine inside the WSL Ubuntu (the script finds whichever `docker` exists, and with the
+engine in WSL points the containers at Windows' address as seen from WSL instead of
+`host.docker.internal`); `deploy/lab.ps1` folds the whole procedure into four
 verbs. From the repo root in PowerShell: `.\deploy\lab.ps1 setup` downloads livekit-server,
 generates a key pair and writes `livekit.yaml` and `backend\.env` (asking only for the
 Gemini key); `up` starts livekit-server in its own window and `docker compose up -d --build`;
