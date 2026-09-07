@@ -469,15 +469,16 @@ None of the following can be settled without the glasses connected:
   proven (see below); what is untested is the publish and the SFU hop.
 - **Battery.** Token cost is now measured (see below); battery is not, and it needs a real
   call on the lab PC's network.
-- **Whether the call screen is legible in stereo.** Geometrically it fits: on device, every
-  element of the call screen lands inside the 592x432 dp panel, control bar included. What
-  needs a wearer rather than a dump is text size, and whether three of those widgets belong
-  on glasses at all — the chat text field wants a keyboard, the screen-share button has
-  nothing to share, and the self-preview shows the wearer what they are already looking at.
+- **Whether the call screen is legible in stereo.** The phone starter's chat box, control
+  bar and screen-share are gone; the call screen is now a phase banner (you / listening /
+  thinking / speaking), the agent's last two sentences, and the camera self-preview, with
+  nothing to tap. See `ui/Phase.kt` and `ui/Captions.kt`. Geometrically it fits inside the
+  592x432 dp panel; what needs a wearer rather than a dump is the text size.
 - **How the wearer drives it.** The temple touchpad reports absolute coordinates, but you
   cannot see your own finger, which is why RayNeo's SDK moves focus instead of pointing.
-  The single full-width button works under either model; a control bar of six small icons
-  probably does not.
+  The app treats any plausible "select" key as its one control (start / end the call) and
+  logs every key under the `rayneo-input` tag; the gesture-to-keycode mapping is still to
+  be read off those logs.
 
 ### The video path, and why Pillow is a hard dependency
 
