@@ -40,8 +40,8 @@ import io.livekit.android.compose.ui.audio.VoiceAssistantBarVisualizer
  */
 enum class Phase(val label: String, val color: Color) {
     CONNECTING("Connecting", Color(0xFF9E9E9E)),
-    LISTENING("Listening", Color(0xFF66B1FF)),
-    YOU("You", Color(0xFF1FF968)),
+    WAITING("Waiting", Color(0xFF9E9E9E)),
+    LISTENING("Listening", Color(0xFF1FF968)),
     THINKING("Thinking", Color(0xFFFFC107)),
     SPEAKING("Speaking", Color(0xFF66B1FF)),
     FAILED("Agent failed", Color(0xFFFF5252));
@@ -53,8 +53,8 @@ enum class Phase(val label: String, val color: Color) {
             !agent.isConnected -> CONNECTING
             agent.agentState == AgentState.SPEAKING -> SPEAKING
             agent.agentState == AgentState.THINKING -> THINKING
-            wearerSpeaking -> YOU
-            agent.agentState == AgentState.LISTENING || agent.agentState == AgentState.IDLE -> LISTENING
+            wearerSpeaking -> LISTENING
+            agent.agentState == AgentState.LISTENING || agent.agentState == AgentState.IDLE -> WAITING
             else -> CONNECTING
         }
     }

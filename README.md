@@ -474,11 +474,12 @@ None of the following can be settled without the glasses connected:
   thinking / speaking), the agent's last two sentences, and the camera self-preview, with
   nothing to tap. See `ui/Phase.kt` and `ui/Captions.kt`. Geometrically it fits inside the
   592x432 dp panel; what needs a wearer rather than a dump is the text size.
-- **How the wearer drives it.** The temple touchpad reports absolute coordinates, but you
-  cannot see your own finger, which is why RayNeo's SDK moves focus instead of pointing.
-  The app treats any plausible "select" key as its one control (start / end the call) and
-  logs every key under the `rayneo-input` tag; the gesture-to-keycode mapping is still to
-  be read off those logs.
+- **How the wearer drives it.** Settled. The temple touchpad is a touchscreen to Android
+  (one-dimensional `MotionEvent`s, no keys, as RayNeo's docs say), so MainActivity catches
+  every touch and reduces it to tap / double tap / swipe itself; RayNeo's SDK does the same
+  but is an AAR built on ViewBinding and `BaseMirrorActivity`, which a Compose app cannot
+  use. Following the glasses' convention, tap starts the call and double tap ends it.
+  Swipes are recognised and logged (`adb logcat -s rayneo-input`) but not yet used.
 
 ### The video path, and why Pillow is a hard dependency
 

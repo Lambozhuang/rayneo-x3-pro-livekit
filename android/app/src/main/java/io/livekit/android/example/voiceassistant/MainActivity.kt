@@ -1,8 +1,11 @@
 package io.livekit.android.example.voiceassistant
 
 import android.os.Bundle
+import android.os.Handler
+import android.os.Looper
 import android.util.Log
 import android.view.KeyEvent
+import android.view.MotionEvent
 import android.view.WindowManager
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
@@ -21,6 +24,7 @@ import io.livekit.android.example.voiceassistant.screen.VoiceAssistantScreen
 import io.livekit.android.example.voiceassistant.ui.theme.LiveKitVoiceAssistantExampleTheme
 import io.livekit.android.example.voiceassistant.viewmodel.VoiceAssistantViewModel
 import io.livekit.android.util.LoggingLevel
+import kotlin.math.abs
 
 class MainActivity : ComponentActivity() {
 
@@ -99,30 +103,93 @@ class MainActivity : ComponentActivity() {
     )
 
     /**
-     * The temple touchpads reach apps as key events, not touches: the panels
-     * are one-dimensional strips (`cyttsp5_mt` / `cyttsp6_mt`, X only) whose
-     * firmware also declares F1..F8, and RayNeo's own launcher selects by
-     * focus rather than by pointing. Which gesture becomes which keycode is
-     * not documented anywhere we can reach, so every key is logged and any of
-     * the plausible "select" keys acts as the one control this app has: start
-     * the call from the connect screen, end it from the call.
+     * The temple touchpad is, to Android, a touchscreen. RayNeo's docs
+     * (Touch Events & Event Response) say so: both temples emit TP
+     * `MotionEvent`s, one-dimensional, "X changing, Y fixed", and never a
+     * `KeyEvent`. Their SDK feeds the raw events to a `TouchDispatcher` that
+     * turns them into Click / DoubleClick / LongClick / SlideForward /
+     * SlideBackward; that SDK is an AAR built on ViewBinding and
+     * `BaseMirrorActivity`, which a Compose app cannot sit on, so the same
+     * reduction is done here in a few lines. The glasses' convention, also
+     * from the docs: single tap confirms, double tap goes back / exits.
+     *
+     *   tap           connect screen: start the call. In the call: nothing (yet).
+     *   double tap    in the call: end it. Connect screen: leave the app.
+     *   swipe         logged only, for now
+     *
+     * A swipe is a travel of more than [SWIPE_PX] along X between down and up;
+     * anything shorter that lifts within [TAP_MS] is a tap, and a second tap
+     * inside [DOUBLE_MS] upgrades the pair to a double tap. The wearer cannot
+     * see their finger, so *where* a touch lands is meaningless; nothing on the
+     * screens is clickable and no touch is ever passed to the Compose tree.
+     */
+    override fun dispatchTouchEvent(ev: MotionEvent): Boolean {
+        when (ev.actionMasked) {
+            MotionEvent.ACTION_DOWN -> {
+                downX = ev.x; downTime = ev.eventTime
+            }
+            MotionEvent.ACTION_UP -> {
+                val dx = ev.x - downX
+                val dt = ev.eventTime - downTime
+                val gesture = when {
+                    abs(dx) > SWIPE_PX -> if (dx > 0) "swipe +x" else "swipe -x"
+                    dt < TAP_MS -> "tap"
+                    else -> "hold"
+                }
+                Log.i(TAG, "gesture: $gesture dx=${dx.toInt()} dt=${dt}ms at x=${ev.x.toInt()} y=${ev.y.toInt()}")
+                if (gesture == "tap") onTap(ev.eventTime)
+            }
+        }
+        return true
+    }
+
+    private var downX = 0f
+    private var downTime = 0L
+    private var lastTapTime = 0L
+    private val handler = Handler(Looper.getMainLooper())
+    private val pendingSingleTap = Runnable { onGesture(Gesture.CLICK) }
+
+    private fun onTap(time: Long) {
+        if (time - lastTapTime < DOUBLE_MS) {
+            handler.removeCallbacks(pendingSingleTap)
+            lastTapTime = 0L
+            onGesture(Gesture.DOUBLE_CLICK)
+        } else {
+            lastTapTime = time
+            handler.postDelayed(pendingSingleTap, DOUBLE_MS)
+        }
+    }
+
+    private enum class Gesture { CLICK, DOUBLE_CLICK }
+
+    private fun onGesture(g: Gesture) {
+        Log.i(TAG, "action: $g")
+        val nav = navController ?: return
+        val onConnect = nav.currentDestination?.hasRoute(ConnectRoute::class) == true
+        when (g) {
+            Gesture.CLICK -> if (onConnect) nav.navigate(savedRoute())
+            Gesture.DOUBLE_CLICK -> if (onConnect) finish() else nav.navigateUp()
+        }
+    }
+
+    /**
+     * The gpio buttons (volume, camera, ...) do arrive as keys; they are logged
+     * so we learn what the wearer has, and any plausible "select" key acts like
+     * a single tap.
      */
     override fun onKeyDown(keyCode: Int, event: KeyEvent): Boolean {
         Log.i(TAG, "key down: ${KeyEvent.keyCodeToString(keyCode)} device=${event.deviceId} source=0x${event.source.toString(16)}")
         if (event.repeatCount > 0) return super.onKeyDown(keyCode, event)
         if (keyCode !in SELECT_KEYS) return super.onKeyDown(keyCode, event)
-
-        val nav = navController ?: return super.onKeyDown(keyCode, event)
-        if (nav.currentDestination?.hasRoute(ConnectRoute::class) == true) {
-            nav.navigate(savedRoute())
-        } else {
-            nav.navigateUp()
-        }
+        onGesture(Gesture.CLICK)
         return true
     }
 
     companion object {
         private const val TAG = "rayneo-input"
+        private const val SWIPE_PX = 150f
+        private const val TAP_MS = 400L
+        private const val DOUBLE_MS = 350L
         private val SELECT_KEYS = setOf(
             KeyEvent.KEYCODE_ENTER,
             KeyEvent.KEYCODE_NUMPAD_ENTER,
