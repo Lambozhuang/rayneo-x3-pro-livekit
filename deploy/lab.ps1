@@ -1,7 +1,10 @@
-# The lab PC, by hand. Windows 10; Docker is either Docker Desktop or, to stay
-# clear of Desktop's licensing, plain Docker Engine inside the WSL Ubuntu. The
-# script picks whichever `docker` it finds: on the Windows PATH first, else via
-# `wsl -e docker`.
+# The lab PC, by hand. Windows 10. Docker is Rancher Desktop (free; engine set
+# to dockerd/moby, Kubernetes off), which puts `docker` on the Windows PATH,
+# binds published ports on 0.0.0.0 so the glasses reach the api from the LAN,
+# and resolves host.docker.internal to Windows. Docker Desktop behaves the
+# same. Plain Docker Engine inside WSL also works (the script falls back to
+# `wsl -e docker`) but published ports then stop at 127.0.0.1 and need a
+# netsh portproxy by hand; avoid it if you can.
 #
 # This machine is on its own network; nothing else can reach it, so everything
 # here is meant to be typed by a person. One script, four verbs:
