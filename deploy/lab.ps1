@@ -39,10 +39,10 @@ $Exe = Join-Path $BinDir "livekit-server.exe"
 
 # How to reach docker: native, or through WSL. Everything below calls Docker
 # with `Docker compose ...`, and wsl.exe inherits the Windows cwd as /mnt/...
-$DockerCmd = if (Get-Command docker -ErrorAction SilentlyContinue) { @("docker") } else { @("wsl", "-e", "docker") }
+[string[]]$DockerCmd = if (Get-Command docker -ErrorAction SilentlyContinue) { @("docker") } else { @("wsl", "-e", "docker") }
 $DockerInWsl = $DockerCmd[0] -eq "wsl"
 
-function Docker { & $DockerCmd[0] @($DockerCmd[1..$DockerCmd.Length] + $args) }
+function Docker { & $DockerCmd[0] @($DockerCmd | Select-Object -Skip 1) @args }
 
 function Get-WslHostIp {
     # Windows, as WSL sees it: the default gateway of the WSL VM.
