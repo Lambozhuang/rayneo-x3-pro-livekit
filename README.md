@@ -412,6 +412,15 @@ code. Nothing in `backend/` or `android/` changes between them; only `backend/.e
 | `AUTH_MODE` | `dev` | `static` (or `jwt` once there is an issuer) |
 | API keys | generated, not `devkey` | generated, not `devkey` |
 
+**The lab PC, by hand.** It is Windows 10 with Docker Desktop on a network nothing else can
+reach, so there is no remote way in; `deploy/lab.ps1` folds the whole procedure into four
+verbs. From the repo root in PowerShell: `.\deploy\lab.ps1 setup` downloads livekit-server,
+generates a key pair and writes `livekit.yaml` and `backend\.env` (asking only for the
+Gemini key); `up` starts livekit-server in its own window and `docker compose up -d --build`;
+`status` checks that the agent registered and `/getToken` answers, then prints the adb
+command and the three Windows Firewall rules to add if the glasses cannot connect; `down`
+stops everything. `setup` never overwrites a file that exists.
+
 **Why the home shape is what it is.** The router forwards only 80 and 443, TCP and UDP,
 and Caddy already holds TCP 80, TCP 443 and UDP 443 (HTTP/3). That leaves UDP 80 for
 media, which `rtc.udp_port: 80` takes in full — the server's own docs permit 53/80/443
