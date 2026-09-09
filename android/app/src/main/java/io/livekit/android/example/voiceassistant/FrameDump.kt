@@ -41,9 +41,24 @@ class FrameDump private constructor(private val dir: File) : VideoSink {
         count++
         val n = count
         val rotation = frame.rotation
-        val i420 = frame.buffer.toI420() ?: return
+        val buffer = frame.buffer
+        val i420 = buffer.toI420() ?: return
         val w = i420.width
         val h = i420.height
+        Log.i(
+            TAG,
+            "frame $n: ${buffer.javaClass.simpleName} ${buffer.width}x${buffer.height} -> i420 ${w}x$h " +
+                "strides y=${i420.strideY} u=${i420.strideU} v=${i420.strideV} rot=$rotation",
+        )
+        // Raw planes too, so the JPEG conversion below can be ruled out as a
+        // source of artefacts: ffmpeg -f rawvideo -pix_fmt yuv420p -s WxH -i NNN.yuv NNN.png
+        val cw0 = (w + 1) / 2
+        val ch0 = (h + 1) / 2
+        val raw = ByteArray(w * h + 2 * cw0 * ch0)
+        var r = 0
+        for (row in 0 until h) { i420.dataY.position(row * i420.strideY); i420.dataY.get(raw, r, w); r += w }
+        for (row in 0 until ch0) { i420.dataU.position(row * i420.strideU); i420.dataU.get(raw, r, cw0); r += cw0 }
+        for (row in 0 until ch0) { i420.dataV.position(row * i420.strideV); i420.dataV.get(raw, r, cw0); r += cw0 }
         val nv21 = ByteArray(w * h * 3 / 2)
         // Y plane, honouring stride.
         for (row in 0 until h) {
@@ -64,6 +79,7 @@ class FrameDump private constructor(private val dir: File) : VideoSink {
         io.execute {
             val file = File(dir, "%03d-%dx%d-rot%d.jpg".format(n, w, h, rotation))
             try {
+                FileOutputStream(File(dir, "%03d-%dx%d.yuv".format(n, w, h))).use { it.write(raw) }
                 FileOutputStream(file).use { out ->
                     YuvImage(nv21, ImageFormat.NV21, w, h, null).compressToJpeg(Rect(0, 0, w, h), 92, out)
                 }
