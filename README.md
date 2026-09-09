@@ -523,8 +523,9 @@ lever inside the Live session.
 Two debugging switches, for when the model cannot make out something you can see:
 
 - **`FRAME_DUMP_DIR=/app/frames`** in `.env` (`agent/src/framedump.py`). Every frame the
-  sampler passes to Gemini is also written to `backend/frames/` twice: `*-full.jpg` as it
-  arrived from the glasses and `*-sent.jpg` as the plugin actually encoded it. This is the
+  sampler passes to Gemini is also written twice under `backend/frames/<call timestamp>/`:
+  `NNN-full.jpg` as it arrived from the glasses and `NNN-sent.jpg` as the plugin actually
+  encoded it. Nothing is deleted between runs; clear old call directories by hand. This is the
   ground truth for blur, distance, exposure and orientation questions. `FRAME_DUMP_MAX`
   (default 60) caps the count.
 - **`agent/src/inspect_frame.py`** sends a saved frame through the ordinary
@@ -536,7 +537,7 @@ Two debugging switches, for when the model cannot make out something you can see
 
   ```powershell
   cd backend
-  docker compose run --rm agent uv run --no-sync python src/inspect_frame.py --model gemini-3.8-flash frames/143012-005-full.jpg
+  docker compose run --rm agent uv run --no-sync python src/inspect_frame.py --model gemini-3.8-flash frames/20260909-150312/005-full.jpg
   ```
 
 ### Capture on the glasses
