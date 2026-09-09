@@ -7,8 +7,13 @@ import androidx.lifecycle.SavedStateHandle
 import androidx.navigation.toRoute
 import io.livekit.android.LiveKit
 import io.livekit.android.example.voiceassistant.screen.VoiceAssistantRoute
+import io.livekit.android.room.participant.VideoTrackPublishDefaults
+import io.livekit.android.room.track.LocalVideoTrackOptions
+import io.livekit.android.room.track.VideoCaptureParameter
+import io.livekit.android.room.track.VideoEncoding
 import io.livekit.android.token.TokenSource
 import java.net.URI
+import livekit.org.webrtc.RtpParameters
 
 /**
  * This ViewModel handles holding onto the Room object, so that it is
@@ -16,7 +21,23 @@ import java.net.URI
  */
 class VoiceAssistantViewModel(application: Application, savedStateHandle: SavedStateHandle) : AndroidViewModel(application) {
 
-    val room = LiveKit.create(application)
+    val room = LiveKit.create(application).apply {
+        // The camera has exactly one consumer, the agent, and it samples one
+        // frame a second to show a vision model. The SDK's defaults are tuned
+        // for a video call: 30 fps, three simulcast layers, and "keep the
+        // frame rate, drop the resolution" when the encoder or the uplink is
+        // short. On the glasses that produced 360x640 frames at the agent,
+        // too soft to count the studs on a brick. So: one layer, resolution
+        // held, frame rate cut to what the encoder can sustain at full size.
+        videoTrackCaptureDefaults = LocalVideoTrackOptions(
+            captureParams = VideoCaptureParameter(1280, 720, 15),
+        )
+        videoTrackPublishDefaults = VideoTrackPublishDefaults(
+            videoEncoding = VideoEncoding(maxBitrate = 2_500_000, maxFps = 15),
+            simulcast = false,
+            degradationPreference = RtpParameters.DegradationPreference.MAINTAIN_RESOLUTION,
+        )
+    }
 
     val tokenSource: TokenSource
 
