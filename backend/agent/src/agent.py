@@ -102,8 +102,9 @@ async def rayneo_assistant(ctx: JobContext) -> None:
         if publication.kind == rtc.TrackKind.KIND_VIDEO:
             publication.set_video_quality(rtc.VideoQuality.VIDEO_QUALITY_HIGH)
             logger.info(
-                "video from %s: published %dx%d simulcast=%s; asked for HIGH",
-                participant.identity, publication.width, publication.height, publication.simulcasted,
+                "video from %s: published %dx%d %s simulcast=%s; asked for HIGH",
+                participant.identity, publication.width, publication.height,
+                publication.mime_type, publication.simulcasted,
             )
 
     await session.start(
