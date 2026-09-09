@@ -10,6 +10,7 @@ import io.livekit.android.example.voiceassistant.screen.VoiceAssistantRoute
 import io.livekit.android.room.participant.VideoTrackPublishDefaults
 import io.livekit.android.room.track.LocalVideoTrackOptions
 import io.livekit.android.room.track.VideoCaptureParameter
+import io.livekit.android.room.track.VideoCodec
 import io.livekit.android.room.track.VideoEncoding
 import io.livekit.android.token.TokenSource
 import java.net.URI
@@ -36,6 +37,12 @@ class VoiceAssistantViewModel(application: Application, savedStateHandle: SavedS
         )
         videoTrackPublishDefaults = VideoTrackPublishDefaults(
             videoEncoding = VideoEncoding(maxBitrate = 4_000_000, maxFps = 15),
+            // VP8 is libvpx in software on this SoC, and 1080p at 15 fps was
+            // still mush: it hit the encoder's limit, not the network's. H264
+            // goes through the Qualcomm hardware encoder. The agent's libwebrtc
+            // decodes H264 (its FFI ships the decoder), livekit-server relays
+            // any codec both ends agree on.
+            videoCodec = VideoCodec.H264.codecName,
             simulcast = false,
             degradationPreference = RtpParameters.DegradationPreference.MAINTAIN_RESOLUTION,
         )

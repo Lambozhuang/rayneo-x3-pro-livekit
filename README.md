@@ -557,7 +557,7 @@ below):
 - **Publish settings** (`VoiceAssistantViewModel.kt`). The SDK defaults — 30 fps, three
   simulcast layers, "keep frame rate, drop resolution" under pressure — delivered 360×640
   frames to the agent in the lab, which the plugin then *upscaled* to 1024. The app now
-  publishes one layer at 1920×1080, 15 fps, `MAINTAIN_RESOLUTION`, the plugin encodes frames at up to 1920 px instead of its 1024 default, and the agent requests the
+  publishes one layer at 1920×1080, 15 fps, H264 (hardware; VP8 was libvpx in software and stayed mush at any size), `MAINTAIN_RESOLUTION`, the plugin encodes frames at up to 1920 px instead of its 1024 default, and the agent requests the
   HIGH layer on subscribe. The model samples 1 fps; nothing here costs it anything.
 - **Microphone.** `createAudioTrack()` plus an `AudioTrackSink` delivered a steady
   **100 callbacks/s of 480 frames at 48 kHz mono 16-bit** — 10 ms buffers, exactly on time.
