@@ -421,7 +421,7 @@ generates a key pair and writes `livekit.yaml` and `backend\.env` (asking only f
 Gemini key); `up` starts livekit-server in its own window and `docker compose up -d --build`;
 `status` checks that the agent registered and `/getToken` answers, then prints the adb
 command and the three Windows Firewall rules to add if the glasses cannot connect; `down`
-stops everything. `setup` never overwrites a file that exists. Launching on the glasses is `.\deploy\glasses.ps1` (optionally `-Install` to build and install first, `-Log` to tail the gesture log); it defaults to this PC's LAN address and the api port in `backend\.env`, so on the lab PC it takes no arguments.
+stops everything. `setup` never overwrites a file that exists. Launching on the glasses is `.\deploy\glasses.ps1` (optionally `-Install` to build and install first, `-Log` to tail the gesture log, `-Stop` to kill it); it defaults to this PC's LAN address and the api port in `backend\.env`, so on the lab PC it takes no arguments.
 
 **Why the home shape is what it is.** The router forwards only 80 and 443, TCP and UDP,
 and Caddy already holds TCP 80, TCP 443 and UDP 443 (HTTP/3). That leaves UDP 80 for
