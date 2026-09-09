@@ -4,6 +4,7 @@
 #   .\deploy\glasses.ps1 -Ip 192.168.50.147       point at another backend
 #   .\deploy\glasses.ps1 -Install                 build the debug APK and install it first
 #   .\deploy\glasses.ps1 -Log                     after launching, tail the touchpad/gesture log (Ctrl+C to stop)
+#   .\deploy\glasses.ps1 -Stop                    kill the app on the glasses (same as double-tapping out of it)
 #
 # The app remembers the last endpoint it was given, and goes straight into the
 # call on launch, so once this has run once the launcher icon does the same.
@@ -15,7 +16,8 @@ param(
     [string]$Port,                # api port; default: API_PORT from backend\.env, else 3000
     [string]$Credential = "",     # AUTH_STATIC_TOKEN when the api runs with AUTH_MODE=static
     [switch]$Install,
-    [switch]$Log
+    [switch]$Log,
+    [switch]$Stop
 )
 
 $ErrorActionPreference = "Stop"
@@ -38,6 +40,12 @@ $Endpoint = "http://${Ip}:${Port}/getToken"
 
 $devices = (& adb devices) -match "\tdevice$"
 if (-not $devices) { throw "no glasses on adb (adb devices shows nothing in state 'device')" }
+
+if ($Stop) {
+    & adb shell am force-stop $Pkg
+    Write-Host "stopped $Pkg"
+    return
+}
 
 if ($Install) {
     # Gradle needs a JDK; Android Studio ships one, and a PowerShell session
