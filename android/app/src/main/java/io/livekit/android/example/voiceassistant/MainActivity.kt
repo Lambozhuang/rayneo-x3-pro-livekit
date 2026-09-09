@@ -1,5 +1,6 @@
 package io.livekit.android.example.voiceassistant
 
+import android.content.Intent
 import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
@@ -95,6 +96,23 @@ class MainActivity : ComponentActivity() {
                 }
             }
         }
+    }
+
+    /**
+     * `adb shell am start` (or the launcher icon) on an already running
+     * instance lands here instead of onCreate -- but only because the manifest
+     * says singleTop. With the default launch mode Android just brings the
+     * task forward and drops the intent, even for the task's root activity.
+     * The wearer launching again means the same thing as launching fresh: be
+     * in the call. Take any new endpoint, then start from the connect screen.
+     */
+    override fun onNewIntent(intent: Intent) {
+        super.onNewIntent(intent)
+        Log.i(TAG, "new intent, on connect screen=${navController?.currentDestination?.hasRoute(ConnectRoute::class)}")
+        TokenEndpoint.applyIntent(this, intent)
+        if (intent.getStringExtra("autostart") == "false") return
+        val nav = navController ?: return
+        if (nav.currentDestination?.hasRoute(ConnectRoute::class) == true) nav.navigate(savedRoute())
     }
 
     private fun savedRoute() = VoiceAssistantRoute(
