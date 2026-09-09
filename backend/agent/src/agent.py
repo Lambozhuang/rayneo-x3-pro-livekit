@@ -22,6 +22,7 @@ from livekit.agents import (
 )
 
 from config import build_session_model, require_env
+from framedump import DumpingSampler
 from prompts import SYSTEM_INSTRUCTIONS
 from tools import remember_note
 
@@ -50,18 +51,27 @@ server = AgentServer(
 # https://docs.livekit.io/agents/server/agent-dispatch/
 @server.rtc_session(agent_name=require_env("AGENT_NAME"))
 async def rayneo_assistant(ctx: JobContext) -> None:
+    # The default video_sampler is kept on purpose. It is
+    # VoiceActivityVideoSampler(speaking_fps=1.0, silent_fps=0.3), and at
+    # 640x480 a frame measured at exactly 63 input image tokens -- so about
+    # 1130 tokens/min while the wearer is silent and 3780 while speaking,
+    # against 1500 tokens/min for the audio. Lowering silent_fps is the lever
+    # with the best ratio of savings to lost context; media_resolution on the
+    # model in config.py is not one -- MEDIA_RESOLUTION_MEDIUM changed the
+    # measured token count by zero (the Live API treats low and medium video
+    # identically; only HIGH changes anything).
+    # https://docs.livekit.io/agents/logic/sessions/#video-sampling
+    #
+    # FRAME_DUMP_DIR swaps in the same sampler wrapped to also save every frame
+    # it passes, so you can see what the model saw. See framedump.py.
+    dump_dir = os.environ.get("FRAME_DUMP_DIR")
     session = AgentSession(
         **build_session_model(),
-        # The default video_sampler is kept on purpose. It is
-        # VoiceActivityVideoSampler(speaking_fps=1.0, silent_fps=0.3), and at
-        # 640x480 a frame measured at exactly 63 input image tokens -- so about
-        # 1130 tokens/min while the wearer is silent and 3780 while speaking,
-        # against 1500 tokens/min for the audio. Overriding it means passing
-        # video_sampler=VoiceActivityVideoSampler(...) from livekit.agents.voice
-        # here. Lowering silent_fps is the lever with the best ratio of savings
-        # to lost context; media_resolution on the model in config.py is not one
-        # -- MEDIA_RESOLUTION_MEDIUM changed the measured token count by zero.
-        # https://docs.livekit.io/agents/logic/sessions/#video-sampling
+        **(
+            {"video_sampler": DumpingSampler(dump_dir, int(os.environ.get("FRAME_DUMP_MAX", "60")))}
+            if dump_dir
+            else {}
+        ),
     )
 
     # Usage, straight to the log. `input_image_tokens` is the number to watch:

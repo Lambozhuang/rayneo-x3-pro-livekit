@@ -9,3 +9,5 @@ console-recordings/
 /livekit.yaml
 # per-host compose tweaks (network mode, ports)
 backend/docker-compose.override.yml
+# frames dumped by FRAME_DUMP_DIR
+backend/frames/

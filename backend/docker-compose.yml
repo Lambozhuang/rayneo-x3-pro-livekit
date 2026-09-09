@@ -33,4 +33,8 @@ services:
     # to Gemini outbound; nothing needs to reach it.
     extra_hosts:
       - "host.docker.internal:host-gateway"
+    # Only used when FRAME_DUMP_DIR=/app/frames is set in .env: the frames the
+    # model was shown land in backend/frames on the host. Gitignored.
+    volumes:
+      - ./frames:/app/frames
     restart: unless-stopped

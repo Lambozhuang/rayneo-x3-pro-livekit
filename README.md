@@ -510,10 +510,34 @@ constant and not an estimate. The default sampler is
 1130 tokens/min while the wearer is quiet and 3780 while they talk, against about
 1500 tokens/min for the audio.
 
-`media_resolution=MEDIA_RESOLUTION_MEDIUM` on the model changed that number by zero at this
-frame size, so it is not a lever; `silent_fps` is. The glasses capture larger frames
-(1280×720, see below), which the plugin scales to fit 1024×1024 before encoding, so expect
-the real per-frame figure to be higher than 63.
+`media_resolution=MEDIA_RESOLUTION_MEDIUM` on the model changed that number by zero, and
+Google's media-resolution guide says why: for video, `low` and `medium` are the same 70-token
+budget, and only `high` (280 tokens per frame, "for reading dense text or small details")
+changes anything. So the model's view of a frame is a fixed-size thumbnail regardless of what
+the glasses capture (1280×720, see below) or what the plugin scales it to (fits 1024×1024
+before encoding). `silent_fps` is the cost lever; `MEDIA_RESOLUTION_HIGH` is the only detail
+lever inside the Live session.
+
+### Seeing what the model saw
+
+Two debugging switches, for when the model cannot make out something you can see:
+
+- **`FRAME_DUMP_DIR=/app/frames`** in `.env` (`agent/src/framedump.py`). Every frame the
+  sampler passes to Gemini is also written to `backend/frames/` twice: `*-full.jpg` as it
+  arrived from the glasses and `*-sent.jpg` as the plugin actually encoded it. This is the
+  ground truth for blur, distance, exposure and orientation questions. `FRAME_DUMP_MAX`
+  (default 60) caps the count.
+- **`agent/src/inspect_frame.py`** sends a saved frame through the ordinary
+  `generate_content` path at `low` / `high` / `ultra_high` per-part media resolution (280 /
+  1120 / 2240 image tokens on Gemini 3) and prints each answer with its image token count.
+  If the answer is only right at `high` or above, the Live path's 70-token frames were the
+  problem; if it is never right, it is the camera or the model. The model id is
+  `--model` or `GEMINI_INSPECT_MODEL`, never hardcoded. In the lab:
+
+  ```powershell
+  cd backend
+  docker compose run --rm agent uv run --no-sync python src/inspect_frame.py --model gemini-3.8-flash frames/143012-005-full.jpg
+  ```
 
 ### Capture on the glasses
 
