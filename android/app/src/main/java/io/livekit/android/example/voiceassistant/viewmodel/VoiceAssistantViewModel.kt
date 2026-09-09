@@ -27,13 +27,15 @@ class VoiceAssistantViewModel(application: Application, savedStateHandle: SavedS
         // for a video call: 30 fps, three simulcast layers, and "keep the
         // frame rate, drop the resolution" when the encoder or the uplink is
         // short. On the glasses that produced 360x640 frames at the agent,
-        // too soft to count the studs on a brick. So: one layer, resolution
-        // held, frame rate cut to what the encoder can sustain at full size.
+        // too soft to count the studs on a brick, and 720p was still too soft
+        // for a human. So: one layer, 1080p, resolution held, frame rate cut
+        // to what the encoder can sustain at full size. The sensor is mounted
+        // sideways, so these arrive at the agent as 1080x1920 portrait.
         videoTrackCaptureDefaults = LocalVideoTrackOptions(
-            captureParams = VideoCaptureParameter(1280, 720, 15),
+            captureParams = VideoCaptureParameter(1920, 1080, 15),
         )
         videoTrackPublishDefaults = VideoTrackPublishDefaults(
-            videoEncoding = VideoEncoding(maxBitrate = 2_500_000, maxFps = 15),
+            videoEncoding = VideoEncoding(maxBitrate = 4_000_000, maxFps = 15),
             simulcast = false,
             degradationPreference = RtpParameters.DegradationPreference.MAINTAIN_RESOLUTION,
         )
