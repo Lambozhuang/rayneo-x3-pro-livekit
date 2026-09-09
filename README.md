@@ -549,8 +549,15 @@ below):
   `position=BACK`, and `createVideoTrack()` opened it with
   `captureParams=VideoCaptureParameter(width=1280, height=720, maxFps=30)`. A `VideoSink` on
   the track received **243 frames in 10 s (~26 fps) at 1280×720, `rotation=90`**. The rotation
-  is worth remembering: the sensor is mounted sideways, and WebRTC carries that as frame
-  metadata rather than rotating the pixels.
+  is real, not a HAL quirk: the sensor is mounted sideways (`android.sensor.orientation=90`,
+  the stock camera app writes EXIF orientation 6 too), so the **camera's field of view is
+  portrait**. WebRTC carries the rotation as metadata and the receiver applies it, so frames
+  reach the agent as 720×1280 and upright. Verified 2026-09-09 by looking at dumped frames.
+- **Publish settings** (`VoiceAssistantViewModel.kt`). The SDK defaults — 30 fps, three
+  simulcast layers, "keep frame rate, drop resolution" under pressure — delivered 360×640
+  frames to the agent in the lab, which the plugin then *upscaled* to 1024. The app now
+  publishes one layer at 1280×720, 15 fps, `MAINTAIN_RESOLUTION`, and the agent requests the
+  HIGH layer on subscribe. The model samples 1 fps; nothing here costs it anything.
 - **Microphone.** `createAudioTrack()` plus an `AudioTrackSink` delivered a steady
   **100 callbacks/s of 480 frames at 48 kHz mono 16-bit** — 10 ms buffers, exactly on time.
   The samples are real, not zeroed: peak amplitude sat at 0–1 in a silent room and rose to 15
