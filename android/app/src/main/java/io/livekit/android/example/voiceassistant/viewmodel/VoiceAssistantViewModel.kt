@@ -6,6 +6,7 @@ import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.SavedStateHandle
 import androidx.navigation.toRoute
 import io.livekit.android.LiveKit
+import io.livekit.android.LiveKitOverrides
 import io.livekit.android.example.voiceassistant.screen.VoiceAssistantRoute
 import io.livekit.android.room.participant.VideoTrackPublishDefaults
 import io.livekit.android.room.track.LocalVideoTrackOptions
@@ -14,6 +15,8 @@ import io.livekit.android.room.track.VideoCodec
 import io.livekit.android.room.track.VideoEncoding
 import io.livekit.android.token.TokenSource
 import java.net.URI
+import livekit.org.webrtc.HardwareVideoEncoderFactory
+import livekit.org.webrtc.EglBase
 import livekit.org.webrtc.RtpParameters
 
 /**
@@ -22,7 +25,30 @@ import livekit.org.webrtc.RtpParameters
  */
 class VoiceAssistantViewModel(application: Application, savedStateHandle: SavedStateHandle) : AndroidViewModel(application) {
 
-    val room = LiveKit.create(application).apply {
+    // Our own EGL context and libwebrtc's own encoder factory, instead of the
+    // SDK's SimulcastVideoEncoderFactoryWrapper. That wrapper compares the
+    // *unrotated* frame width with the *rotated* encoder width, so on this
+    // sideways-mounted sensor every 1920x1080 frame failed the check and was
+    // crop-and-scaled to 1080x1920 before encoding: a non-uniform resample
+    // that threw away half the vertical detail. The plain hardware factory
+    // encodes the buffer as captured and lets the rotation ride as metadata.
+    private val eglBase: EglBase = EglBase.create()
+
+    val room = LiveKit.create(
+        application,
+        overrides = LiveKitOverrides(
+            eglBase = eglBase,
+            // Hardware only: DefaultVideoEncoderFactory also builds the software
+            // factory, whose constructor needs libwebrtc's native library, and
+            // that is not loaded until LiveKit.create runs. We publish H264 on
+            // the Qualcomm encoder anyway.
+            videoEncoderFactory = HardwareVideoEncoderFactory(
+                eglBase.eglBaseContext,
+                /* enableIntelVp8Encoder = */ true,
+                /* enableH264HighProfile = */ false,
+            ),
+        ),
+    ).apply {
         // The camera has exactly one consumer, the agent, and it samples one
         // frame a second to show a vision model. The SDK's defaults are tuned
         // for a video call: 30 fps, three simulcast layers, and "keep the
@@ -70,6 +96,7 @@ class VoiceAssistantViewModel(application: Application, savedStateHandle: SavedS
         super.onCleared()
         room.disconnect()
         room.release()
+        eglBase.release()
     }
 
     companion object {
