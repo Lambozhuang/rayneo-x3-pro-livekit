@@ -11,7 +11,7 @@ import logging
 import os
 
 from dotenv import load_dotenv
-from livekit import agents
+from livekit import agents, rtc
 from livekit.agents import (
     Agent,
     AgentServer,
@@ -89,6 +89,21 @@ async def rayneo_assistant(ctx: JobContext) -> None:
                 "usage: %r image_tokens=%s",
                 use,
                 getattr(use, "input_image_tokens", 0),
+            )
+
+    # Ask the SFU for the largest layer of every video track. Without this the
+    # server picks by its own bandwidth estimate, which in the lab settled on
+    # a 360x640 layer -- fine for a video call, useless for reading detail.
+    # Registered before start() so it covers the initial subscription.
+    @ctx.room.on("track_subscribed")
+    def _want_full_video(
+        track: rtc.Track, publication: rtc.RemoteTrackPublication, participant: rtc.RemoteParticipant
+    ) -> None:
+        if publication.kind == rtc.TrackKind.KIND_VIDEO:
+            publication.set_video_quality(rtc.VideoQuality.VIDEO_QUALITY_HIGH)
+            logger.info(
+                "video from %s: published %dx%d simulcast=%s; asked for HIGH",
+                participant.identity, publication.width, publication.height, publication.simulcasted,
             )
 
     await session.start(
