@@ -29,6 +29,8 @@ import io.livekit.android.compose.state.rememberSession
 import io.livekit.android.compose.state.rememberSessionMessages
 import io.livekit.android.compose.state.rememberSpeakingParticipants
 import io.livekit.android.compose.ui.VideoTrackView
+import io.livekit.android.example.voiceassistant.FrameDump
+import io.livekit.android.room.track.LocalVideoTrack
 import io.livekit.android.example.voiceassistant.rememberCanEnableCamera
 import io.livekit.android.example.voiceassistant.rememberCanEnableMic
 import io.livekit.android.example.voiceassistant.requirePermissions
@@ -137,6 +139,14 @@ fun VoiceAssistant(
         LaunchedEffect(canEnableVideo) {
             session.waitUntilConnected()
             localMedia.setCameraEnabled(canEnableVideo)
+        }
+
+        // Debug only: raw frames to disk when the marker file exists. See FrameDump.
+        val cameraTrack = localMedia.cameraTrack?.publication?.track as? LocalVideoTrack
+        DisposableEffect(cameraTrack) {
+            val dump = if (cameraTrack != null) FrameDump.ifArmed(context) else null
+            if (dump != null) cameraTrack!!.addRenderer(dump)
+            onDispose { if (dump != null) cameraTrack!!.removeRenderer(dump) }
         }
 
         val sessionMessages = rememberSessionMessages()
