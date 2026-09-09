@@ -40,6 +40,12 @@ $devices = (& adb devices) -match "\tdevice$"
 if (-not $devices) { throw "no glasses on adb (adb devices shows nothing in state 'device')" }
 
 if ($Install) {
+    # Gradle needs a JDK; Android Studio ships one, and a PowerShell session
+    # usually has no JAVA_HOME. Fall back to Studio's if it is there.
+    if (-not $env:JAVA_HOME) {
+        $jbr = Join-Path ${env:ProgramFiles} "Android\Android Studio\jbr"
+        if (Test-Path $jbr) { $env:JAVA_HOME = $jbr } else { throw "JAVA_HOME is not set and Android Studio's JDK was not found at $jbr" }
+    }
     Push-Location (Join-Path $Root "android")
     try { & .\gradlew -q :app:assembleDebug; if ($LASTEXITCODE -ne 0) { throw "build failed" } } finally { Pop-Location }
     & adb install -r (Join-Path $Root "android\app\build\outputs\apk\debug\app-debug.apk") | Select-Object -Last 1
@@ -51,6 +57,9 @@ if ((& adb shell settings get global wifi_on).Trim() -ne "1") {
     & adb shell svc wifi enable | Out-Null
     Start-Sleep -Seconds 3
 }
+
+# Asleep glasses (taken off for a minute) keep the app out of the foreground.
+& adb shell input keyevent KEYCODE_WAKEUP
 
 # An empty -e credential "" is eaten by the shell and `am start` then fails
 # with "Argument expected"; only pass it when there is one.
