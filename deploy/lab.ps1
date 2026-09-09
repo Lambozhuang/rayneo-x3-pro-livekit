@@ -122,6 +122,9 @@ function Invoke-Up {
     $ip = Get-LanIp
     (Get-Content $EnvFile) -replace "^LIVEKIT_URL=.*", "LIVEKIT_URL=ws://${ip}:7880" | Set-Content $EnvFile -Encoding ascii
     Write-Host "containers reach livekit-server at ws://${ip}:7880"
+    # Bind-mount target for FRAME_DUMP_DIR; compose will not create it itself
+    # under every engine, and a missing host dir fails the agent container.
+    New-Item -ItemType Directory -Force (Join-Path $Root "backendrames") | Out-Null
     Push-Location (Join-Path $Root "backend")
     try { Invoke-Docker compose up -d --build } finally { Pop-Location }
     Start-Sleep -Seconds 10
