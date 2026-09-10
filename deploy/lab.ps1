@@ -6,11 +6,12 @@
 # `wsl -e docker`) but published ports then stop at 127.0.0.1 and need a
 # netsh portproxy by hand; avoid it if you can.
 #
-# This machine is on its own network; nothing else can reach it, so everything
-# here is meant to be typed by a person. One script, four verbs:
+# The machine is shared and has other jobs: nothing here is a service or a
+# scheduled task, the backend runs only while someone has brought it up, and
+# `down` leaves no trace. Run it locally or over ssh. One script, four verbs:
 #
 #   .\deploy\lab.ps1 setup    fetch livekit-server, generate keys, write livekit.yaml + backend\.env
-#   .\deploy\lab.ps1 up       start livekit-server (own window) and docker compose up -d --build
+#   .\deploy\lab.ps1 up       start livekit-server (detached, log in livekit.log) and docker compose up -d --build
 #   .\deploy\lab.ps1 status   what is listening, does /getToken answer, the adb command to use
 #   .\deploy\lab.ps1 down     stop both
 #
@@ -34,6 +35,7 @@ param(
 $ErrorActionPreference = "Stop"
 $Root = Split-Path -Parent $PSScriptRoot
 $Yaml = Join-Path $Root "livekit.yaml"        # gitignored; real keys
+$Log = Join-Path $Root "livekit.log"          # gitignored; livekit-server stdout/stderr
 $EnvFile = Join-Path $Root "backend\.env"     # gitignored; real keys
 $BinDir = Join-Path $env:LOCALAPPDATA "livekit"
 $Exe = Join-Path $BinDir "livekit-server.exe"
@@ -109,9 +111,14 @@ function Invoke-Setup {
 function Invoke-Up {
     foreach ($f in $Yaml, $EnvFile) { if (-not (Test-Path $f)) { throw "$f missing; run setup first" } }
     if (-not (Get-NetTCPConnection -LocalPort 7880 -State Listen -ErrorAction SilentlyContinue)) {
-        # Its own window so the log stays visible and closing it stops the server.
+        # Detached through WMI rather than Start-Process: a process started the
+        # normal way from an ssh session dies with that session, and this script
+        # is now mostly run over ssh. Output goes to livekit.log next to the repo
+        # (gitignored), which is also the only way to read it over ssh.
         # Windows Firewall will ask once about this exe; allow it on private networks.
-        Start-Process $Exe -ArgumentList "--config", "`"$Yaml`"", "--bind", "0.0.0.0" -WorkingDirectory $Root
+        $cmd = "cmd.exe /c `"`"$Exe`" --config `"$Yaml`" --bind 0.0.0.0 > `"$Log`" 2>&1`""
+        $r = Invoke-CimMethod -ClassName Win32_Process -MethodName Create -Arguments @{ CommandLine = $cmd; CurrentDirectory = $Root }
+        if ($r.ReturnValue -ne 0) { throw "could not start livekit-server (Win32_Process.Create returned $($r.ReturnValue))" }
         $deadline = (Get-Date).AddSeconds(15)
         while ((Get-Date) -lt $deadline -and -not (Get-NetTCPConnection -LocalPort 7880 -State Listen -ErrorAction SilentlyContinue)) {
             Start-Sleep -Milliseconds 500
@@ -135,6 +142,7 @@ function Invoke-Down {
     Push-Location (Join-Path $Root "backend")
     try { Invoke-Docker compose down } finally { Pop-Location }
     Get-Process livekit-server -ErrorAction SilentlyContinue | Stop-Process
+    Remove-Item $Log -ErrorAction SilentlyContinue
     Write-Host "stopped"
 }
 
