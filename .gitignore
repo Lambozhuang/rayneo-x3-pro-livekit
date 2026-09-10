@@ -7,7 +7,6 @@ console-recordings/
 
 # a deployed livekit-server config with real keys, kept next to the repo
 /livekit.yaml
-/livekit.log
 # per-host compose tweaks (network mode, ports)
 backend/docker-compose.override.yml
 # frames dumped by FRAME_DUMP_DIR
