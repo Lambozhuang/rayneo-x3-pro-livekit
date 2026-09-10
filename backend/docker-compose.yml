@@ -1,38 +1,50 @@
-# The backend, minus livekit-server.
+# The whole backend: livekit-server, api, agent. Linux host.
 #
-# livekit-server runs on the host, not in here, on purpose: WebRTC media needs
-# the SFU's UDP ports reachable at the address it advertises, and every Docker
-# networking mode gets that wrong somewhere (Docker Desktop on Windows most of
-# all). One binary with one yaml is simpler than working around that. Start it
-# first, e.g. `livekit-server --dev` or `--config ../deploy/livekit.lab.yaml`,
-# then `docker compose up -d` here. Both containers reach it through
-# host.docker.internal, which the extra_hosts line makes work on Linux too.
+# Everything runs with host networking. WebRTC media needs livekit-server's
+# UDP ports reachable at the address it advertises, and a bridge network puts
+# NAT and the host firewall (ufw on both machines we run this on) between the
+# glasses and the SFU. On the host's own stack there is nothing to get wrong:
+# the server binds the LAN address, the api listens on API_PORT directly, and
+# the two services reach the server on loopback.
+#
+#   cp deploy/livekit.lab.yaml livekit.yaml   # then put a real key pair in (deploy/setup.sh does this)
+#   cd backend && docker compose up -d --build
 #
 # All settings come from ./.env (copy .env.example). AUTH_MODE decides who may
 # start a session; see api/src/auth.py.
 
 services:
+  livekit:
+    image: livekit/livekit-server:v1.13.6
+    network_mode: host
+    # ../livekit.yaml is gitignored: it holds the real key pair. Templates are
+    # deploy/livekit.lab.yaml (private LAN) and deploy/livekit.home.yaml (Caddy).
+    volumes:
+      - ../livekit.yaml:/livekit.yaml:ro
+    command: --config /livekit.yaml --bind 0.0.0.0
+    restart: unless-stopped
+
   api:
     build: ./api
+    network_mode: host
     env_file: .env
     environment:
-      # Inside the container the api always listens on 3000; API_PORT from
-      # .env only picks the host port it is published on.
-      API_PORT: "3000"
+      # With host networking there is no port mapping: the api listens on
+      # API_PORT from .env itself, on every interface.
       API_HOST: "0.0.0.0"
-    ports:
-      - "${API_PORT:-3000}:3000"
-    extra_hosts:
-      - "host.docker.internal:host-gateway"
+    depends_on:
+      - livekit
     restart: unless-stopped
 
   agent:
     build: ./agent
+    network_mode: host
     env_file: .env
-    # No ports. The agent is dispatched into rooms by livekit-server and talks
-    # to Gemini outbound; nothing needs to reach it.
-    extra_hosts:
-      - "host.docker.internal:host-gateway"
+    # The agent is dispatched into rooms by livekit-server and talks to Gemini
+    # outbound; nothing needs to reach it. Its worker health port (8081) is on
+    # the host stack too but stays behind ufw.
+    depends_on:
+      - livekit
     # Only used when FRAME_DUMP_DIR=/app/frames is set in .env: the frames the
     # model was shown land in backend/frames on the host. Gitignored.
     volumes:

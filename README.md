@@ -57,7 +57,7 @@ an outbound WebRTC track.
 
 ```
 backend/
-  docker-compose.yml    api + agent. livekit-server runs on the host, outside compose
+  docker-compose.yml    livekit-server + api + agent, all on the host's network stack
   .env.example          copy to .env and fill in; one file for both services
   api/                  the one HTTP service the glasses call
     src/server.py       POST /getToken: LiveKit's standard token endpoint
@@ -70,16 +70,17 @@ backend/
 android/                Kotlin + Compose app for the glasses
   app/src/main/.../TokenExt.kt    where the backend is, and what credential to show it
   app/src/main/.../ui/Eyes.kt     draws the UI once per eye
-deploy/                 livekit-server configs: lab LAN, and a home server behind
-                        Caddy on 80/443 (see "Deploying somewhere real")
+deploy/                 setup.sh (keys, livekit.yaml, .env) and livekit-server configs:
+                        lab LAN, and a home server behind Caddy (see "Deploying somewhere real")
+  glasses.ps1           launch/stop the app on the glasses over adb, from the dev laptop
 ```
 
 Three processes at runtime, and the split is the product's shape, not an accident:
 
 - **livekit-server** verifies join tokens and forwards media. It never issues tokens and
-  never knows who a user is. It runs on the host rather than in compose because WebRTC
-  needs its UDP ports reachable at the address it advertises, and every Docker networking
-  mode gets that wrong somewhere, Docker Desktop on Windows most of all.
+  never knows who a user is. It runs with host networking, as do the other two: WebRTC
+  needs its UDP ports reachable at the address it advertises, and a bridge network puts
+  NAT and the host firewall in the way for nothing.
 - **api** is the door. The glasses `POST /getToken` with a credential; `auth.py` turns that
   into a user id or a 401; `server.py` signs a ten-minute LiveKit JWT whose identity is that
   user id and whose `room_config` names the agent. This is where a real product's login,
@@ -108,23 +109,14 @@ by editing `backend/.env`.
 ### 1. Run livekit-server locally
 
 Dev mode uses the well-known key pair `devkey` / `secret` and binds to `127.0.0.1:7880`.
-
-Download `livekit_<version>_windows_amd64.zip` from
-[the releases page](https://github.com/livekit/livekit/releases/latest), unzip
-`livekit-server.exe` somewhere on your PATH, then:
+For a machine that only ever runs the agent with `uv run`:
 
 ```shell
-livekit-server --dev
+docker run --rm -it --network host livekit/livekit-server --dev
 ```
 
-On Windows it logs `CPU monitoring unsupported` and disables capacity management. That's
-expected and harmless for local development.
-
-Docker works too, if you'd rather:
-
-```shell
-docker run --rm -it -p 7880:7880 -p 7881:7881 -p 7882:7882/udp livekit/livekit-server --dev
-```
+On the machines that run the whole backend, livekit-server is a compose service instead;
+see "Running it" below.
 
 ### 2. Configure the agent
 
@@ -170,11 +162,11 @@ in-process auto-reload has been removed, so restart it by hand after edits. `dev
 works fine against a self-hosted server. For a long-running worker use `start`, and for
 debugging one specific room use `connect --room <name>`.
 
-### Two traps on Windows
+### Two traps
 
-**Console mode can die on a `UnicodeEncodeError`.** The TUI prints emoji, and if stdout
-lands on a `cp1252` codepage it crashes in `rich`'s legacy Windows renderer. Force UTF-8
-once per shell session:
+**Console mode on a Windows dev box can die on a `UnicodeEncodeError`.** The TUI prints
+emoji, and if stdout lands on a `cp1252` codepage it crashes in `rich`'s legacy Windows
+renderer. Force UTF-8 once per shell session:
 
 ```powershell
 $env:PYTHONUTF8 = "1"     # PowerShell
@@ -244,21 +236,23 @@ so the client's built-in `TokenSource.fromEndpoint` works unmodified.
 
 ### Running it
 
-livekit-server first, on the host; then the two services, either in compose or directly:
+On a Linux host with Docker, the whole backend is one compose project:
 
-```powershell
-livekit-server --dev                    # add --bind 0.0.0.0 for the Wi-Fi shape below
-
+```shell
+deploy/setup.sh lab                     # once: key pair, livekit.yaml, backend/.env (asks for the Gemini key)
 cd backend
-docker compose up -d --build            # api on :3000, agent unpublished
-# or, without Docker (LIVEKIT_URL=ws://127.0.0.1:7880 in .env):
+docker compose up -d --build            # livekit-server on :7880, api on API_PORT, agent unpublished
+docker compose logs -f agent            # "registered worker", then "session for user=" per call
+docker compose down
+```
+
+Or, with a local `livekit-server --dev` and `LIVEKIT_URL=ws://127.0.0.1:7880` in `.env`,
+run the two services directly:
+
+```shell
 cd api;   uv sync; uv run src/server.py
 cd agent; uv sync; uv run src/agent.py start
 ```
-
-`docker compose` itself has not been run yet: the machine this was written on has no Docker,
-so the two services were verified with `uv run` against a local `livekit-server --dev`, end
-to end through a synthetic client, and the Dockerfiles and compose file are unexercised.
 
 Then build and sideload:
 
@@ -273,13 +267,8 @@ adb install -r app/build/outputs/apk/debug/app-debug.apk
 The glasses have to find the token endpoint and the SFU on the same network as the host.
 Retargeting needs no rebuild — see `TokenEndpoint` in `android/.../TokenExt.kt`.
 
-```powershell
-livekit-server --dev --bind 0.0.0.0
-$env:LIVEKIT_PUBLIC_URL = "ws://<lan-ip>:7880"
-```
-
-`LIVEKIT_URL` stays on loopback for the agent's own connection; `LIVEKIT_PUBLIC_URL` is
-what `/getToken` hands the glasses. Then retarget the app, no rebuild:
+`LIVEKIT_URL` stays on loopback for the agent's own connection; `LIVEKIT_PUBLIC_URL`
+(`ws://<lan-ip>:7880`, which `deploy/setup.sh` fills in) is what `/getToken` hands the glasses. Then retarget the app, no rebuild:
 
 ```powershell
 adb shell am start -n com.rayneo.x3pro.assistant/io.livekit.android.example.voiceassistant.MainActivity `
@@ -412,16 +401,15 @@ code. Nothing in `backend/` or `android/` changes between them; only `backend/.e
 | `AUTH_MODE` | `dev` | `static` (or `jwt` once there is an issuer) |
 | API keys | generated, not `devkey` | generated, not `devkey` |
 
-**The lab PC, by hand.** It is Windows 10 on a network nothing else can reach, so there is
-no remote way in; Docker is Rancher Desktop (free, dockerd engine, Kubernetes off), which binds
-published ports on 0.0.0.0 so the glasses reach the api from the LAN; Docker Desktop would do
-the same, a bare Engine in WSL would not without a portproxy; `deploy/lab.ps1` folds the whole procedure into four
-verbs. From the repo root in PowerShell: `.\deploy\lab.ps1 setup` downloads livekit-server,
-generates a key pair and writes `livekit.yaml` and `backend\.env` (asking only for the
-Gemini key); `up` starts livekit-server in its own window and `docker compose up -d --build`;
-`status` checks that the agent registered and `/getToken` answers, then prints the adb
-command and the three Windows Firewall rules to add if the glasses cannot connect; `down`
-stops everything. `setup` never overwrites a file that exists. Launching on the glasses is `.\deploy\glasses.ps1` (optionally `-Install` to build and install first, `-Log` to tail the gesture log, `-Stop` to kill it); it defaults to this PC's LAN address and the api port in `backend\.env`, so on the lab PC it takes no arguments.
+**The lab PC.** Ubuntu, reached over ssh, on the same private network as the glasses. It
+runs exactly the "Running it" recipe above: `deploy/setup.sh lab` once (it also prints the
+three ufw rules the glasses need, scoped to the lab subnet), then `docker compose up -d
+--build` while testing and `docker compose down` after; the machine has other jobs, so
+nothing is installed as a service. The glasses are launched from the dev laptop with
+`.\deploy\glasses.ps1 -Ip <lab-ip>` (`-Install` builds and installs first, `-Log` tails the
+gesture log, `-Stop` kills the app). The backend's Windows era (livekit-server as a bare
+exe, api/agent under Rancher Desktop, a PowerShell driver) is gone; it fought the OS on
+process lifetime, Docker credential helpers and WSL NAT at every step.
 
 **Why the home shape is what it is.** The router forwards only 80 and 443, TCP and UDP,
 and Caddy already holds TCP 80, TCP 443 and UDP 443 (HTTP/3). That leaves UDP 80 for
