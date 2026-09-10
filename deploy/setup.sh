@@ -46,8 +46,15 @@ if [ -f "$env" ]; then
     echo "keeping existing $env"
 else
     ip=$(ip -4 route get 1.1.1.1 2>/dev/null | sed -n 's/.*src \([0-9.]*\).*/\1/p')
-    printf 'GOOGLE_API_KEY (https://aistudio.google.com/apikey): '
-    read -r google
+    # The Gemini key is asked for at a terminal, taken from the environment
+    # otherwise, and left blank when neither has it, so the script can run over
+    # a plain ssh command and the key be pasted into .env by hand afterwards.
+    google=${GOOGLE_API_KEY:-}
+    if [ -z "$google" ] && [ -t 0 ]; then
+        printf 'GOOGLE_API_KEY (https://aistudio.google.com/apikey): '
+        read -r google
+    fi
+    [ -n "$google" ] || echo "GOOGLE_API_KEY left blank; put it in $env before compose up" >&2
     sed -e "s|^LIVEKIT_PUBLIC_URL=.*|LIVEKIT_PUBLIC_URL=ws://$ip:7880|" \
         -e "s|^LIVEKIT_API_KEY=.*|LIVEKIT_API_KEY=$api_key|" \
         -e "s|^LIVEKIT_API_SECRET=.*|LIVEKIT_API_SECRET=$api_secret|" \
