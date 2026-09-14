@@ -2,14 +2,12 @@
 # First-time setup on a Linux host: a livekit-server key pair, livekit.yaml at
 # the repo root, backend/.env. After this the backend is plain compose:
 #
-#   deploy/setup.sh lab|home        once per machine; never overwrites a file that exists
+#   deploy/setup.sh lab             once per machine; never overwrites a file that exists
 #   cd backend && docker compose up -d --build
 #   docker compose logs -f agent    (look for "registered worker" and "session for user=")
 #   docker compose down
 #
 # `lab` is a private LAN: ws:// on 7880, media UDP 50000-60000, AUTH_MODE=dev.
-# `home` is the Caddy shape in deploy/livekit.home.yaml; its .env still needs
-# LIVEKIT_PUBLIC_URL and AUTH_MODE set by hand, see the README.
 #
 # Needs docker (the key pair is generated with the livekit-server image) and a
 # user in the docker group. Nothing here needs root; the ufw rules it prints
@@ -18,8 +16,8 @@ set -eu
 
 shape=${1:-}
 case "$shape" in
-    lab|home) ;;
-    *) echo "usage: deploy/setup.sh lab|home" >&2; exit 2 ;;
+    lab) ;;
+    *) echo "usage: deploy/setup.sh lab" >&2; exit 2 ;;
 esac
 
 root=$(cd "$(dirname "$0")/.." && pwd)

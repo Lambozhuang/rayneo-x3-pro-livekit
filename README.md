@@ -57,7 +57,6 @@ android/                Kotlin + Compose app for the glasses
 deploy/
   setup.sh              first-time setup on a Linux host: key pair, livekit.yaml, .env
   livekit.lab.yaml      livekit-server config for a private LAN
-  livekit.home.yaml, Caddyfile.livekit   home server behind Caddy
   glasses.ps1           launch/stop the app on the glasses over adb
 ```
 
@@ -204,32 +203,12 @@ size. Distance and prompt matter more than pixels here.
   docker compose run --rm agent uv run --no-sync python src/inspect_frame.py --model gemini-3.6-flash frames/<call>/005-full.jpg
   ```
 
-## Deployment shapes
+## The lab PC
 
-Nothing in `backend/` or `android/` changes between them; only `backend/.env`, the
-`livekit.yaml` the server starts with, and the endpoint the glasses are given.
-
-| | Lab: private LAN | Home server behind a router |
-|---|---|---|
-| Config | `deploy/livekit.lab.yaml` | `deploy/livekit.home.yaml` |
-| Signaling | `ws://<lan-ip>:7880` | `wss://livekit.example.com` via Caddy on 443 |
-| Media | UDP 50000-60000 to the LAN IP | UDP 80 to the public IP, one port |
-| ICE-TCP | 7881 | none; 80 and 443 TCP belong to Caddy |
-| Token endpoint | `http://<lan-ip>:3000/getToken` | `https://livekit.example.com/getToken` |
-| `AUTH_MODE` | `dev` | `static`, or `jwt` once there is an issuer |
-
-**Lab PC.** Ubuntu on the glasses' network, reached over ssh. It runs the recipe above:
+Ubuntu on the glasses' network, reached over ssh. It runs the recipe above:
 `docker compose up -d --build` while testing, `docker compose down` after. The machine has
-other jobs, so nothing is installed as a service.
-
-**Home server.** The router forwards only 80 and 443; Caddy holds TCP 80/443 and UDP 443,
-which leaves UDP 80 for media (`rtc.udp_port: 80`, `use_external_ip: true`).
-`deploy/Caddyfile.livekit` routes `/getToken` to the api on `:3003` and everything else to
-`:7880`. The DNS record must be DNS-only in Cloudflare and its own A record: WebRTC media
-goes to the IP in the ICE candidates, and a proxied record would only put Cloudflare in
-the signaling path. The host is a 2012 Mac mini without AVX2; `AGENT_MP_CONTEXT=spawn` in
-`.env` keeps the agent's forkserver from preloading a native library that SIGILLs there.
-Leave it unset on modern CPUs.
+other jobs, so nothing is installed as a service. `AGENT_MP_CONTEXT=spawn` in `.env` is
+only for a host whose CPU lacks AVX2; see the note in `agent.py`.
 
 ## When it breaks
 

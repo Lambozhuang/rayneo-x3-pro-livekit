@@ -17,8 +17,8 @@ services:
   livekit:
     image: livekit/livekit-server:v1.13.6
     network_mode: host
-    # ../livekit.yaml is gitignored: it holds the real key pair. Templates are
-    # deploy/livekit.lab.yaml (private LAN) and deploy/livekit.home.yaml (Caddy).
+    # ../livekit.yaml is gitignored: it holds the real key pair. Template:
+    # deploy/livekit.lab.yaml.
     volumes:
       - ../livekit.yaml:/livekit.yaml:ro
     command: --config /livekit.yaml --bind 0.0.0.0
