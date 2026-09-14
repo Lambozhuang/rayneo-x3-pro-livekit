@@ -19,8 +19,12 @@
 - [ ] 收尾：用户说再见后环境声被转写成日语、它继续接话。加 `end_call` 工具让它主动挂断
 - [ ] `remember_note` 只是占位（只打 log），做成按 user id 真正存储
 - [ ] 加工具：时间、提醒、天气等
-- [ ] 主动开口：3.1 上 `generate_reply` 被插件按模型名整段忽略，开场也不行；看 2.5 native audio（proactivity）、
-      GPT Realtime 等能不能让 agent 先说话、主动提醒
-- [ ] 架构对比：GPT Realtime 全双工 + 单独照片模型做检查；切换点是 `build_session_model()`
+- [ ] 主动开口：3.1 上 `generate_reply` 被插件按模型名整段忽略，开场也不行。GPT Realtime 随时可以；
+      GPT-Live 走 commentary 通道，模型可以拒绝
+- [ ] 架构对比：GPT-Live（`gpt-live-1`，全双工）+ 单独视觉模型。LiveKit 插件里 GPT-Live 不收视频，
+      要用 client delegation 自己抓帧、自己调视觉模型、`append_commentary` 回话；需要 livekit-agents[openai]≥1.8
+      和账号的 GPT-Live 权限。切换点是 `build_session_model()`
+- [ ] 参考图怎么给模型，待试：纯文字描述；开场 seed 全部参考图；换步时经视频流注入带标签的参考图；
+      tool 返回图片（Gemini `FunctionResponse.parts`，插件未用、Live API 未验证）；只给另一个视觉模型看、返回文字
 - [ ] 成本：`MEDIA_RESOLUTION_HIGH` 每帧 280 tokens，静默时 0.3 fps；决定默认档位，或把 `silent_fps` 再压低
 - [ ] agent 容器往 `backend/frames` 写的文件是 root 属主，compose 里以宿主用户运行
