@@ -16,10 +16,12 @@ from livekit.agents import (
     Agent,
     AgentServer,
     AgentSession,
+    ConversationItemAddedEvent,
     JobContext,
     SessionUsageUpdatedEvent,
     room_io,
 )
+from livekit.agents.llm import ChatMessage
 
 from config import build_session_model, require_env
 from framedump import DumpingSampler
@@ -91,6 +93,14 @@ async def rayneo_assistant(ctx: JobContext) -> None:
                 getattr(use, "input_image_tokens", 0),
             )
 
+    # Both sides of the conversation as text: what the model heard the wearer
+    # say and what it answered. With this a test run can be judged from the
+    # log next to the dumped frames, without listening in on the glasses.
+    @session.on("conversation_item_added")
+    def _log_turn(ev: ConversationItemAddedEvent) -> None:
+        if isinstance(ev.item, ChatMessage):
+            logger.info("%s: %s", ev.item.role, ev.item.text_content)
+
     # Ask the SFU for the largest layer of every video track. Without this the
     # server picks by its own bandwidth estimate, which in the lab settled on
     # a 360x640 layer -- fine for a video call, useless for reading detail.
@@ -100,9 +110,12 @@ async def rayneo_assistant(ctx: JobContext) -> None:
         track: rtc.Track, publication: rtc.RemoteTrackPublication, participant: rtc.RemoteParticipant
     ) -> None:
         if publication.kind == rtc.TrackKind.KIND_VIDEO:
-            publication.set_video_quality(rtc.VideoQuality.VIDEO_QUALITY_HIGH)
+            # Only meaningful (and only allowed: the rtc SDK raises otherwise)
+            # when the publisher sent several layers. The glasses send one.
+            if publication.simulcasted:
+                publication.set_video_quality(rtc.VideoQuality.VIDEO_QUALITY_HIGH)
             logger.info(
-                "video from %s: published %dx%d %s simulcast=%s; asked for HIGH",
+                "video from %s: published %dx%d %s simulcast=%s",
                 participant.identity, publication.width, publication.height,
                 publication.mime_type, publication.simulcasted,
             )

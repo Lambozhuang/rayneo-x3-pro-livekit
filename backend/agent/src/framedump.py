@@ -4,8 +4,8 @@ Enabled by FRAME_DUMP_DIR; agent.py never constructs this when it is unset.
 Each call gets its own timestamped subdirectory; old ones are never removed.
 Each frame the sampler lets through is written twice: `-full.jpg` is the frame
 as it arrived from the glasses (no resize, high JPEG quality), `-sent.jpg` is
-what the Gemini plugin actually encodes and uploads (its own resize and
-quality). Comparing the two is how you tell a capture problem (blur, distance,
+what the Gemini plugin actually encodes and uploads (config.py's
+IMAGE_ENCODE_OPTIONS). Comparing the two is how you tell a capture problem (blur, distance,
 a sideways sensor) from a resolution problem, and `-full.jpg` is the input for
 inspect_frame.py.
 """
@@ -19,7 +19,8 @@ import time
 from livekit import rtc
 from livekit.agents.utils import images
 from livekit.agents.voice import AgentSession, VoiceActivityVideoSampler
-from livekit.plugins.google.realtime.realtime_api import DEFAULT_IMAGE_ENCODE_OPTIONS
+
+from config import IMAGE_ENCODE_OPTIONS
 
 logger = logging.getLogger("rayneo-agent.framedump")
 
@@ -54,6 +55,6 @@ class DumpingSampler:
             with open(stem + "-full.jpg", "wb") as f:
                 f.write(images.encode(frame, FULL_QUALITY))
             with open(stem + "-sent.jpg", "wb") as f:
-                f.write(images.encode(frame, DEFAULT_IMAGE_ENCODE_OPTIONS))
+                f.write(images.encode(frame, IMAGE_ENCODE_OPTIONS))
             logger.info("frame %d: %dx%d -> %s", self._count, frame.width, frame.height, stem)
         return keep
