@@ -5,6 +5,7 @@ WORKDIR /app
 COPY pyproject.toml uv.lock ./
 RUN uv sync --frozen --no-dev
 COPY src ./src
+COPY guides ./guides
 
 # Health check port of the agent framework; nothing else is exposed, and
 # compose does not publish even this one.

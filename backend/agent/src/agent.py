@@ -25,8 +25,9 @@ from livekit.agents.llm import ChatMessage
 
 from config import build_session_model, require_env
 from framedump import DumpingSampler
-from prompts import SYSTEM_INSTRUCTIONS
-from tools import remember_note
+from guide import Build, load_guide
+from prompts import build_instructions
+from tools import end_call, get_step, restart_build, step_done
 
 load_dotenv()  # backend/.env, found by walking up from this file
 
@@ -67,7 +68,11 @@ async def rayneo_assistant(ctx: JobContext) -> None:
     # FRAME_DUMP_DIR swaps in the same sampler wrapped to also save every frame
     # it passes, so you can see what the model saw. See framedump.py.
     dump_dir = os.environ.get("FRAME_DUMP_DIR")
+    # The build guide and this run's position in it. The tools read and
+    # advance it through session.userdata; see guide.py. One call is one run.
+    build = Build(guide=load_guide(require_env("BUILD_GUIDE")), run=ctx.room.name)
     session = AgentSession(
+        userdata=build,
         **build_session_model(),
         **(
             {"video_sampler": DumpingSampler(dump_dir, int(os.environ.get("FRAME_DUMP_MAX", "60")))}
@@ -122,8 +127,8 @@ async def rayneo_assistant(ctx: JobContext) -> None:
 
     await session.start(
         agent=Agent(
-            instructions=SYSTEM_INSTRUCTIONS,
-            tools=[remember_note],
+            instructions=build_instructions(build.guide.goal),
+            tools=[get_step, step_done, restart_build, end_call],
         ),
         room=ctx.room,
         # Camera frames from the glasses stream inline with the audio session.
@@ -135,6 +140,7 @@ async def rayneo_assistant(ctx: JobContext) -> None:
     # memory or preferences would key off it here.
     wearer = await ctx.wait_for_participant()
     logger.info("session for user=%s room=%s", wearer.identity, ctx.room.name)
+    build.start()
 
     # No opening greeting on purpose. gemini-3.1-flash-live-preview rejects
     # send_client_content after the first model turn, so the plugin ignores

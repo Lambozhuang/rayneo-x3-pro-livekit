@@ -1,0 +1,22 @@
+# A first build: two bricks flat on a baseplate. One layer, no stacking.
+# Each step is what to pick up, what to tell the wearer, and what the camera
+# should show when the step is done. The agent holds the position in this
+# list; the model sees one step at a time through the tools in src/tools.py.
+
+title = "Two bricks on a baseplate"
+goal = "A blue 1x4 and a white 1x6 lying flat on a 16x16 baseplate, horizontal and parallel, the white one two rows below the blue one with their left ends aligned."
+
+[[steps]]
+part = "blue 1x4 brick"
+say = "Take the blue one-by-four brick and press it flat onto the baseplate, horizontal, somewhere around the middle."
+check = "A blue 1x4 brick lies horizontally on the baseplate, roughly in the middle. Nothing else is on the baseplate."
+
+[[steps]]
+part = "white 1x6 brick"
+say = "Now the white one-by-six. Put it below the blue brick, also horizontal, with two empty rows of studs between them, and line up its left end with the left end of the blue brick."
+check = "A white 1x6 brick lies horizontally below the blue 1x4, parallel to it, exactly two empty rows between them, left ends in the same column. The white brick sticks out two studs further to the right."
+
+[[steps]]
+part = "blue 1x4 brick"
+say = "Last step: take the blue brick off again and put it back vertical, touching the right end of the white brick, so the two bricks make an L."
+check = "The white 1x6 lies horizontally; the blue 1x4 stands vertically at the right end of the white brick, touching it, forming an L shape."

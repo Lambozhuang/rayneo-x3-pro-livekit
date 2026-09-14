@@ -50,8 +50,10 @@ backend/
   api/src/auth.py       AUTH_MODE = dev | static | jwt
   agent/src/agent.py    entrypoint: session start, usage and transcript logging
   agent/src/config.py   env + session model factory, frame encode options
+  agent/src/guide.py    build guide loader and the state of one run
   agent/src/prompts.py  system instructions
-  agent/src/tools.py    @function_tool definitions
+  agent/src/tools.py    @function_tool definitions: get_step, step_done, restart_build, end_call
+  agent/guides/         build guides (TOML), chosen with BUILD_GUIDE
   agent/src/framedump.py, inspect_frame.py   see "Seeing what the model saw"
 android/                Kotlin + Compose app for the glasses
 deploy/
@@ -68,7 +70,7 @@ On a Linux host with Docker:
 deploy/setup.sh lab                 # once: generates a key pair, writes livekit.yaml and backend/.env
 cd backend
 docker compose up -d --build        # livekit-server :7880, api on API_PORT, agent
-docker compose logs -f agent        # "registered worker", then per call "session for user=", "user:", "assistant:", "usage:"
+docker compose logs -f agent        # "registered worker", then per call "session for user=", "build:", "step 1/3", "user:", "assistant:", "usage:"
 docker compose down
 ```
 
@@ -163,7 +165,20 @@ with LiveKit Agents that shape the code:
 - The test framework (`session.run`) is built on `generate_reply()` and cannot drive this
   model. Verification is a real conversation, judged from the agent log.
 
-Tool calls work. `remember_note` is a placeholder that only logs.
+Tool calls work, and on 3.1 they are the only way to reach the model mid-session, so the
+build guide arrives through them.
+
+### Guided build
+
+`BUILD_GUIDE` names a TOML file in `agent/guides`: a goal and an ordered list of steps, each
+with the part, what to tell the wearer, and what the camera should show when the step is
+done. The agent process holds the position (`guide.py`, in `session.userdata`); the model
+sees one step at a time through `get_step`, reports its check with `step_done` (the step
+advances only if the model says the picture matches), and can `restart_build` or
+`end_call`. The log has `build:`, `step n/m start`, `step n/m done|not yet ... attempts=`
+and `build finished` lines with timings, so a run can be scored from the log alone. Tools
+on 3.1 are synchronous: the model waits silently while one runs, so nothing slow belongs
+in them.
 
 ### Video
 

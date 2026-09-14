@@ -49,4 +49,7 @@ services:
     # model was shown land in backend/frames on the host. Gitignored.
     volumes:
       - ./frames:/app/frames
+      # Guides are baked into the image; this mount lets you edit one and
+      # `docker compose restart agent` without a rebuild.
+      - ./agent/guides:/app/guides
     restart: unless-stopped
