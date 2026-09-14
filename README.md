@@ -52,7 +52,7 @@ backend/
   agent/src/config.py   env + session model factory, frame encode options
   agent/src/guide.py    build guide loader and the state of one run
   agent/src/prompts.py  system instructions
-  agent/src/tools.py    @function_tool definitions: get_step, step_done, restart_build, end_call
+  agent/src/tools.py    @function_tool definitions: get_step, step_done, confirm_step, restart_build, end_call
   agent/guides/         build guides (TOML), chosen with BUILD_GUIDE
   agent/src/framedump.py, inspect_frame.py   see "Seeing what the model saw"
 android/                Kotlin + Compose app for the glasses
@@ -173,12 +173,14 @@ build guide arrives through them.
 `BUILD_GUIDE` names a TOML file in `agent/guides`: a goal and an ordered list of steps, each
 with the part, what to tell the wearer, and what the camera should show when the step is
 done. The agent process holds the position (`guide.py`, in `session.userdata`); the model
-sees one step at a time through `get_step`, reports its check with `step_done` (the step
-advances only if the model says the picture matches), and can `restart_build` or
-`end_call`. The log has `build:`, `step n/m start`, `step n/m done|not yet ... attempts=`
-and `build finished` lines with timings, so a run can be scored from the log alone. Tools
-on 3.1 are synchronous: the model waits silently while one runs, so nothing slow belongs
-in them.
+sees one step at a time through `get_step`, and can `restart_build` or `end_call`. Checking
+is two calls: `step_done` takes the model's description of the baseplate before it knows
+what is expected (given the expectation first, it recited it back as its observation), then
+returns the step's check, and `confirm_step` records the verdict; the step advances only on
+a match. The log has `build:`, `step n/m start`, `step n/m observed:`, `step n/m done|not
+yet ... attempts=` and `build finished` lines with timings, so a run can be scored from the
+log next to the dumped frames. Tools on 3.1 are synchronous: the model waits silently while
+one runs, so nothing slow belongs in them.
 
 ### Video
 

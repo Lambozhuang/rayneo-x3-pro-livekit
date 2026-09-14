@@ -28,17 +28,29 @@ async def get_step(context: RunContext[Build]) -> str:
 
 
 @function_tool()
-async def step_done(context: RunContext[Build], observation: str, matches: bool) -> str:
-    """Report your check of the current step after the wearer says it is done.
-
-    Look at the camera image first. Describe what you actually see and say
-    whether it matches the step's check. The step only advances if it matches.
+async def step_done(context: RunContext[Build], observation: str) -> str:
+    """Call when the wearer says the step is done. Look at the camera image
+    first and describe what is on the baseplate. The result tells you what the
+    step requires so you can compare.
 
     Args:
-        observation: What you see on the baseplate right now, in one sentence.
-        matches: True if what you see matches the step's check, False otherwise.
+        observation: What you see right now: each brick's colour, size and
+            orientation, and where it sits relative to the other bricks (which
+            ends line up, how many rows apart, left or right, touching or not).
     """
-    return context.userdata.done(observation, matches)
+    return context.userdata.observe(observation)
+
+
+@function_tool()
+async def confirm_step(context: RunContext[Build], matches: bool, differences: str) -> str:
+    """Give your verdict after step_done showed you what the step requires.
+    The step only advances if it matches.
+
+    Args:
+        matches: True only if what you see satisfies every point of the requirement.
+        differences: What differs, or an empty string if nothing does.
+    """
+    return context.userdata.confirm(matches, differences)
 
 
 @function_tool()

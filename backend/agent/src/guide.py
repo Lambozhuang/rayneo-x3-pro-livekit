@@ -60,7 +60,8 @@ class Build:
     guide: Guide
     run: str
     step: int = 0  # index of the current step; len(steps) once finished
-    attempts: int = 0  # step_done calls on the current step
+    attempts: int = 0  # confirm_step calls on the current step
+    observed: bool = False  # step_done has been called since the step started
     started: float = field(default_factory=time.monotonic)
     step_started: float = field(default_factory=time.monotonic)
 
@@ -69,14 +70,25 @@ class Build:
         return self.step >= len(self.guide.steps)
 
     def describe(self) -> str:
-        """The current step, as the model should hear about it."""
+        """The current step, as the model should hear about it. The check is
+        withheld on purpose: given the expected picture up front, the model
+        recited it back as its observation instead of looking."""
         if self.finished:
             return "The build is finished. There are no more steps."
         s = self.guide.steps[self.step]
+        return f"Step {self.step + 1} of {len(self.guide.steps)}. Part: {s.part}. Tell the wearer: {s.say}"
+
+    def observe(self, observation: str) -> str:
+        """Record what the model saw before it knew what to expect, then hand
+        it the check to compare against."""
+        if self.finished:
+            return self.describe()
+        self.observed = True
+        logger.info("step %d/%d observed: %s", self.step + 1, len(self.guide.steps), observation)
         return (
-            f"Step {self.step + 1} of {len(self.guide.steps)}. "
-            f"Part: {s.part}. Tell the wearer: {s.say} "
-            f"When done, the camera should show: {s.check}"
+            f"This step requires: {self.guide.steps[self.step].check} "
+            "Compare that with what you saw, point by point. If your observation did not "
+            "cover a point, look at the camera again for it. Then call confirm_step."
         )
 
     def start(self) -> None:
@@ -85,10 +97,12 @@ class Build:
         )
         self._log_step_start()
 
-    def done(self, observation: str, matches: bool) -> str:
-        """Record the model's judgement of the current step; advance if it passed."""
+    def confirm(self, matches: bool, differences: str) -> str:
+        """Record the model's verdict on the current step; advance if it passed."""
         if self.finished:
             return self.describe()
+        if not self.observed:
+            return "Call step_done with what you see first."
         self.attempts += 1
         n, total = self.step + 1, len(self.guide.steps)
         logger.info(
@@ -98,15 +112,14 @@ class Build:
             "done" if matches else "not yet",
             time.monotonic() - self.step_started,
             self.attempts,
-            observation,
+            differences or "-",
         )
         if not matches:
-            return (
-                "Not recorded as done. Tell the wearer what differs from the check, "
-                "let them fix it, then look again."
-            )
+            self.observed = False
+            return "Not recorded as done. Tell the wearer what to fix; when they say so, look again."
         self.step += 1
         self.attempts = 0
+        self.observed = False
         self.step_started = time.monotonic()
         if self.finished:
             logger.info(
@@ -120,6 +133,7 @@ class Build:
         logger.info("build restarted: run=%s at step %d", self.run, self.step + 1)
         self.step = 0
         self.attempts = 0
+        self.observed = False
         self.started = self.step_started = time.monotonic()
         self._log_step_start()
         return "Starting over. " + self.describe()
