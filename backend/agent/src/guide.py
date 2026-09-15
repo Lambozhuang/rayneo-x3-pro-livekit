@@ -1,20 +1,19 @@
 """The build guide and the state of one run through it.
 
-A guide is a TOML file (see ../guides): a title, a one-line goal, and an
-ordered list of steps. Each step names the part to pick up, what to tell the
-wearer, which bricks the baseplate must hold when the step is done, and how
-they relate. This process holds the position in that list; the model only
-ever sees the current step, through the tools in tools.py. Progress therefore
-cannot drift with the conversation, and the log carries the timing of every
-step.
+A guide is a TOML file (see ../guides): a title and an ordered list of steps.
+Each step names the part to pick up, what to tell the wearer, and what the
+baseplate must hold when the step is done. This process holds the position in
+that list; the model only ever sees the current step, through the tools in
+tools.py. Progress therefore cannot drift with the conversation, and the log
+carries the timing of every step.
 
-Checking a step is split in two. The model first reports the bricks it sees,
-each with counted studs; colour, size and orientation are compared here
-against the step's `plate`. Only if they agree is the model told the step's
-`check` (positions and alignment) and asked for a verdict. Handing the model
-the expected picture up front made it recite the picture back as its
-observation; asking for prose made it skip counting and fill in what it had
-just told the wearer to do.
+The model never judges a step. It reports the bricks it sees, each with
+counted studs and how it sits relative to another brick, and the report is
+compared here against the step's `plate` and `relations`. Earlier versions
+asked the model for a verdict or for prose: given the expected picture it
+recited it back, asked for prose it skipped counting and wrote down what it
+had just told the wearer to do, and asked for a second confirming call it
+never made and announced the build complete on its own.
 """
 
 from __future__ import annotations
@@ -45,18 +44,43 @@ class Brick:
 
 
 @dataclass(frozen=True)
+class Placement:
+    """How the model says a brick sits relative to another one."""
+
+    relative_to: str  # colour of the reference brick, "none" if there is none
+    side: str  # above / below / left / right / none
+    gap: int  # empty rows or columns between them; 0 when touching
+    aligned: str  # which ends line up: left / right / top / bottom / both / none
+
+    def __str__(self) -> str:
+        if self.relative_to == "none":
+            return "alone"
+        return f"{self.side} the {self.relative_to}, gap {self.gap}, {self.aligned} ends aligned"
+
+
+@dataclass(frozen=True)
+class Relation:
+    """What the guide requires of one brick relative to another."""
+
+    brick: str  # colour of the brick being placed
+    to: str  # colour of the reference brick
+    side: tuple[str, ...]  # any of these
+    gap: int
+    aligned: tuple[str, ...]  # any of these
+
+
+@dataclass(frozen=True)
 class Step:
     part: str
     say: str
-    check: str
     plate: tuple[Brick, ...]
+    relations: tuple[Relation, ...]
 
 
 @dataclass(frozen=True)
 class Guide:
     name: str
     title: str
-    goal: str
     steps: tuple[Step, ...]
 
 
@@ -72,27 +96,60 @@ def load_guide(path: str) -> Guide:
         Step(
             part=s["part"],
             say=s["say"],
-            check=s["check"],
             plate=tuple(Brick(b["color"], b["size"], b["orientation"]) for b in s["plate"]),
+            relations=tuple(
+                Relation(r["brick"], r["to"], tuple(r["side"]), int(r["gap"]), tuple(r["aligned"]))
+                for r in s.get("relations", [])
+            ),
         )
         for s in data["steps"]
     )
     if not steps:
         raise ValueError(f"{p}: guide has no steps")
-    return Guide(name=p.stem, title=data["title"], goal=data["goal"], steps=steps)
+    return Guide(name=p.stem, title=data["title"], steps=steps)
 
 
-def plate_diff(expected: tuple[Brick, ...], seen: list[Brick]) -> str:
-    """Empty if the same bricks are on the plate, else what is missing or extra."""
-    want, have = Counter(expected), Counter(seen)
-    missing = list((want - have).elements())
-    extra = list((have - want).elements())
-    parts = []
-    if missing:
-        parts.append("missing: " + ", ".join(map(str, missing)))
-    if extra:
-        parts.append("not part of this step: " + ", ".join(map(str, extra)))
-    return "; ".join(parts)
+def _same_color(a: str, b: str) -> bool:
+    a, b = a.lower(), b.lower()
+    return a == b or a in b or b in a
+
+
+def judge(step: Step, bricks: list[Brick], placements: list[Placement]) -> str:
+    """Empty if the report satisfies the step, else what is wrong, in words
+    the model can pass on to the wearer."""
+    want, have = Counter(step.plate), Counter(bricks)
+    problems = []
+    for b in (want - have).elements():
+        problems.append(f"no {b} brick on the baseplate")
+    for b in (have - want).elements():
+        problems.append(f"the {b} brick is not part of this step")
+    if problems:
+        return "; ".join(problems)
+    for rel in step.relations:
+        p = next(
+            (p for b, p in zip(bricks, placements) if _same_color(b.color, rel.brick)), None
+        )
+        if p is None:
+            continue  # cannot happen once the plate matched
+        if not _same_color(p.relative_to, rel.to):
+            problems.append(f"describe the {rel.brick} brick relative to the {rel.to} brick")
+            continue
+        if p.side not in rel.side:
+            problems.append(
+                f"the {rel.brick} brick is {p.side} the {rel.to} brick; "
+                f"it should be {' or '.join(rel.side)} it"
+            )
+        if p.gap != rel.gap:
+            problems.append(
+                f"{p.gap} empty rows between the {rel.brick} and the {rel.to} brick; "
+                f"there should be {rel.gap}"
+            )
+        if p.aligned not in rel.aligned:
+            problems.append(
+                f"the {rel.brick} brick has its {p.aligned} end lined up; "
+                f"its {' or '.join(rel.aligned)} end should line up with the {rel.to} brick"
+            )
+    return "; ".join(problems)
 
 
 @dataclass
@@ -107,8 +164,7 @@ class Build:
     guide: Guide
     run: str
     step: int = 0  # index of the current step; len(steps) once finished
-    attempts: int = 0  # checks (step_done) on the current step
-    observed: bool = False  # the plate matched and confirm_step is pending
+    attempts: int = 0  # step_done calls on the current step
     started: float = field(default_factory=time.monotonic)
     step_started: float = field(default_factory=time.monotonic)
 
@@ -116,18 +172,22 @@ class Build:
     def finished(self) -> bool:
         return self.step >= len(self.guide.steps)
 
+    def status(self) -> str:
+        if self.finished:
+            return f"All {len(self.guide.steps)} steps complete."
+        return f"Step {self.step + 1} of {len(self.guide.steps)} is not complete."
+
     def describe(self) -> str:
         """The current step, as the model should hear about it. What the
-        finished step looks like is withheld until the model has reported
-        what it sees."""
+        finished step must look like stays here; the model reports and the
+        code judges."""
         if self.finished:
             return "The build is finished. There are no more steps."
         s = self.guide.steps[self.step]
-        return f"Step {self.step + 1} of {len(self.guide.steps)}. Part: {s.part}. Tell the wearer: {s.say}"
+        return f"{self.status()} Part: {s.part}. Tell the wearer: {s.say}"
 
-    def observe(self, bricks: list[Brick], positions: list[str]) -> str:
-        """Compare the reported bricks with the step's plate. On a match, hand
-        the model the relations to judge; otherwise the step stays open."""
+    def observe(self, bricks: list[Brick], placements: list[Placement]) -> str:
+        """Judge the reported bricks against the current step and advance on a pass."""
         if self.finished:
             return self.describe()
         s = self.guide.steps[self.step]
@@ -137,51 +197,22 @@ class Build:
             "step %d/%d observed: %s",
             n,
             total,
-            "; ".join(f"{b} ({p})" for b, p in zip(bricks, positions)) or "nothing",
+            "; ".join(f"{b} ({p})" for b, p in zip(bricks, placements)) or "nothing",
         )
-        diff = plate_diff(s.plate, bricks)
-        if diff:
+        problems = judge(s, bricks, placements)
+        if problems:
             logger.info(
                 "step %d/%d not yet after %.0fs attempts=%d: %s",
-                n, total, time.monotonic() - self.step_started, self.attempts, diff,
+                n, total, time.monotonic() - self.step_started, self.attempts, problems,
             )
             return (
-                f"Not done. The baseplate should hold: {', '.join(map(str, s.plate))}. "
-                f"You reported {diff}. Tell the wearer what to change; when they say so, "
-                "look again and call step_done."
+                f"Step {n} is not complete: {problems}. Tell the wearer what to change; "
+                "when they say it is done, look again and call step_done."
             )
-        self.observed = True
-        return (
-            f"The right bricks are there. This step also requires: {s.check} Compare that "
-            "with what you see, point by point; look at the camera again for anything you "
-            "have not checked. Then call confirm_step."
-        )
-
-    def start(self) -> None:
         logger.info(
-            "build: run=%s guide=%s steps=%d", self.run, self.guide.name, len(self.guide.steps)
+            "step %d/%d done after %.0fs attempts=%d",
+            n, total, time.monotonic() - self.step_started, self.attempts,
         )
-        self._log_step_start()
-
-    def confirm(self, matches: bool, differences: str) -> str:
-        """Record the model's verdict on the relations; advance if it passed."""
-        if self.finished:
-            return self.describe()
-        if not self.observed:
-            return "Call step_done with the bricks you see first."
-        n, total = self.step + 1, len(self.guide.steps)
-        logger.info(
-            "step %d/%d %s after %.0fs attempts=%d: %s",
-            n,
-            total,
-            "done" if matches else "not yet",
-            time.monotonic() - self.step_started,
-            self.attempts,
-            differences or "-",
-        )
-        self.observed = False
-        if not matches:
-            return "Not recorded as done. Tell the wearer what to fix; when they say so, look again."
         self.step += 1
         self.attempts = 0
         self.step_started = time.monotonic()
@@ -189,15 +220,20 @@ class Build:
             logger.info(
                 "build finished: run=%s in %.0fs", self.run, time.monotonic() - self.started
             )
-            return "That was the last step. The build is complete; congratulate the wearer."
+            return f"Step {n} complete. That was the last step: the build is finished, congratulate the wearer."
         self._log_step_start()
-        return "Recorded. Next: " + self.describe()
+        return f"Step {n} complete. Next: {self.describe()}"
+
+    def start(self) -> None:
+        logger.info(
+            "build: run=%s guide=%s steps=%d", self.run, self.guide.name, len(self.guide.steps)
+        )
+        self._log_step_start()
 
     def restart(self) -> str:
         logger.info("build restarted: run=%s at step %d", self.run, self.step + 1)
         self.step = 0
         self.attempts = 0
-        self.observed = False
         self.started = self.step_started = time.monotonic()
         self._log_step_start()
         return "Starting over. " + self.describe()

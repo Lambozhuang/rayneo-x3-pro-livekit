@@ -15,7 +15,7 @@ from typing import Literal
 from livekit.agents import RunContext, function_tool, get_job_context
 from pydantic import BaseModel, Field
 
-from guide import Brick, Build
+from guide import Brick, Build, Placement
 
 logger = logging.getLogger("rayneo-agent.tools")
 
@@ -29,17 +29,28 @@ class SeenBrick(BaseModel):
     orientation: Literal["horizontal", "vertical"] = Field(
         description="Direction of the long side from the wearer's point of view."
     )
-    position: str = Field(
-        description="Where it sits relative to the other bricks: rows or columns apart, "
-        "which ends line up, touching or not."
+    relative_to: str = Field(
+        description="Colour of the other brick you measured this one against, "
+        "or none if it is the only brick on the baseplate."
+    )
+    side: Literal["above", "below", "left", "right", "none"] = Field(
+        description="Which side of that other brick this one is on, from the wearer's point of view."
+    )
+    gap: int = Field(
+        description="Empty rows or columns of studs between this brick and that other "
+        "brick, counted; 0 if they touch."
+    )
+    aligned: Literal["left", "right", "top", "bottom", "both", "none"] = Field(
+        description="Which ends of the two bricks line up in the same row or column, "
+        "if any."
     )
 
 
 @function_tool()
 async def get_step(context: RunContext[Build]) -> str:
-    """Get the current build step: the part, what to tell the wearer, and what
-    the finished step looks like. Call this before giving any instruction, and
-    whenever the wearer asks what to do or what comes next.
+    """Get the current build step: the part and what to tell the wearer. Call
+    this before giving any instruction, whenever the wearer asks what to do
+    or what comes next, and whenever you are unsure which step you are on.
     """
     return context.userdata.describe()
 
@@ -47,28 +58,17 @@ async def get_step(context: RunContext[Build]) -> str:
 @function_tool()
 async def step_done(context: RunContext[Build], bricks: list[SeenBrick]) -> str:
     """Call when the wearer says the step is done. Look at the camera image
-    and list every brick on the baseplate with its studs counted. The result
-    tells you whether the right bricks are there and what else to check.
+    and list every brick on the baseplate with its studs counted and its
+    position relative to another brick. The result says whether the step is
+    complete and, if not, what is off.
 
     Args:
         bricks: Every brick currently on the baseplate, one entry each.
     """
     return context.userdata.observe(
         [Brick.seen(b.color, b.studs_wide, b.studs_long, b.orientation) for b in bricks],
-        [b.position for b in bricks],
+        [Placement(b.relative_to.strip().lower(), b.side, b.gap, b.aligned) for b in bricks],
     )
-
-
-@function_tool()
-async def confirm_step(context: RunContext[Build], matches: bool, differences: str) -> str:
-    """Give your verdict after step_done confirmed the bricks and told you what
-    else the step requires. The step only advances if it matches.
-
-    Args:
-        matches: True only if what you see satisfies every point of the requirement.
-        differences: What differs, or an empty string if nothing does.
-    """
-    return context.userdata.confirm(matches, differences)
 
 
 @function_tool()
