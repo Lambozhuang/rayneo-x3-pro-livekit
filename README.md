@@ -60,6 +60,7 @@ deploy/
   setup.sh              first-time setup on a Linux host: key pair, livekit.yaml, .env
   livekit.lab.yaml      livekit-server config for a private LAN
   glasses.ps1           launch/stop the app on the glasses over adb
+  stop.ps1              end a session: stop the app, then compose down on the lab PC
 ```
 
 ## Running the backend
