@@ -10,12 +10,29 @@ microseconds, except end_call, which waits for the goodbye to play out.
 """
 
 import logging
+from typing import Literal
 
 from livekit.agents import RunContext, function_tool, get_job_context
+from pydantic import BaseModel, Field
 
-from guide import Build
+from guide import Brick, Build
 
 logger = logging.getLogger("rayneo-agent.tools")
+
+
+class SeenBrick(BaseModel):
+    """One brick on the baseplate, as counted in the camera image."""
+
+    color: str = Field(description="The colour as you see it, e.g. blue, white, tan, red.")
+    studs_wide: int = Field(description="Studs along the short side, counted one by one.")
+    studs_long: int = Field(description="Studs along the long side, counted one by one.")
+    orientation: Literal["horizontal", "vertical"] = Field(
+        description="Direction of the long side from the wearer's point of view."
+    )
+    position: str = Field(
+        description="Where it sits relative to the other bricks: rows or columns apart, "
+        "which ends line up, touching or not."
+    )
 
 
 @function_tool()
@@ -28,23 +45,24 @@ async def get_step(context: RunContext[Build]) -> str:
 
 
 @function_tool()
-async def step_done(context: RunContext[Build], observation: str) -> str:
+async def step_done(context: RunContext[Build], bricks: list[SeenBrick]) -> str:
     """Call when the wearer says the step is done. Look at the camera image
-    first and describe what is on the baseplate. The result tells you what the
-    step requires so you can compare.
+    and list every brick on the baseplate with its studs counted. The result
+    tells you whether the right bricks are there and what else to check.
 
     Args:
-        observation: What you see right now: each brick's colour, size and
-            orientation, and where it sits relative to the other bricks (which
-            ends line up, how many rows apart, left or right, touching or not).
+        bricks: Every brick currently on the baseplate, one entry each.
     """
-    return context.userdata.observe(observation)
+    return context.userdata.observe(
+        [Brick.seen(b.color, b.studs_wide, b.studs_long, b.orientation) for b in bricks],
+        [b.position for b in bricks],
+    )
 
 
 @function_tool()
 async def confirm_step(context: RunContext[Build], matches: bool, differences: str) -> str:
-    """Give your verdict after step_done showed you what the step requires.
-    The step only advances if it matches.
+    """Give your verdict after step_done confirmed the bricks and told you what
+    else the step requires. The step only advances if it matches.
 
     Args:
         matches: True only if what you see satisfies every point of the requirement.

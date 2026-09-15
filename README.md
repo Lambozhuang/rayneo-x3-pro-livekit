@@ -171,16 +171,19 @@ build guide arrives through them.
 ### Guided build
 
 `BUILD_GUIDE` names a TOML file in `agent/guides`: a goal and an ordered list of steps, each
-with the part, what to tell the wearer, and what the camera should show when the step is
-done. The agent process holds the position (`guide.py`, in `session.userdata`); the model
-sees one step at a time through `get_step`, and can `restart_build` or `end_call`. Checking
-is two calls: `step_done` takes the model's description of the baseplate before it knows
-what is expected (given the expectation first, it recited it back as its observation), then
-returns the step's check, and `confirm_step` records the verdict; the step advances only on
-a match. The log has `build:`, `step n/m start`, `step n/m observed:`, `step n/m done|not
-yet ... attempts=` and `build finished` lines with timings, so a run can be scored from the
-log next to the dumped frames. Tools on 3.1 are synchronous: the model waits silently while
-one runs, so nothing slow belongs in them.
+with the part, what to tell the wearer, the bricks the baseplate must hold afterwards
+(`plate`: colour, size, orientation) and how they relate (`check`). The agent process holds
+the position (`guide.py`, in `session.userdata`); the model sees one step at a time through
+`get_step`, and can `restart_build` or `end_call`. Checking is two calls. `step_done` takes
+a list of the bricks the model sees, each with counted studs, and compares colour, size and
+orientation against `plate` in code; only on a match is the model told `check` and asked
+for a verdict with `confirm_step`. The split exists because the model, given the expected
+picture up front, recited it back as its observation, and asked for prose it skipped
+counting and reported what it had just told the wearer to do. The log has `build:`, `step
+n/m start`, `step n/m observed:`, `step n/m done|not yet ... attempts=` and `build
+finished` lines with timings, so a run can be scored from the log next to the dumped
+frames. Tools on 3.1 are synchronous: the model waits silently while one runs, so nothing
+slow belongs in them.
 
 ### Video
 
