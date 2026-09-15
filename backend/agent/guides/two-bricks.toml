@@ -1,34 +1,18 @@
 # A first build: two bricks flat on a baseplate. One layer, no stacking.
-# Each step is what to pick up, what to tell the wearer, and what the baseplate
-# must hold when the step is done: `plate` lists the bricks (colour, size,
-# orientation), `relations` how a brick sits relative to another (which side,
-# empty rows or columns between them, which ends line up; lists mean any of
-# these is accepted). Both are compared in code against what the model
-# reports. The agent holds the position in this list; the model sees one step
-# at a time through the tools in src/tools.py.
+# Each step is what to pick up and what to tell the wearer. The agent holds the
+# position in this list; the model sees one step at a time through the tools in
+# src/tools.py and judges from the camera when a step is done.
 
 title = "Two bricks on a baseplate"
 
 [[steps]]
 part = "blue 1x4 brick"
 say = "Take the blue one-by-four brick and press it flat onto the baseplate, horizontal, somewhere around the middle."
-plate = [{ color = "blue", size = "1x4", orientation = "horizontal" }]
-relations = []
 
 [[steps]]
 part = "white 1x6 brick"
 say = "Now the white one-by-six. Put it below the blue brick, also horizontal, with two empty rows of studs between them, and line up its left end with the left end of the blue brick."
-plate = [
-  { color = "blue", size = "1x4", orientation = "horizontal" },
-  { color = "white", size = "1x6", orientation = "horizontal" },
-]
-relations = [{ brick = "white", to = "blue", side = ["below"], gap = 2, aligned = ["left"] }]
 
 [[steps]]
 part = "blue 1x4 brick"
 say = "Last step: take the blue brick off again and put it back vertical, touching the right end of the white brick and pointing up, so the two bricks make an L."
-plate = [
-  { color = "white", size = "1x6", orientation = "horizontal" },
-  { color = "blue", size = "1x4", orientation = "vertical" },
-]
-relations = [{ brick = "blue", to = "white", side = ["above", "right"], gap = 0, aligned = ["right"] }]

@@ -171,21 +171,19 @@ build guide arrives through them.
 ### Guided build
 
 `BUILD_GUIDE` names a TOML file in `agent/guides`: a title and an ordered list of steps, each
-with the part, what to tell the wearer, the bricks the baseplate must hold afterwards
-(`plate`: colour, size, orientation) and how they sit relative to each other (`relations`:
-side, empty rows between, which ends line up). The agent process holds the position
+just the part to pick up and what to tell the wearer. The agent process holds the position
 (`guide.py`, in `session.userdata`); the model sees one step at a time through `get_step`,
-and can `restart_build` or `end_call`. The model never judges a step: `step_done` takes the
-bricks it sees, each with counted studs and a position relative to another brick, and the
-code compares them with the step; the reply says "complete" or what is off. The prompt
-carries only the title, so the model cannot narrate steps from memory. Earlier versions let
-the model judge or describe in prose: given the expected picture it recited it back, asked
-for prose it wrote down what it had told the wearer to do, and asked for a second confirming
-call it never made and declared the build finished on its own. The log has `build:`, `step
-n/m start`, `step n/m observed:`, `step n/m done|not yet ... attempts=` and `build finished`
-lines with timings, so a run can be scored from the log next to the dumped frames. Tools on
-3.1 are synchronous: the model waits silently while one runs, so nothing slow belongs in
-them.
+judges from the camera when the step is built and calls `step_done` to advance, and can
+`restart_build` or `end_call`. The prompt carries only the title, so the model cannot narrate
+steps from memory. The code tracks progress but does not check the bricks: hand-written
+geometry (an earlier version compared colour, size, orientation and relative position in
+code) does not generalise past a flat 2D layout, and the real cure for the model over-declaring
+completion is to ground it against a reference image, not to encode every shape. That is the
+next step: a stronger full-duplex model for the dialogue and a separate photo model that sees
+one fresh frame against a reference (see TODO). The log has `build:`, `step n/m start`, `step
+n/m done` and `build finished` lines with timings, so a run can be scored from the log next to
+the dumped frames. Tools on 3.1 are synchronous: the model waits silently while one runs, so
+nothing slow belongs in them.
 
 ### Video
 
