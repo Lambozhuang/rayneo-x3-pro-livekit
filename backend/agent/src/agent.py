@@ -18,11 +18,12 @@ from livekit.agents import (
     AgentSession,
     ConversationItemAddedEvent,
     JobContext,
+    MetricsCollectedEvent,
     SessionUsageUpdatedEvent,
     room_io,
 )
 from livekit.agents.llm import ChatMessage
-from livekit.agents.metrics import AgentMetrics, RealtimeModelMetrics
+from livekit.agents.metrics import RealtimeModelMetrics
 
 from config import build_session_model, require_env
 from framedump import DumpingSampler
@@ -103,8 +104,12 @@ async def rayneo_assistant(ctx: JobContext) -> None:
     # a generation to its first audio (ttft), the whole generation (duration),
     # and this turn's tokens, image tokens spelled out because the cumulative
     # usage line above hides how many frames one turn carried.
-    @session.llm.on("metrics_collected")
-    def _log_model(m: AgentMetrics) -> None:
+    # (The session-level event is marked deprecated in favour of per-plugin
+    # ones, but a RealtimeModel has no event hook of its own; the SDK logs one
+    # warning at start-up and keeps delivering.)
+    @session.on("metrics_collected")
+    def _log_model(ev: MetricsCollectedEvent) -> None:
+        m = ev.metrics
         if isinstance(m, RealtimeModelMetrics):
             logger.info(
                 "model: ttft=%.2fs duration=%.1fs in=%d (image %d) out=%d",
