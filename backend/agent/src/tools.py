@@ -18,6 +18,12 @@ from guide import Build
 logger = logging.getLogger("rayneo-agent.tools")
 
 
+async def publish_build(build: Build) -> None:
+    """Push the run's position to the glasses as participant attributes; see
+    Build.attributes. Called at start and after every tool that moves it."""
+    await get_job_context().room.local_participant.set_attributes(build.attributes())
+
+
 @function_tool()
 async def get_step(context: RunContext[Build]) -> str:
     """Get the current build step: the part and what to tell the wearer. Call
@@ -32,14 +38,18 @@ async def step_done(context: RunContext[Build]) -> str:
     """Move on to the next step. Call this only once you have looked at the
     camera and are satisfied the current step is really built as instructed.
     The result is the next step, or that the build is finished."""
-    return context.userdata.complete_step()
+    result = context.userdata.complete_step()
+    await publish_build(context.userdata)
+    return result
 
 
 @function_tool()
 async def restart_build(context: RunContext[Build]) -> str:
     """Start the build over from the first step. Only when the wearer asks to
     start again."""
-    return context.userdata.restart()
+    result = context.userdata.restart()
+    await publish_build(context.userdata)
+    return result
 
 
 @function_tool()

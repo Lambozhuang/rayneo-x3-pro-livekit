@@ -8,7 +8,7 @@
       `livekit-android-camerax` 模块，`capturer.getCameraX()` → `cameraControl.setExposureCompensationIndex`。
       先看中性色砖 / 拿近点是否已经够用
 - [ ] 实验结束后 `glasses.ps1 -RestoreSleep`（启动时会把眼镜的摘下休眠关掉，不然摘下一分钟就断 Wi-Fi）
-- [ ] 屏幕上放什么待定。实验测的是网络质量对语音交互的影响，屏幕信息越多用户越不依赖语音，倾向只放最少的状态
+- [ ] 屏幕现在有状态、步骤列表、双方字幕。实验测的是网络质量对语音交互的影响，屏幕信息越多用户越不依赖语音，正式实验前再定去掉哪些
 
 ## Agent / 模型
 

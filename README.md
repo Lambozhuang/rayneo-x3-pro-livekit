@@ -118,7 +118,9 @@ The app stores the token endpoint and credential in SharedPreferences; `glasses.
 passes them as intent extras (`-e token_endpoint ... -e credential ...`), and the connect
 screen has the same two fields. The temple touchpad is a touchscreen to Android: tap
 starts the call, double tap ends it, swipes are logged (`adb logcat -s rayneo-input`) but
-unused. The bottom of the screen shows the last three turns, the wearer's in green: those are
+unused. Under the status the screen lists the build's steps by name with the current one
+highlighted; the agent publishes them as participant attributes (`guide.py`, `BuildSteps.kt`).
+The bottom of the screen shows the last three turns, the wearer's in green: those are
 the model's transcript of what it heard, not a local one, so a word the network dropped is
 missing there too. The mic is switched on only once the agent reports that it is listening, and the
 banner says "Ready" at that moment; before it nothing is heard, so the wearer waits for the
@@ -178,7 +180,8 @@ build guide arrives through them.
 ### Guided build
 
 `BUILD_GUIDE` names a TOML file in `agent/guides`: a title and an ordered list of steps, each
-just the part to pick up and what to tell the wearer. The agent process holds the position
+just the part to pick up, what to tell the wearer, and an optional one-line `name` for the list
+on the glasses. The agent process holds the position
 (`guide.py`, in `session.userdata`); the model sees one step at a time through `get_step`,
 judges from the camera when the step is built and calls `step_done` to advance, and can
 `restart_build` or `end_call`. The prompt carries only the title, so the model cannot narrate

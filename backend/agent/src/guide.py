@@ -29,6 +29,7 @@ logger = logging.getLogger("rayneo-agent.build")
 class Step:
     part: str
     say: str
+    name: str  # one line for the list on the glasses; defaults to `part`
 
 
 @dataclass(frozen=True)
@@ -46,7 +47,7 @@ def load_guide(path: str) -> Guide:
         p = Path(__file__).resolve().parent.parent / p
     with p.open("rb") as f:
         data = tomllib.load(f)
-    steps = tuple(Step(part=s["part"], say=s["say"]) for s in data["steps"])
+    steps = tuple(Step(part=s["part"], say=s["say"], name=s.get("name", s["part"])) for s in data["steps"])
     if not steps:
         raise ValueError(f"{p}: guide has no steps")
     return Guide(name=p.stem, title=data["title"], steps=steps)
@@ -75,6 +76,18 @@ class Build:
         if self.finished:
             return f"All {len(self.guide.steps)} steps complete."
         return f"Step {self.step + 1} of {len(self.guide.steps)}."
+
+    def attributes(self) -> dict[str, str]:
+        """The run as participant attributes, for the list on the glasses:
+        every step's name, newline-separated, and the index of the current
+        one (equal to the count once finished). Attributes ride the signalling
+        channel and are re-sent after a reconnect, which a data message is
+        not, so a wearer who dropped out for a while still sees the right step."""
+        return {
+            "rayneo.build.title": self.guide.title,
+            "rayneo.build.steps": "\n".join(s.name for s in self.guide.steps),
+            "rayneo.build.step": str(self.step),
+        }
 
     def describe(self) -> str:
         """The current step, as the model should hear about it."""

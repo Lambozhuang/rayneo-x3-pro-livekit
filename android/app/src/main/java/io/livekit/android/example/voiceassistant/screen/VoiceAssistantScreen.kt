@@ -3,6 +3,7 @@ package io.livekit.android.example.voiceassistant.screen
 import android.widget.Toast
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -40,10 +41,12 @@ import io.livekit.android.room.track.LocalVideoTrack
 import io.livekit.android.example.voiceassistant.rememberCanEnableCamera
 import io.livekit.android.example.voiceassistant.rememberCanEnableMic
 import io.livekit.android.example.voiceassistant.requirePermissions
+import io.livekit.android.example.voiceassistant.ui.BuildSteps
 import io.livekit.android.example.voiceassistant.ui.Captions
 import io.livekit.android.example.voiceassistant.ui.Eyes
 import io.livekit.android.example.voiceassistant.ui.Phase
 import io.livekit.android.example.voiceassistant.ui.PhaseBanner
+import io.livekit.android.example.voiceassistant.ui.rememberBuildProgress
 import io.livekit.android.example.voiceassistant.ui.rememberEngineState
 import io.livekit.android.example.voiceassistant.viewmodel.VoiceAssistantViewModel
 import kotlinx.serialization.Serializable
@@ -74,7 +77,8 @@ fun VoiceAssistantScreen(
  * chat box, control bar, screenshare and camera-flip are gone, and what is
  * left is what a wearer actually needs while talking:
  *
- *   top-left      who has the floor (you / listening / thinking / speaking)
+ *   top-left      who has the floor (you / listening / thinking / speaking),
+ *                 then the build's steps with the current one highlighted
  *   top-right     camera self-preview, the only proof capture is running
  *   bottom        the last three turns, what the model heard in green
  *
@@ -202,6 +206,7 @@ fun VoiceAssistant(
             if (agent.agentParticipant != null) sawAgent = true
         }
         val engineState by rememberEngineState(room)
+        val buildProgress by rememberBuildProgress(agent.agentParticipant)
         val phase = Phase.of(agent, wearerSpeaking, session, engineState, sawAgent, localMedia.isMicrophoneEnabled)
 
         // Both sides. The agent's lines are its own transcript; the wearer's
@@ -216,13 +221,31 @@ fun VoiceAssistant(
 
         Eyes {
             Box(modifier = modifier) {
-                PhaseBanner(
-                    phase = phase,
-                    agent = agent,
-                    modifier = Modifier
-                        .align(Alignment.TopStart)
-                        .padding(top = 4.dp)
-                )
+                // Top to bottom: who has the floor, where the build stands,
+                // and whatever is left is caption space, which the newest
+                // turn fills from the bottom up (see Captions). The step list
+                // keeps to the left two thirds so it clears the preview.
+                Column(modifier = Modifier.fillMaxSize()) {
+                    PhaseBanner(
+                        phase = phase,
+                        agent = agent,
+                        modifier = Modifier.padding(top = 4.dp)
+                    )
+                    BuildSteps(
+                        progress = buildProgress,
+                        modifier = Modifier
+                            .fillMaxWidth(0.66f)
+                            .padding(top = 12.dp)
+                    )
+                    Captions(
+                        messages = sessionMessages.messages,
+                        wearerIdentity = wearerIdentity,
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .weight(1f)
+                            .padding(top = 12.dp, bottom = 4.dp)
+                    )
+                }
 
                 // Self-preview. Redundant on glasses — the wearer is looking at
                 // the scene directly — but it is the only on-device confirmation
@@ -240,18 +263,6 @@ fun VoiceAssistant(
                         modifier = Modifier.fillMaxSize()
                     )
                 }
-
-                // Everything below the banner and the preview is caption
-                // space; the newest turn takes what it needs of it from the
-                // bottom up (see Captions).
-                Captions(
-                    messages = sessionMessages.messages,
-                    wearerIdentity = wearerIdentity,
-                    modifier = Modifier
-                        .align(Alignment.BottomStart)
-                        .fillMaxSize()
-                        .padding(top = 144.dp, bottom = 4.dp)
-                )
             }
         }
     }

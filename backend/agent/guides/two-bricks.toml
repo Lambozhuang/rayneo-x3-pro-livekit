@@ -1,5 +1,6 @@
 # A first build: two bricks flat on a baseplate. One layer, no stacking.
-# Each step is what to pick up and what to tell the wearer. The agent holds the
+# Each step is what to pick up, what to tell the wearer, and a one-line name
+# for the step list on the glasses (defaults to the part). The agent holds the
 # position in this list; the model sees one step at a time through the tools in
 # src/tools.py and judges from the camera when a step is done.
 
@@ -7,12 +8,15 @@ title = "Two bricks on a baseplate"
 
 [[steps]]
 part = "blue 1x4 brick"
+name = "Blue 1x4 flat, middle"
 say = "Take the blue one-by-four brick and press it flat onto the baseplate, horizontal, somewhere around the middle."
 
 [[steps]]
 part = "white 1x6 brick"
+name = "White 1x6 below, two rows apart"
 say = "Now the white one-by-six. Put it below the blue brick, also horizontal, with two empty rows of studs between them, and line up its left end with the left end of the blue brick."
 
 [[steps]]
 part = "blue 1x4 brick"
+name = "Blue 1x4 upright, making an L"
 say = "Last step: take the blue brick off again and put it back vertical, touching the right end of the white brick and pointing up, so the two bricks make an L."

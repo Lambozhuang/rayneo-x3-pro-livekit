@@ -27,7 +27,7 @@ from config import build_session_model, require_env
 from framedump import DumpingSampler
 from guide import Build, load_guide
 from prompts import build_instructions
-from tools import end_call, get_step, restart_build, step_done
+from tools import end_call, get_step, publish_build, restart_build, step_done
 
 load_dotenv()  # backend/.env, found by walking up from this file
 
@@ -141,6 +141,7 @@ async def rayneo_assistant(ctx: JobContext) -> None:
     wearer = await ctx.wait_for_participant()
     logger.info("session for user=%s room=%s", wearer.identity, ctx.room.name)
     build.start()
+    await publish_build(build)
 
     # No opening greeting on purpose. gemini-3.1-flash-live-preview rejects
     # send_client_content after the first model turn, so the plugin ignores
