@@ -241,13 +241,16 @@ fun VoiceAssistant(
                     )
                 }
 
+                // Everything below the banner and the preview is caption
+                // space; the newest turn takes what it needs of it from the
+                // bottom up (see Captions).
                 Captions(
                     messages = sessionMessages.messages,
                     wearerIdentity = wearerIdentity,
                     modifier = Modifier
                         .align(Alignment.BottomStart)
-                        .fillMaxWidth()
-                        .padding(bottom = 4.dp)
+                        .fillMaxSize()
+                        .padding(top = 144.dp, bottom = 4.dp)
                 )
             }
         }
