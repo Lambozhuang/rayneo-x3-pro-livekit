@@ -60,6 +60,7 @@ deploy/
   setup.sh              first-time setup on a Linux host: key pair, livekit.yaml, .env
   livekit.lab.yaml      livekit-server config for a private LAN
   glasses.ps1           launch/stop the app on the glasses over adb
+  watch.py              coloured live view of the agent log
   stop.ps1              end a session: stop the app, then compose down on the lab PC
 ```
 
@@ -72,8 +73,17 @@ deploy/setup.sh lab                 # once: generates a key pair, writes livekit
 cd backend
 docker compose up -d --build        # livekit-server :7880, api on API_PORT, agent
 docker compose logs -f agent        # "registered worker", then per call "session for user=", "build:", "step 1/3", "user:", "assistant:", "usage:"
+docker compose logs -f --no-log-prefix agent | python3 ../deploy/watch.py   # the same as a coloured conversation
 docker compose down
 ```
+
+`watch.py` keeps only the conversation, the build's progress, timings and warnings. Two timing
+lines per reply: `model:` is the model's own (`ttft`, first server message of a generation to
+its first audio; `duration`; this turn's tokens, image tokens spelled out), and `latency:` is
+`reply_ms`, measured on the glasses from the wearer's last word to the agent's audio arriving
+and sent over as a data packet (`ReplyLatency.kt`). The second is the one a wearer feels and
+the one the experiment is about; the SDK's `e2e_latency` is empty for Gemini, whose turn
+detection never reports when the wearer stopped.
 
 `setup.sh` takes the Gemini key from `$GOOGLE_API_KEY`, or asks at a terminal, or leaves it
 blank for you to paste into `backend/.env`. It prints the ufw rules the glasses need if ufw

@@ -22,6 +22,7 @@ from livekit.agents import (
     room_io,
 )
 from livekit.agents.llm import ChatMessage
+from livekit.agents.metrics import AgentMetrics, RealtimeModelMetrics
 
 from config import build_session_model, require_env
 from framedump import DumpingSampler
@@ -97,6 +98,29 @@ async def rayneo_assistant(ctx: JobContext) -> None:
                 use,
                 getattr(use, "input_image_tokens", 0),
             )
+
+    # The model's own timing for each reply: from the first server message of
+    # a generation to its first audio (ttft), the whole generation (duration),
+    # and this turn's tokens, image tokens spelled out because the cumulative
+    # usage line above hides how many frames one turn carried.
+    @session.llm.on("metrics_collected")
+    def _log_model(m: AgentMetrics) -> None:
+        if isinstance(m, RealtimeModelMetrics):
+            logger.info(
+                "model: ttft=%.2fs duration=%.1fs in=%d (image %d) out=%d",
+                m.ttft, m.duration, m.input_tokens,
+                m.input_token_details.image_tokens, m.output_tokens,
+            )
+
+    # The wearer's wait, measured on the glasses: from their last word to the
+    # agent's audio arriving, sent here as a data packet so it sits in this
+    # log next to the model timing. The agent cannot measure this itself:
+    # Gemini's turn detection never tells us when the wearer stopped, so the
+    # SDK's own e2e_latency is empty for this model. See ReplyLatency.kt.
+    @ctx.room.on("data_received")
+    def _log_latency(pkt: rtc.DataPacket) -> None:
+        if pkt.topic == "rayneo.latency":
+            logger.info("latency: %s", pkt.data.decode("utf-8", "replace"))
 
     # Both sides of the conversation as text: what the model heard the wearer
     # say and what it answered. With this a test run can be judged from the

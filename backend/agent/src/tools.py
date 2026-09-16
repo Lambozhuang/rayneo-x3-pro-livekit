@@ -35,9 +35,12 @@ async def get_step(context: RunContext[Build]) -> str:
 
 @function_tool()
 async def step_done(context: RunContext[Build]) -> str:
-    """Move on to the next step. Call this only once you have looked at the
-    camera and are satisfied the current step is really built as instructed.
-    The result is the next step, or that the build is finished."""
+    """Mark the current step as built and move on. The step counts as done
+    only when this has been called: call it before telling the wearer a step
+    is finished, that they can move on, or that the build is complete, and
+    only once you have looked at the camera and are satisfied the step is
+    really built as instructed. The result is the next step, or that the
+    build is finished."""
     result = context.userdata.complete_step()
     await publish_build(context.userdata)
     return result
