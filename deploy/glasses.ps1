@@ -59,6 +59,16 @@ if ($Install) {
     & adb install -r (Join-Path $Root "android\app\build\outputs\apk\debug\app-debug.apk") | Select-Object -Last 1
 }
 
+# RayNeo's deep-suspend policy: a minute after the wear sensor says "taken off"
+# (it also misfires while worn) the system switches Wi-Fi off. This global
+# setting disables that whole path and survives reboots; while it is 1 the
+# glasses neither sleep nor drop Wi-Fi when taken off, so they drain faster
+# off the head. Set it back to 0 by hand when the experiment is over.
+if ((& adb shell settings get global deep_suspend_disabled_persist).Trim() -ne "1") {
+    Write-Host "deep suspend was on; disabling (settings put global deep_suspend_disabled_persist 1)"
+    & adb shell settings put global deep_suspend_disabled_persist 1
+}
+
 # The glasses have been found with Wi-Fi off; the call cannot happen without it.
 if ((& adb shell settings get global wifi_on).Trim() -ne "1") {
     Write-Host "wifi was off; enabling"

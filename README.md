@@ -247,10 +247,12 @@ and so the components' `Session`, stays "connected" through a soft reconnect, wh
 Wi-Fi drop triggers first.
 
 The glasses switch Wi-Fi off by themselves one minute after they decide they have been taken
-off (`RayneoSuspendManagerService`, part of the system's deep-suspend policy; the wear sensor
-can also misfire mid-session). Until that policy is turned off on the device, keep them on, and
-if the banner sticks at "Reconnecting" check `adb shell settings get global wifi_on`;
-`adb shell svc wifi enable` brings the network back.
+off (`RayneoSuspendManagerService`, the system's deep-suspend policy; the wear sensor also
+misfires mid-session, and the same event blanks the screen). `glasses.ps1` turns that policy off
+at launch with `settings put global deep_suspend_disabled_persist 1`, which survives reboots:
+the glasses then stay awake and online off the head, at a battery cost, so set it back to 0
+when the experiment is over. If the banner still sticks at "Reconnecting", check
+`adb shell settings get global wifi_on`; `adb shell svc wifi enable` brings the network back.
 
 ## Reference
 

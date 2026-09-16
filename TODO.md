@@ -7,10 +7,7 @@
 - [ ] 曝光（可选）：白砖在半米外过曝，颗粒看不清。HAL 支持 AE 补偿 ±2 EV；做法是加
       `livekit-android-camerax` 模块，`capturer.getCameraX()` → `cameraControl.setExposureCompensationIndex`。
       先看中性色砖 / 拿近点是否已经够用
-- [ ] 眼镜 Wi-Fi 会自己关掉：系统判定"摘下"（`setDeviceState:0`，佩戴传感器，戴着也会误判）→ 休眠 →
-      `RayneoSuspendManagerService.WifiDisableJobService` 60 秒后关 Wi-Fi。相关 global 设置：
-      唯一开关是 `deep_suspend_disabled_persist`（=1 整个摘下休眠链路停掉，含关 Wi-Fi/BT，重启保留；
-      `_tmporary` 到重启为止），60 秒是写死的；设置界面里没有。要不要开，待定
+- [ ] 实验结束后把眼镜的 `deep_suspend_disabled_persist` 设回 0（glasses.ps1 启动时设成 1，摘下不再休眠/关 Wi-Fi）
 - [ ] 屏幕上放什么待定。实验测的是网络质量对语音交互的影响，屏幕信息越多用户越不依赖语音，倾向只放最少的状态
 
 ## Agent / 模型
