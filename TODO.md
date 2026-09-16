@@ -30,4 +30,6 @@
 - [ ] 参考图怎么给模型，待试：纯文字描述；开场 seed 全部参考图；换步时经视频流注入带标签的参考图；
       tool 返回图片（Gemini `FunctionResponse.parts`，插件未用、Live API 未验证）；只给另一个视觉模型看、返回文字
 - [ ] 成本：`MEDIA_RESOLUTION_HIGH` 每帧 280 tokens，静默时 0.3 fps；决定默认档位，或把 `silent_fps` 再压低
+- [ ] 延迟随通话变长：3.8 每轮带全部历史帧，三分钟后每轮输入 38k token、ttft 从 0 涨到 1–2 s。
+      看 `context_window_compression`，或分离视觉模型
 - [ ] agent 容器往 `backend/frames` 写的文件是 root 属主，compose 里以宿主用户运行

@@ -1,9 +1,11 @@
 """The build guide and the state of one run through it.
 
 A guide is a TOML file (see ../guides): a title and an ordered list of steps.
-Each step names the part to pick up and what to tell the wearer. This process
-holds the position in that list; the model only ever sees the current step,
-through the tools in tools.py. Progress therefore cannot drift with the
+Each step names the part to pick up, what to tell the wearer, and a one-line
+name for the list on the glasses. This process holds the position in that
+list; the model knows the names (they are in its prompt, so it and the wearer
+can both say "step two") but sees a step's instructions only through the tools
+in tools.py, one step at a time. Progress therefore cannot drift with the
 conversation, and the log carries the timing of every step.
 
 The model judges when a step is done, from the camera. The code does not check
@@ -114,6 +116,17 @@ class Build:
             return f"Step {n} complete. That was the last step: the build is finished, congratulate the wearer."
         self._log_step_start()
         return f"Step {n} complete. Next: {self.describe()}"
+
+    def reopen_previous_step(self) -> str:
+        """Go back one step: the model marked one done too early and the
+        wearer, or a second look, says it is not. Logged so a run's score
+        shows the false completion."""
+        if self.step == 0:
+            return "Already at the first step. " + self.describe()
+        self.step -= 1
+        self.step_started = time.monotonic()
+        logger.info("step %d/%d reopened", self.step + 1, len(self.guide.steps))
+        return "Reopened. " + self.describe()
 
     def start(self) -> None:
         logger.info(

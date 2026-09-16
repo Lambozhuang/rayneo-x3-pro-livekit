@@ -29,7 +29,7 @@ from config import build_session_model, require_env
 from framedump import DumpingSampler
 from guide import Build, load_guide
 from prompts import build_instructions
-from tools import end_call, get_step, publish_build, restart_build, step_done
+from tools import end_call, get_step, publish_build, reopen_previous_step, restart_build, step_done
 
 load_dotenv()  # backend/.env, found by walking up from this file
 
@@ -156,8 +156,8 @@ async def rayneo_assistant(ctx: JobContext) -> None:
 
     await session.start(
         agent=Agent(
-            instructions=build_instructions(build.guide.title),
-            tools=[get_step, step_done, restart_build, end_call],
+            instructions=build_instructions(build.guide),
+            tools=[get_step, step_done, reopen_previous_step, restart_build, end_call],
         ),
         room=ctx.room,
         # Camera frames from the glasses stream inline with the audio session.

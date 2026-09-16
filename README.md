@@ -52,7 +52,7 @@ backend/
   agent/src/config.py   env + session model factory, frame encode options
   agent/src/guide.py    build guide loader and the state of one run
   agent/src/prompts.py  system instructions
-  agent/src/tools.py    @function_tool definitions: get_step, step_done, restart_build, end_call
+  agent/src/tools.py    @function_tool definitions: get_step, step_done, reopen_previous_step, restart_build, end_call
   agent/guides/         build guides (TOML), chosen with BUILD_GUIDE
   agent/src/framedump.py, inspect_frame.py   see "Seeing what the model saw"
 android/                Kotlin + Compose app for the glasses
@@ -194,9 +194,11 @@ from transport softness.
 just the part to pick up, what to tell the wearer, and an optional one-line `name` for the list
 on the glasses. The agent process holds the position
 (`guide.py`, in `session.userdata`); the model sees one step at a time through `get_step`,
-judges from the camera when the step is built and calls `step_done` to advance, and can
-`restart_build` or `end_call`. The prompt carries only the title, so the model cannot narrate
-steps from memory. The code tracks progress but does not check the bricks: hand-written
+judges from the camera when the step is built and calls `step_done` to advance, can go back one
+with `reopen_previous_step` when a step was passed too early, and can `restart_build` or
+`end_call`. The prompt carries the title and the steps' one-line names (the same list the
+wearer sees on the glasses, so both sides can say "step two"), not the instructions, so the
+model cannot narrate steps from memory. The code tracks progress but does not check the bricks: hand-written
 geometry (an earlier version compared colour, size, orientation and relative position in
 code) does not generalise past a flat 2D layout, and the real cure for the model over-declaring
 completion is to ground it against a reference image, not to encode every shape. That is the

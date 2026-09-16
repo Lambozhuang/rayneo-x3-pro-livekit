@@ -35,13 +35,23 @@ async def get_step(context: RunContext[Build]) -> str:
 
 @function_tool()
 async def step_done(context: RunContext[Build]) -> str:
-    """Mark the current step as built and move on. The step counts as done
-    only when this has been called: call it before telling the wearer a step
-    is finished, that they can move on, or that the build is complete, and
-    only once you have looked at the camera and are satisfied the step is
-    really built as instructed. The result is the next step, or that the
-    build is finished."""
+    """Record that the current step is built, and get the next one. Call this
+    last: after you have looked at the camera, said what you see, and it
+    matches the step. The wearer saying they are done is a request to check,
+    not a confirmation. Until this has been called the step is not done and
+    you must not tell them to move on. The result is the next step, or that
+    the build is finished."""
     result = context.userdata.complete_step()
+    await publish_build(context.userdata)
+    return result
+
+
+@function_tool()
+async def reopen_previous_step(context: RunContext[Build]) -> str:
+    """Go back to the previous step. Use it when a step was marked done too
+    early: the wearer says it was not finished, or you can now see it is not
+    built as instructed. The result is that step again."""
+    result = context.userdata.reopen_previous_step()
     await publish_build(context.userdata)
     return result
 
