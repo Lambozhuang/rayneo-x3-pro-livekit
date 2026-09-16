@@ -118,7 +118,9 @@ The app stores the token endpoint and credential in SharedPreferences; `glasses.
 passes them as intent extras (`-e token_endpoint ... -e credential ...`), and the connect
 screen has the same two fields. The temple touchpad is a touchscreen to Android: tap
 starts the call, double tap ends it, swipes are logged (`adb logcat -s rayneo-input`) but
-unused. The mic is switched on only once the agent reports that it is listening, and the
+unused. The bottom of the screen shows the last three turns, the wearer's in green: those are
+the model's transcript of what it heard, not a local one, so a word the network dropped is
+missing there too. The mic is switched on only once the agent reports that it is listening, and the
 banner says "Ready" at that moment; before it nothing is heard, so the wearer waits for the
 word. (LiveKit's pre-connect buffer would keep speech from the second or two before that, but
 delivers it in a late burst, which makes the first reply slow for a reason unrelated to the

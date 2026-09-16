@@ -76,7 +76,7 @@ fun VoiceAssistantScreen(
  *
  *   top-left      who has the floor (you / listening / thinking / speaking)
  *   top-right     camera self-preview, the only proof capture is running
- *   bottom        the agent's last two sentences
+ *   bottom        the last three turns, what the model heard in green
  *
  * Mic and camera are always on. Toggling them was the starter's idea of a
  * feature; here it is a way to silently break the assistant.
@@ -204,11 +204,10 @@ fun VoiceAssistant(
         val engineState by rememberEngineState(room)
         val phase = Phase.of(agent, wearerSpeaking, session, engineState, sawAgent, localMedia.isMicrophoneEnabled)
 
-        // Only the agent's lines. Its participant is stable for the session,
-        // so comparing identities is enough; chat messages from ourselves do
-        // not exist any more, but transcripts of the wearer still arrive here.
-        val agentIdentity = agent.agentParticipant?.identity
-        val agentMessages = sessionMessages.messages.filter { it.fromParticipant?.identity == agentIdentity }
+        // Both sides. The agent's lines are its own transcript; the wearer's
+        // are what the model heard, published back by the agent under the
+        // wearer's identity. See Captions.
+        val wearerIdentity = room.localParticipant.identity
 
         // Everything above the Eyes call is hoisted on purpose: that layout is
         // composed once per eye, so a `remember` inside it would exist twice
@@ -243,7 +242,8 @@ fun VoiceAssistant(
                 }
 
                 Captions(
-                    messages = agentMessages,
+                    messages = sessionMessages.messages,
+                    wearerIdentity = wearerIdentity,
                     modifier = Modifier
                         .align(Alignment.BottomStart)
                         .fillMaxWidth()
