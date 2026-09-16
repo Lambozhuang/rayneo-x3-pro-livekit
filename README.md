@@ -118,8 +118,11 @@ The app stores the token endpoint and credential in SharedPreferences; `glasses.
 passes them as intent extras (`-e token_endpoint ... -e credential ...`), and the connect
 screen has the same two fields. The temple touchpad is a touchscreen to Android: tap
 starts the call, double tap ends it, swipes are logged (`adb logcat -s rayneo-input`) but
-unused. Speech in the first second after joining is lost because the agent has not
-subscribed yet; the call screen shows "Waiting" until it has.
+unused. The mic is recorded from the moment the room is joined and the recording handed to
+the agent when it subscribes (LiveKit's pre-connect buffer, `AudioTrackPublishDefaults.preconnect`
+in the ViewModel), so the second or two before the agent is ready is not lost; the banner says
+"Ready" as soon as that recording runs. The call screen leaves by itself when the room ends,
+whether the agent hung up or the connection was lost for good.
 
 USB carries adb, not media. `adb reverse` forwards TCP only, and libwebrtc on the glasses
 binds to the Wi-Fi interface, so no ICE pair ever reaches a loopback SFU. The glasses and
@@ -234,8 +237,10 @@ only for a host whose CPU lacks AVX2; see the note in `agent.py`.
 ## When it breaks
 
 A bad `GOOGLE_API_KEY` logs `Gemini Realtime API error: 1007 ... API key not valid`, the
-session closes and the job ends without retry. The wearer hears silence; the client stays
-in the room with no agent, and nothing on the display says so yet.
+session closes and the job ends without retry. The wearer hears silence and the banner turns
+red: "Agent left" if an agent was in the room and went, "No agent" if none arrived within
+the SDK's 20 s; both say to double tap out. A connection the SDK is still retrying shows
+"Reconnecting"; one it has given up on returns the app to the connect screen.
 
 ## Reference
 

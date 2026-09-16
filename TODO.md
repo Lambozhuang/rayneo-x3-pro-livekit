@@ -7,7 +7,6 @@
 - [ ] 曝光（可选）：白砖在半米外过曝，颗粒看不清。HAL 支持 AE 补偿 ±2 EV；做法是加
       `livekit-android-camerax` 模块，`capturer.getCameraX()` → `cameraControl.setExposureCompensationIndex`。
       先看中性色砖 / 拿近点是否已经够用
-- [ ] 通话里 agent 掉线（例如 Gemini key 失效）时屏幕上没有任何提示，只有沉默
 - [ ] 屏幕上放什么待定。实验测的是网络质量对语音交互的影响，屏幕信息越多用户越不依赖语音，倾向只放最少的状态
 
 ## Agent / 模型

@@ -12,6 +12,9 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
@@ -123,6 +126,16 @@ fun VoiceAssistant(
             }
         }
 
+        // And leave the screen when the session ends: the agent hung up
+        // (end_call deletes the room), or the connection was lost and the SDK
+        // gave up reconnecting. A brief loss is RECONNECTING, not DISCONNECTED,
+        // so this does not fire for a network blip; the banner shows that.
+        LaunchedEffect(Unit) {
+            session.waitUntilConnected()
+            session.waitUntilDisconnected()
+            onEndCall()
+        }
+
         val room = requireRoom()
         val localMedia = rememberLocalMedia()
         val isCameraEnabled by localMedia::isCameraEnabled
@@ -160,7 +173,13 @@ fun VoiceAssistant(
         val agent = rememberAgent()
         val speakers by rememberSpeakingParticipants(room)
         val wearerSpeaking = speakers.any { it.identity == room.localParticipant.identity }
-        val phase = Phase.of(agent, wearerSpeaking)
+        // Has an agent ever been here? Lets "it left" read differently from
+        // "it has not arrived yet"; see Phase.of.
+        var sawAgent by remember { mutableStateOf(false) }
+        LaunchedEffect(agent.agentParticipant) {
+            if (agent.agentParticipant != null) sawAgent = true
+        }
+        val phase = Phase.of(agent, wearerSpeaking, session, sawAgent)
 
         // Only the agent's lines. Its participant is stable for the session,
         // so comparing identities is enough; chat messages from ourselves do
