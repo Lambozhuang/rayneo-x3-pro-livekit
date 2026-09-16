@@ -7,6 +7,10 @@
 - [ ] 曝光（可选）：白砖在半米外过曝，颗粒看不清。HAL 支持 AE 补偿 ±2 EV；做法是加
       `livekit-android-camerax` 模块，`capturer.getCameraX()` → `cameraControl.setExposureCompensationIndex`。
       先看中性色砖 / 拿近点是否已经够用
+- [ ] 眼镜 Wi-Fi 会自己关掉（一次会话中途、一次启动前），系统进程 Mercury 同时在折腾蓝牙 PAN。
+      对网络实验是致命的，先查是不是省电/网络切换策略，能否在设置里关掉
+- [ ] 断网重连时横幅仍显示 "Ready"，没有变成 "Reconnecting"：SDK 在重连（`Reconnecting to signal, attempt n`）
+      时 Room.State 是否真的进了 RECONNECTING，还是 Session 的映射没跟上
 - [ ] 屏幕上放什么待定。实验测的是网络质量对语音交互的影响，屏幕信息越多用户越不依赖语音，倾向只放最少的状态
 
 ## Agent / 模型
