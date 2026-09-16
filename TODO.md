@@ -20,9 +20,10 @@
 - [ ] 指南和 run id 从 token attributes 传入（上层控制器选任务），现在是 `BUILD_GUIDE` 环境变量 + 房间名
 - [ ] 完成度判断：现在模型看摄像头自己判、`step_done` 只推进状态机。试过代码比对（颜色/尺寸/朝向/相对
       位置）——2D 能堵住背答案，但撑不到 3D，且没解决感知。方向是给模型参考图做 grounding（见下两条），
-      而不是手写几何。3.1 又没法控制它看哪一帧（turn 默认含全部视频帧，一直积累），所以更像要换架构
-- [ ] 主动开口：3.1 上 `generate_reply` 被插件按模型名整段忽略，开场也不行。GPT Realtime 随时可以；
-      GPT-Live 走 commentary 通道，模型可以拒绝
+      而不是手写几何。Live 模型没法控制它看哪一帧（turn 默认含全部视频帧，一直积累），所以更像要换架构
+- [ ] 主动开口：3.8 + 插件 1.8.2 上 `generate_reply` 可用了（开场已加）。换步时要不要让它主动说，
+      还是等用户
+- [ ] extended-thinking 变体：要 NON_BLOCKING 工具，插件还不解析 `interaction_status`，先观望
 - [ ] 架构对比：GPT-Live（`gpt-live-1`，全双工）+ 单独视觉模型。LiveKit 插件里 GPT-Live 不收视频，
       要用 client delegation 自己抓帧、自己调视觉模型、`append_commentary` 回话；需要 livekit-agents[openai]≥1.8
       和账号的 GPT-Live 权限。切换点是 `build_session_model()`

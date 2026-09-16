@@ -143,11 +143,18 @@ async def rayneo_assistant(ctx: JobContext) -> None:
     build.start()
     await publish_build(build)
 
-    # No opening greeting on purpose. gemini-3.1-flash-live-preview rejects
-    # send_client_content after the first model turn, so the plugin ignores
-    # session.generate_reply() on 3.1 models and just logs a warning. The
-    # wearer speaks first.
-    # https://docs.livekit.io/agents/models/realtime/plugins/gemini/#gemini-3-1-compatibility
+    # Open the conversation, so the wearer knows the line is live without
+    # having to test it. One sentence; the first step waits until they say
+    # they are ready, so the run starts on their word, not ours. (On 3.1 with
+    # older plugins this call was ignored; livekit-agents 1.8.2 supports it on
+    # 3.1 and 3.8.)
+    await session.generate_reply(
+        instructions=(
+            "Greet the wearer in one short sentence: say you can see through their "
+            "glasses and will guide them through this build, and ask them to say "
+            "when they are ready. Do not describe any step yet."
+        )
+    )
 
 
 if __name__ == "__main__":

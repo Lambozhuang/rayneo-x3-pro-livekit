@@ -123,8 +123,8 @@ highlighted; the agent publishes them as participant attributes (`guide.py`, `Bu
 The bottom of the screen shows the last three turns, the wearer's in green: those are
 the model's transcript of what it heard, not a local one, so a word the network dropped is
 missing there too. The mic is switched on only once the agent reports that it is listening, and the
-banner says "Ready" at that moment; before it nothing is heard, so the wearer waits for the
-word. (LiveKit's pre-connect buffer would keep speech from the second or two before that, but
+banner says "Ready" at that moment; before it nothing is heard. The agent opens with one
+sentence and waits for the wearer to say they are ready. (LiveKit's pre-connect buffer would keep speech from the second or two before that, but
 delivers it in a late burst, which makes the first reply slow for a reason unrelated to the
 network under test; `VoiceAssistantScreen.kt` says where to flip it.) The call screen leaves by
 itself when the room ends, whether the agent hung up or the connection was lost for good.
@@ -164,18 +164,19 @@ from transport softness.
 
 ## The model
 
-`gemini-3.1-flash-live-preview` has
-[compatibility gaps](https://docs.livekit.io/agents/models/realtime/plugins/gemini/#gemini-3-1-compatibility)
-with LiveKit Agents that shape the code:
+`GEMINI_MODEL` in `.env` picks the Live model; the default deployment runs `gemini-3.8-live`
+(livekit-agents 1.8.2 or later knows the 3.8 ids). Things that shape the code:
 
-- No opening greeting: `generate_reply()` is rejected after the first model turn, so the
-  wearer speaks first.
-- No mid-session instruction or context updates, so no agent handoffs.
-- The test framework (`session.run`) is built on `generate_reply()` and cannot drive this
-  model. Verification is a real conversation, judged from the agent log.
-
-Tool calls work, and on 3.1 they are the only way to reach the model mid-session, so the
-build guide arrives through them.
+- Tool calls are asynchronous by default on 3.8: the model may keep talking while a tool
+  runs, and answers the result when it comes back. The build guide reaches the model only
+  through tools, so that is the channel for anything mid-session.
+- Proactive audio is always on: the model may decide not to answer an utterance.
+- `thinking_level` is not accepted; 3.8 Live reasons inline with a fixed latency profile.
+  `gemini-3.8-live-extended-thinking` takes `low`/`medium`/`high`, but requires NON_BLOCKING
+  tools and a new `interaction_status` turn protocol the plugin does not parse yet; untested.
+- The earlier `gemini-3.1-flash-live-preview` gaps (no `generate_reply`, no mid-session
+  context updates, no `session.run` tests) are closed on this plugin version. Verification is
+  still a real conversation, judged from the agent log.
 
 ### Guided build
 
@@ -192,8 +193,8 @@ completion is to ground it against a reference image, not to encode every shape.
 next step: a stronger full-duplex model for the dialogue and a separate photo model that sees
 one fresh frame against a reference (see TODO). The log has `build:`, `step n/m start`, `step
 n/m done` and `build finished` lines with timings, so a run can be scored from the log next to
-the dumped frames. Tools on 3.1 are synchronous: the model waits silently while one runs, so
-nothing slow belongs in them.
+the dumped frames. Tools stay fast anyway: the model talks over them, and a slow one would
+have it narrating the wait.
 
 ### Video
 
