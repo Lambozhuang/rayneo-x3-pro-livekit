@@ -118,11 +118,12 @@ The app stores the token endpoint and credential in SharedPreferences; `glasses.
 passes them as intent extras (`-e token_endpoint ... -e credential ...`), and the connect
 screen has the same two fields. The temple touchpad is a touchscreen to Android: tap
 starts the call, double tap ends it, swipes are logged (`adb logcat -s rayneo-input`) but
-unused. The mic is recorded from the moment the room is joined and the recording handed to
-the agent when it subscribes (LiveKit's pre-connect buffer, `AudioTrackPublishDefaults.preconnect`
-in the ViewModel), so the second or two before the agent is ready is not lost; the banner says
-"Ready" as soon as that recording runs. The call screen leaves by itself when the room ends,
-whether the agent hung up or the connection was lost for good.
+unused. The mic is switched on only once the agent reports that it is listening, and the
+banner says "Ready" at that moment; before it nothing is heard, so the wearer waits for the
+word. (LiveKit's pre-connect buffer would keep speech from the second or two before that, but
+delivers it in a late burst, which makes the first reply slow for a reason unrelated to the
+network under test; `VoiceAssistantScreen.kt` says where to flip it.) The call screen leaves by
+itself when the room ends, whether the agent hung up or the connection was lost for good.
 
 USB carries adb, not media. `adb reverse` forwards TCP only, and libwebrtc on the glasses
 binds to the Wi-Fi interface, so no ICE pair ever reaches a loopback SFU. The glasses and

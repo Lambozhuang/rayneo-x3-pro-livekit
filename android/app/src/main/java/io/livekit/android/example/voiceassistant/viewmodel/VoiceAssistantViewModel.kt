@@ -8,7 +8,6 @@ import androidx.navigation.toRoute
 import io.livekit.android.LiveKit
 import io.livekit.android.LiveKitOverrides
 import io.livekit.android.example.voiceassistant.screen.VoiceAssistantRoute
-import io.livekit.android.room.participant.AudioTrackPublishDefaults
 import io.livekit.android.room.participant.VideoTrackPublishDefaults
 import io.livekit.android.room.track.LocalVideoTrackOptions
 import io.livekit.android.room.track.VideoCaptureParameter
@@ -50,17 +49,6 @@ class VoiceAssistantViewModel(application: Application, savedStateHandle: SavedS
             ),
         ),
     ).apply {
-        // Record the mic from the moment the room is joined and hand the
-        // recording to the agent when it subscribes (LiveKit's pre-connect
-        // buffer, a byte stream on `lk.agent.pre-connect-audio-buffer`, which
-        // the Python agent's RoomIO accepts by default). Without it the second
-        // or two between joining and the agent subscribing is simply not
-        // heard, and a wearer who starts talking as the screen appears loses
-        // their first sentence. The compose Session publishes the mic at
-        // connect (`SessionConnectTrackOptions.microphoneEnabled`), but its
-        // `usePreconnectBuffer` flag is not wired through in 2.4.2; the Room's
-        // publish default is what Room.connect actually reads.
-        audioTrackPublishDefaults = AudioTrackPublishDefaults(preconnect = true)
         // The camera has exactly one consumer, the agent, and it samples one
         // frame a second to show a vision model. The SDK's defaults are tuned
         // for a video call: 30 fps, three simulcast layers, and "keep the

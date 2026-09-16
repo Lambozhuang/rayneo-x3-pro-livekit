@@ -25,6 +25,8 @@ import com.google.accompanist.permissions.ExperimentalPermissionsApi
 import io.livekit.android.annotations.Beta
 import io.livekit.android.compose.local.SessionScope
 import io.livekit.android.compose.local.requireRoom
+import io.livekit.android.compose.state.SessionConnectOptions
+import io.livekit.android.compose.state.SessionConnectTrackOptions
 import io.livekit.android.compose.state.SessionOptions
 import io.livekit.android.compose.state.rememberAgent
 import io.livekit.android.compose.state.rememberLocalMedia
@@ -111,7 +113,18 @@ fun VoiceAssistant(
             // No ICE overrides here on purpose. `adb reverse` cannot carry WebRTC
             // media at all, and ICE-TCP does not rescue it — see the README section
             // on the USB tunnel. Standard WebRTC over the LAN is the only media path.
-            val result = session.start()
+            // Join without a microphone; it is switched on below, once the
+            // agent is there to hear it. The alternative, LiveKit's pre-connect
+            // buffer (record from join, hand the recording over when the agent
+            // subscribes), keeps every word but delivers the first ones in a
+            // burst one or two seconds late. This is a network-quality test
+            // bed: connection setup is not what is measured, and a first reply
+            // that is slow for an unrelated reason would be one more variable.
+            val result = session.start(
+                SessionConnectOptions(
+                    tracks = SessionConnectTrackOptions(microphoneEnabled = false, usePreconnectBuffer = false)
+                )
+            )
 
             if (result.isFailure) {
                 Toast.makeText(context, "Error connecting to the session.", Toast.LENGTH_SHORT).show()
@@ -145,8 +158,17 @@ fun VoiceAssistant(
         // still negotiating, so with an unreachable SFU both effects park here
         // forever and the mic and camera are never opened. See the README
         // section on capture on the glasses.
+        //
+        // The mic additionally waits for the agent to report "listening", so
+        // that nothing said reaches a room nobody is subscribed to. Until then
+        // the banner says "Connecting"; "Ready" means the mic is live and the
+        // agent hears it. Audio pushed to the model before its own WebSocket
+        // is open is queued by the plugin, not dropped, so "listening" is early
+        // enough.
+        val agent = rememberAgent()
         LaunchedEffect(canEnableMic) {
             session.waitUntilConnected()
+            agent.waitUntilAvailable()
             localMedia.setMicrophoneEnabled(canEnableMic)
         }
 
@@ -170,7 +192,6 @@ fun VoiceAssistant(
         }
 
         val sessionMessages = rememberSessionMessages()
-        val agent = rememberAgent()
         val speakers by rememberSpeakingParticipants(room)
         val wearerSpeaking = speakers.any { it.identity == room.localParticipant.identity }
         // Has an agent ever been here? Lets "it left" read differently from
@@ -179,7 +200,7 @@ fun VoiceAssistant(
         LaunchedEffect(agent.agentParticipant) {
             if (agent.agentParticipant != null) sawAgent = true
         }
-        val phase = Phase.of(agent, wearerSpeaking, session, sawAgent)
+        val phase = Phase.of(agent, wearerSpeaking, session, sawAgent, localMedia.isMicrophoneEnabled)
 
         // Only the agent's lines. Its participant is stable for the session,
         // so comparing identities is enough; chat messages from ourselves do

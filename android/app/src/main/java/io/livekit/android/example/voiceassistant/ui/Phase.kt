@@ -45,10 +45,9 @@ import io.livekit.android.compose.ui.audio.VoiceAssistantBarVisualizer
  * The sources are merged with a fixed priority because several can be true
  * at once (the agent keeps "listening" while you talk).
  *
- * "Ready" starts before the agent has joined: the mic is recorded from the
- * moment the room is joined and the recording is handed to the agent when it
- * subscribes (see the ViewModel), so the wearer may speak as soon as they see
- * it and nothing is lost.
+ * "Ready" means the mic is live and the agent is listening to it; the mic is
+ * only switched on once the agent is there (see VoiceAssistantScreen), so
+ * before "Ready" nothing is heard and the wearer should wait for it.
  */
 enum class Phase(val label: String, val color: Color, val hint: String? = null) {
     CONNECTING("Connecting", Color(0xFF9E9E9E)),
@@ -69,14 +68,14 @@ enum class Phase(val label: String, val color: Color, val hint: String? = null) 
          * whole 20 s agent timeout.
          */
         @OptIn(Beta::class)
-        fun of(agent: Agent, wearerSpeaking: Boolean, session: Session, sawAgent: Boolean): Phase = when {
+        fun of(agent: Agent, wearerSpeaking: Boolean, session: Session, sawAgent: Boolean, micOn: Boolean): Phase = when {
             session.isReconnecting -> RECONNECTING
             agent.agentState == AgentState.FAILED -> NO_AGENT
             session.isConnected && sawAgent && agent.agentParticipant == null -> LOST
             agent.agentState == AgentState.SPEAKING -> SPEAKING
             agent.agentState == AgentState.THINKING -> THINKING
-            agent.canListen && wearerSpeaking -> LISTENING
-            agent.canListen -> READY
+            agent.isConnected && micOn && wearerSpeaking -> LISTENING
+            agent.isConnected && micOn -> READY
             else -> CONNECTING
         }
     }
