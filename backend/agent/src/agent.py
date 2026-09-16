@@ -144,6 +144,12 @@ async def rayneo_assistant(ctx: JobContext) -> None:
     def _log_turn(ev: ConversationItemAddedEvent) -> None:
         if isinstance(ev.item, ChatMessage):
             logger.info("%s: %s", ev.item.role, ev.item.text_content)
+            # The SDK's own wait, wearer stopped (local VAD) -> agent audio
+            # forwarded, next to the glasses' reply_ms; the difference between
+            # the two is the network on the glasses' side.
+            e2e = ev.item.metrics.get("e2e_latency") if ev.item.role == "assistant" else None
+            if e2e is not None:
+                logger.info('latency: {"server_e2e_ms":%d}', round(e2e * 1000))
 
     # Ask the SFU for the largest layer of every video track. Without this the
     # server picks by its own bandwidth estimate, which in the lab settled on
