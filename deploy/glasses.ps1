@@ -5,6 +5,7 @@
 #   .\deploy\glasses.ps1 -Install                 build the debug APK and install it first
 #   .\deploy\glasses.ps1 -Log                     after launching, tail the touchpad/gesture log (Ctrl+C to stop)
 #   .\deploy\glasses.ps1 -Stop                    kill the app on the glasses (same as double-tapping out of it)
+#   .\deploy\glasses.ps1 -RestoreSleep            put RayNeo's deep suspend back (launch turns it off, see below)
 #
 # The app remembers the last endpoint it was given, and goes straight into the
 # call on launch, so once this has run once the launcher icon does the same.
@@ -17,7 +18,8 @@ param(
     [string]$Credential = "",     # AUTH_STATIC_TOKEN when the api runs with AUTH_MODE=static
     [switch]$Install,
     [switch]$Log,
-    [switch]$Stop
+    [switch]$Stop,
+    [switch]$RestoreSleep
 )
 
 $ErrorActionPreference = "Stop"
@@ -47,6 +49,12 @@ if ($Stop) {
     return
 }
 
+if ($RestoreSleep) {
+    & adb shell settings put global deep_suspend_disabled_persist 0
+    Write-Host "deep suspend restored: the glasses sleep and drop Wi-Fi a minute after being taken off"
+    return
+}
+
 if ($Install) {
     # Gradle needs a JDK; Android Studio ships one, and a PowerShell session
     # usually has no JAVA_HOME. Fall back to Studio's if it is there.
@@ -63,7 +71,7 @@ if ($Install) {
 # (it also misfires while worn) the system switches Wi-Fi off. This global
 # setting disables that whole path and survives reboots; while it is 1 the
 # glasses neither sleep nor drop Wi-Fi when taken off, so they drain faster
-# off the head. Set it back to 0 by hand when the experiment is over.
+# off the head. `-RestoreSleep` sets it back to 0 when the experiment is over.
 if ((& adb shell settings get global deep_suspend_disabled_persist).Trim() -ne "1") {
     Write-Host "deep suspend was on; disabling (settings put global deep_suspend_disabled_persist 1)"
     & adb shell settings put global deep_suspend_disabled_persist 1

@@ -7,7 +7,7 @@
 - [ ] 曝光（可选）：白砖在半米外过曝，颗粒看不清。HAL 支持 AE 补偿 ±2 EV；做法是加
       `livekit-android-camerax` 模块，`capturer.getCameraX()` → `cameraControl.setExposureCompensationIndex`。
       先看中性色砖 / 拿近点是否已经够用
-- [ ] 实验结束后把眼镜的 `deep_suspend_disabled_persist` 设回 0（glasses.ps1 启动时设成 1，摘下不再休眠/关 Wi-Fi）
+- [ ] 实验结束后 `glasses.ps1 -RestoreSleep`（启动时会把眼镜的摘下休眠关掉，不然摘下一分钟就断 Wi-Fi）
 - [ ] 屏幕上放什么待定。实验测的是网络质量对语音交互的影响，屏幕信息越多用户越不依赖语音，倾向只放最少的状态
 
 ## Agent / 模型
