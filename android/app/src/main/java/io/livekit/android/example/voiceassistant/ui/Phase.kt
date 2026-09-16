@@ -26,6 +26,7 @@ import io.livekit.android.annotations.Beta
 import io.livekit.android.compose.state.Agent
 import io.livekit.android.compose.state.AgentState
 import io.livekit.android.compose.state.Session
+import io.livekit.android.room.ConnectionState
 import io.livekit.android.compose.ui.audio.VoiceAssistantBarVisualizer
 
 /**
@@ -41,7 +42,9 @@ import io.livekit.android.compose.ui.audio.VoiceAssistantBarVisualizer
  * timeout. Whether the *wearer* is speaking is not something the agent
  * reports; it comes from the SFU's active-speaker updates, which include the
  * local participant. And the room connection itself can be mid-reconnect,
- * which on a network-quality test bed is the most interesting state of all.
+ * which on a network-quality test bed is the most interesting state of all;
+ * that one is read from the SDK's engine, because the public room state
+ * sits on "connected" through a soft reconnect (see [rememberEngineState]).
  * The sources are merged with a fixed priority because several can be true
  * at once (the agent keeps "listening" while you talk).
  *
@@ -66,10 +69,21 @@ enum class Phase(val label: String, val color: Color, val hint: String? = null) 
          * that reached "listening"; one that joined and died while starting up
          * (a bad model key, say) would otherwise read as "Connecting" for the
          * whole 20 s agent timeout.
+         * @param engine the SDK engine's own connection state, see
+         * [rememberEngineState]. [Session.isReconnecting] only covers a full
+         * reconnect; the soft one a Wi-Fi drop triggers first is RESUMING here
+         * and invisible there.
          */
         @OptIn(Beta::class)
-        fun of(agent: Agent, wearerSpeaking: Boolean, session: Session, sawAgent: Boolean, micOn: Boolean): Phase = when {
-            session.isReconnecting -> RECONNECTING
+        fun of(
+            agent: Agent,
+            wearerSpeaking: Boolean,
+            session: Session,
+            engine: ConnectionState,
+            sawAgent: Boolean,
+            micOn: Boolean,
+        ): Phase = when {
+            session.isReconnecting || engine == ConnectionState.RESUMING || engine == ConnectionState.RECONNECTING -> RECONNECTING
             agent.agentState == AgentState.FAILED -> NO_AGENT
             session.isConnected && sawAgent && agent.agentParticipant == null -> LOST
             agent.agentState == AgentState.SPEAKING -> SPEAKING

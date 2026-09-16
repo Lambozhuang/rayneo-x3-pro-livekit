@@ -44,6 +44,7 @@ import io.livekit.android.example.voiceassistant.ui.Captions
 import io.livekit.android.example.voiceassistant.ui.Eyes
 import io.livekit.android.example.voiceassistant.ui.Phase
 import io.livekit.android.example.voiceassistant.ui.PhaseBanner
+import io.livekit.android.example.voiceassistant.ui.rememberEngineState
 import io.livekit.android.example.voiceassistant.viewmodel.VoiceAssistantViewModel
 import kotlinx.serialization.Serializable
 
@@ -200,7 +201,8 @@ fun VoiceAssistant(
         LaunchedEffect(agent.agentParticipant) {
             if (agent.agentParticipant != null) sawAgent = true
         }
-        val phase = Phase.of(agent, wearerSpeaking, session, sawAgent, localMedia.isMicrophoneEnabled)
+        val engineState by rememberEngineState(room)
+        val phase = Phase.of(agent, wearerSpeaking, session, engineState, sawAgent, localMedia.isMicrophoneEnabled)
 
         // Only the agent's lines. Its participant is stable for the session,
         // so comparing identities is enough; chat messages from ourselves do

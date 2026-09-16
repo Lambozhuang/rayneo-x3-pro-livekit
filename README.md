@@ -241,7 +241,16 @@ A bad `GOOGLE_API_KEY` logs `Gemini Realtime API error: 1007 ... API key not val
 session closes and the job ends without retry. The wearer hears silence and the banner turns
 red: "Agent left" if an agent was in the room and went, "No agent" if none arrived within
 the SDK's 20 s; both say to double tap out. A connection the SDK is still retrying shows
-"Reconnecting"; one it has given up on returns the app to the connect screen.
+"Reconnecting"; one it has given up on returns the app to the connect screen. That banner
+reads the SDK engine's own state (`EngineState.kt`, by reflection): the public room state,
+and so the components' `Session`, stays "connected" through a soft reconnect, which is what a
+Wi-Fi drop triggers first.
+
+The glasses switch Wi-Fi off by themselves one minute after they decide they have been taken
+off (`RayneoSuspendManagerService`, part of the system's deep-suspend policy; the wear sensor
+can also misfire mid-session). Until that policy is turned off on the device, keep them on, and
+if the banner sticks at "Reconnecting" check `adb shell settings get global wifi_on`;
+`adb shell svc wifi enable` brings the network back.
 
 ## Reference
 
