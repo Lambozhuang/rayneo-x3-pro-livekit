@@ -34,6 +34,20 @@ async def get_step(context: RunContext[Build]) -> str:
 
 
 @function_tool()
+async def look(context: RunContext[Build]) -> str:
+    """Get one fresh camera frame of what the wearer sees right now. Camera
+    frames otherwise reach you only while the wearer is speaking, so call this
+    before judging whether a step is built, whenever the wearer asks you to
+    check something, and whenever you would otherwise be guessing from an old
+    picture. Judge the frame that arrives after this call."""
+    if context.userdata.request_look is None:
+        return "No camera in this session."
+    context.userdata.request_look()
+    logger.info("look: requested")
+    return "A fresh frame is on its way; judge from it."
+
+
+@function_tool()
 async def step_done(context: RunContext[Build]) -> str:
     """Record that the current step is built, and get the next one. Call this
     last: after you have looked at the camera, said what you see, and it

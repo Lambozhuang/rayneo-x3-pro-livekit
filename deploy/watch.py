@@ -21,6 +21,8 @@ KEEP = (
     ("assistant:", WHITE, "agent"),
     ("latency:", CYAN, "wait "),
     ("model:", CYAN, "model"),
+    ("look:", YELLOW, "look "),
+    ("camera:", YELLOW, "call "),
     ("step ", YELLOW, "build"),
     ("build", YELLOW, "build"),
     ("end_call", YELLOW, "build"),

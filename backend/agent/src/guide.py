@@ -21,6 +21,7 @@ from __future__ import annotations
 import logging
 import time
 import tomllib
+from collections.abc import Callable
 from dataclasses import dataclass, field
 from pathlib import Path
 
@@ -69,6 +70,9 @@ class Build:
     step: int = 0  # index of the current step; len(steps) once finished
     started: float = field(default_factory=time.monotonic)
     step_started: float = field(default_factory=time.monotonic)
+    # Asks the camera sampler for one fresh frame; the `look` tool calls it.
+    # Set by agent.py; None in tests and in console mode, where there is no camera.
+    request_look: Callable[[], None] | None = field(default=None, repr=False)
 
     @property
     def finished(self) -> bool:

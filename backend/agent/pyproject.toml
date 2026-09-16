@@ -9,7 +9,7 @@ dependencies = [
     # into a log line, and the session keeps working -- the model just never
     # sees a picture and answers anyway. Measured: it invented eight digits and
     # a white background for a frame that showed four digits on navy.
-    "livekit-agents[google,images]~=1.8.2",
+    "livekit-agents[google,images,silero]~=1.8.2",
     "python-dotenv~=1.0",
 ]
 

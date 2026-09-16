@@ -25,11 +25,13 @@ from livekit.agents import (
 from livekit.agents.llm import ChatMessage
 from livekit.agents.metrics import RealtimeModelMetrics
 
-from config import build_session_model, require_env
+from config import build_session_model, language, require_env, video_fps
 from framedump import DumpingSampler
+from livekit.plugins import silero
 from guide import Build, load_guide
 from prompts import build_instructions
-from tools import end_call, get_step, publish_build, reopen_previous_step, restart_build, step_done
+from sampler import CameraSampler
+from tools import end_call, get_step, look, publish_build, reopen_previous_step, restart_build, step_done
 
 load_dotenv()  # backend/.env, found by walking up from this file
 
@@ -45,7 +47,17 @@ logger = logging.getLogger("rayneo-agent")
 # CPUs: the framework then picks forkserver on Linux and spawn everywhere
 # else, and passing "forkserver" explicitly would fail on Windows, which has
 # no such context.
+# A local VAD, loaded once per process. Turn-taking stays with Gemini; this
+# only tells the framework when the *wearer* is talking, which it otherwise
+# does not know (Gemini's speech events fire when the model starts answering).
+# Two things hang off that: the camera sampler's "speaking" rate (sampler.py),
+# and real user-turn timestamps, which make the SDK's e2e_latency meaningful.
+def _load_vad(proc: agents.JobProcess) -> None:
+    proc.userdata["vad"] = silero.VAD.load()
+
+
 server = AgentServer(
+    setup_fnc=_load_vad,
     **({"multiprocessing_context": ctx} if (ctx := os.environ.get("AGENT_MP_CONTEXT")) else {}),  # type: ignore[arg-type]
 )
 
@@ -56,32 +68,30 @@ server = AgentServer(
 # https://docs.livekit.io/agents/server/agent-dispatch/
 @server.rtc_session(agent_name=require_env("AGENT_NAME"))
 async def rayneo_assistant(ctx: JobContext) -> None:
-    # The default video_sampler is kept on purpose. It is
-    # VoiceActivityVideoSampler(speaking_fps=1.0, silent_fps=0.3), and at
-    # 640x480 a frame measured at exactly 63 input image tokens -- so about
-    # 1130 tokens/min while the wearer is silent and 3780 while speaking,
-    # against 1500 tokens/min for the audio. Lowering silent_fps is the lever
-    # with the best ratio of savings to lost context; media_resolution on the
-    # model in config.py is not one -- MEDIA_RESOLUTION_MEDIUM changed the
-    # measured token count by zero (the Live API treats low and medium video
-    # identically; only HIGH changes anything).
-    # https://docs.livekit.io/agents/logic/sessions/#video-sampling
-    #
-    # FRAME_DUMP_DIR swaps in the same sampler wrapped to also save every frame
-    # it passes, so you can see what the model saw. See framedump.py.
+    # Which camera frames the model sees: a few while the wearer speaks, none
+    # while they are silent, one whenever the model calls `look`. See
+    # sampler.py for why (every frame stays in context and slows every later
+    # turn). FRAME_DUMP_DIR wraps the same sampler to also save what it passes.
+    speaking_fps, silent_fps = video_fps()
+    camera = CameraSampler(speaking_fps=speaking_fps, silent_fps=silent_fps)
     dump_dir = os.environ.get("FRAME_DUMP_DIR")
+    sampler = (
+        DumpingSampler(camera, dump_dir, int(os.environ.get("FRAME_DUMP_MAX", "60")))
+        if dump_dir
+        else camera
+    )
     # The build guide and this run's position in it. The tools read and
     # advance it through session.userdata; see guide.py. One call is one run.
-    build = Build(guide=load_guide(require_env("BUILD_GUIDE")), run=ctx.room.name)
+    build = Build(
+        guide=load_guide(require_env("BUILD_GUIDE")), run=ctx.room.name, request_look=camera.request
+    )
     session = AgentSession(
         userdata=build,
+        vad=ctx.proc.userdata["vad"],
+        video_sampler=sampler,
         **build_session_model(),
-        **(
-            {"video_sampler": DumpingSampler(dump_dir, int(os.environ.get("FRAME_DUMP_MAX", "60")))}
-            if dump_dir
-            else {}
-        ),
     )
+    logger.info("camera: speaking_fps=%s silent_fps=%s", speaking_fps, silent_fps)
 
     # Usage, straight to the log. `input_image_tokens` is the number to watch:
     # it is the entire cost of the camera, and it is also the only signal that
@@ -156,8 +166,8 @@ async def rayneo_assistant(ctx: JobContext) -> None:
 
     await session.start(
         agent=Agent(
-            instructions=build_instructions(build.guide),
-            tools=[get_step, step_done, reopen_previous_step, restart_build, end_call],
+            instructions=build_instructions(build.guide, language()),
+            tools=[look, get_step, step_done, reopen_previous_step, restart_build, end_call],
         ),
         room=ctx.room,
         # Camera frames from the glasses stream inline with the audio session.

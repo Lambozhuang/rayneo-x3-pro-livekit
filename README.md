@@ -181,6 +181,9 @@ from transport softness.
   runs, and answers the result when it comes back. The build guide reaches the model only
   through tools, so that is the channel for anything mid-session.
 - Proactive audio is always on: the model may decide not to answer an utterance.
+- Native-audio models pick their language by ear and switch mid-call (a stray German-sounding
+  syllable was enough), and the voice changes with the language. The prompt pins
+  `AGENT_LANGUAGE` (default English).
 - `thinking_level` is not accepted; 3.8 Live reasons inline with a fixed latency profile.
   `gemini-3.8-live-extended-thinking` takes `low`/`medium`/`high`, but requires NON_BLOCKING
   tools and a new `interaction_status` turn protocol the plugin does not parse yet; untested.
@@ -210,12 +213,21 @@ have it narrating the wait.
 
 ### Video
 
-Frames are sampled at 1 fps while the wearer speaks and 0.3 fps otherwise
-(`VoiceActivityVideoSampler`), encoded as JPEG at their captured size (`IMAGE_ENCODE_OPTIONS`
-in `config.py`; the plugin default would shrink them to 1024) and streamed inline with the
-audio. The Live API spends a fixed budget per frame regardless of pixel size: 70 tokens by
-default, 280 with `GEMINI_MEDIA_RESOLUTION=MEDIA_RESOLUTION_HIGH`. Audio is about
-1500 tokens/min. `input_image_tokens` in the `usage:` log line is the whole cost of the
+Frames reach the model only while the wearer is speaking (`VIDEO_SPEAKING_FPS`, default
+0.5; `VIDEO_SILENT_FPS` defaults to 0) plus one whenever the model calls its `look` tool,
+which the prompt tells it to do before judging a step (`sampler.py`). Every frame a Live
+model has seen stays in its context and is re-read on every turn, so a continuous feed
+makes each reply slower than the last: with the SDK's default sampler a five-minute call
+reached 45k image tokens per turn and the model's time to first audio went from 2 s to
+9 s. Two more guards: a local Silero VAD on the session, without which the SDK does not
+know when the wearer is talking (Gemini's own speech events fire when the model starts
+answering, so the default sampler ran backwards), and a sliding window over the context
+(`GEMINI_CONTEXT_TRIGGER_TOKENS`, `GEMINI_CONTEXT_TARGET_TOKENS`, defaults 24k/12k).
+
+Frames are encoded as JPEG at their captured size (`IMAGE_ENCODE_OPTIONS` in `config.py`;
+the plugin default would shrink them to 1024) and streamed inline with the audio. The Live
+API spends a fixed budget per frame regardless of pixel size: 70 tokens by default, 280 with
+`GEMINI_MEDIA_RESOLUTION=MEDIA_RESOLUTION_HIGH`. Audio is about 1500 tokens/min. `input_image_tokens` in the `usage:` log line is the whole cost of the
 camera, and also the only sign that video reaches the model at all: a broken video path
 does not fail, it produces confident answers about a picture the model never saw. Check
 vision with content you know. `livekit-agents[google,images]` is required for the same

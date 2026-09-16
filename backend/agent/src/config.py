@@ -34,6 +34,43 @@ IMAGE_ENCODE_OPTIONS = images.EncodeOptions(
 )
 
 
+def video_fps() -> tuple[float, float]:
+    """(speaking, silent) frames per second for the camera sampler; see sampler.py."""
+    return (
+        float(os.environ.get("VIDEO_SPEAKING_FPS", "0.5")),
+        float(os.environ.get("VIDEO_SILENT_FPS", "0")),
+    )
+
+
+def language() -> str:
+    """The language the agent speaks, whatever it hears. Gemini's native-audio
+    models pick a language on their own and switch mid-conversation when the
+    input sounds foreign (a cough transcribed as German was enough), and the
+    voice changes with it. Pinning it in the prompt is Google's recommended
+    fix."""
+    return os.environ.get("AGENT_LANGUAGE", "English")
+
+
+def _context_compression() -> dict[str, Any]:
+    """A sliding window over the model's context. Every frame and every word of
+    a Live session stays in context and is re-read on every turn; measured on
+    gemini-3.8-live, a five-minute call grew to 50k input tokens a turn and
+    the model's time to first audio from 2 s to 9 s. The window drops the
+    oldest turns once `trigger` is reached, down to `target`. Recent frames,
+    which are the ones that matter, survive; the greeting does not need to.
+    `GEMINI_CONTEXT_TRIGGER_TOKENS=off` disables it."""
+    trigger = os.environ.get("GEMINI_CONTEXT_TRIGGER_TOKENS", "24000")
+    if trigger.lower() == "off":
+        return {}
+    target = int(os.environ.get("GEMINI_CONTEXT_TARGET_TOKENS", "12000"))
+    return {
+        "context_window_compression": types.ContextWindowCompressionConfig(
+            trigger_tokens=int(trigger),
+            sliding_window=types.SlidingWindow(target_tokens=target),
+        )
+    }
+
+
 def build_session_model() -> dict[str, Any]:
     """Build the model half of the session as AgentSession keyword arguments.
 
@@ -48,7 +85,12 @@ def build_session_model() -> dict[str, Any]:
     # MEDIA_RESOLUTION_HIGH. The frame is uploaded at the same pixel size
     # either way. Unset means the API default. Env, so it can be A/B'd.
     resolution = os.environ.get("GEMINI_MEDIA_RESOLUTION")
-    logger.info("session model: %s media_resolution=%s", model, resolution or "default")
+    compression = _context_compression()
+    logger.info(
+        "session model: %s media_resolution=%s context_compression=%s",
+        model, resolution or "default",
+        compression["context_window_compression"].trigger_tokens if compression else "off",
+    )
 
     return {
         "llm": google.realtime.RealtimeModel(
@@ -57,5 +99,6 @@ def build_session_model() -> dict[str, Any]:
             voice=os.environ.get("GEMINI_VOICE", "Puck"),
             image_encode_options=IMAGE_ENCODE_OPTIONS,
             **({"media_resolution": types.MediaResolution(resolution)} if resolution else {}),
+            **compression,
         )
     }

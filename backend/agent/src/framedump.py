@@ -19,7 +19,7 @@ from concurrent.futures import ThreadPoolExecutor
 
 from livekit import rtc
 from livekit.agents.utils import images
-from livekit.agents.voice import AgentSession, VoiceActivityVideoSampler
+from livekit.agents.voice import AgentSession
 
 from config import IMAGE_ENCODE_OPTIONS
 
@@ -29,7 +29,7 @@ FULL_QUALITY = images.EncodeOptions(format="JPEG", quality=95)
 
 
 class DumpingSampler:
-    """The default sampler, plus a side effect: frames it keeps also land on disk.
+    """A sampler, plus a side effect: frames it keeps also land on disk.
 
     Sampling decisions are delegated unchanged, so what gets dumped is exactly
     the set of frames the model receives, at the same moments. Encoding two
@@ -39,8 +39,8 @@ class DumpingSampler:
     once.
     """
 
-    def __init__(self, directory: str, limit: int) -> None:
-        self._inner = VoiceActivityVideoSampler()
+    def __init__(self, inner, directory: str, limit: int) -> None:
+        self._inner = inner
         # One subdirectory per call, so runs never mix and nothing is ever
         # deleted; clear old ones by hand when they are no longer wanted.
         self._dir = os.path.join(directory, time.strftime("%Y%m%d-%H%M%S"))
