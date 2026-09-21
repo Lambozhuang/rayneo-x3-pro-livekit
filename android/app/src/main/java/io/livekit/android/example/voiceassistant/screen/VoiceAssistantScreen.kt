@@ -44,6 +44,7 @@ import io.livekit.android.example.voiceassistant.requirePermissions
 import io.livekit.android.example.voiceassistant.ui.BuildSteps
 import io.livekit.android.example.voiceassistant.ui.Captions
 import io.livekit.android.example.voiceassistant.ui.Eyes
+import io.livekit.android.example.voiceassistant.ui.ModelView
 import io.livekit.android.example.voiceassistant.ui.Phase
 import io.livekit.android.example.voiceassistant.ui.PhaseBanner
 import io.livekit.android.example.voiceassistant.ui.ReplyLatencyProbe
@@ -80,7 +81,9 @@ fun VoiceAssistantScreen(
  *
  *   top-left      who has the floor (you / listening / thinking / speaking),
  *                 then the build's steps with the current one highlighted
- *   top-right     camera self-preview, the only proof capture is running
+ *   top-right     the reference model the agent streams (see ModelView), and
+ *                 under it a small camera self-preview, the only proof that
+ *                 capture is running
  *   bottom        the last three turns, what the model heard in green
  *
  * Mic and camera are always on. Toggling them was the starter's idea of a
@@ -239,7 +242,7 @@ fun VoiceAssistant(
                     BuildSteps(
                         progress = buildProgress,
                         modifier = Modifier
-                            .fillMaxWidth(0.66f)
+                            .fillMaxWidth(0.56f)
                             .padding(top = 12.dp)
                     )
                     Captions(
@@ -252,21 +255,38 @@ fun VoiceAssistant(
                     )
                 }
 
-                // Self-preview. Redundant on glasses — the wearer is looking at
-                // the scene directly — but it is the only on-device confirmation
-                // that capture is actually running.
-                Box(
+                // Right column: the reference model, then the self-preview.
+                Column(
                     modifier = Modifier
                         .align(Alignment.TopEnd)
-                        .fillMaxWidth(0.3f)
-                        .aspectRatio(4f / 3f)
-                        .clip(RoundedCornerShape(6.dp))
-                        .alpha(cameraAlpha)
+                        .fillMaxWidth(0.42f)
                 ) {
-                    VideoTrackView(
-                        trackReference = localMedia.cameraTrack,
-                        modifier = Modifier.fillMaxSize()
+                    // The finished build, rendered and streamed by the agent
+                    // with the current step's brick highlighted; black, so
+                    // transparent here, where there is no model.
+                    ModelView(
+                        agent = agent.agentParticipant,
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .aspectRatio(4f / 3f)
                     )
+                    // Self-preview. Redundant on glasses — the wearer is looking at
+                    // the scene directly — but it is the only on-device confirmation
+                    // that capture is actually running.
+                    Box(
+                        modifier = Modifier
+                            .align(Alignment.End)
+                            .fillMaxWidth(0.45f)
+                            .aspectRatio(4f / 3f)
+                            .padding(top = 6.dp)
+                            .clip(RoundedCornerShape(6.dp))
+                            .alpha(cameraAlpha)
+                    ) {
+                        VideoTrackView(
+                            trackReference = localMedia.cameraTrack,
+                            modifier = Modifier.fillMaxSize()
+                        )
+                    }
                 }
             }
         }
