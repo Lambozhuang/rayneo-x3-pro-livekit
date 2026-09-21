@@ -53,7 +53,7 @@ backend/
   agent/src/guide.py    build guide loader and the state of one run
   agent/src/prompts.py  system instructions
   agent/src/tools.py    @function_tool definitions: get_step, step_done, reopen_previous_step, restart_build, end_call
-  agent/guides/         build guides (TOML), chosen with BUILD_GUIDE
+  agent/guides/         build guides (TOML), chosen with BUILD_GUIDE; *.glb reference models
   agent/src/framedump.py, inspect_frame.py   see "Seeing what the model saw"
 android/                Kotlin + Compose app for the glasses
 deploy/
@@ -61,6 +61,7 @@ deploy/
   livekit.lab.yaml      livekit-server config for a private LAN
   glasses.ps1           launch/stop the app on the glasses over adb
   watch.py              coloured live view of the agent log
+  export_guide_glb.py   run in Blender: Mecabricks model -> one-node-per-brick GLB for a guide
   stop.ps1              end a session: stop the app, then compose down on the lab PC
 ```
 

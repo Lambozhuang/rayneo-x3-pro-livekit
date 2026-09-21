@@ -11,3 +11,7 @@ console-recordings/
 backend/docker-compose.override.yml
 # frames dumped by FRAME_DUMP_DIR
 backend/frames/
+
+# papers and standards, downloaded, not ours to redistribute
+docs/*.pdf
+docs/papers/
