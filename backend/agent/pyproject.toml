@@ -11,6 +11,10 @@ dependencies = [
     # a white background for a frame that showed four digits on navy.
     "livekit-agents[google,images,silero]~=1.8.2",
     "python-dotenv~=1.0",
+    # The reference model stream (render.py): GLB loading and headless GL.
+    "moderngl~=5.12",
+    "trimesh~=4.0",
+    "numpy",
 ]
 
 [tool.uv]

@@ -52,8 +52,9 @@ backend/
   agent/src/config.py   env + session model factory, frame encode options
   agent/src/guide.py    build guide loader and the state of one run
   agent/src/prompts.py  system instructions
+  agent/src/render.py   the reference model: model.glb rendered headless, streamed as a video track
   agent/src/tools.py    @function_tool definitions: get_step, step_done, reopen_previous_step, restart_build, end_call
-  agent/guides/         build guides (TOML), chosen with BUILD_GUIDE; *.glb reference models
+  agent/guides/         build guides, chosen with BUILD_GUIDE: <name>/task.toml + model.glb, or a bare .toml
   agent/src/framedump.py, inspect_frame.py   see "Seeing what the model saw"
 android/                Kotlin + Compose app for the glasses
 deploy/

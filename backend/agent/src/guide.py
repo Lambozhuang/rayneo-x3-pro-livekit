@@ -1,11 +1,14 @@
 """The build guide and the state of one run through it.
 
-A guide is a TOML file (see ../guides): a title and an ordered list of steps.
-Each step names the part to pick up, what to tell the wearer, and a one-line
-name for the list on the glasses. This process holds the position in that
-list; the model knows the names (they are in its prompt, so it and the wearer
-can both say "step two") but sees a step's instructions only through the tools
-in tools.py, one step at a time. Progress therefore cannot drift with the
+A guide is a directory under ../guides with a `task.toml` (a title and an
+ordered list of steps) and, optionally, a `model.glb` of the finished build
+that the agent streams to the glasses as a rotating reference (render.py); a
+bare .toml file is a guide without a model. Each step names the part to pick
+up, what to tell the wearer, a one-line name for the list on the glasses, and
+which node of the model it is, so that brick can be highlighted. This process
+holds the position in that list; the model knows the names (they are in its
+prompt, so it and the wearer can both say "step two") but sees a step's
+instructions only through the tools in tools.py, one step at a time. Progress therefore cannot drift with the
 conversation, and the log carries the timing of every step.
 
 The model judges when a step is done, from the camera. The code does not check
@@ -33,6 +36,7 @@ class Step:
     part: str
     say: str
     name: str  # one line for the list on the glasses; defaults to `part`
+    node: str | None = None  # node name in model.glb; defaults to the "stepNN" prefix
 
 
 @dataclass(frozen=True)
@@ -40,6 +44,7 @@ class Guide:
     name: str
     title: str
     steps: tuple[Step, ...]
+    model: Path | None = None  # model.glb of the finished build, if the guide has one
 
 
 def load_guide(path: str) -> Guide:
@@ -48,12 +53,19 @@ def load_guide(path: str) -> Guide:
     p = Path(path)
     if not p.is_absolute():
         p = Path(__file__).resolve().parent.parent / p
-    with p.open("rb") as f:
+    toml, model = (p / "task.toml", p / "model.glb") if p.is_dir() else (p, None)
+    with toml.open("rb") as f:
         data = tomllib.load(f)
-    steps = tuple(Step(part=s["part"], say=s["say"], name=s.get("name", s["part"])) for s in data["steps"])
+    steps = tuple(
+        Step(part=s["part"], say=s["say"], name=s.get("name", s["part"]), node=s.get("node", f"step{i:02d}"))
+        for i, s in enumerate(data["steps"], 1)
+    )
     if not steps:
-        raise ValueError(f"{p}: guide has no steps")
-    return Guide(name=p.stem, title=data["title"], steps=steps)
+        raise ValueError(f"{toml}: guide has no steps")
+    return Guide(
+        name=p.stem, title=data["title"], steps=steps,
+        model=model if model is not None and model.exists() else None,
+    )
 
 
 @dataclass
@@ -73,6 +85,9 @@ class Build:
     # Asks the camera sampler for one fresh frame; the `look` tool calls it.
     # Set by agent.py; None in tests and in console mode, where there is no camera.
     request_look: Callable[[], None] | None = field(default=None, repr=False)
+    # Told the current step whenever it changes (None once finished); agent.py
+    # uses it to highlight that step's brick in the streamed model.
+    on_step: Callable[[Step | None], None] | None = field(default=None, repr=False)
 
     @property
     def finished(self) -> bool:
@@ -117,6 +132,8 @@ class Build:
             logger.info(
                 "build finished: run=%s in %.0fs", self.run, time.monotonic() - self.started
             )
+            if self.on_step is not None:
+                self.on_step(None)
             return f"Step {n} complete. That was the last step: the build is finished, congratulate the wearer."
         self._log_step_start()
         return f"Step {n} complete. Next: {self.describe()}"
@@ -130,6 +147,8 @@ class Build:
         self.step -= 1
         self.step_started = time.monotonic()
         logger.info("step %d/%d reopened", self.step + 1, len(self.guide.steps))
+        if self.on_step is not None:
+            self.on_step(self.guide.steps[self.step])
         return "Reopened. " + self.describe()
 
     def start(self) -> None:
@@ -148,3 +167,5 @@ class Build:
     def _log_step_start(self) -> None:
         s = self.guide.steps[self.step]
         logger.info("step %d/%d start: %s", self.step + 1, len(self.guide.steps), s.part)
+        if self.on_step is not None:
+            self.on_step(s)

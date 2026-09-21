@@ -1,0 +1,27 @@
+# First guide with a reference model: four bricks, a little house. No baseplate.
+# `model.glb` next to this file is the finished build, one node per brick,
+# named stepNN_...; the agent streams it to the glasses (src/render.py) and
+# highlights the current step's brick. A step's `node` defaults to the node
+# whose name starts with "stepNN" for that step number.
+
+title = "Little house"
+
+[[steps]]
+part = "dark purple 2x4 brick"
+name = "Purple 2x4 flat on the table"
+say = "Take the dark purple two-by-four brick and put it flat on the table in front of you, the long side left to right."
+
+[[steps]]
+part = "yellow 1x4 brick"
+name = "Yellow 1x4 on the front row"
+say = "Take the yellow one-by-four brick and press it onto the purple brick, on the front row of studs, the row nearer to you, covering all four."
+
+[[steps]]
+part = "blue 1x4 brick"
+name = "Blue 1x4 on the back row"
+say = "Take the blue one-by-four brick and press it onto the back row of the purple brick, behind the yellow one, so the two together cover the purple brick."
+
+[[steps]]
+part = "red 3x4 slope brick"
+name = "Red slope on top, overhanging the front"
+say = "Take the red sloped roof piece. Put it on top of the yellow and blue bricks with its four studs at the back, flush with the blue brick, so the slope runs down towards you and its front edge sticks out one row past the yellow brick."

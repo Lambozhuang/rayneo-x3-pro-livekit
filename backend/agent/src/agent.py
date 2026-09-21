@@ -30,6 +30,7 @@ from framedump import DumpingSampler
 from livekit.plugins import silero
 from guide import Build, load_guide
 from prompts import build_instructions
+from render import ModelState, ModelStream, stream_enabled
 from sampler import CameraSampler
 from tools import end_call, get_step, look, publish_build, reopen_previous_step, restart_build, step_done
 
@@ -85,6 +86,18 @@ async def rayneo_assistant(ctx: JobContext) -> None:
     build = Build(
         guide=load_guide(require_env("BUILD_GUIDE")), run=ctx.room.name, request_look=camera.request
     )
+    # The reference model, if the guide ships one: rendered here, streamed to
+    # the glasses as our second video track, the current step's brick
+    # highlighted. See render.py. MODEL_STREAM=off keeps the guide without it.
+    model = ModelState()
+    stream = ModelStream(build.guide.model, model) if build.guide.model and stream_enabled() else None
+    if stream is not None:
+        def _highlight(step):
+            model.highlight = next((n for n in stream.nodes if step and n.startswith(step.node)), None)
+            if step and model.highlight is None:
+                logger.warning("model: no node for step %r in %s", step.node, stream.nodes)
+        build.on_step = _highlight
+        ctx.add_shutdown_callback(stream.stop)
     session = AgentSession(
         userdata=build,
         vad=ctx.proc.userdata["vad"],
@@ -185,6 +198,8 @@ async def rayneo_assistant(ctx: JobContext) -> None:
     # memory or preferences would key off it here.
     wearer = await ctx.wait_for_participant()
     logger.info("session for user=%s room=%s", wearer.identity, ctx.room.name)
+    if stream is not None:
+        await stream.start(ctx.room.local_participant)
     build.start()
     await publish_build(build)
 
