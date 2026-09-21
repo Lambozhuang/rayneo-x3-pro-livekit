@@ -17,9 +17,14 @@
 - [ ] 任务打包格式：`guides/<task>/task.toml`（标题、零件清单、步骤：part / place / check）+ 成品模型 `model.glb`。
       所有任务共用一套零件，每块砖一步；模型里每块砖一个节点，节点名带步骤号，之后高亮要用
 - [ ] 建模导出：Stud.io 画 → .ldr/.io → Blender（ImportLDraw）→ GLB。格式待验证，看节点是否保得住
-- [ ] 眼镜端本地渲染 GLB（Filament / SceneView），开场就显示，自动慢速旋转。模型随任务一次性下发，不算被测通道
-- [ ] agent 控制：`show_view(front|back|top|…)`、`highlight_part(step)` 工具，经数据通道发给眼镜；用户也能说"转到背面"
-- [ ] Future work：服务端渲染成视频流下发，下行视觉也成为被测通道（与 Cortés 2024 的设定对齐）
+- [ ] 后端实时渲染成视频轨下发（云渲染 / split rendering 路线，眼镜端只显示远端视频轨）。PoC 已通：
+      moderngl 渲染 3 ms/帧，`rtc.VideoSource` 发 VP8 640×480 15 fps，接收端无丢帧。容器里要换 EGL + Mesa
+      llvmpipe（软渲染够用，不动宿主机）；GPU 路线要 nvidia-container-toolkit（sudo）
+- [ ] 编码怎么选：现在是 libwebrtc 软编 VP8。VP8 / H.264 / AV1、码率、关键帧间隔、丢包下的表现，
+      以及要不要 NVENC——请教同事后定。眼镜端解码能力也要查
+- [ ] agent 控制渲染状态：`show_view(...)`、`highlight_part(step)` 工具直接改渲染进程里的变量，换步时自动高亮当前件；
+      被遮住的件考虑把其他件做半透明
+- [ ] 下行视频是否算被测通道由实验设计定；不想混时只在语音流上注入丢包（tc 按端口/流）
 - [ ] 正式图形几个、几块砖、什么形状先不定，系统跑通后再画
 
 ## Agent / 模型
