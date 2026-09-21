@@ -10,6 +10,18 @@
 - [ ] 实验结束后 `glasses.ps1 -RestoreSleep`（启动时会把眼镜的摘下休眠关掉，不然摘下一分钟就断 Wi-Fi）
 - [ ] 屏幕现在有状态、步骤列表、双方字幕。实验测的是网络质量对语音交互的影响，屏幕信息越多用户越不依赖语音，正式实验前再定去掉哪些
 
+## 参考模型（眼镜端下行视觉）
+
+搭建者要能看到成品长什么样，只看成品、不给分步图（分步图就是说明书，语音交互没了）。按阶段做：
+
+- [ ] 任务打包格式：`guides/<task>/task.toml`（标题、零件清单、步骤：part / place / check）+ 成品模型 `model.glb`。
+      所有任务共用一套零件，每块砖一步；模型里每块砖一个节点，节点名带步骤号，之后高亮要用
+- [ ] 建模导出：Stud.io 画 → .ldr/.io → Blender（ImportLDraw）→ GLB。格式待验证，看节点是否保得住
+- [ ] 眼镜端本地渲染 GLB（Filament / SceneView），开场就显示，自动慢速旋转。模型随任务一次性下发，不算被测通道
+- [ ] agent 控制：`show_view(front|back|top|…)`、`highlight_part(step)` 工具，经数据通道发给眼镜；用户也能说"转到背面"
+- [ ] Future work：服务端渲染成视频流下发，下行视觉也成为被测通道（与 Cortés 2024 的设定对齐）
+- [ ] 正式图形几个、几块砖、什么形状先不定，系统跑通后再画
+
 ## Agent / 模型
 
 - [ ] 人设、什么时候可以主动开口
@@ -26,7 +38,7 @@
 - [ ] 架构对比：GPT-Live（`gpt-live-1`，全双工）+ 单独视觉模型。LiveKit 插件里 GPT-Live 不收视频，
       要用 client delegation 自己抓帧、自己调视觉模型、`append_commentary` 回话；需要 livekit-agents[openai]≥1.8
       和账号的 GPT-Live 权限。切换点是 `build_session_model()`
-- [ ] 参考图怎么给模型，待试：纯文字描述；开场 seed 全部参考图；换步时经视频流注入带标签的参考图；
+- [ ] 参考图怎么给模型（成品模型的渲染图），待试：纯文字描述；开场 seed 全部参考图；换步时经视频流注入带标签的参考图；
       tool 返回图片（Gemini `FunctionResponse.parts`，插件未用、Live API 未验证）；只给另一个视觉模型看、返回文字
 - [ ] 成本：`MEDIA_RESOLUTION_HIGH` 每帧 280 tokens，静默时 0.3 fps；决定默认档位，或把 `silent_fps` 再压低
 - [ ] 延迟随通话变长：每轮带全部历史帧。已做：只在说话时采样 + `look` 工具 + 上下文滑动窗口。
