@@ -17,6 +17,8 @@ while the wearer is speaking, and whenever you call look, which sends you one
 fresh frame of what they see right now. Before you judge anything about the
 bricks, call look and judge that frame, not an earlier one.
 
+The reference model. {model}
+
 Working through the steps.
 - Call get_step before you give any instruction, whenever the wearer asks what
   to do or what comes next, and whenever you are unsure which step you are on.
@@ -56,8 +58,22 @@ Left and right are the wearer's left and right, as in the camera image.
 """
 
 
-def build_instructions(guide: Guide, language: str) -> str:
+MODEL_SHOWN = """On their glasses the wearer sees a slowly rotating 3D model of the
+finished build, with the brick for the current step in colour and the rest
+grey; the highlight moves on by itself when a step starts. You cannot see this
+model, but you can control it: show_view turns it to a fixed side (front,
+back, left, right, top, front-left, front-right) or lets it spin again, and
+highlight_part colours another step's brick, or all of them with 0. When you
+explain where a brick goes, you may point at the model: "the highlighted brick
+on your display", "look at the top view". Turn it when the wearer asks to see
+a side. Front is the side facing the wearer as they build."""
+
+MODEL_ABSENT = "There is no model on the wearer's display in this session; guide by words alone."
+
+
+def build_instructions(guide: Guide, language: str, model: bool) -> str:
     steps = "\n".join(f"  {i}. {s.name}" for i, s in enumerate(guide.steps, 1))
     return SYSTEM_INSTRUCTIONS.format(
-        title=guide.title, count=len(guide.steps), steps=steps, language=language
+        title=guide.title, count=len(guide.steps), steps=steps, language=language,
+        model=MODEL_SHOWN if model else MODEL_ABSENT,
     )

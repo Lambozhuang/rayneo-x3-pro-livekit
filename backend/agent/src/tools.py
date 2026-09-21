@@ -4,7 +4,8 @@ Plain @function_tool functions: the framework sends their signatures to the
 model and runs them here when the model calls them. They are also the only
 channel that reaches gemini-3.1-flash-live-preview mid-session (instructions
 and chat context cannot be updated on that model), which is why the build
-steps arrive this way rather than in the prompt. On 3.1 the model waits
+steps arrive this way rather than in the prompt. show_view and highlight_part
+change what the reference model stream shows (render.py). On 3.1 the model waits
 silently while a tool runs, so nothing slow belongs here; these finish in
 microseconds, except end_call, which waits for the goodbye to play out.
 """
@@ -14,6 +15,7 @@ import logging
 from livekit.agents import RunContext, function_tool, get_job_context
 
 from guide import Build
+from render import VIEWS
 
 logger = logging.getLogger("rayneo-agent.tools")
 
@@ -77,6 +79,44 @@ async def restart_build(context: RunContext[Build]) -> str:
     result = context.userdata.restart()
     await publish_build(context.userdata)
     return result
+
+
+@function_tool()
+async def show_view(context: RunContext[Build], view: str) -> str:
+    """Turn the reference model on the wearer's display. `view` is one of
+    front, back, left, right, top, front-left, front-right (a fixed view), or
+    spin to let it rotate again. Use it when the wearer asks to see a side, or
+    when a fixed view shows where a brick goes better than the rotation."""
+    model = context.userdata.model
+    if model is None:
+        return "There is no model display in this session."
+    view = view.strip().lower().replace(" ", "-").replace("_", "-")
+    if view != "spin" and view not in VIEWS:
+        return f"Unknown view {view!r}. Use one of: spin, {', '.join(VIEWS)}."
+    model.show(view)
+    logger.info("model: view=%s", view)
+    return f"The model now shows the {view} view." if view != "spin" else "The model is rotating again."
+
+
+@function_tool()
+async def highlight_part(context: RunContext[Build], step: int) -> str:
+    """Highlight one step's brick in the reference model on the wearer's
+    display: that brick in colour, the rest grey. `step` is the step number
+    (1-based); 0 shows every brick in colour. The current step's brick is
+    highlighted automatically whenever a step starts, so this is for pointing
+    at another one, or at the whole build."""
+    build = context.userdata
+    if build.model is None:
+        return "There is no model display in this session."
+    if step == 0:
+        build.highlight(None)
+        logger.info("model: highlight none")
+        return "All bricks are shown in colour."
+    if not 1 <= step <= len(build.guide.steps):
+        return f"There is no step {step}; steps are 1 to {len(build.guide.steps)}."
+    build.highlight(step - 1)
+    logger.info("model: highlight step %d", step)
+    return f"Step {step}'s brick, the {build.guide.steps[step - 1].part}, is highlighted."
 
 
 @function_tool()

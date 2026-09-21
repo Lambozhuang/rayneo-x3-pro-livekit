@@ -32,7 +32,9 @@ from guide import Build, load_guide
 from prompts import build_instructions
 from render import ModelState, ModelStream, stream_enabled
 from sampler import CameraSampler
-from tools import end_call, get_step, look, publish_build, reopen_previous_step, restart_build, step_done
+from tools import (
+    end_call, get_step, highlight_part, look, publish_build, reopen_previous_step, restart_build, show_view, step_done,
+)
 
 load_dotenv()  # backend/.env, found by walking up from this file
 
@@ -89,14 +91,8 @@ async def rayneo_assistant(ctx: JobContext) -> None:
     # The reference model, if the guide ships one: rendered here, streamed to
     # the glasses as our second video track, the current step's brick
     # highlighted. See render.py. MODEL_STREAM=off keeps the guide without it.
-    model = ModelState()
-    stream = ModelStream(build.guide.model, model) if build.guide.model and stream_enabled() else None
+    stream = ModelStream(build.guide.model, ModelState()) if build.guide.model and stream_enabled() else None
     if stream is not None:
-        def _highlight(step):
-            model.highlight = next((n for n in stream.nodes if step and n.startswith(step.node)), None)
-            if step and model.highlight is None:
-                logger.warning("model: no node for step %r in %s", step.node, stream.nodes)
-        build.on_step = _highlight
         ctx.add_shutdown_callback(stream.stop)
     session = AgentSession(
         userdata=build,
@@ -185,8 +181,8 @@ async def rayneo_assistant(ctx: JobContext) -> None:
 
     await session.start(
         agent=Agent(
-            instructions=build_instructions(build.guide, language()),
-            tools=[look, get_step, step_done, reopen_previous_step, restart_build, end_call],
+            instructions=build_instructions(build.guide, language(), model=stream is not None),
+            tools=[look, get_step, step_done, reopen_previous_step, restart_build, show_view, highlight_part, end_call],
         ),
         room=ctx.room,
         # Camera frames from the glasses stream inline with the audio session.
@@ -200,6 +196,7 @@ async def rayneo_assistant(ctx: JobContext) -> None:
     logger.info("session for user=%s room=%s", wearer.identity, ctx.room.name)
     if stream is not None:
         await stream.start(ctx.room.local_participant)
+        build.model, build.model_nodes = stream.state, tuple(stream.nodes)
     build.start()
     await publish_build(build)
 

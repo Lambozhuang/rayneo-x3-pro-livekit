@@ -27,6 +27,10 @@ import tomllib
 from collections.abc import Callable
 from dataclasses import dataclass, field
 from pathlib import Path
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from render import ModelState
 
 logger = logging.getLogger("rayneo-agent.build")
 
@@ -85,9 +89,11 @@ class Build:
     # Asks the camera sampler for one fresh frame; the `look` tool calls it.
     # Set by agent.py; None in tests and in console mode, where there is no camera.
     request_look: Callable[[], None] | None = field(default=None, repr=False)
-    # Told the current step whenever it changes (None once finished); agent.py
-    # uses it to highlight that step's brick in the streamed model.
-    on_step: Callable[[Step | None], None] | None = field(default=None, repr=False)
+    # The streamed reference model, when the guide has one (render.py): its
+    # state, which the tools change, and the node names in the GLB, so a step
+    # can be turned into the node to highlight. None without a model.
+    model: ModelState | None = field(default=None, repr=False)
+    model_nodes: tuple[str, ...] = ()
 
     @property
     def finished(self) -> bool:
@@ -132,8 +138,7 @@ class Build:
             logger.info(
                 "build finished: run=%s in %.0fs", self.run, time.monotonic() - self.started
             )
-            if self.on_step is not None:
-                self.on_step(None)
+            self.highlight(None)
             return f"Step {n} complete. That was the last step: the build is finished, congratulate the wearer."
         self._log_step_start()
         return f"Step {n} complete. Next: {self.describe()}"
@@ -147,8 +152,7 @@ class Build:
         self.step -= 1
         self.step_started = time.monotonic()
         logger.info("step %d/%d reopened", self.step + 1, len(self.guide.steps))
-        if self.on_step is not None:
-            self.on_step(self.guide.steps[self.step])
+        self.highlight(self.step)
         return "Reopened. " + self.describe()
 
     def start(self) -> None:
@@ -167,5 +171,21 @@ class Build:
     def _log_step_start(self) -> None:
         s = self.guide.steps[self.step]
         logger.info("step %d/%d start: %s", self.step + 1, len(self.guide.steps), s.part)
-        if self.on_step is not None:
-            self.on_step(s)
+        self.highlight(self.step)
+
+    def node_for(self, index: int) -> str | None:
+        """The model node of step `index` (0-based), by the step's `node` prefix."""
+        prefix = self.guide.steps[index].node or ""
+        return next((n for n in self.model_nodes if n.startswith(prefix)), None)
+
+    def highlight(self, index: int | None) -> None:
+        """Highlight step `index`'s brick in the streamed model, or none. Steps
+        do this as they start; the highlight_part tool does it on request."""
+        if self.model is None:
+            return
+        node = None if index is None else self.node_for(index)
+        if index is not None and node is None:
+            logger.warning(
+                "model: no node for step %d (%r) in %s", index + 1, self.guide.steps[index].node, self.model_nodes
+            )
+        self.model.highlight = node
