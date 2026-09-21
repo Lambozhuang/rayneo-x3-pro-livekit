@@ -15,3 +15,6 @@ backend/frames/
 # papers and standards, downloaded, not ours to redistribute
 docs/*.pdf
 docs/papers/
+
+# scratch: PoC scripts and their output, not part of the project
+tmp/
