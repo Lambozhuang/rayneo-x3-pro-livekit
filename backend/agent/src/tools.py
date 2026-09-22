@@ -14,6 +14,7 @@ for, so its result lands after the picture; end_call waits for the goodbye.
 
 import asyncio
 import logging
+import time
 
 from livekit.agents import RunContext, function_tool, get_job_context
 from livekit.agents.llm import StopResponse
@@ -28,6 +29,20 @@ async def publish_build(build: Build) -> None:
     """Push the run's position to the glasses as participant attributes; see
     Build.attributes. Called at start and after every tool that moves it."""
     await get_job_context().room.local_participant.set_attributes(build.attributes())
+
+
+async def _after_speech(context: RunContext[Build], grace: float = 0.8, cap: float = 8.0) -> None:
+    """Hold a tool result until the agent has finished saying whatever it said
+    on the way in ("Let me have a look."). Gemini counts itself idle when it
+    has finished generating, not when the wearer has finished hearing, so a
+    result returned at once starts the next generation and the tail of the
+    sentence is cut off. Waits up to `grace` for playout to start, then for it
+    to end, `cap` at most."""
+    t0 = time.monotonic()
+    while context.session.agent_state != "speaking" and time.monotonic() - t0 < grace:
+        await asyncio.sleep(0.05)
+    while context.session.agent_state == "speaking" and time.monotonic() - t0 < cap:
+        await asyncio.sleep(0.05)
 
 
 @function_tool()
@@ -57,6 +72,7 @@ async def look(context: RunContext[Build]) -> str:
         logger.warning("look: no camera frame within 3 s")
         return "No frame came from the camera in three seconds; tell the wearer you cannot see right now."
     context.userdata.saw_frame()
+    await _after_speech(context)
     return "You now have a fresh frame; judge from it."
 
 
@@ -71,6 +87,7 @@ async def step_done(context: RunContext[Build]) -> str:
     or that the build is finished."""
     result = context.userdata.complete_step()
     await publish_build(context.userdata)
+    await _after_speech(context)
     return result
 
 

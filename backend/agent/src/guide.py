@@ -161,9 +161,15 @@ class Build:
                 "build finished: run=%s in %.0fs", self.run, time.monotonic() - self.started
             )
             self.highlight(None)
-            return f"Step {n} complete. That was the last step: the build is finished, congratulate the wearer."
+            return (
+                f"Recorded: step {n} is right, and it was the last one. Tell the wearer the step is "
+                "right, then that the build is finished, and congratulate them."
+            )
         self._log_step_start()
-        return f"Step {n} complete. Next: {self.describe()}"
+        return (
+            f"Recorded: step {n} is right. First tell the wearer, in one sentence, that it is right "
+            f"and what you saw; then give them the next step. {self.describe()}"
+        )
 
     def reopen_previous_step(self) -> str:
         """Go back one step: the model marked one done too early and the
