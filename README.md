@@ -201,7 +201,9 @@ from transport softness.
 just the part to pick up, what to tell the wearer, and an optional one-line `name` for the list
 on the glasses. The agent process holds the position
 (`guide.py`, in `session.userdata`); the model sees one step at a time through `get_step`,
-judges from the camera when the step is built and calls `step_done` to advance, can go back one
+judges from the camera when the step is built and calls `step_done` to advance (refused unless
+it called `look` during that step in the last 20 s: the model was closing steps on old frames or
+none), can go back one
 with `reopen_previous_step` when a step was passed too early, and can `restart_build` or
 `end_call`. The prompt carries the title and the steps' one-line names (the same list the
 wearer sees on the glasses, so both sides can say "step two"), not the instructions, so the

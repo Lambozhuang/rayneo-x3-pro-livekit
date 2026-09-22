@@ -34,6 +34,11 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger("rayneo-agent.build")
 
+# How old the model's last look may be when it closes a step. Long enough for
+# "let me have a look" plus the verdict, short enough that a frame from before
+# the wearer moved a brick does not count.
+LOOK_MAX_AGE = 20.0
+
 
 @dataclass(frozen=True)
 class Step:
@@ -86,6 +91,10 @@ class Build:
     step: int = 0  # index of the current step; len(steps) once finished
     started: float = field(default_factory=time.monotonic)
     step_started: float = field(default_factory=time.monotonic)
+    # When the model last got a frame it asked for (the look tool), during
+    # this step; None until it has. complete_step refuses without a recent
+    # one: the model must have seen the step before it can close it.
+    looked: float | None = None
     # Asks the camera sampler for one fresh frame; the `look` tool calls it.
     # Set by agent.py; None in tests and in console mode, where there is no camera.
     request_look: Callable[[], Awaitable[None]] | None = field(default=None, repr=False)
@@ -123,17 +132,30 @@ class Build:
         s = self.guide.steps[self.step]
         return f"{self.status()} Part: {s.part}. Tell the wearer: {s.say}"
 
+    def saw_frame(self) -> None:
+        """The look tool got its frame to the model."""
+        self.looked = time.monotonic()
+
     def complete_step(self) -> str:
         """Advance to the next step. The model calls this once it is satisfied,
-        from the camera, that the current step is done."""
+        from the camera, that the current step is done. Refused unless it has
+        looked during this step, and recently: the wearer saying "done" is not
+        evidence, and the model was closing steps on old frames or none."""
         if self.finished:
             return self.describe()
         n, total = self.step + 1, len(self.guide.steps)
+        if self.request_look is not None:  # no camera: nothing to enforce
+            age = None if self.looked is None else time.monotonic() - self.looked
+            if age is None or age > LOOK_MAX_AGE:
+                logger.warning("step %d/%d done refused: %s", n, total, "no look this step" if age is None else f"last look {age:.0f}s ago")
+                why = "You have not looked at this step yet." if age is None else f"Your last look was {age:.0f} seconds ago."
+                return f"Not recorded. {why} Call look, judge the fresh frame, and call step_done only if it matches the step."
         logger.info(
             "step %d/%d done after %.0fs", n, total, time.monotonic() - self.step_started
         )
         self.step += 1
         self.step_started = time.monotonic()
+        self.looked = None
         if self.finished:
             logger.info(
                 "build finished: run=%s in %.0fs", self.run, time.monotonic() - self.started
@@ -151,6 +173,7 @@ class Build:
             return "Already at the first step. " + self.describe()
         self.step -= 1
         self.step_started = time.monotonic()
+        self.looked = None
         logger.info("step %d/%d reopened", self.step + 1, len(self.guide.steps))
         self.highlight(self.step)
         return "Reopened. " + self.describe()
@@ -165,6 +188,7 @@ class Build:
         logger.info("build restarted: run=%s at step %d", self.run, self.step + 1)
         self.step = 0
         self.started = self.step_started = time.monotonic()
+        self.looked = None
         self._log_step_start()
         return "Starting over. " + self.describe()
 

@@ -56,6 +56,7 @@ async def look(context: RunContext[Build]) -> str:
     except asyncio.TimeoutError:
         logger.warning("look: no camera frame within 3 s")
         return "No frame came from the camera in three seconds; tell the wearer you cannot see right now."
+    context.userdata.saw_frame()
     return "You now have a fresh frame; judge from it."
 
 
@@ -63,10 +64,11 @@ async def look(context: RunContext[Build]) -> str:
 async def step_done(context: RunContext[Build]) -> str:
     """Record that the current step is built, and get the next one. Call this
     last: after you have looked at the camera, said what you see, and it
-    matches the step. The wearer saying they are done is a request to check,
-    not a confirmation. Until this has been called the step is not done and
-    you must not tell them to move on. The result is the next step, or that
-    the build is finished."""
+    matches the step. It is refused unless you called look during this step
+    within the last 20 seconds. The wearer saying they are done is a request
+    to check, not a confirmation. Until this has been called the step is not
+    done and you must not tell them to move on. The result is the next step,
+    or that the build is finished."""
     result = context.userdata.complete_step()
     await publish_build(context.userdata)
     return result
