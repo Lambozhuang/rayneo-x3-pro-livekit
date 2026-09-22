@@ -5,14 +5,18 @@ model and runs them here when the model calls them. They are also the only
 channel that reaches gemini-3.1-flash-live-preview mid-session (instructions
 and chat context cannot be updated on that model), which is why the build
 steps arrive this way rather than in the prompt. show_view and highlight_part
-change what the reference model stream shows (render.py). On 3.1 the model waits
-silently while a tool runs, so nothing slow belongs here; these finish in
-microseconds, except end_call, which waits for the goodbye to play out.
+change what the reference model stream shows (render.py); they raise
+StopResponse because there is nothing to say about a display change. Tools are
+declared non-blocking (config.py): the model talks over them and takes the
+result up when it is idle. look is the one that waits, for the frame it asked
+for, so its result lands after the picture; end_call waits for the goodbye.
 """
 
+import asyncio
 import logging
 
 from livekit.agents import RunContext, function_tool, get_job_context
+from livekit.agents.llm import StopResponse
 
 from guide import Build
 from render import VIEWS
@@ -44,9 +48,15 @@ async def look(context: RunContext[Build]) -> str:
     picture. Judge the frame that arrives after this call."""
     if context.userdata.request_look is None:
         return "No camera in this session."
-    context.userdata.request_look()
     logger.info("look: requested")
-    return "A fresh frame is on its way; judge from it."
+    try:
+        # Answer only once the frame has gone to the model, so the result
+        # always lands after the picture it refers to.
+        await asyncio.wait_for(context.userdata.request_look(), timeout=3)
+    except asyncio.TimeoutError:
+        logger.warning("look: no camera frame within 3 s")
+        return "No frame came from the camera in three seconds; tell the wearer you cannot see right now."
+    return "You now have a fresh frame; judge from it."
 
 
 @function_tool()
@@ -95,7 +105,7 @@ async def show_view(context: RunContext[Build], view: str) -> str:
         return f"Unknown view {view!r}. Use one of: spin, {', '.join(VIEWS)}."
     model.show(view)
     logger.info("model: view=%s", view)
-    return f"The model now shows the {view} view." if view != "spin" else "The model is rotating again."
+    raise StopResponse()  # done; nothing to say about it
 
 
 @function_tool()
@@ -108,15 +118,11 @@ async def highlight_part(context: RunContext[Build], step: int) -> str:
     build = context.userdata
     if build.model is None:
         return "There is no model display in this session."
-    if step == 0:
-        build.highlight(None)
-        logger.info("model: highlight none")
-        return "All bricks are shown in colour."
-    if not 1 <= step <= len(build.guide.steps):
+    if not 0 <= step <= len(build.guide.steps):
         return f"There is no step {step}; steps are 1 to {len(build.guide.steps)}."
-    build.highlight(step - 1)
-    logger.info("model: highlight step %d", step)
-    return f"Step {step}'s brick, the {build.guide.steps[step - 1].part}, is highlighted."
+    build.highlight(None if step == 0 else step - 1)
+    logger.info("model: highlight %s", "none" if step == 0 else f"step {step}")
+    raise StopResponse()  # done; nothing to say about it
 
 
 @function_tool()

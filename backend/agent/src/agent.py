@@ -90,7 +90,7 @@ async def rayneo_assistant(ctx: JobContext) -> None:
     # The build guide and this run's position in it. The tools read and
     # advance it through session.userdata; see guide.py. One call is one run.
     build = Build(
-        guide=load_guide(require_env("BUILD_GUIDE")), run=ctx.room.name, request_look=camera.request
+        guide=load_guide(require_env("BUILD_GUIDE")), run=ctx.room.name, request_look=lambda: camera.request().wait()
     )
     # The reference model, if the guide ships one: rendered here, streamed to
     # the glasses as our second video track, the current step's brick

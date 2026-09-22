@@ -86,10 +86,17 @@ def build_session_model() -> dict[str, Any]:
     # either way. Unset means the API default. Env, so it can be A/B'd.
     resolution = os.environ.get("GEMINI_MEDIA_RESOLUTION")
     compression = _context_compression()
+    # Tools run in the background by default: the model keeps talking while a
+    # tool runs ("let me have a look") and takes up the result once it has
+    # finished speaking (WHEN_IDLE). Gemini's own default is BLOCKING: silence
+    # until the tool returns, then a second round trip for the reply, which
+    # made every step change a ~3 s pause. `blocking` restores that for A/B.
+    tool_behavior = types.Behavior[os.environ.get("GEMINI_TOOL_BEHAVIOR", "non_blocking").upper()]
     logger.info(
-        "session model: %s media_resolution=%s context_compression=%s",
+        "session model: %s media_resolution=%s context_compression=%s tools=%s",
         model, resolution or "default",
         compression["context_window_compression"].trigger_tokens if compression else "off",
+        tool_behavior.value.lower(),
     )
 
     return {
@@ -100,5 +107,7 @@ def build_session_model() -> dict[str, Any]:
             image_encode_options=IMAGE_ENCODE_OPTIONS,
             **({"media_resolution": types.MediaResolution(resolution)} if resolution else {}),
             **compression,
+            tool_behavior=tool_behavior,
+            tool_response_scheduling=types.FunctionResponseScheduling.WHEN_IDLE,
         )
     }

@@ -53,7 +53,7 @@ backend/
   agent/src/guide.py    build guide loader and the state of one run
   agent/src/prompts.py  system instructions
   agent/src/render.py   the reference model: model.glb rendered headless, streamed as a video track
-  agent/src/tools.py    @function_tool definitions: get_step, step_done, reopen_previous_step, restart_build, end_call
+  agent/src/tools.py    @function_tool definitions: look, get_step, step_done, reopen_previous_step, restart_build, show_view, highlight_part, end_call
   agent/guides/         build guides, chosen with BUILD_GUIDE: <name>/task.toml + model.glb, or a bare .toml
   agent/src/framedump.py, inspect_frame.py   see "Seeing what the model saw"
 android/                Kotlin + Compose app for the glasses
@@ -179,9 +179,11 @@ from transport softness.
 `GEMINI_MODEL` in `.env` picks the Live model; the default deployment runs `gemini-3.8-live`
 (livekit-agents 1.8.2 or later knows the 3.8 ids). Things that shape the code:
 
-- Tool calls are asynchronous by default on 3.8: the model may keep talking while a tool
-  runs, and answers the result when it comes back. The build guide reaches the model only
-  through tools, so that is the channel for anything mid-session.
+- Tool calls are declared non-blocking (`GEMINI_TOOL_BEHAVIOR`, `config.py`): the model
+  keeps talking while a tool runs and takes up the result once it has finished speaking.
+  Gemini's default is blocking, which made every step change a ~3 s silence (look, then
+  step_done, then the reply). The build guide reaches the model only through tools, so
+  that is the channel for anything mid-session.
 - Proactive audio is always on: the model may decide not to answer an utterance.
 - Native-audio models pick their language by ear and switch mid-call (a stray German-sounding
   syllable was enough), and the voice changes with the language. The prompt pins

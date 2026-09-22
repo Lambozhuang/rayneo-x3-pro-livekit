@@ -24,7 +24,7 @@ from __future__ import annotations
 import logging
 import time
 import tomllib
-from collections.abc import Callable
+from collections.abc import Awaitable, Callable
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import TYPE_CHECKING
@@ -88,7 +88,7 @@ class Build:
     step_started: float = field(default_factory=time.monotonic)
     # Asks the camera sampler for one fresh frame; the `look` tool calls it.
     # Set by agent.py; None in tests and in console mode, where there is no camera.
-    request_look: Callable[[], None] | None = field(default=None, repr=False)
+    request_look: Callable[[], Awaitable[None]] | None = field(default=None, repr=False)
     # The streamed reference model, when the guide has one (render.py): its
     # state, which the tools change, and the node names in the GLB, so a step
     # can be turned into the node to highlight. None without a model.

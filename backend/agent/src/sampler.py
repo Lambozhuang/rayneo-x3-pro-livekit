@@ -23,6 +23,7 @@ rest of the time, the opposite of the intent.
 from __future__ import annotations
 
 import logging
+import asyncio
 import time
 
 from livekit import rtc
@@ -37,16 +38,26 @@ class CameraSampler:
         self.silent_fps = silent_fps
         self._last: float | None = None
         self._requested = 0
+        self._waiting: list[tuple[asyncio.AbstractEventLoop, asyncio.Event]] = []
 
-    def request(self, frames: int = 1) -> None:
-        """Let the next `frames` frames through regardless of who is talking."""
+    def request(self, frames: int = 1) -> asyncio.Event:
+        """Let the next `frames` frames through regardless of who is talking.
+        The returned event is set once the first of them has gone to the model,
+        so a caller can hold its answer until the model actually has the
+        frame."""
         self._requested = max(self._requested, frames)
+        ev = asyncio.Event()
+        self._waiting.append((asyncio.get_running_loop(), ev))
+        return ev
 
     def __call__(self, frame: rtc.VideoFrame, session: AgentSession) -> bool:
         if self._requested > 0:
             self._requested -= 1
             self._last = time.time()
             logger.info("look: frame sent on request")
+            for loop, ev in self._waiting:
+                loop.call_soon_threadsafe(ev.set)
+            self._waiting.clear()
             return True
         fps = self.speaking_fps if session.user_state == "speaking" else self.silent_fps
         if fps <= 0:
