@@ -82,15 +82,17 @@ class ModelState:
 
 @dataclass(frozen=True)
 class StreamConfig:
-    width: int = 640
-    height: int = 480
+    # The glasses show the model in a 269x202 px box (42% of a 640x480 eye),
+    # so 320x240 is already a little more than the display can use.
+    width: int = 320
+    height: int = 240
     fps: int = 15
     codec: str = "vp8"  # vp8 | h264 | av1 | vp9
     max_bitrate: int = 1_500_000
 
     @classmethod
     def from_env(cls) -> StreamConfig:
-        w, h = os.environ.get("MODEL_STREAM_SIZE", "640x480").lower().split("x")
+        w, h = os.environ.get("MODEL_STREAM_SIZE", "320x240").lower().split("x")
         return cls(
             width=int(w), height=int(h),
             fps=int(os.environ.get("MODEL_STREAM_FPS", "15")),
@@ -142,7 +144,10 @@ class _Renderer:
         return [p[0] for p in self.parts]
 
     def frame(self, yaw: float, pitch: float, highlight: str | None) -> bytes:
-        eye = self.radius * 3.0 * np.array(
+        # 3.3 radii back, so the bounding sphere (radius r) fits the frame's
+        # height at any angle: 3.3 * tan(35°/2) = 1.04 r. At 3.0 it was 0.95 r
+        # and a corner of the model touched the bottom edge now and then.
+        eye = self.radius * 3.3 * np.array(
             [np.sin(yaw) * np.cos(pitch), np.sin(pitch), np.cos(yaw) * np.cos(pitch)], "f4"
         )
         view = _look_at(eye, np.zeros(3, "f4"))

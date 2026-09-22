@@ -1,14 +1,12 @@
 package io.livekit.android.example.voiceassistant.screen
 
 import android.widget.Toast
-import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
@@ -18,8 +16,6 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.alpha
-import androidx.compose.ui.draw.clip
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import com.google.accompanist.permissions.ExperimentalPermissionsApi
@@ -34,7 +30,6 @@ import io.livekit.android.compose.state.rememberLocalMedia
 import io.livekit.android.compose.state.rememberSession
 import io.livekit.android.compose.state.rememberSessionMessages
 import io.livekit.android.compose.state.rememberSpeakingParticipants
-import io.livekit.android.compose.ui.VideoTrackView
 import io.livekit.android.example.voiceassistant.FrameDump
 import io.livekit.android.example.voiceassistant.VideoStatsLog
 import io.livekit.android.room.track.LocalVideoTrack
@@ -81,13 +76,13 @@ fun VoiceAssistantScreen(
  *
  *   top-left      who has the floor (you / listening / thinking / speaking),
  *                 then the build's steps with the current one highlighted
- *   top-right     the reference model the agent streams (see ModelView), and
- *                 under it a small camera self-preview, the only proof that
- *                 capture is running
+ *   top-right     the reference model the agent streams (see ModelView)
  *   bottom        the last three turns, what the model heard in green
  *
  * Mic and camera are always on. Toggling them was the starter's idea of a
- * feature; here it is a way to silently break the assistant.
+ * feature; here it is a way to silently break the assistant. There is no
+ * camera self-preview either: the wearer is looking at the scene directly,
+ * and the picture only competed with the model for the little screen there is.
  */
 @OptIn(Beta::class, ExperimentalPermissionsApi::class)
 @Composable
@@ -160,7 +155,6 @@ fun VoiceAssistant(
 
         val room = requireRoom()
         val localMedia = rememberLocalMedia()
-        val isCameraEnabled by localMedia::isCameraEnabled
 
         // Neither of these starts capture until the session is fully connected:
         // `waitUntilConnected()` does not return while the peer connections are
@@ -225,14 +219,12 @@ fun VoiceAssistant(
         // Everything above the Eyes call is hoisted on purpose: that layout is
         // composed once per eye, so a `remember` inside it would exist twice
         // and the two copies could disagree. See Eyes.
-        val cameraAlpha by animateFloatAsState(targetValue = if (isCameraEnabled) 1f else 0f, label = "cameraAlpha")
-
         Eyes {
             Box(modifier = modifier) {
                 // Top to bottom: who has the floor, where the build stands,
                 // and whatever is left is caption space, which the newest
                 // turn fills from the bottom up (see Captions). The step list
-                // keeps to the left two thirds so it clears the preview.
+                // keeps to the left so it clears the model.
                 Column(modifier = Modifier.fillMaxSize()) {
                     PhaseBanner(
                         phase = phase,
@@ -255,39 +247,17 @@ fun VoiceAssistant(
                     )
                 }
 
-                // Right column: the reference model, then the self-preview.
-                Column(
+                // Top right: the finished build, rendered and streamed by the
+                // agent with the current step's brick highlighted; black, so
+                // transparent here, where there is no model. 42% of a 640 px
+                // eye is 269 px wide, about what the agent streams (render.py).
+                ModelView(
+                    agent = agent.agentParticipant,
                     modifier = Modifier
                         .align(Alignment.TopEnd)
                         .fillMaxWidth(0.42f)
-                ) {
-                    // The finished build, rendered and streamed by the agent
-                    // with the current step's brick highlighted; black, so
-                    // transparent here, where there is no model.
-                    ModelView(
-                        agent = agent.agentParticipant,
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .aspectRatio(4f / 3f)
-                    )
-                    // Self-preview. Redundant on glasses — the wearer is looking at
-                    // the scene directly — but it is the only on-device confirmation
-                    // that capture is actually running.
-                    Box(
-                        modifier = Modifier
-                            .align(Alignment.End)
-                            .fillMaxWidth(0.45f)
-                            .aspectRatio(4f / 3f)
-                            .padding(top = 6.dp)
-                            .clip(RoundedCornerShape(6.dp))
-                            .alpha(cameraAlpha)
-                    ) {
-                        VideoTrackView(
-                            trackReference = localMedia.cameraTrack,
-                            modifier = Modifier.fillMaxSize()
-                        )
-                    }
-                }
+                        .aspectRatio(4f / 3f)
+                )
             }
         }
     }

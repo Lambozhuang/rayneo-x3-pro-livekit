@@ -18,7 +18,7 @@
       所有任务共用一套零件，每块砖一步；模型里每块砖一个节点，节点名带步骤号，之后高亮要用
 - [ ] 建模导出：Stud.io 画 → .ldr/.io → Blender（ImportLDraw）→ GLB。格式待验证，看节点是否保得住
 - [ ] 后端实时渲染成视频轨下发（云渲染 / split rendering 路线，眼镜端只显示远端视频轨）。PoC 已通：
-      moderngl 渲染 3 ms/帧，`rtc.VideoSource` 发 VP8 640×480 15 fps，接收端无丢帧。容器里要换 EGL + Mesa
+      moderngl 渲染 3 ms/帧，`rtc.VideoSource` 发 VP8 15 fps，接收端无丢帧；眼镜端显示框约 269×202 px，默认流 320×240（`MODEL_STREAM_SIZE`）。容器里要换 EGL + Mesa
       llvmpipe（软渲染够用，不动宿主机）；GPU 路线要 nvidia-container-toolkit（sudo）
 - [ ] 编码怎么选：现在是 libwebrtc 软编 VP8。VP8 / H.264 / AV1、码率、关键帧间隔、丢包下的表现，
       以及要不要 NVENC——请教同事后定。眼镜端解码能力也要查
