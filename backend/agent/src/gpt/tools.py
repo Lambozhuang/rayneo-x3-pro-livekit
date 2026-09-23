@@ -82,14 +82,9 @@ async def check_step(context: RunContext[Run]) -> str:
             f"Step {n} is not built as described. Seen: {v.what_i_see} Problem: {v.problem} "
             "Tell the wearer what to change; the step stays open, check again when they say so."
         )
-    if v.state == "in_progress":
-        return (
-            f"Step {n} is not finished yet. Seen: {v.what_i_see} Still to do: {v.problem} Tell the "
-            "wearer what is left and to say when it is done; then check again."
-        )
     return (
         f"Could not see well enough to judge step {n}. Seen: {v.what_i_see} Ask the wearer to hold "
-        "the bricks closer to the camera and check again."
+        "the bricks up steady, closer to the camera, and check again."
     )
 
 
@@ -138,13 +133,24 @@ async def end_call(context: RunContext[Run]) -> str:
     """End the call. Use it when the wearer says goodbye or asks to stop."""
     build = context.userdata.build
     logger.info("end_call: run=%s at step %d/%d", build.run, build.step + 1, len(build.guide.steps))
-    # The voice model is saying goodbye while this runs and cannot be told to
-    # wait; give its speech up to a moment to start and let it finish, then
-    # close the room. The glasses return to their connect screen.
+    # The goodbye is spoken after this result reaches the backend and the voice
+    # model, so the room cannot close here. A task waits for whatever the voice
+    # is saying now ("one moment") to end, then for the goodbye to start and
+    # end, and closes the room; the glasses return to their connect screen.
+    asyncio.create_task(_close_after_goodbye(context.session), name="close_after_goodbye")
+    return "Say goodbye to the wearer now, in one short sentence; the call closes when you have."
+
+
+async def _close_after_goodbye(session, start_within: float = 8.0, cap: float = 20.0) -> None:
     t0 = time.monotonic()
-    while context.session.agent_state != "speaking" and time.monotonic() - t0 < 2.0:
-        await asyncio.sleep(0.05)
-    while context.session.agent_state == "speaking" and time.monotonic() - t0 < 10.0:
-        await asyncio.sleep(0.05)
+
+    async def until(state_is_speaking: bool, limit: float) -> None:
+        while (session.agent_state == "speaking") != state_is_speaking and time.monotonic() - t0 < limit:
+            await asyncio.sleep(0.05)
+
+    await until(False, start_within)  # whatever is being said now
+    await until(True, start_within)  # the goodbye starts
+    await until(False, cap)  # and ends
+    await asyncio.sleep(0.5)  # the tail of the audio reaching the glasses
+    logger.info("end_call: closing the room after %.1fs", time.monotonic() - t0)
     await get_job_context().delete_room()
-    return "The call has ended."

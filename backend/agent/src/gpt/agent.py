@@ -53,7 +53,9 @@ async def rayneo_assistant(ctx: JobContext) -> None:
     # the vision check takes the next one when it is asked.
     tap = FrameTap(os.environ.get("FRAME_DUMP_DIR"), int(os.environ.get("FRAME_DUMP_MAX", "60")))
     build = Build(guide=guide, run=ctx.room.name)
-    vision = VisionCheck(openai_client(), settings.check_model, settings.check_effort, guide, tap, lang)
+    vision = VisionCheck(
+        openai_client(), settings.check_model, settings.check_effort, guide, tap, lang, detail=settings.check_detail
+    )
     stream = ModelStream(guide.model, ModelState()) if guide.model and stream_enabled() else None
     if stream is not None:
         ctx.add_shutdown_callback(stream.stop)

@@ -48,6 +48,7 @@ class Settings:
     backend_effort: str
     check_model: str
     check_effort: str
+    check_detail: str
 
     @classmethod
     def from_env(cls) -> Settings:
@@ -57,14 +58,16 @@ class Settings:
             backend_model=require_env("OPENAI_BACKEND_MODEL"),
             backend_effort=os.environ.get("OPENAI_BACKEND_EFFORT", "low"),
             check_model=require_env("OPENAI_CHECK_MODEL"),
-            # Measured on the 2026-09-22 frames: `none` and `low` judge alike
-            # (13/15), `none` in 2 s against 6 s; `medium` was worse on both.
+            # Measured on the 2026-09-22/23 frames: `none` judges as well as
+            # `low` in a third of the time; `medium` made the models doubt
+            # more, not see more. See vision.py.
             check_effort=os.environ.get("OPENAI_CHECK_EFFORT", "none"),
+            check_detail=os.environ.get("OPENAI_CHECK_DETAIL", "high"),
         )
         require_env("OPENAI_API_KEY")  # the SDK and the plugin read it themselves
         logger.info(
-            "session model: %s voice=%s backend=%s effort=%s vision=%s effort=%s",
-            s.live_model, s.voice, s.backend_model, s.backend_effort, s.check_model, s.check_effort,
+            "session model: %s voice=%s backend=%s effort=%s vision=%s effort=%s detail=%s",
+            s.live_model, s.voice, s.backend_model, s.backend_effort, s.check_model, s.check_effort, s.check_detail,
         )
         return s
 
