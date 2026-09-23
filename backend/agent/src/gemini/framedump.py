@@ -21,7 +21,7 @@ from livekit import rtc
 from livekit.agents.utils import images
 from livekit.agents.voice import AgentSession
 
-from config import IMAGE_ENCODE_OPTIONS
+from gemini.config import IMAGE_ENCODE_OPTIONS
 
 logger = logging.getLogger("rayneo-agent.framedump")
 

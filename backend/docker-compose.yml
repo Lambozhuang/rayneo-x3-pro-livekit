@@ -15,7 +15,7 @@
 
 services:
   livekit:
-    image: livekit/livekit-server:v1.13.6
+    image: livekit/livekit-server:v1.13.7
     network_mode: host
     # ../livekit.yaml is gitignored: it holds the real key pair. Template:
     # deploy/livekit.lab.yaml.
@@ -40,7 +40,7 @@ services:
     build: ./agent
     network_mode: host
     env_file: .env
-    # The agent is dispatched into rooms by livekit-server and talks to Gemini
+    # The agent is dispatched into rooms by livekit-server and talks to its model
     # outbound; nothing needs to reach it. Its worker health port (8081) is on
     # the host stack too but stays behind ufw.
     depends_on:

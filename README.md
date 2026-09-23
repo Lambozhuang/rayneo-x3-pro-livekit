@@ -29,16 +29,18 @@ server's UDP ports reachable at the address it advertises; a bridge network only
   into a user id or a 401, `server.py` signs a ten-minute JWT with that identity and a
   `room_config` naming the agent. Login, entitlements and billing would go here.
 - **agent** registers under `AGENT_NAME` and joins only rooms whose token names it. It
-  alone holds the Gemini key; nothing connects to it directly.
+  alone holds the model API keys; nothing connects to it directly.
 
 `AUTH_MODE` selects who may start a session: `dev` accepts everyone (private LAN),
 `static` wants one shared bearer token, `jwt` verifies a token from an account system and
 takes the user id from `sub`. See `backend/api/src/auth.py`.
 
-`config.py` has the one abstraction: `build_session_model()` returns the keyword
-arguments for `AgentSession`. Today that is one realtime speech-to-speech model; a
-half-cascade setup would return `{"llm": ..., "tts": ...}` from the same function. The
-model id comes from `GEMINI_MODEL` in `.env`, never from source, so models can be A/B'd.
+`AGENT_BACKEND` picks one of two implementations at start (`agent/src/agent.py`):
+`gemini`, one Gemini Live model that hears, sees the camera and judges the bricks
+(`agent/src/gemini/`); or `openai`, GPT-Live for the voice, a delegated backend model for
+the reasoning and tool calls, and a separate vision call that judges one camera frame per
+check (`agent/src/gpt/`, see "The GPT path"). Both share the guide, the run state and the
+reference model stream. Model ids come from `.env`, never from source.
 
 ## Layout
 
@@ -48,14 +50,14 @@ backend/
   .env.example          copy to .env and fill in; one file for all three
   api/src/server.py     POST /getToken, LiveKit's standard token endpoint
   api/src/auth.py       AUTH_MODE = dev | static | jwt
-  agent/src/agent.py    entrypoint: session start, usage and transcript logging
-  agent/src/config.py   env + session model factory, frame encode options
-  agent/src/guide.py    build guide loader and the state of one run
-  agent/src/prompts.py  system instructions
-  agent/src/render.py   the reference model: model.glb rendered headless, streamed as a video track
-  agent/src/tools.py    @function_tool definitions: look, get_step, step_done, reopen_previous_step, restart_build, show_view, highlight_part, end_call
+  agent/src/agent.py    entrypoint: AGENT_BACKEND=gemini|openai picks the implementation
+  agent/src/guide.py    build guide loader and the state of one run (shared)
+  agent/src/render.py   the reference model: model.glb rendered headless, streamed as a video track (shared)
+  agent/src/frames.py   FrameTap: keeps camera frames for the code, none reach the speech model (openai)
+  agent/src/gemini/     agent, config (session model factory), prompts, tools (look, get_step, step_done, ...), sampler, framedump
+  agent/src/gpt/        agent, config (three OpenAI models), prompts (voice persona + backend), tools (get_step, check_step, look, ...), vision
   agent/guides/         build guides, chosen with BUILD_GUIDE: <name>/task.toml + model.glb, or a bare .toml
-  agent/src/framedump.py, inspect_frame.py   see "Seeing what the model saw"
+  agent/src/inspect_frame.py   see "Seeing what the model saw"
 android/                Kotlin + Compose app for the glasses
 deploy/
   setup.sh              first-time setup on a Linux host: key pair, livekit.yaml, .env
@@ -175,6 +177,20 @@ blurry at any size.
 from transport softness.
 
 ## The model
+
+### The GPT path (`AGENT_BACKEND=openai`)
+
+`gpt-live-1` is audio only, full duplex, and owns turn-taking and barge-in; no VAD is
+passed to the session. It delegates anything about the build to `OPENAI_BACKEND_MODEL`
+(gpt-6-luna, reasoning `low`), which calls the tools. `check_step` takes the next camera
+frame, asks `OPENAI_CHECK_MODEL` in a stateless Responses call (frame + steps done + step +
+two reference renders, JSON verdict) and the code moves the step on `built`; no model can
+declare a step done, and no model ever accumulates frames. `look(question)` answers free
+questions the same way. Measured on the 2026-09-22 frames: 13/15 right at effort `none`
+in ~2 s and at `low` in ~6 s; slope orientation is missed either way. Voice usage is by the
+second (`usage:` lines), backend and vision tokens on `model:` and `check:` lines.
+
+### The Gemini path (`AGENT_BACKEND=gemini`)
 
 `GEMINI_MODEL` in `.env` picks the Live model; the default deployment runs `gemini-3.8-live`
 (livekit-agents 1.8.2 or later knows the 3.8 ids). Things that shape the code:

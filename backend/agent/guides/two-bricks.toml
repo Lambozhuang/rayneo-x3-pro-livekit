@@ -2,7 +2,7 @@
 # Each step is what to pick up, what to tell the wearer, and a one-line name
 # for the step list on the glasses (defaults to the part). The agent holds the
 # position in this list; the model sees one step at a time through the tools in
-# src/tools.py and judges from the camera when a step is done.
+# src/gemini/tools.py (or src/gpt/tools.py) and judges from the camera when a step is done.
 
 title = "Two bricks on a baseplate"
 

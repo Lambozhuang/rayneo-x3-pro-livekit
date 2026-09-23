@@ -23,7 +23,7 @@ esac
 root=$(cd "$(dirname "$0")/.." && pwd)
 yaml="$root/livekit.yaml"
 env="$root/backend/.env"
-image=livekit/livekit-server:v1.13.6
+image=livekit/livekit-server:v1.13.7
 
 if [ -f "$yaml" ]; then
     echo "keeping existing $yaml"
