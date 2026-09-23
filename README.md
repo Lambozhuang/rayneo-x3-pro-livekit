@@ -183,7 +183,7 @@ from transport softness.
 `gpt-live-1` is audio only, full duplex, and owns turn-taking and barge-in; no VAD is
 passed to the session. It delegates anything about the build to `OPENAI_BACKEND_MODEL`
 (gpt-6-luna, reasoning `low`), which calls the tools. `check_step` takes the next camera
-frame, asks `OPENAI_CHECK_MODEL` (gpt-6-sol: it never passed a wrong build in the frame evals, luna did) in a stateless Responses call (frame + steps done + step +
+frame, asks `OPENAI_CHECK_MODEL` (gpt-6-luna; gpt-6-sol never passed a wrong build in the frame evals but is slower and 20x the price) in a stateless Responses call (frame + steps done + step +
 two reference renders, JSON verdict) and the code moves the step on `built`; no model can
 declare a step done, and no model ever accumulates frames. `look(question)` answers free
 questions the same way. Measured on the 2026-09-22 frames: 13/15 right at effort `none`
