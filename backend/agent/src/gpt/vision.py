@@ -35,7 +35,7 @@ import io
 import json
 import logging
 import time
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 
 from livekit.agents.utils import images
 from openai import AsyncOpenAI
@@ -121,6 +121,7 @@ class Verdict:
     seconds: float
     tokens: tuple[int, int, int] = (0, 0, 0)  # in, out, reasoning
     observations: tuple[str, ...] = ()
+    jpeg: bytes = field(default=b"", repr=False)  # the frame judged, for GPT_LOOK_IMAGE
 
 
 def _data_url(data: bytes, mime: str) -> str:
@@ -188,7 +189,7 @@ class VisionCheck:
         i = build.step
         self._tap.dump(jpeg, f"s{i + 1}-{'look' if question else 'check'}")
         v = await self.judge(jpeg, i, question)
-        v = Verdict(**{**v.__dict__, "seconds": time.perf_counter() - t0})
+        v = Verdict(**{**v.__dict__, "seconds": time.perf_counter() - t0, "jpeg": jpeg})
         logger.info(
             "check: step %d/%d %s=%s %.1fs in=%d out=%d reasoning=%d see=%s%s",
             i + 1, len(self._guide.steps), "look" if question else "state", v.state, v.seconds,

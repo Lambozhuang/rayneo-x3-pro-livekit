@@ -3,14 +3,17 @@
 Three OpenAI models, all named in .env so they can be changed without a
 rebuild: the voice model (GPT-Live, priced by the second), the backend model it
 delegates reasoning and tool calls to, and the vision model that judges camera
-frames in a separate Responses call. The backend never sees a picture.
+frames in a separate Responses call. The backend never sees a picture (unless
+GPT_LOOK_IMAGE hands it one on `look`). The experiment switches are logged as
+one `experiment:` line at the start of every call, so a run's conditions can be
+read back from its log.
 """
 
 from __future__ import annotations
 
 import logging
 import os
-from dataclasses import dataclass
+from dataclasses import dataclass, fields
 
 from livekit.agents.utils import images
 from livekit.plugins.openai.realtime import GPTLiveModel
@@ -24,6 +27,10 @@ def require_env(name: str) -> str:
     if not value:
         raise RuntimeError(f"{name} is not set. Copy backend/.env.example to backend/.env and fill it in.")
     return value
+
+
+def _flag(name: str, default: bool) -> bool:
+    return os.environ.get(name, "1" if default else "0").lower() not in ("0", "off", "false", "no", "")
 
 
 def language() -> str:
@@ -49,6 +56,13 @@ class Settings:
     check_model: str
     check_effort: str
     check_detail: str
+    # Watch mode (watch.py): check the camera while nobody talks, answer from
+    # the cache, advance and announce on two consecutive `built`.
+    watch: bool
+    watch_interval: float
+    watch_fresh: float
+    # `look` also hands the frame itself to the backend model (tools.py).
+    look_image: bool
 
     @classmethod
     def from_env(cls) -> Settings:
@@ -63,6 +77,10 @@ class Settings:
             # more, not see more. See vision.py.
             check_effort=os.environ.get("OPENAI_CHECK_EFFORT", "none"),
             check_detail=os.environ.get("OPENAI_CHECK_DETAIL", "high"),
+            watch=_flag("GPT_WATCH", True),
+            watch_interval=float(os.environ.get("GPT_WATCH_INTERVAL", "4")),
+            watch_fresh=float(os.environ.get("GPT_WATCH_FRESH", "8")),
+            look_image=_flag("GPT_LOOK_IMAGE", False),
         )
         require_env("OPENAI_API_KEY")  # the SDK and the plugin read it themselves
         logger.info(
@@ -70,6 +88,11 @@ class Settings:
             s.live_model, s.voice, s.backend_model, s.backend_effort, s.check_model, s.check_effort, s.check_detail,
         )
         return s
+
+    def experiment_line(self, guide: str) -> str:
+        """Every switch of this run on one log line, for the analysis later."""
+        knobs = " ".join(f"{f.name}={getattr(self, f.name)}" for f in fields(self))
+        return f"experiment: backend=openai guide={guide} {knobs}"
 
 
 def build_live_model(settings: Settings, backend_instructions: str) -> GPTLiveModel:

@@ -1,16 +1,18 @@
 """The GPT path: GPT-Live voice, a delegated backend model, a separate vision check.
 
     glasses --audio--> SFU --> this process --ws--> gpt-live-1 <--delegation--> backend (blind)
-            --video-->     --> FrameTap ---(one frame on demand)--> vision model, one call each
+            --video-->     --> FrameTap ---(one frame per check)--> vision model, one call each
             <--audio-- SFU <-- this process <---------------------- gpt-live-1
             <--step attributes, model render track-- this process (Build = the one truth)
 
 The voice model owns the conversation: turn-taking, barge-in, when to speak. It
 hands anything about the build to the backend model, which calls our tools
-(tools.py); check_step takes the next camera frame and asks the vision model
-(vision.py), and the code moves the build on. No VAD is passed to the session:
-the model listens while it speaks and stops on its own, and a framework VAD
-would only cut the playout of a sentence the model keeps saying.
+(tools.py); check_step takes a camera verdict (vision.py, cached by the watcher
+in watch.py, which also checks on its own while nobody talks and advances the
+step when two checks in a row say built) and the code moves the build on. No
+VAD is passed to the session: the model listens while it speaks and stops on
+its own, and a framework VAD would only cut the playout of a sentence the model
+keeps saying.
 """
 
 import logging
@@ -32,8 +34,11 @@ from livekit.agents.metrics import LLMMetrics, RealtimeModelMetrics
 from frames import FrameTap
 from gpt.config import Settings, build_live_model, language, openai_client, require_env
 from gpt.prompts import backend_instructions, voice_persona
-from gpt.tools import Run, check_step, end_call, get_step, look, previous_step, publish_build, restart_build
+from gpt.tools import (
+    Run, check_step, end_call, get_step, highlight_part, look, previous_step, publish_build, restart_build, show_view,
+)
 from gpt.vision import VisionCheck
+from gpt.watch import Watcher
 from guide import Build, load_guide
 from render import ModelState, ModelStream, stream_enabled
 
@@ -49,6 +54,7 @@ async def rayneo_assistant(ctx: JobContext) -> None:
     settings = Settings.from_env()
     lang = language()
     guide = load_guide(require_env("BUILD_GUIDE"))
+    logger.info(settings.experiment_line(guide.name))
     # Every camera frame lands in the tap and none reaches the speech model;
     # the vision check takes the next one when it is asked.
     tap = FrameTap(os.environ.get("FRAME_DUMP_DIR"), int(os.environ.get("FRAME_DUMP_MAX", "60")))
@@ -60,10 +66,15 @@ async def rayneo_assistant(ctx: JobContext) -> None:
     if stream is not None:
         ctx.add_shutdown_callback(stream.stop)
     session: AgentSession[Run] = AgentSession(
-        userdata=Run(build=build, vision=vision),
         video_sampler=tap,
         llm=build_live_model(settings, backend_instructions(guide, lang, model=stream is not None)),
     )
+    watch = Watcher(
+        session, build, vision, publish_build,
+        enabled=settings.watch, interval=settings.watch_interval, fresh=settings.watch_fresh,
+    )
+    session.userdata = Run(build=build, watch=watch, look_image=settings.look_image)
+    ctx.add_shutdown_callback(watch.stop)
 
     # Two bills, two lines. The voice model is priced by the second and reports
     # cumulative session time about once a minute (usage:); the backend by the
@@ -117,11 +128,11 @@ async def rayneo_assistant(ctx: JobContext) -> None:
                 publication.mime_type, publication.simulcasted,
             )
 
+    tools = [get_step, check_step, look, previous_step, restart_build, end_call]
+    if stream is not None:
+        tools += [show_view, highlight_part]
     await session.start(
-        agent=Agent(
-            instructions=voice_persona(guide, lang, model=stream is not None),
-            tools=[get_step, check_step, look, previous_step, restart_build, end_call],
-        ),
+        agent=Agent(instructions=voice_persona(guide, lang, model=stream is not None), tools=tools),
         room=ctx.room,
         room_options=room_io.RoomOptions(video_input=True),
     )
@@ -147,6 +158,9 @@ async def rayneo_assistant(ctx: JobContext) -> None:
     await handle
     if handle.exception() is not None:
         logger.warning("the model declined to greet the wearer")
+    # The wearer has been asked to say when they are ready, so the watch only
+    # starts once the first step is under way: no checks during the greeting.
+    watch.start()
 
 
 if __name__ == "__main__":

@@ -55,7 +55,7 @@ backend/
   agent/src/render.py   the reference model: model.glb rendered headless, streamed as a video track (shared)
   agent/src/frames.py   FrameTap: keeps camera frames for the code, none reach the speech model (openai)
   agent/src/gemini/     agent, config (session model factory), prompts, tools (look, get_step, step_done, ...), sampler, framedump
-  agent/src/gpt/        agent, config (three OpenAI models), prompts (voice persona + backend), tools (get_step, check_step, look, ...), vision
+  agent/src/gpt/        agent, config (three OpenAI models + switches), prompts (voice persona + backend), tools, vision, watch
   agent/guides/         build guides, chosen with BUILD_GUIDE: <name>/task.toml + model.glb, or a bare .toml
   agent/src/inspect_frame.py   see "Seeing what the model saw"
 android/                Kotlin + Compose app for the glasses
@@ -66,6 +66,7 @@ deploy/
   watch.py              coloured live view of the agent log
   export_guide_glb.py   run in Blender: Mecabricks model -> one-node-per-brick GLB for a guide
   stop.ps1              end a session: stop the app, then compose down on the lab PC
+  start.ps1             one step: backend on the host with -Backend gemini|openai, then the glasses
 ```
 
 ## Running the backend
@@ -186,9 +187,12 @@ passed to the session. It delegates anything about the build to `OPENAI_BACKEND_
 frame, asks `OPENAI_CHECK_MODEL` (gpt-6-luna; gpt-6-sol never passed a wrong build in the frame evals but is slower and 20x the price) in a stateless Responses call (frame + steps done + step +
 two reference renders, JSON verdict) and the code moves the step on `built`; no model can
 declare a step done, and no model ever accumulates frames. `look(question)` answers free
-questions the same way. Measured on the 2026-09-22 frames: 13/15 right at effort `none`
-in ~2 s and at `low` in ~6 s; slope orientation is missed either way. Voice usage is by the
-second (`usage:` lines), backend and vision tokens on `model:` and `check:` lines.
+questions the same way. Watch mode (`GPT_WATCH`, default on) runs the same check every few
+seconds while nobody talks: "done" is answered from that cache, and two consecutive `built`
+verdicts advance the step and have the voice say so before the wearer asks. Orientation is
+judged between bricks, never against the camera; the vision model lists observations before
+its verdict (`check:` lines). Voice usage is by the second (`usage:` lines), backend tokens on
+`model:` lines; every run starts with an `experiment:` line naming its switches.
 
 ### The Gemini path (`AGENT_BACKEND=gemini`)
 
