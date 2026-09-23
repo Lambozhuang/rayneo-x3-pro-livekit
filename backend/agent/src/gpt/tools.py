@@ -84,8 +84,8 @@ async def check_step(context: RunContext[Run]) -> str:
         )
     if v.state == "in_progress":
         return (
-            f"Step {n} is still being worked on. Seen: {v.what_i_see} Tell the wearer to finish "
-            "placing the brick and say when it is done; then check again."
+            f"Step {n} is not finished yet. Seen: {v.what_i_see} Still to do: {v.problem} Tell the "
+            "wearer what is left and to say when it is done; then check again."
         )
     return (
         f"Could not see well enough to judge step {n}. Seen: {v.what_i_see} Ask the wearer to hold "

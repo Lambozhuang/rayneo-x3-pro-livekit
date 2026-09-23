@@ -49,13 +49,16 @@ treat colour names approximately. Count studs where it matters. Report:
 - what_i_see: one sentence, where each relevant brick actually is;
 - state: "built" if the step is done exactly as described; "not_built" if the
   brick is missing, wrong, misplaced or misoriented, or an earlier step is
-  visibly wrong; "in_progress" only if the brick is clearly still being moved
-  and is not attached yet; "unsure" only if the bricks are hidden or too small;
-- problem: if not built, one short sentence saying what to change, else "";
-- answer: {answer}"""
+  visibly wrong; "in_progress" if the builder is clearly holding or moving the
+  brick right now; "unsure" only if the bricks are hidden or too small;
+- problem: if not built or in progress, one short sentence saying what to
+  change or what is still to be done (never empty then), else "".{answer}"""
 
-ANSWER_NONE = 'leave it empty ("").'
-ANSWER_QUESTION = """the builder asks: "{question}" Answer that from the photo in one or two
+# The `answer` field exists only when the wearer asked something: an extra field
+# that is always empty measurably distracted the model from the verdict.
+ANSWER_NONE = ""
+ANSWER_QUESTION = """
+- answer: the builder asks: "{question}" Answer that from the photo in one or two
   short spoken sentences, in {language}, still filling in the other fields."""
 
 REFERENCE_NOTE = (
@@ -70,9 +73,13 @@ SCHEMA = {
         "what_i_see": {"type": "string"},
         "state": {"type": "string", "enum": ["built", "not_built", "in_progress", "unsure"]},
         "problem": {"type": "string"},
-        "answer": {"type": "string"},
     },
-    "required": ["what_i_see", "state", "problem", "answer"],
+    "required": ["what_i_see", "state", "problem"],
+}
+SCHEMA_WITH_ANSWER = {
+    **SCHEMA,
+    "properties": {**SCHEMA["properties"], "answer": {"type": "string"}},
+    "required": [*SCHEMA["required"], "answer"],
 }
 
 
@@ -161,7 +168,8 @@ class VisionCheck:
             model=self._model,
             input=[{"role": "user", "content": content}],
             reasoning={"effort": self._effort},
-            text={"format": {"type": "json_schema", "name": "verdict", "schema": SCHEMA, "strict": True}},
+            text={"format": {"type": "json_schema", "name": "verdict", "strict": True,
+                             "schema": SCHEMA_WITH_ANSWER if question else SCHEMA}},
             timeout=CHECK_TIMEOUT,
         )
         data = json.loads(resp.output_text)
@@ -176,5 +184,5 @@ class VisionCheck:
         )
         return Verdict(
             state=data["state"], what_i_see=data["what_i_see"], problem=data["problem"],
-            answer=data["answer"], seconds=seconds,
+            answer=data.get("answer", ""), seconds=seconds,
         )

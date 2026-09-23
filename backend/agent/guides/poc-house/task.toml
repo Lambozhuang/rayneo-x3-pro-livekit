@@ -7,9 +7,9 @@
 title = "Little house"
 
 [[steps]]
-part = "dark purple 2x4 brick"
+part = "purple 2x4 brick"
 name = "Purple 2x4 flat on the table"
-say = "Take the dark purple two-by-four brick and put it flat on the table in front of you, the long side left to right."
+say = "Take the purple two-by-four brick and put it flat on the table in front of you, the long side left to right."
 
 [[steps]]
 part = "yellow 1x4 brick"
