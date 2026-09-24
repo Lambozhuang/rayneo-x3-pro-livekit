@@ -179,6 +179,30 @@ class Build:
             f"and what you saw; then give them the next step. {self.describe()}"
         )
 
+    def set_step(self, step: int) -> bool:
+        """Move to step index `step` (0-based; len(steps) = finished) because a
+        model judged the build to be there. Logs the transition like the
+        tool-driven path does, so a run's timing reads the same. Returns
+        whether anything changed."""
+        step = max(0, min(step, len(self.guide.steps)))
+        if step == self.step:
+            return False
+        n, total = self.step + 1, len(self.guide.steps)
+        if step > self.step:
+            for k in range(self.step, step):
+                logger.info("step %d/%d done after %.0fs", k + 1, total, time.monotonic() - self.step_started)
+                self.step_started = time.monotonic()
+        else:
+            logger.info("step %d/%d reopened (build seen at step %d)", n, total, step + 1)
+        self.step = step
+        self.step_started = time.monotonic()
+        if self.finished:
+            logger.info("build finished: run=%s in %.0fs", self.run, time.monotonic() - self.started)
+            self.highlight(None)
+        else:
+            self._log_step_start()
+        return True
+
     def reopen_previous_step(self) -> str:
         """Go back one step: the model marked one done too early and the
         wearer, or a second look, says it is not. Logged so a run's score

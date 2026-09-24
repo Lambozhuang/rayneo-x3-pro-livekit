@@ -1,18 +1,16 @@
-"""The GPT path: GPT-Live voice, a delegated backend model, a separate vision check.
+"""The GPT path: GPT-Live speaks, a vision model watches, the process only pipes.
 
-    glasses --audio--> SFU --> this process --ws--> gpt-live-1 <--delegation--> backend (blind)
-            --video-->     --> FrameTap ---(one frame per check)--> vision model, one call each
-            <--audio-- SFU <-- this process <---------------------- gpt-live-1
-            <--step attributes, model render track-- this process (Build = the one truth)
+    glasses --audio--> SFU --> this process --ws--> gpt-live-1 (knows every step)
+            --video-->     --> FrameTap --frame after frame--> vision model --> "Camera: ..." into GPT-Live's context
+            <--audio-- SFU <-- this process <---------------- gpt-live-1
+            <--step list, model render track-- this process (step index = the camera's count)
 
-The voice model owns the conversation: turn-taking, barge-in, when to speak. It
-hands anything about the build to the backend model, which calls our tools
-(tools.py); check_step takes a camera verdict (vision.py, cached by the watcher
-in watch.py, which also checks on its own while nobody talks and advances the
-step when two checks in a row say built) and the code moves the build on. No
-VAD is passed to the session: the model listens while it speaks and stops on
-its own, and a framework VAD would only cut the playout of a sentence the model
-keeps saying.
+The voice model owns the conversation and the build: the steps are in its
+instructions, the camera's verdicts arrive as context every few seconds
+(watch.py), and it decides when to speak and when to move on. No tools for the
+build; the backend model behind GPT-Live exists to hang up (tools.py). No VAD
+is passed to the session: the model listens while it speaks and stops on its
+own. The Gemini path (gemini/) is untouched.
 """
 
 import logging
@@ -34,11 +32,9 @@ from livekit.agents.metrics import LLMMetrics, RealtimeModelMetrics
 from frames import FrameTap
 from gpt.config import Settings, build_live_model, language, openai_client, require_env
 from gpt.prompts import backend_instructions, voice_persona
-from gpt.tools import (
-    Run, check_step, end_call, get_step, highlight_part, look, previous_step, publish_build, restart_build, show_view,
-)
-from gpt.vision import VisionCheck
-from gpt.watch import Watcher
+from gpt.tools import Run, end_call, publish_build
+from gpt.vision import Eyes
+from gpt.watch import Watch
 from guide import Build, load_guide
 from render import ModelState, ModelStream, stream_enabled
 
@@ -55,31 +51,24 @@ async def rayneo_assistant(ctx: JobContext) -> None:
     lang = language()
     guide = load_guide(require_env("BUILD_GUIDE"))
     logger.info(settings.experiment_line(guide.name))
-    # Every camera frame lands in the tap and none reaches the speech model;
-    # the vision check takes the next one when it is asked.
     tap = FrameTap(os.environ.get("FRAME_DUMP_DIR"), int(os.environ.get("FRAME_DUMP_MAX", "60")))
     build = Build(guide=guide, run=ctx.room.name)
-    vision = VisionCheck(
-        openai_client(), settings.check_model, settings.check_effort, guide, tap, lang, detail=settings.check_detail
-    )
+    eyes = Eyes(openai_client(), settings.check_model, settings.check_effort, guide, detail=settings.check_detail)
     stream = ModelStream(guide.model, ModelState()) if guide.model and stream_enabled() else None
     if stream is not None:
         ctx.add_shutdown_callback(stream.stop)
     session: AgentSession[Run] = AgentSession(
         video_sampler=tap,
-        llm=build_live_model(settings, backend_instructions(guide, lang, model=stream is not None)),
+        llm=build_live_model(settings, backend_instructions(lang)),
     )
-    watch = Watcher(
-        session, build, vision, publish_build,
-        enabled=settings.watch, interval=settings.watch_interval, fresh=settings.watch_fresh,
-    )
-    session.userdata = Run(build=build, watch=watch, look_image=settings.look_image)
+    watch = Watch(session, build, eyes, tap, publish_build, gap=settings.watch_gap, confirm=settings.watch_confirm)
+    session.userdata = Run(build=build, watch=watch)
     ctx.add_shutdown_callback(watch.stop)
 
-    # Two bills, two lines. The voice model is priced by the second and reports
-    # cumulative session time about once a minute (usage:); the backend by the
-    # token, one line per response it completes (model:). The vision model's
-    # tokens are on the check: lines (vision.py).
+    # Two bills. The voice model is priced by the second and reports cumulative
+    # session time about once a minute (usage:); the backend by the token, one
+    # line per response (model:). The vision model's tokens are on the camera:
+    # lines (watch.py).
     @session.on("metrics_collected")
     def _log_metrics(ev: MetricsCollectedEvent) -> None:
         m = ev.metrics
@@ -97,24 +86,19 @@ async def rayneo_assistant(ctx: JobContext) -> None:
 
     ctx.add_shutdown_callback(_log_usage)
 
-    # The wearer's wait, measured on the glasses (ReplyLatency.kt): their last
-    # word to the agent's audio arriving, from the SFU's speaker events, so it
-    # does not depend on any turn detection here.
+    # The wearer's wait, measured on the glasses (ReplyLatency.kt).
     @ctx.room.on("data_received")
     def _log_latency(pkt: rtc.DataPacket) -> None:
         if pkt.topic == "rayneo.latency":
             logger.info("latency: %s", pkt.data.decode("utf-8", "replace"))
 
-    # Both sides as text. GPT-Live transcribes both; a turn is closed by the
-    # framework when the audio goes quiet, so these lines trail the speech.
+    # Both sides as text; a turn is closed when the audio goes quiet, so these
+    # lines trail the speech.
     @session.on("conversation_item_added")
     def _log_turn(ev: ConversationItemAddedEvent) -> None:
         if isinstance(ev.item, ChatMessage):
             logger.info("%s: %s", ev.item.role, ev.item.text_content)
 
-    # Ask the SFU for the largest layer of every video track; it would
-    # otherwise pick by bandwidth estimate. Registered before start() so it
-    # covers the initial subscription.
     @ctx.room.on("track_subscribed")
     def _want_full_video(
         track: rtc.Track, publication: rtc.RemoteTrackPublication, participant: rtc.RemoteParticipant
@@ -128,11 +112,8 @@ async def rayneo_assistant(ctx: JobContext) -> None:
                 publication.mime_type, publication.simulcasted,
             )
 
-    tools = [get_step, check_step, look, previous_step, restart_build, end_call]
-    if stream is not None:
-        tools += [show_view, highlight_part]
     await session.start(
-        agent=Agent(instructions=voice_persona(guide, lang, model=stream is not None), tools=tools),
+        agent=Agent(instructions=voice_persona(guide, lang), tools=[end_call]),
         room=ctx.room,
         room_options=room_io.RoomOptions(video_input=True),
     )
@@ -144,10 +125,9 @@ async def rayneo_assistant(ctx: JobContext) -> None:
         build.model, build.model_nodes = stream.state, tuple(stream.nodes)
     build.start()
     await publish_build(build)
-    await vision.prepare()
+    await eyes.prepare()
 
-    # generate_reply on GPT-Live is commentary: a request the model may
-    # decline. If it does, the wearer hears nothing until they speak.
+    # generate_reply on GPT-Live is commentary: a request the model may decline.
     handle = session.generate_reply(
         instructions=(
             "Greet the wearer in one short sentence: say you can see through their "
@@ -158,8 +138,6 @@ async def rayneo_assistant(ctx: JobContext) -> None:
     await handle
     if handle.exception() is not None:
         logger.warning("the model declined to greet the wearer")
-    # The wearer has been asked to say when they are ready, so the watch only
-    # starts once the first step is under way: no checks during the greeting.
     watch.start()
 
 

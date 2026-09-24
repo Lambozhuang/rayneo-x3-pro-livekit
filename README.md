@@ -55,7 +55,7 @@ backend/
   agent/src/render.py   the reference model: model.glb rendered headless, streamed as a video track (shared)
   agent/src/frames.py   FrameTap: keeps camera frames for the code, none reach the speech model (openai)
   agent/src/gemini/     agent, config (session model factory), prompts, tools (look, get_step, step_done, ...), sampler, framedump
-  agent/src/gpt/        agent, config (three OpenAI models + switches), prompts (voice persona + backend), tools, vision, watch
+  agent/src/gpt/        agent, config, prompts (persona with every step), vision (Eyes), watch (camera loop -> GPT-Live context), tools (end_call)
   agent/guides/         build guides, chosen with BUILD_GUIDE: <name>/task.toml + model.glb, or a bare .toml
   agent/src/inspect_frame.py   see "Seeing what the model saw"
 android/                Kotlin + Compose app for the glasses
@@ -182,17 +182,19 @@ from transport softness.
 ### The GPT path (`AGENT_BACKEND=openai`)
 
 `gpt-live-1` is audio only, full duplex, and owns turn-taking and barge-in; no VAD is
-passed to the session. It delegates anything about the build to `OPENAI_BACKEND_MODEL`
-(gpt-6-luna, reasoning `low`), which calls the tools. `check_step` takes the next camera
-frame, asks `OPENAI_CHECK_MODEL` (gpt-6-luna; gpt-6-sol never passed a wrong build in the frame evals but is slower and 20x the price) in a stateless Responses call (frame + steps done + step +
-two reference renders, JSON verdict) and the code moves the step on `built`; no model can
-declare a step done, and no model ever accumulates frames. `look(question)` answers free
-questions the same way. Watch mode (`GPT_WATCH`, default on) runs the same check every few
-seconds while nobody talks: "done" is answered from that cache, and two consecutive `built`
-verdicts advance the step and have the voice say so before the wearer asks. Orientation is
-judged between bricks, never against the camera; the vision model lists observations before
-its verdict (`check:` lines). Voice usage is by the second (`usage:` lines), backend tokens on
-`model:` lines; every run starts with an `experiment:` line naming its switches.
+passed to the session. It also owns the build: every step's wording is in its instructions,
+and a loop (`gpt/watch.py`) feeds it the camera. Frame after frame, `OPENAI_CHECK_MODEL`
+(gpt-6-luna, reasoning `none`) gets all the steps, the frame and two orthographic renders of
+the build as it should look at the current step, and answers how many steps are visibly
+complete and what, if anything, is placed wrongly. Every verdict goes into GPT-Live's
+context as silent thinking; a newly completed step or a newly wrong brick, seen on
+`GPT_WATCH_CONFIRM` frames in a row, goes in as commentary, and the voice decides what to
+say. The step shown on the glasses follows the camera's count. There are no build tools;
+the backend model behind GPT-Live (`OPENAI_BACKEND_MODEL`) exists to hang up (`end_call`).
+Orientation is judged between bricks, never against the camera (each step has a `check`
+text next to its `say`). Voice usage is by the second (`usage:` lines), vision tokens on
+`camera:` lines; every run starts with an `experiment:` line naming its switches. The
+earlier tool-driven version (get_step/check_step, watch cache) is tagged `gpt-tools-v1`.
 
 ### The Gemini path (`AGENT_BACKEND=gemini`)
 

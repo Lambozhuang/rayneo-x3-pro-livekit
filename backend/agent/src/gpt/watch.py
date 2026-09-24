@@ -1,60 +1,57 @@
-"""Watch mode: the camera is checked while nobody is talking, so the answer is
-ready before the wearer asks.
+"""The loop that looks and tells.
 
-v1 was passive: the wearer said "done", the voice said "hang on", the backend
-called check_step, the vision model took three seconds, the backend answered,
-the voice spoke: about nine seconds of waiting for every step. Here a loop runs
-the same vision check every few seconds while the agent is not speaking and
-keeps the latest verdict per step. check_step (tools.py) answers from that
-cache when it is fresh, so the wearer's "done" costs no vision time; and when
-two consecutive checks say `built`, the code advances the step and asks the
-voice model to tell the wearer, before they ask. Nothing proactive is said on
-`not_built`: while a step is being built the brick is not there yet, and the
-wearer asks when they want a verdict.
+Frame in, vision verdict out, verdict into GPT-Live's context, next frame. No
+tools, no requests, no waiting: the voice model always has a note a few
+seconds old on how far the build has got, and it decides on its own whether to
+speak. The process does three things: takes the next camera frame, asks the
+vision model (vision.py), and hands the answer over:
 
-The voice model may decline to speak the announcement (commentary is a request).
-Then the step has moved on in the code but the wearer has not heard it:
-`pending` records that, and check_step / get_step deliver it on the next turn
-instead of judging the new step against an old picture.
+- every verdict goes in as *thinking*: silent context the model uses when it
+  matters (the wearer asks "done?", it answers from the newest note);
+- a step newly complete, or a brick newly placed wrongly, goes in as
+  *commentary*: something to say now, in the model's own words. Both need
+  `confirm` consecutive frames agreeing, so a hand passing over the bricks
+  does not become an announcement.
+
+The step index the glasses show (Build) follows the vision model's count of
+completed steps; the code keeps no opinion of its own.
 """
 
 from __future__ import annotations
 
 import asyncio
 import logging
-import time
-from dataclasses import dataclass
 
 from livekit.agents import AgentSession
+from livekit.agents.utils import images
 
-from gpt.vision import Verdict, VisionCheck
+from frames import FrameTap
+from gpt.config import FRAME_ENCODE_OPTIONS
+from gpt.vision import Eyes, Sight
 from guide import Build
 
 logger = logging.getLogger("rayneo-agent.watch")
 
 
-@dataclass
-class Watcher:
-    session: AgentSession
-    build: Build
-    vision: VisionCheck
-    publish: callable  # async: push the build's position to the glasses
-    enabled: bool = True
-    interval: float = 4.0  # seconds between the end of one check and the next
-    fresh: float = 8.0  # how old a cached verdict may be when a tool uses it
-    last: Verdict | None = None
-    last_at: float = 0.0
-    last_step: int = -1
-    pending: tuple[int, str] | None = None  # (step number, what was seen): advanced, not yet told
-    _streak: int = 0
-    _lock: asyncio.Lock | None = None
-    _task: asyncio.Task | None = None
-
-    def __post_init__(self) -> None:
-        self._lock = asyncio.Lock()
+class Watch:
+    def __init__(
+        self, session: AgentSession, build: Build, eyes: Eyes, tap: FrameTap, publish,
+        gap: float = 0.0, confirm: int = 2,
+    ) -> None:
+        self._session = session
+        self._build = build
+        self._eyes = eyes
+        self._tap = tap
+        self._publish = publish
+        self._gap = gap
+        self._confirm = max(1, confirm)
+        self._task: asyncio.Task | None = None
+        self.last: Sight | None = None
+        self._agree = 0  # consecutive frames with the same (steps_done, problem or not)
+        self._told_problem_at: tuple[int, str] | None = None  # (steps_done, problem) already announced
 
     def start(self) -> None:
-        if self.enabled and self._task is None:
+        if self._task is None:
             self._task = asyncio.create_task(self._run(), name="watch")
 
     async def stop(self) -> None:
@@ -62,74 +59,87 @@ class Watcher:
             self._task.cancel()
             self._task = None
 
-    def fresh_verdict(self) -> Verdict | None:
-        if self.last is not None and self.last_step == self.build.step and time.monotonic() - self.last_at < self.fresh:
-            return self.last
-        return None
-
-    async def check(self, question: str | None = None) -> Verdict:
-        """A verdict for the current step: the cached one if fresh, else a new
-        check. Serialised with the watch loop, so a tool call that arrives
-        during a watch check waits for it and gets that result."""
-        assert self._lock is not None
-        async with self._lock:
-            if question is None and (v := self.fresh_verdict()) is not None:
-                logger.info("check: step %d/%d from watch cache, %.1fs old", self.build.step + 1, len(self.build.guide.steps), time.monotonic() - self.last_at)
-                return v
-            v = await self.vision.check(self.build, question)
-            if question is None:
-                self._remember(v)
-            return v
-
-    def _remember(self, v: Verdict) -> None:
-        self.last, self.last_at, self.last_step = v, time.monotonic(), self.build.step
-
     async def _run(self) -> None:
-        assert self._lock is not None
-        logger.info("watch: on, interval=%.0fs fresh=%.0fs", self.interval, self.fresh)
-        while not self.build.finished:
-            await asyncio.sleep(self.interval)
-            if self.session.agent_state == "speaking" or self._lock.locked():
-                continue
+        logger.info("watch: on, gap=%.1fs confirm=%d", self._gap, self._confirm)
+        while True:
+            if self._gap:
+                await asyncio.sleep(self._gap)
             try:
-                async with self._lock:
-                    v = await self.vision.check(self.build)
-                    self._remember(v)
+                frame = await self._tap.next_frame(3.0)
             except asyncio.TimeoutError:
-                continue  # no camera frame; the tools report that when asked
+                continue
+            jpeg = await asyncio.to_thread(images.encode, frame, FRAME_ENCODE_OPTIONS)
+            expected = self._build.step + 1
+            try:
+                s = await self._eyes.look(jpeg, expected)
             except asyncio.CancelledError:
                 raise
             except Exception:
-                logger.exception("watch: check failed")
-                await asyncio.sleep(self.interval)
+                logger.exception("watch: vision call failed")
+                await asyncio.sleep(2)
                 continue
-            self._streak = self._streak + 1 if v.state == "built" else 0
-            if self._streak >= 2:
-                await self._advance(v)
-        logger.info("watch: build finished, stopping")
+            self._tap.dump(jpeg, f"s{expected}")
+            total = len(self._build.guide.steps)
+            logger.info(
+                "camera: done=%d/%d visible=%s %.1fs in=%d out=%d see=%s%s",
+                s.steps_done, total, s.visible, s.seconds, *s.tokens, s.what_i_see,
+                f" problem={s.problem}" if s.problem else "",
+            )
+            for o in s.observations:
+                logger.info("camera:   - %s", o)
+            await self._digest(s)
 
-    async def _advance(self, v: Verdict) -> None:
-        build = self.build
-        n = build.step + 1
-        build.complete_step()
-        await self.publish(build)
-        self._streak = 0
-        self.last = None
-        self.pending = (n, v.what_i_see)
-        logger.info("watch: step %d built twice in a row, advanced; telling the wearer", n)
-        if build.finished:
-            text = (
-                f"The camera shows step {n} is built: {v.what_i_see} That was the last step. Tell the "
-                "wearer it is right and the build is finished, and congratulate them."
-            )
-        else:
-            text = (
-                f"The camera shows step {n} is built: {v.what_i_see} Tell the wearer in one sentence "
-                f"that it is right, then give them the next step. {build.describe()}"
-            )
-        handle = self.session.generate_reply(instructions=text)
-        await handle
-        if handle.exception() is None:
-            self.pending = None
-        else:
-            logger.warning("watch: the voice model declined to announce step %d; the tools will", n)
+    async def _digest(self, s: Sight) -> None:
+        build = self._build
+        total = len(build.guide.steps)
+        prev = self.last
+        self.last = s
+        if not s.visible:
+            if prev is None or prev.visible:
+                self._think("Camera: the build is not in view right now.")
+            self._agree = 0
+            return
+        same = prev is not None and prev.visible and prev.steps_done == s.steps_done and bool(prev.problem) == bool(s.problem)
+        self._agree = self._agree + 1 if same else 1
+        confirmed = self._agree >= self._confirm
+
+        note = f"Camera: {s.steps_done} of {total} steps done. {s.what_i_see}"
+        if s.problem:
+            note += f" Something is off: {s.problem}"
+
+        if confirmed and s.steps_done != build.step:
+            went_up = s.steps_done > build.step
+            build.set_step(s.steps_done)
+            await self._publish(build)
+            self._told_problem_at = None
+            if went_up:
+                if build.finished:
+                    self._say(f"Camera: the last step is done: {s.what_i_see} Tell the wearer the build is finished and congratulate them.")
+                else:
+                    nxt = build.guide.steps[build.step]
+                    self._say(
+                        f"Camera: step {s.steps_done} is done: {s.what_i_see} Tell the wearer it is right, "
+                        f"then give step {build.step + 1}: {nxt.say}"
+                    )
+                return
+        if confirmed and s.problem and self._told_problem_at != (s.steps_done, s.problem):
+            self._told_problem_at = (s.steps_done, s.problem)
+            self._say(f"Camera, on step {s.steps_done + 1}: {s.problem} Tell the wearer in one short sentence.")
+            return
+        self._think(note)
+
+    def _think(self, text: str) -> None:
+        try:
+            self._session.current_agent.duplex_session.append_thinking(text)
+        except Exception:
+            logger.exception("watch: append_thinking failed")
+
+    def _say(self, text: str) -> None:
+        logger.info("watch: commentary: %s", text)
+        handle = self._session.generate_reply(instructions=text)
+
+        def _done(h) -> None:
+            if h.exception() is not None:
+                logger.warning("watch: the voice model declined the commentary")
+
+        handle.add_done_callback(_done)
