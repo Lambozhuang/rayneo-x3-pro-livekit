@@ -61,7 +61,7 @@ photo clearly shows otherwise. The very first brick is right in any orientation.
 Steps already built (they should be visible, done as described):
 {done}
 
-The step to check:
+The step to check, what the photo must show:
 {step}
 
 Look only at the LEGO bricks relevant to this build (ignore any loose pile of
@@ -75,12 +75,13 @@ way a brick faces against the reference. Report:
   side its studs are, and which way the slope runs down), read against the
   reference. State what you actually see, not what the step says.
 - what_i_see: one sentence summarising the observations;
-- state: "built" only if every observation matches the step; "not_built" if any
-  brick is missing, not attached, wrong, misplaced or misoriented, or an earlier
-  step is visibly wrong; "unsure" only if the bricks are hidden, out of frame or
-  too small to tell;
-- problem: if not built, one short sentence saying what to change (never
-  empty then), else "".{answer}"""
+- state: "built" only if every observation matches what the step must show;
+  "not_built" if the brick is missing, wrong, misplaced or misoriented, not
+  attached where the step attaches it, or an earlier step is visibly wrong;
+  "unsure" only if the bricks are hidden, out of frame or too small to tell;
+- problem: if not built, one short sentence to the builder saying what to do
+  with which brick (never empty then), else "". Plain words: no "base",
+  "separate", "loose", "assembly".{answer}"""
 
 # The `answer` field exists only when the wearer asked something: an extra field
 # that is always empty measurably distracted the model from the verdict.
@@ -204,9 +205,9 @@ class VisionCheck:
         scripts call this on stored frames."""
         t0 = time.perf_counter()
         steps = self._guide.steps
-        done = "\n".join(f"  {k + 1}. {s.say}" for k, s in enumerate(steps[:i])) or "  (none yet)"
+        done = "\n".join(f"  {k + 1}. {s.check}" for k, s in enumerate(steps[:i])) or "  (none yet)"
         answer = ANSWER_QUESTION.format(question=question, language=self._language) if question else ANSWER_NONE
-        content: list[dict] = [{"type": "input_text", "text": PROMPT.format(done=done, step=f"  {i + 1}. {steps[i].say}", answer=answer)}]
+        content: list[dict] = [{"type": "input_text", "text": PROMPT.format(done=done, step=f"  {i + 1}. {steps[i].check}", answer=answer)}]
         if refs := self._refs.get(i):
             content.append({"type": "input_text", "text": REFERENCE_NOTE})
             for view, png in refs:

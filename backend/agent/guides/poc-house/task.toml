@@ -10,18 +10,22 @@ title = "Little house"
 part = "purple 2x4 brick"
 name = "Purple 2x4 flat on the table"
 say = "Take the purple two-by-four brick and put it flat on the table in front of you, the long side left to right."
+check = "A purple two-by-four brick (eight studs) lying flat, studs up, by itself: on the table or in the builder's hand, any orientation. Nothing is attached to it yet; loose bricks elsewhere do not matter."
 
 [[steps]]
 part = "yellow 1x4 brick"
 name = "Yellow 1x4 on the front row"
 say = "Take the yellow one-by-four brick and press it onto the purple brick, on the front row of studs, the row nearer to you, covering all four."
+check = "A yellow one-by-four brick pressed onto the purple two-by-four along one of its two long rows, covering all four studs of that row and not sticking out; the other row still free. Either row counts."
 
 [[steps]]
 part = "blue 1x4 brick"
 name = "Blue 1x4 on the back row"
 say = "Take the blue one-by-four brick and press it onto the back row of the purple brick, behind the yellow one, so the two together cover the purple brick."
+check = "A blue one-by-four brick pressed onto the purple brick's other long row, side by side with the yellow one, so yellow and blue together cover all eight studs of the purple brick."
 
 [[steps]]
 part = "red 3x4 slope brick"
 name = "Red slope on top, overhanging the front"
 say = "Take the red sloped roof piece. Put it on top of the yellow and blue bricks with its four studs at the back, flush with the blue brick, so the slope runs down towards you and its front edge sticks out one row past the yellow brick."
+check = "The red sloped roof piece attached on top of the yellow and blue bricks: its row of four studs sits over the blue brick, flush with the blue brick's outer edge, and the slope runs down across the yellow brick and sticks out one row beyond it. Studs over the yellow side, or the slope running the other way, is wrong."

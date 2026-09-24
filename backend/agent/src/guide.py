@@ -43,9 +43,14 @@ LOOK_MAX_AGE = 20.0
 @dataclass(frozen=True)
 class Step:
     part: str
-    say: str
+    say: str  # the instruction, as the wearer hears it (may say "nearer to you")
     name: str  # one line for the list on the glasses; defaults to `part`
     node: str | None = None  # node name in model.glb; defaults to the "stepNN" prefix
+    # What a photo must show for the step to count, in terms of the bricks
+    # placed before (never of the camera: the wearer turns the assembly in
+    # their hands). Defaults to `say`, which is wrong whenever `say` gives a
+    # direction relative to the wearer.
+    check: str = ""
 
 
 @dataclass(frozen=True)
@@ -66,7 +71,10 @@ def load_guide(path: str) -> Guide:
     with toml.open("rb") as f:
         data = tomllib.load(f)
     steps = tuple(
-        Step(part=s["part"], say=s["say"], name=s.get("name", s["part"]), node=s.get("node", f"step{i:02d}"))
+        Step(
+            part=s["part"], say=s["say"], name=s.get("name", s["part"]), node=s.get("node", f"step{i:02d}"),
+            check=s.get("check", s["say"]),
+        )
         for i, s in enumerate(data["steps"], 1)
     )
     if not steps:
