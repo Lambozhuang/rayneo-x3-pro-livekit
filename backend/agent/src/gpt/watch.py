@@ -65,6 +65,8 @@ class Watch:
         self._told_problem_at: int | None = None  # steps_done at which a problem was already announced
         self._pending_say: str | None = None  # commentary held back while the voice speaks
         self._announced_step: int | None = None  # a step advance the voice already told (via check_now)
+        self._inflight: asyncio.Future | None = None  # the look in progress, for check_now
+        self._wake = asyncio.Event()  # check_now: cut the gap short
 
     def start(self) -> None:
         if self._task is None:
@@ -77,22 +79,29 @@ class Watch:
 
     async def check_now(self) -> str:
         """What the camera sees right now, for the voice when the wearer asks.
-        Takes a fresh frame at once and asks the vision model in parallel with
-        whatever the loop has in flight, so the answer costs one look, not the
-        rest of the current one plus another."""
+        One look is in flight at a time: if the loop is looking, this waits for
+        that verdict; if it is idle (the gap, or waiting for a frame), it is
+        woken to look now."""
         build = self._build
         total = len(build.guide.steps)
+        fut = self._inflight
+        if fut is None:
+            self._wake.set()
+            for _ in range(50):  # the loop picks the wake-up within a few ms
+                await asyncio.sleep(0.02)
+                if (fut := self._inflight) is not None:
+                    break
+        if fut is None:
+            return "The camera is not running; tell the wearer you cannot see right now."
         try:
-            s = await self._look_once()
+            s: Sight = await asyncio.wait_for(asyncio.shield(fut), 12.0)
         except asyncio.TimeoutError:
-            return "The camera gave no frame; tell the wearer to hold the bricks in view and ask again."
+            return "The camera gave no verdict in time; tell the wearer to hold the bricks in view and ask again."
         except Exception:
-            logger.exception("check_now: vision call failed")
             return "The camera check failed; tell the wearer to ask again in a moment."
         if s.steps_done > build.step:
             # the voice will confirm from this answer; the loop must not announce it again
             self._announced_step = s.steps_done
-        await self._digest(s)
         if not s.visible:
             return "The camera cannot see the build right now; ask the wearer to bring the bricks into view."
         text = f"Camera now: {s.steps_done} of {total} steps done. {s.what_i_see}"
@@ -130,17 +139,27 @@ class Watch:
         logger.info("watch: on, gap=%.1fs confirm=%d", self._gap, self._confirm)
         while True:
             if self._gap:
-                await asyncio.sleep(self._gap)
+                try:
+                    await asyncio.wait_for(self._wake.wait(), self._gap)  # check_now cuts the gap short
+                except asyncio.TimeoutError:
+                    pass
+            self._wake.clear()
+            self._inflight = asyncio.get_running_loop().create_future()
             try:
                 s = await self._look_once()
-            except asyncio.TimeoutError:
-                continue
             except asyncio.CancelledError:
+                self._inflight.cancel()
                 raise
-            except Exception:
-                logger.exception("watch: vision call failed")
-                await asyncio.sleep(2)
+            except Exception as e:
+                self._inflight.set_exception(e)
+                self._inflight = None
+                if not isinstance(e, asyncio.TimeoutError):
+                    logger.exception("watch: vision call failed")
+                    await asyncio.sleep(2)
                 continue
+            self._inflight.set_result(s)
+            self._inflight = None
+            await asyncio.sleep(0)  # let a check_now caller read the verdict before it is digested
             await self._digest(s)
 
     async def _digest(self, s: Sight) -> None:
