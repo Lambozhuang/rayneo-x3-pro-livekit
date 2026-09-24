@@ -140,7 +140,16 @@ class _Renderer:
             rgb = np.array(mat.baseColorFactor[:3]) / 255.0 if getattr(mat, "baseColorFactor", None) is not None else np.full(3, 0.8)
             self.parts.append((node, vao, rgb))
         self.radius = float(np.linalg.norm(scene.extents)) * 0.5
-        self.proj = _perspective(np.radians(35), width / height, self.radius * 0.1, self.radius * 20)
+        # Orthographic by default: bricks keep their true proportions and rows
+        # stay parallel, which is what a builder compares against; a 35-degree
+        # perspective made the near end look bigger. MODEL_PROJECTION=perspective
+        # brings the old look back. The eye sits 3.3 radii out either way; the
+        # orthographic half-height fits the bounding sphere the same as the
+        # perspective did (1.04 r).
+        if os.environ.get("MODEL_PROJECTION", "ortho").lower().startswith("persp"):
+            self.proj = _perspective(np.radians(35), width / height, self.radius * 0.1, self.radius * 20)
+        else:
+            self.proj = _ortho(self.radius * 1.04, width / height, self.radius * 0.1, self.radius * 20)
 
     @property
     def nodes(self) -> list[str]:
@@ -277,6 +286,13 @@ def _perspective(fovy: float, aspect: float, near: float, far: float) -> np.ndar
     return np.array(
         [[f / aspect, 0, 0, 0], [0, f, 0, 0],
          [0, 0, (far + near) / (near - far), 2 * far * near / (near - far)], [0, 0, -1, 0]], "f4",
+    )
+
+
+def _ortho(half_h: float, aspect: float, near: float, far: float) -> np.ndarray:
+    return np.array(
+        [[1 / (half_h * aspect), 0, 0, 0], [0, 1 / half_h, 0, 0],
+         [0, 0, -2 / (far - near), -(far + near) / (far - near)], [0, 0, 0, 1]], "f4",
     )
 
 
