@@ -77,13 +77,14 @@ so it runs along the purple one"), in their words, no "base", "separate",
   goodbye and call it.
 {model}"""
 
-MODEL_SHOWN_VOICE = """On their glasses the wearer also sees a slowly rotating 3D model of the
-finished build, with the brick of the current step in colour and the rest grey.
-You can refer to it: "the highlighted brick on your display"."""
+MODEL_SHOWN_VOICE = """On their glasses the wearer also sees a slowly rotating 3D model of the build
+as it should look once the current step is done: the bricks placed so far plus
+this step's brick, later ones not yet shown. You can refer to it: "like on your
+display"."""
 
-MODEL_SHOWN_BACKEND = """The wearer's display shows a rotating 3D model of the finished build with the
-current step's brick in colour and the rest grey; refer to "the highlighted
-brick on your display" when you explain where a brick goes. Two more tools
+MODEL_SHOWN_BACKEND = """The wearer's display shows a rotating 3D model of the build as it should look
+once the current step is done (the bricks so far plus this step's, later ones
+not shown); refer to "like on your display" when you explain where a brick goes. Two more tools
 change that display: show_view(view) turns it to a fixed side (front, back,
 left, right, top, front-left, front-right) or back to spin, and
 highlight_part(step) colours another step's brick (0 = all). Use show_view when

@@ -217,8 +217,9 @@ class Build:
         return next((n for n in self.model_nodes if n.startswith(prefix)), None)
 
     def highlight(self, index: int | None) -> None:
-        """Highlight step `index`'s brick in the streamed model, or none. Steps
-        do this as they start; the highlight_part tool does it on request."""
+        """Show the build up to step `index` in the streamed model, that step's
+        brick a little brighter; None shows the whole finished model. Steps do
+        this as they start; the highlight_part tool does it on request."""
         if self.model is None:
             return
         node = None if index is None else self.node_for(index)
@@ -227,3 +228,6 @@ class Build:
                 "model: no node for step %d (%r) in %s", index + 1, self.guide.steps[index].node, self.model_nodes
             )
         self.model.highlight = node
+        self.model.upto = None if index is None else frozenset(
+            n for k in range(index + 1) if (n := self.node_for(k)) is not None
+        )

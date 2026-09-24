@@ -91,8 +91,8 @@ ANSWER_QUESTION = """
   short spoken sentences, in {language}, still filling in the other fields."""
 
 REFERENCE_NOTE = (
-    "Reference: the finished model rendered from two angles, the brick of this step in colour, "
-    "the others grey. The photo will not match the exact angle; use it to see where the brick belongs."
+    "Reference: how the build should look once this step is done, rendered from two angles; "
+    "only the bricks placed so far are shown. The photo will not match the exact angle."
 )
 
 SCHEMA = {
@@ -143,10 +143,14 @@ def _render_references(guide: Guide) -> dict[int, list[tuple[str, bytes]]]:
     try:
         for i, step in enumerate(guide.steps):
             node = next((n for n in r.nodes if n.startswith(step.node or "")), None)
+            # the build as it should look once this step is done: this step's
+            # brick and the ones before it, in their colours; later bricks are
+            # not there yet, so nothing hides what is being checked
+            upto = {n for k in range(i + 1) for n in r.nodes if n.startswith(guide.steps[k].node or "")}
             views = []
             for view in ("front-left", "top"):
                 yaw, pitch = VIEWS[view]
-                rgba = np.frombuffer(r.frame(np.radians(yaw), np.radians(pitch), node), "u1").reshape(360, 480, 4)
+                rgba = np.frombuffer(r.frame(np.radians(yaw), np.radians(pitch), node, only=upto), "u1").reshape(360, 480, 4)
                 buf = io.BytesIO()
                 Image.fromarray(rgba[..., :3]).save(buf, "PNG")
                 views.append((view, buf.getvalue()))

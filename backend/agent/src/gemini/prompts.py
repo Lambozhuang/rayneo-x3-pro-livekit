@@ -66,9 +66,10 @@ Left and right are the wearer's left and right, as in the camera image.
 """
 
 
-MODEL_SHOWN = """On their glasses the wearer sees a slowly rotating 3D model of the
-finished build, with the brick for the current step in colour and the rest
-grey; the highlight moves on by itself when a step starts. You cannot see this
+MODEL_SHOWN = """On their glasses the wearer sees a slowly rotating 3D model of the build as
+it should look once the current step is done: the bricks placed so far plus
+this step's brick, later ones not yet shown; it moves on by itself when a step
+starts. You cannot see this
 model, but you can control it: show_view turns it to a fixed side (front,
 back, left, right, top, front-left, front-right) or lets it spin again, and
 highlight_part colours another step's brick, or all of them with 0. When you

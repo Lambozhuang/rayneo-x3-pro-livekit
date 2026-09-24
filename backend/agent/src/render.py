@@ -71,6 +71,9 @@ class ModelState:
     spin: bool = True
     view: str = "front-left"  # a key of VIEWS; the spin starts from it
     highlight: str | None = None  # node name (a step's `node`), or None for all in colour
+    # Only these nodes are drawn, each in its own colour: the build up to the
+    # current step, later bricks not yet there. None draws the whole model.
+    upto: frozenset[str] | None = None
 
     def show(self, view: str) -> None:
         if view == "spin":
@@ -143,7 +146,11 @@ class _Renderer:
     def nodes(self) -> list[str]:
         return [p[0] for p in self.parts]
 
-    def frame(self, yaw: float, pitch: float, highlight: str | None) -> bytes:
+    def frame(self, yaw: float, pitch: float, highlight: str | None, only: set[str] | None = None) -> bytes:
+        """One frame. `highlight` names the brick drawn in colour (a little
+        brighter) among grey ones; `only` restricts drawing to those nodes,
+        for "the build up to this step" where every drawn brick keeps its own
+        colour and the rest do not exist yet."""
         # 3.3 radii back, so the bounding sphere (radius r) fits the frame's
         # height at any angle: 3.3 * tan(35°/2) = 1.04 r. At 3.0 it was 0.95 r
         # and a corner of the model touched the bottom edge now and then.
@@ -157,7 +164,9 @@ class _Renderer:
         self.prog["model"].write(model.T.tobytes())
         self.prog["mvp"].write((self.proj @ view @ model).T.tobytes())
         for node, vao, rgb in self.parts:
-            if highlight is None:
+            if only is not None and node not in only:
+                continue
+            if highlight is None or only is not None and node != highlight:
                 c = rgb
             elif node == highlight:
                 c = np.clip(rgb * 1.15 + 0.05, 0, 1)  # its own colour, a little brighter
@@ -247,7 +256,7 @@ class ModelStream:
             if st.spin:
                 angle += 0.5 * period  # rad/s: one turn in ~12 s
             t = time.perf_counter()
-            data = renderer.frame(np.radians(yaw0) + angle, np.radians(pitch), st.highlight)
+            data = renderer.frame(np.radians(yaw0) + angle, np.radians(pitch), st.highlight, only=st.upto)
             render_ms.append(1000 * (time.perf_counter() - t))
             assert self._source is not None
             self._source.capture_frame(rtc.VideoFrame(c.width, c.height, rtc.VideoBufferType.RGBA, data))
