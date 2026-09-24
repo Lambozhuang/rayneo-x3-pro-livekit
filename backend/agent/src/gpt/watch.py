@@ -6,8 +6,11 @@ seconds old on how far the build has got, and it decides on its own whether to
 speak. The process does three things: takes the next camera frame, asks the
 vision model (vision.py), and hands the answer over:
 
-- every verdict goes in as *thinking*: silent context the model uses when it
-  matters (the wearer asks "done?", it answers from the newest note);
+- nothing goes in per frame. Every frame's verdict as thinking made the voice
+  narrate the camera ("I'm still seeing just the yellow") from notes a few
+  seconds stale, then contradict itself when the confirmed change arrived.
+  What the voice needs is the confirmed state, and it has it: if no note has
+  said the step is done, it is not done;
 - a step newly complete, or a brick newly placed wrongly, goes in as
   *commentary*: something to say now, in the model's own words. A step
   forward needs `confirm` consecutive frames agreeing; a step back needs twice
@@ -58,6 +61,7 @@ class Watch:
         self._said: deque[tuple[float, str]] = deque(maxlen=3)  # (when, what) the wearer said
         self._last_note = ""
         self._agree = 0  # consecutive frames with the same (steps_done, problem or not)
+        self._unseen = 0  # consecutive frames without the build in view
         self._told_problem_at: int | None = None  # steps_done at which a problem was already announced
         self._pending_say: str | None = None  # commentary held back while the voice speaks
 
@@ -113,20 +117,20 @@ class Watch:
         prev = self.last
         self.last = s
         if not s.visible:
-            if prev is None or prev.visible:
-                self._think("Camera: the build is not in view right now.")
+            self._unseen += 1
+            if self._unseen == 3:
+                self._think("Camera: the build has been out of view for a while.")
             self._agree = 0
             return
+        if self._unseen >= 3:
+            self._think("Camera: the build is in view again.")
+        self._unseen = 0
         same = prev is not None and prev.visible and prev.steps_done == s.steps_done and bool(prev.problem) == bool(s.problem)
         self._agree = self._agree + 1 if same else 1
         # forward on `confirm` frames; backward only on twice as many: a hand,
         # an angle or a lifted brick must not undo a step
         needed = self._confirm if s.steps_done >= build.step else 2 * self._confirm
         confirmed = self._agree >= needed
-
-        note = f"Camera: {s.steps_done} of {total} steps done. {s.what_i_see}"
-        if s.problem:
-            note += f" Something is off: {s.problem}"
 
         if confirmed and s.steps_done != build.step:
             went_up = s.steps_done > build.step
@@ -143,13 +147,12 @@ class Watch:
                         f"then give step {build.step + 1}: {nxt.say}"
                     )
                 return
-            self._think(note)  # a step back: the model may use it, we do not announce it
+            # a step back: the model may use it when asked, we do not announce it
+            self._think(f"Camera: the build is back at {s.steps_done} of {total} steps done. {s.what_i_see}")
             return
         if confirmed and s.problem and self._told_problem_at != s.steps_done:
             self._told_problem_at = s.steps_done
             self._say(f"Camera, on step {s.steps_done + 1}: {s.problem} Tell the wearer in one short sentence.")
-            return
-        self._think(note)
 
     def _think(self, text: str) -> None:
         if text == self._last_note:  # the model has this already
