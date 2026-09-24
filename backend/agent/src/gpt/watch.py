@@ -37,7 +37,7 @@ from livekit.agents.utils import images
 
 from frames import FrameTap
 from gpt.config import FRAME_ENCODE_OPTIONS
-from gpt.vision import Eyes, Sight
+from gpt.vision import CHECK_TIMEOUT, Eyes, Sight
 from guide import Build
 
 logger = logging.getLogger("rayneo-agent.watch")
@@ -153,7 +153,9 @@ class Watch:
             except Exception as e:
                 self._inflight.set_exception(e)
                 self._inflight = None
-                if not isinstance(e, asyncio.TimeoutError):
+                if type(e).__name__ == "APITimeoutError":
+                    logger.warning("watch: vision call stalled past %.0fs, dropping the frame", CHECK_TIMEOUT)
+                elif not isinstance(e, asyncio.TimeoutError):
                     logger.exception("watch: vision call failed")
                     await asyncio.sleep(2)
                 continue

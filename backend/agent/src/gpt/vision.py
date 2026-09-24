@@ -32,7 +32,7 @@ from guide import Guide
 
 logger = logging.getLogger("rayneo-agent.vision")
 
-CHECK_TIMEOUT = 15.0
+CHECK_TIMEOUT = 6.0  # a stalled call is dropped and a fresh frame taken; normal is 2-3 s
 
 PROMPT = """You are watching a small LEGO build through the builder's glasses camera and
 reporting how far it has got. The bricks may lie on the table or be held up in
