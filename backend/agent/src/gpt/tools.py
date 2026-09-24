@@ -1,9 +1,10 @@
-"""The one tool of the GPT path.
+"""The two tools of the GPT path.
 
 GPT-Live has no tool channel of its own; tools reach it through the backend
-model it delegates to. The build needs none: the voice model knows the steps
-(prompts.py) and gets the camera's verdicts as context (watch.py). What is left
-is hanging up, which only a tool can do, so the backend keeps exactly that.
+model it delegates to. The voice model knows the steps (prompts.py) and gets
+the camera's confirmed changes as context (watch.py); between those it cannot
+look for itself, so when the wearer asks it to, check_now fetches the camera's
+verdict on a fresh frame. And hanging up, which only a tool can do.
 """
 
 from __future__ import annotations
@@ -32,6 +33,14 @@ class Run:
 async def publish_build(build: Build) -> None:
     """The run's position to the glasses, as participant attributes (Build.attributes)."""
     await get_job_context().room.local_participant.set_attributes(build.attributes())
+
+
+@function_tool()
+async def check_now(context: RunContext[Run]) -> str:
+    """What the camera sees right now: how many steps are done and whether a
+    brick is placed wrongly. Call it when the wearer asks you to look, to
+    check, or whether something is right. Takes a few seconds."""
+    return await context.userdata.watch.check_now()
 
 
 @function_tool()

@@ -32,7 +32,7 @@ from livekit.agents.metrics import LLMMetrics, RealtimeModelMetrics
 from frames import FrameTap
 from gpt.config import Settings, build_live_model, language, openai_client, require_env
 from gpt.prompts import backend_instructions, voice_persona
-from gpt.tools import Run, end_call, publish_build
+from gpt.tools import Run, check_now, end_call, publish_build
 from gpt.vision import Eyes
 from gpt.watch import Watch
 from guide import Build, load_guide
@@ -115,9 +115,13 @@ async def rayneo_assistant(ctx: JobContext) -> None:
             )
 
     await session.start(
-        agent=Agent(instructions=voice_persona(guide, lang), tools=[end_call]),
+        agent=Agent(instructions=voice_persona(guide, lang), tools=[check_now, end_call]),
         room=ctx.room,
-        room_options=room_io.RoomOptions(video_input=True),
+        # GPT-Live's transcript already trails its audio; the framework's
+        # pacing of text to playout only added to that on the glasses.
+        room_options=room_io.RoomOptions(
+            video_input=True, text_output=room_io.TextOutputOptions(sync_transcription=False)
+        ),
     )
 
     wearer = await ctx.wait_for_participant()
