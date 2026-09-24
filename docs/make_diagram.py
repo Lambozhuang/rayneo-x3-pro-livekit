@@ -40,12 +40,12 @@ H = ROW_Y + CH + PAD
 THEMES = {
     "dark": dict(
         card="#ffffff0a", edge="#ffffff29", text="#f1f5f9", muted="#a3b2c2",
-        dim="#7c8b9c", accent="#38bdf8", gemini="#a78bda",
+        dim="#7c8b9c", accent="#38bdf8", cloud="#3fbf9a",
         livekit="#ffffff", python="#4B8BBE", check="#0b1017",
     ),
     "light": dict(
         card="#0f172a08", edge="#0f172a26", text="#0f172a", muted="#475569",
-        dim="#64748b", accent="#0369a1", gemini="#6d4fa3",
+        dim="#64748b", accent="#0369a1", cloud="#0d8a6a",
         livekit="#0f172a", python="#3776AB", check="#ffffff",
     ),
 }
@@ -79,7 +79,7 @@ def build(t: dict) -> str:
   </marker>
   <marker id="headv" viewBox="0 0 10 10" refX="9" refY="5"
           markerWidth="6.5" markerHeight="6.5" orient="auto-start-reverse">
-    <path d="M0 0.8 L9.2 5 L0 9.2 Z" fill="{t["gemini"]}"/>
+    <path d="M0 0.8 L9.2 5 L0 9.2 Z" fill="{t["cloud"]}"/>
   </marker>
 </defs>''')
 
@@ -97,15 +97,15 @@ def build(t: dict) -> str:
         ("livekit", f'fill="{t["livekit"]}"', 40, "livekit-server",
          "self-hosted", ["one room, forwards", "tracks between peers"]),
         ("python", f'fill="{t["python"]}"', 44, "Python agent", "agent/",
-         ["joins the room, bridges", "it to Gemini Live"]),
-        ("googlegemini", f'fill="{t["gemini"]}"', 42, "Gemini Live API",
-         "Google cloud", ["speech-to-speech,", "video in"]),
+         ["joins the room, bridges", "it to GPT-Live"]),
+        ("openai", f'fill="{t["cloud"]}"', 42, "OpenAI API",
+         "OpenAI cloud", ["GPT-Live: the voice,", "gpt-6-luna: the eyes"]),
     ]
     cols = [PAD + i * (CW + GAP) for i in range(4)]
 
     for x, (name, style, size, title, sub, lines) in zip(cols, nodes):
         cx = x + CW / 2
-        edge = t["gemini"] if name == "googlegemini" else t["edge"]
+        edge = t["cloud"] if name == "openai" else t["edge"]
         add(f'<rect x="{x}" y="{ROW_Y}" width="{CW}" height="{CH}" rx="11" '
             f'fill="{t["card"]}" stroke="{edge}" stroke-width="1.4"/>')
         add(place(name, cx, ROW_Y + 26, size, style))
@@ -118,18 +118,20 @@ def build(t: dict) -> str:
                 f'fill="{t["muted"]}" text-anchor="middle">{line}</text>')
 
     link_y = ROW_Y + CH / 2
-    for i, (label, colour, marker) in enumerate([
-        ("WebRTC", t["accent"], "head"),
-        ("WebRTC", t["accent"], "head"),
-        ("WebSocket", t["gemini"], "headv"),
+    for i, (labels, colour, marker) in enumerate([
+        (["WebRTC"], t["accent"], "head"),
+        (["WebRTC"], t["accent"], "head"),
+        (["WebSocket", "HTTPS"], t["cloud"], "headv"),
     ]):
         x1, x2 = cols[i] + CW + 12, cols[i + 1] - 12
         add(f'<line x1="{x1}" y1="{link_y}" x2="{x2}" y2="{link_y}" '
             f'stroke="{colour}" stroke-width="1.8" '
             f'marker-start="url(#{marker})" marker-end="url(#{marker})"/>')
-        add(f'<text x="{(x1 + x2) / 2}" y="{link_y - 14}" font-size="13.5" '
-            f'letter-spacing="0.6" fill="{colour}" text-anchor="middle">'
-            f'{label}</text>')
+        # first label above the line, a second one below it
+        for label, y in zip(labels, (link_y - 14, link_y + 26)):
+            add(f'<text x="{(x1 + x2) / 2}" y="{y}" font-size="13.5" '
+                f'letter-spacing="0.6" fill="{colour}" text-anchor="middle">'
+                f'{label}</text>')
 
     add("</svg>")
     return "\n".join(out)

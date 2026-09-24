@@ -1,15 +1,16 @@
 # RayNeo X3 Pro live AI assistant
 
-A voice-and-vision assistant for RayNeo X3 Pro AR glasses, built on LiveKit and the
-Gemini Live API. The first use case is helping the wearer build with LEGO: the model has
-to see well enough to count the studs on a brick.
+A voice-and-vision assistant for RayNeo X3 Pro AR glasses, built on LiveKit and OpenAI's
+GPT-Live (a Gemini Live path is kept alongside). The first use case is helping the wearer
+build with LEGO: the model has to see well enough to count the studs on a brick.
 
 ## Architecture
 
 <picture>
   <source media="(prefers-color-scheme: dark)" srcset="docs/architecture-dark.png">
   <img alt="Architecture: the glasses and the Python agent meet in one self-hosted
-LiveKit room; the agent alone talks to Gemini Live, over a WebSocket"
+LiveKit room; the agent alone talks to OpenAI: GPT-Live over a WebSocket, the vision
+model over HTTPS"
        src="docs/architecture-light.png">
 </picture>
 
@@ -17,9 +18,10 @@ LiveKit room; the agent alone talks to Gemini Live, over a WebSocket"
 and the PNGs.</sub>
 
 The two halves meet in one place, a LiveKit room. The glasses publish microphone and
-camera tracks into it; the agent joins the same room, forwards audio and video to Gemini
-Live over a WebSocket, and publishes Gemini's speech back as its own audio track. The
-glasses hold no Google credentials and do not know which model is in use.
+camera tracks into it; the agent joins the same room, streams the audio to GPT-Live over a
+WebSocket, sends camera frames to a vision model over HTTPS, and publishes GPT-Live's speech
+back as its own audio track. The glasses hold no model credentials and do not know which
+model is in use.
 
 Three processes, all in one compose project with host networking (WebRTC needs the
 server's UDP ports reachable at the address it advertises; a bridge network only adds NAT):
