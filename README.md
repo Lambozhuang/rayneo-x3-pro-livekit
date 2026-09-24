@@ -8,9 +8,9 @@ build with LEGO: the model has to see well enough to count the studs on a brick.
 
 <picture>
   <source media="(prefers-color-scheme: dark)" srcset="docs/architecture-dark.png">
-  <img alt="Architecture: the glasses and the Python agent meet in one self-hosted
-LiveKit room; the agent alone talks to OpenAI: GPT-Live over a WebSocket, the vision
-model over HTTPS"
+  <img alt="Architecture: the glasses reach our server over Wi-Fi, the link under test;
+livekit-server and the Python agent share that server; only the agent talks to OpenAI,
+GPT-Live over a WebSocket and the vision model over HTTPS"
        src="docs/architecture-light.png">
 </picture>
 

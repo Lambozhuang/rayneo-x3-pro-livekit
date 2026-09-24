@@ -31,8 +31,8 @@ MONO = "JetBrains Mono, Cascadia Mono, Consolas, monospace"
 
 # geometry ----------------------------------------------------------------
 PAD = 40           # canvas margin
-CW, CH = 262, 226  # card
-GAP = 100          # between cards — must clear the widest link label
+CW, CH = 262, 168  # card
+GAP = 120          # between cards — must clear the widest link label
 ROW_Y = 116        # top of the card row
 W = PAD * 2 + CW * 4 + GAP * 3
 H = ROW_Y + CH + PAD
@@ -77,6 +77,10 @@ def build(t: dict) -> str:
           markerWidth="6.5" markerHeight="6.5" orient="auto-start-reverse">
     <path d="M0 0.8 L9.2 5 L0 9.2 Z" fill="{t["accent"]}"/>
   </marker>
+  <marker id="headm" viewBox="0 0 10 10" refX="9" refY="5"
+          markerWidth="6.5" markerHeight="6.5" orient="auto-start-reverse">
+    <path d="M0 0.8 L9.2 5 L0 9.2 Z" fill="{t["muted"]}"/>
+  </marker>
   <marker id="headv" viewBox="0 0 10 10" refX="9" refY="5"
           markerWidth="6.5" markerHeight="6.5" orient="auto-start-reverse">
     <path d="M0 0.8 L9.2 5 L0 9.2 Z" fill="{t["cloud"]}"/>
@@ -91,19 +95,16 @@ def build(t: dict) -> str:
 
     glasses = (f'fill="none" stroke="{t["accent"]}" stroke-width="1.9" '
                'stroke-linecap="round" stroke-linejoin="round"')
+    # each card says what it is and where it runs; what it does is in README
     nodes = [
-        ("glasses", glasses, 48, "RayNeo X3 Pro", "android/",
-         ["publishes mic + camera,", "plays the agent's voice"]),
-        ("livekit", f'fill="{t["livekit"]}"', 40, "livekit-server",
-         "self-hosted", ["one room, forwards", "tracks between peers"]),
-        ("python", f'fill="{t["python"]}"', 44, "Python agent", "agent/",
-         ["joins the room, bridges", "it to GPT-Live"]),
-        ("openai", f'fill="{t["cloud"]}"', 42, "OpenAI API",
-         "OpenAI cloud", ["GPT-Live: the voice,", "gpt-6-luna: the eyes"]),
+        ("glasses", glasses, 48, "RayNeo X3 Pro", "on the wearer"),
+        ("livekit", f'fill="{t["livekit"]}"', 40, "livekit-server", "our server"),
+        ("python", f'fill="{t["python"]}"', 44, "Python agent", "our server"),
+        ("openai", f'fill="{t["cloud"]}"', 42, "GPT-Live + vision", "OpenAI cloud"),
     ]
     cols = [PAD + i * (CW + GAP) for i in range(4)]
 
-    for x, (name, style, size, title, sub, lines) in zip(cols, nodes):
+    for x, (name, style, size, title, sub) in zip(cols, nodes):
         cx = x + CW / 2
         edge = t["cloud"] if name == "openai" else t["edge"]
         add(f'<rect x="{x}" y="{ROW_Y}" width="{CW}" height="{CH}" rx="11" '
@@ -113,23 +114,22 @@ def build(t: dict) -> str:
             f'fill="{t["text"]}" text-anchor="middle">{title}</text>')
         add(f'<text x="{cx}" y="{ROW_Y + 134}" font-size="13" '
             f'fill="{t["dim"]}" text-anchor="middle">{sub}</text>')
-        for i, line in enumerate(lines):
-            add(f'<text x="{cx}" y="{ROW_Y + 168 + i * 22}" font-size="13.5" '
-                f'fill="{t["muted"]}" text-anchor="middle">{line}</text>')
 
     link_y = ROW_Y + CH / 2
+    # protocol above the line, the network it crosses below; the first hop is
+    # the one the experiment shapes
     for i, (labels, colour, marker) in enumerate([
-        (["WebRTC"], t["accent"], "head"),
-        (["WebRTC"], t["accent"], "head"),
-        (["WebSocket", "HTTPS"], t["cloud"], "headv"),
+        (["WebRTC", "Wi-Fi", "under test"], t["accent"], "head"),
+        (["WebRTC", "localhost"], t["muted"], "headm"),
+        (["WSS + HTTPS", "internet"], t["cloud"], "headv"),
     ]):
         x1, x2 = cols[i] + CW + 12, cols[i + 1] - 12
         add(f'<line x1="{x1}" y1="{link_y}" x2="{x2}" y2="{link_y}" '
             f'stroke="{colour}" stroke-width="1.8" '
             f'marker-start="url(#{marker})" marker-end="url(#{marker})"/>')
-        # first label above the line, a second one below it
-        for label, y in zip(labels, (link_y - 14, link_y + 26)):
-            add(f'<text x="{(x1 + x2) / 2}" y="{y}" font-size="13.5" '
+        for label, y, size in zip(labels, (link_y - 14, link_y + 26, link_y + 46),
+                                  (13.5, 13.5, 12)):
+            add(f'<text x="{(x1 + x2) / 2}" y="{y}" font-size="{size}" '
                 f'letter-spacing="0.6" fill="{colour}" text-anchor="middle">'
                 f'{label}</text>')
 
