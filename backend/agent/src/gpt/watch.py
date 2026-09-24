@@ -9,9 +9,13 @@ vision model (vision.py), and hands the answer over:
 - every verdict goes in as *thinking*: silent context the model uses when it
   matters (the wearer asks "done?", it answers from the newest note);
 - a step newly complete, or a brick newly placed wrongly, goes in as
-  *commentary*: something to say now, in the model's own words. Both need
-  `confirm` consecutive frames agreeing, so a hand passing over the bricks
-  does not become an announcement.
+  *commentary*: something to say now, in the model's own words. A step
+  forward needs `confirm` consecutive frames agreeing; a step back needs twice
+  that and is never announced (the model can see it in the thinking); a
+  wrongly placed brick is announced once per visit to a step, however the
+  vision model words it from frame to frame. Commentary waits while the voice
+  is speaking, and only the newest one is kept: two verdicts a few seconds
+  apart must not become two overlapping corrections.
 
 The step index the glasses show (Build) follows the vision model's count of
 completed steps; the code keeps no opinion of its own.
@@ -54,7 +58,8 @@ class Watch:
         self._said: deque[tuple[float, str]] = deque(maxlen=3)  # (when, what) the wearer said
         self._last_note = ""
         self._agree = 0  # consecutive frames with the same (steps_done, problem or not)
-        self._told_problem_at: tuple[int, str] | None = None  # (steps_done, problem) already announced
+        self._told_problem_at: int | None = None  # steps_done at which a problem was already announced
+        self._pending_say: str | None = None  # commentary held back while the voice speaks
 
     def start(self) -> None:
         if self._task is None:
@@ -114,7 +119,10 @@ class Watch:
             return
         same = prev is not None and prev.visible and prev.steps_done == s.steps_done and bool(prev.problem) == bool(s.problem)
         self._agree = self._agree + 1 if same else 1
-        confirmed = self._agree >= self._confirm
+        # forward on `confirm` frames; backward only on twice as many: a hand,
+        # an angle or a lifted brick must not undo a step
+        needed = self._confirm if s.steps_done >= build.step else 2 * self._confirm
+        confirmed = self._agree >= needed
 
         note = f"Camera: {s.steps_done} of {total} steps done. {s.what_i_see}"
         if s.problem:
@@ -135,8 +143,10 @@ class Watch:
                         f"then give step {build.step + 1}: {nxt.say}"
                     )
                 return
-        if confirmed and s.problem and self._told_problem_at != (s.steps_done, s.problem):
-            self._told_problem_at = (s.steps_done, s.problem)
+            self._think(note)  # a step back: the model may use it, we do not announce it
+            return
+        if confirmed and s.problem and self._told_problem_at != s.steps_done:
+            self._told_problem_at = s.steps_done
             self._say(f"Camera, on step {s.steps_done + 1}: {s.problem} Tell the wearer in one short sentence.")
             return
         self._think(note)
@@ -151,6 +161,23 @@ class Watch:
             logger.exception("watch: append_thinking failed")
 
     def _say(self, text: str) -> None:
+        """Commentary, once the voice is quiet. A newer one replaces a held one."""
+        if self._session.agent_state == "speaking":
+            if self._pending_say is None:
+                asyncio.create_task(self._say_when_quiet(), name="say_when_quiet")
+            self._pending_say = text
+            return
+        self._say_now(text)
+
+    async def _say_when_quiet(self) -> None:
+        t0 = time.monotonic()
+        while self._session.agent_state == "speaking" and time.monotonic() - t0 < 20:
+            await asyncio.sleep(0.1)
+        text, self._pending_say = self._pending_say, None
+        if text:
+            self._say_now(text)
+
+    def _say_now(self, text: str) -> None:
         logger.info("watch: commentary: %s", text)
         handle = self._session.generate_reply(instructions=text)
 

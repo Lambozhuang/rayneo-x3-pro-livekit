@@ -45,9 +45,9 @@ The steps, in order, each saying what the photo must show when it is done:
 {steps}
 
 {context}Look only at the bricks of this build; ignore any loose pile of other bricks,
-and anything on screens. The camera shifts colours: identify bricks by size and
-shape first and treat colour names approximately. Count studs where it
-matters. Report:
+and anything on screens. The camera shifts colours: a lighter or darker shade
+of the named colour is the same brick, but a different colour (white for blue,
+say) is a different brick. Count studs where it matters. Report:
 - observations: three to six short facts, one per line, each about one brick
   of the build: which brick (colour, studs), what it is attached to, along
   which row or side, which way it faces (for a slope: where its studs are and

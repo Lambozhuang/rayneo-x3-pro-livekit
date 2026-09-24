@@ -16,16 +16,16 @@ check = "A purple two-by-four brick (eight studs) lying flat, studs up, by itsel
 part = "yellow 1x4 brick"
 name = "Yellow 1x4 on the front row"
 say = "Take the yellow one-by-four brick and press it onto the purple brick, on the front row of studs, the row nearer to you, covering all four."
-check = "A yellow one-by-four brick pressed onto the purple two-by-four along one of its two long rows, covering all four studs of that row and not sticking out; the other row still free. Either row counts."
+check = "A yellow one-by-four brick pressed onto the purple two-by-four along one of its two long rows, covering all four studs of that row; the other row still free (either row counts). Count the purple studs still visible: exactly four, in one straight line, means right. Six visible purple studs (a two-by-three block), or the yellow brick lying across the short end or sticking out past the purple brick's edge, means wrong."
 
 [[steps]]
 part = "blue 1x4 brick"
 name = "Blue 1x4 on the back row"
 say = "Take the blue one-by-four brick and press it onto the back row of the purple brick, behind the yellow one, so the two together cover the purple brick."
-check = "A blue one-by-four brick pressed onto the purple brick's other long row, side by side with the yellow one, so yellow and blue together cover all eight studs of the purple brick."
+check = "A blue one-by-four brick (blue, not white, grey or any other colour) pressed onto the purple brick's other long row, side by side with the yellow one, so yellow and blue together cover all eight studs of the purple brick: no purple stud visible from above, the two bricks parallel and the same length."
 
 [[steps]]
 part = "red 3x4 slope brick"
 name = "Red slope on top, overhanging the front"
 say = "Take the red sloped roof piece. Put it on top of the yellow and blue bricks with its four studs at the back, flush with the blue brick, so the slope runs down towards you and its front edge sticks out one row past the yellow brick."
-check = "The red sloped roof piece attached on top of the yellow and blue bricks: its row of four studs sits over the blue brick, flush with the blue brick's outer edge, and the slope runs down across the yellow brick and sticks out one row beyond it. Studs over the yellow side, or the slope running the other way, is wrong."
+check = "The red sloped roof piece attached on top of the yellow and blue bricks: its row of four studs sits over the blue brick, flush with the blue brick's outer edge, and the slope runs down across the yellow brick and sticks out one row beyond it. Cues: the roof's studs are directly above the blue brick, and the overhang is on the yellow side. Studs above the yellow, the overhang on the blue side, or the roof turned so its studs run across the bricks instead of along them, means wrong."
