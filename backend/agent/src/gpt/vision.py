@@ -44,7 +44,7 @@ describe (along which row, beside, flush with, overhanging).
 The steps, in order, each saying what the photo must show when it is done:
 {steps}
 
-Look only at the bricks of this build; ignore any loose pile of other bricks,
+{context}Look only at the bricks of this build; ignore any loose pile of other bricks,
 and anything on screens. The camera shifts colours: identify bricks by size and
 shape first and treat colour names approximately. Count studs where it
 matters. Report:
@@ -63,6 +63,14 @@ matters. Report:
   finished.
 - visible: false if the build is out of frame or too small to judge (then
   keep steps_done as your best guess and leave problem empty)."""
+
+CONTEXT = """What you knew a moment ago, from the previous frames (the two before this one
+are attached first, smaller): {previous}{said}Keep that count unless this frame
+clearly shows the build has changed; a hand in the way, a brick lifted up, or
+a poor angle is not a change. If the build is hidden or out of frame, keep the
+count and set visible to false.
+
+"""
 
 REFERENCE_NOTE = (
     "Reference: how the build should look once step {n} is done, rendered from two angles; "
@@ -146,12 +154,27 @@ class Eyes:
         except Exception:
             logger.exception("vision: could not render reference views; looking without them")
 
-    async def look(self, jpeg: bytes, expected_step: int) -> Sight:
+    async def look(
+        self, jpeg: bytes, expected_step: int, previous: Sight | None = None,
+        said: list[str] = (), earlier: list[bytes] = (),
+    ) -> Sight:
         """Judge one frame. `expected_step` (1-based) picks the reference
-        render: the step the wearer is thought to be working on."""
+        render: the step the wearer is thought to be working on. `previous` is
+        the last verdict, `said` the wearer's recent words, `earlier` the last
+        frames before this one (small): the memory this stateless call gets."""
         t0 = time.perf_counter()
         n = max(1, min(expected_step, len(self._guide.steps)))
-        content: list[dict] = [{"type": "input_text", "text": PROMPT.format(steps=self._steps_text)}]
+        context = ""
+        if previous is not None:
+            prev = f"{previous.steps_done} of {len(self._guide.steps)} steps done; {previous.what_i_see}"
+            if previous.problem:
+                prev += f" Problem then: {previous.problem}"
+            quotes = " ".join(f'The builder just said: "{q}".' for q in said)
+            context = CONTEXT.format(previous=prev, said=(" " + quotes + " ") if quotes else " ")
+        content: list[dict] = [{"type": "input_text", "text": PROMPT.format(steps=self._steps_text, context=context)}]
+        for k, small in enumerate(earlier):
+            content.append({"type": "input_text", "text": f"[earlier frame {k + 1}, for continuity]"})
+            content.append({"type": "input_image", "image_url": _data_url(small, "image/jpeg"), "detail": "low"})
         if refs := self._refs.get(n):
             content.append({"type": "input_text", "text": REFERENCE_NOTE.format(n=n)})
             for view, png in refs:
@@ -166,7 +189,7 @@ class Eyes:
             text={"format": {"type": "json_schema", "name": "sight", "strict": True, "schema": SCHEMA}},
             timeout=CHECK_TIMEOUT,
         )
-        d = json.loads(resp.output_text)
+        d, _ = json.JSONDecoder().raw_decode(resp.output_text)  # the model has appended stray text once
         u = resp.usage
         return Sight(
             steps_done=max(0, min(int(d["steps_done"]), len(self._guide.steps))),

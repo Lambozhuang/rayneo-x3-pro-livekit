@@ -20,7 +20,10 @@ completed steps; the code keeps no opinion of its own.
 from __future__ import annotations
 
 import asyncio
+import io
 import logging
+import time
+from collections import deque
 
 from livekit.agents import AgentSession
 from livekit.agents.utils import images
@@ -47,6 +50,9 @@ class Watch:
         self._confirm = max(1, confirm)
         self._task: asyncio.Task | None = None
         self.last: Sight | None = None
+        self._earlier: deque[bytes] = deque(maxlen=2)  # the last frames, small, for continuity
+        self._said: deque[tuple[float, str]] = deque(maxlen=3)  # (when, what) the wearer said
+        self._last_note = ""
         self._agree = 0  # consecutive frames with the same (steps_done, problem or not)
         self._told_problem_at: tuple[int, str] | None = None  # (steps_done, problem) already announced
 
@@ -59,6 +65,11 @@ class Watch:
             self._task.cancel()
             self._task = None
 
+    def note_user(self, text: str) -> None:
+        """What the wearer said, for the vision model's next look."""
+        if text.strip():
+            self._said.append((time.monotonic(), text.strip()))
+
     async def _run(self) -> None:
         logger.info("watch: on, gap=%.1fs confirm=%d", self._gap, self._confirm)
         while True:
@@ -70,8 +81,9 @@ class Watch:
                 continue
             jpeg = await asyncio.to_thread(images.encode, frame, FRAME_ENCODE_OPTIONS)
             expected = self._build.step + 1
+            said = [t for at, t in self._said if time.monotonic() - at < 20]
             try:
-                s = await self._eyes.look(jpeg, expected)
+                s = await self._eyes.look(jpeg, expected, self.last, said, list(self._earlier))
             except asyncio.CancelledError:
                 raise
             except Exception:
@@ -79,6 +91,7 @@ class Watch:
                 await asyncio.sleep(2)
                 continue
             self._tap.dump(jpeg, f"s{expected}")
+            self._earlier.append(await asyncio.to_thread(_thumbnail, jpeg))
             total = len(self._build.guide.steps)
             logger.info(
                 "camera: done=%d/%d visible=%s %.1fs in=%d out=%d see=%s%s",
@@ -129,6 +142,9 @@ class Watch:
         self._think(note)
 
     def _think(self, text: str) -> None:
+        if text == self._last_note:  # the model has this already
+            return
+        self._last_note = text
         try:
             self._session.current_agent.duplex_session.append_thinking(text)
         except Exception:
@@ -143,3 +159,13 @@ class Watch:
                 logger.warning("watch: the voice model declined the commentary")
 
         handle.add_done_callback(_done)
+
+
+def _thumbnail(jpeg: bytes) -> bytes:
+    from PIL import Image
+
+    im = Image.open(io.BytesIO(jpeg))
+    im.thumbnail((512, 512))
+    buf = io.BytesIO()
+    im.save(buf, "JPEG", quality=70)
+    return buf.getvalue()

@@ -98,6 +98,8 @@ async def rayneo_assistant(ctx: JobContext) -> None:
     def _log_turn(ev: ConversationItemAddedEvent) -> None:
         if isinstance(ev.item, ChatMessage):
             logger.info("%s: %s", ev.item.role, ev.item.text_content)
+            if ev.item.role == "user" and ev.item.text_content:
+                watch.note_user(ev.item.text_content)
 
     @ctx.room.on("track_subscribed")
     def _want_full_video(
