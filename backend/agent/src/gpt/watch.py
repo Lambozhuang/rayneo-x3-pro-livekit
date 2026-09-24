@@ -61,7 +61,6 @@ class Watch:
         self._said: deque[tuple[float, str]] = deque(maxlen=3)  # (when, what) the wearer said
         self._last_note = ""
         self._agree = 0  # consecutive frames with the same (steps_done, problem or not)
-        self._unseen = 0  # consecutive frames without the build in view
         self._told_problem_at: int | None = None  # steps_done at which a problem was already announced
         self._pending_say: str | None = None  # commentary held back while the voice speaks
         self._announced_step: int | None = None  # a step advance the voice already told (via check_now)
@@ -145,6 +144,7 @@ class Watch:
                     pass
             self._wake.clear()
             self._inflight = asyncio.get_running_loop().create_future()
+            self._inflight.add_done_callback(_retrieve)  # a timeout nobody awaited is not a warning
             try:
                 s = await self._look_once()
             except asyncio.CancelledError:
@@ -170,14 +170,11 @@ class Watch:
         prev = self.last
         self.last = s
         if not s.visible:
-            self._unseen += 1
-            if self._unseen == 3:
-                self._think("Camera: the build has been out of view for a while.")
+            # nothing to the voice: told about it, it announced "I can't see the
+            # build" and "got it again" on its own every time a hand passed by;
+            # check_now reports visibility when the wearer actually asks
             self._agree = 0
             return
-        if self._unseen >= 3:
-            self._think("Camera: the build is in view again.")
-        self._unseen = 0
         same = prev is not None and prev.visible and prev.steps_done == s.steps_done and bool(prev.problem) == bool(s.problem)
         self._agree = self._agree + 1 if same else 1
         # forward on `confirm` frames; backward only on twice as many: a hand,
@@ -255,3 +252,8 @@ def _thumbnail(jpeg: bytes) -> bytes:
     buf = io.BytesIO()
     im.save(buf, "JPEG", quality=70)
     return buf.getvalue()
+
+
+def _retrieve(fut: asyncio.Future) -> None:
+    if not fut.cancelled():
+        fut.exception()
