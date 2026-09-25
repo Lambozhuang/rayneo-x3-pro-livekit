@@ -39,10 +39,10 @@ takes the user id from `sub`. See `backend/api/src/auth.py`.
 
 `AGENT_BACKEND` picks one of two implementations at start (`agent/src/agent.py`):
 `gemini`, one Gemini Live model that hears, sees the camera and judges the bricks
-(`agent/src/gemini/`); or `openai`, GPT-Live for the voice, a delegated backend model for
-the reasoning and tool calls, and a separate vision call that judges one camera frame per
-check (`agent/src/gpt/`, see "The GPT path"). Both share the guide, the run state and the
-reference model stream. Model ids come from `.env`, never from source.
+(`agent/src/gemini/`); or `openai`, GPT-Live for the voice with every step in its
+instructions, and a vision model that watches the camera frame by frame and feeds it the
+build's state as context (`agent/src/gpt/`, see "The GPT path"). Both share the guide, the
+run state and the reference model stream. Model ids come from `.env`, never from source.
 
 ## Layout
 
@@ -57,7 +57,7 @@ backend/
   agent/src/render.py   the reference model: model.glb rendered headless, streamed as a video track (shared)
   agent/src/frames.py   FrameTap: keeps camera frames for the code, none reach the speech model (openai)
   agent/src/gemini/     agent, config (session model factory), prompts, tools (look, get_step, step_done, ...), sampler, framedump
-  agent/src/gpt/        agent, config, prompts (persona with every step), vision (Eyes), watch (camera loop -> GPT-Live context), tools (end_call)
+  agent/src/gpt/        agent, config, prompts (persona with every step), vision (Eyes), watch (camera loop -> GPT-Live context), tools (check_now, end_call)
   agent/guides/         build guides, chosen with BUILD_GUIDE: <name>/task.toml + model.glb, or a bare .toml
   agent/src/inspect_frame.py   see "Seeing what the model saw"
 android/                Kotlin + Compose app for the glasses
@@ -186,17 +186,28 @@ from transport softness.
 `gpt-live-1` is audio only, full duplex, and owns turn-taking and barge-in; no VAD is
 passed to the session. It also owns the build: every step's wording is in its instructions,
 and a loop (`gpt/watch.py`) feeds it the camera. Frame after frame, `OPENAI_CHECK_MODEL`
-(gpt-6-luna, reasoning `none`) gets all the steps, the frame and two orthographic renders of
-the build as it should look at the current step, and answers how many steps are visibly
-complete and what, if anything, is placed wrongly. Every verdict goes into GPT-Live's
-context as silent thinking; a newly completed step or a newly wrong brick, seen on
-`GPT_WATCH_CONFIRM` frames in a row, goes in as commentary, and the voice decides what to
-say. The step shown on the glasses follows the camera's count. There are no build tools;
-the backend model behind GPT-Live (`OPENAI_BACKEND_MODEL`) exists to hang up (`end_call`).
-Orientation is judged between bricks, never against the camera (each step has a `check`
-text next to its `say`). Voice usage is by the second (`usage:` lines), vision tokens on
-`camera:` lines; every run starts with an `experiment:` line naming its switches. The
-earlier tool-driven version (get_step/check_step, watch cache) is tagged `gpt-tools-v1`.
+(reasoning `none`, one call at a time, dropped after 6 s) gets all the steps' `check` texts,
+the frame, two orthographic renders of the build as it should look at the current step, and
+a memory: the previous verdict, the wearer's last words, the two frames before. It answers
+how many steps are visibly complete and what, if anything, is placed wrongly. Only confirmed
+changes reach GPT-Live, as commentary: a step newly done (`GPT_WATCH_CONFIRM` frames in a
+row) or a brick newly wrong (once per step); a step back needs twice the frames and is only
+thinking. Between notes nothing has changed, and the voice is told so. When the wearer asks
+"is it right?", the backend model behind GPT-Live (`OPENAI_BACKEND_MODEL`) calls `check_now`,
+which returns the verdict of the look in flight or wakes the loop; its other tool is
+`end_call`. The step shown on the glasses follows the camera's count. Orientation is judged
+between bricks, never against the camera. Voice usage is by the second (`usage:` lines),
+vision tokens on `camera:` lines; every run starts with an `experiment:` line naming its
+switches. The earlier tool-driven version (get_step/check_step) is tagged `gpt-tools-v1`.
+
+What the vision model can and cannot do, on 16 labelled frames from three days
+(`tmp/poc/eyes_eval.py`, single frame, no memory): gpt-6-luna 8/16, gpt-5.6-luna 12/16, both
+at `none`; `low`/`medium` no better and 2-6x slower; cropping to the bricks no better. Both
+pass a roof that is reversed or resting unattached, and miss a yellow brick laid across the
+end of the purple one when the steps and the reference are in the same prompt; asked
+neutrally about the same frame, both describe the L correctly. That priming is the open
+problem (a describe-then-compare split is the candidate fix); orientation of a small held
+assembly may be beyond a single frame altogether.
 
 ### The Gemini path (`AGENT_BACKEND=gemini`)
 
