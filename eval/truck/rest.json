@@ -1,0 +1,212 @@
+[
+ {
+  "clip": "run1_part1",
+  "frame": "003.jpg",
+  "step": 1,
+  "expected": "not_placed",
+  "why": "empty plate at rest"
+ },
+ {
+  "clip": "run1_part1",
+  "frame": "010.jpg",
+  "step": 1,
+  "expected": "correct",
+  "why": "red slope just placed, hands off"
+ },
+ {
+  "clip": "run1_part1",
+  "frame": "012.jpg",
+  "step": 2,
+  "expected": "not_placed",
+  "why": "same state, a bit later"
+ },
+ {
+  "clip": "run1_part1",
+  "frame": "016.jpg",
+  "step": 2,
+  "expected": "correct",
+  "why": "purple placed"
+ },
+ {
+  "clip": "run1_part1",
+  "frame": "018.jpg",
+  "step": 3,
+  "expected": "not_placed",
+  "why": ""
+ },
+ {
+  "clip": "run1_part1",
+  "frame": "024.jpg",
+  "step": 3,
+  "expected": "correct",
+  "why": "lime exhaust placed"
+ },
+ {
+  "clip": "run1_part1",
+  "frame": "025.jpg",
+  "step": 4,
+  "expected": "not_placed",
+  "why": ""
+ },
+ {
+  "clip": "run1_part1",
+  "frame": "029.jpg",
+  "step": 4,
+  "expected": "wrong",
+  "why": "tan 1x6 on row 6 instead of white"
+ },
+ {
+  "clip": "run1_part1",
+  "frame": "035.jpg",
+  "step": 4,
+  "expected": "correct",
+  "why": "white top after the fix"
+ },
+ {
+  "clip": "run1_part1",
+  "frame": "036.jpg",
+  "step": 5,
+  "expected": "not_placed",
+  "why": ""
+ },
+ {
+  "clip": "run1_part1",
+  "frame": "042.jpg",
+  "step": 5,
+  "expected": "correct",
+  "why": "white middle placed"
+ },
+ {
+  "clip": "run1_part1",
+  "frame": "043.jpg",
+  "step": 6,
+  "expected": "not_placed",
+  "why": ""
+ },
+ {
+  "clip": "run1_part1",
+  "frame": "046.jpg",
+  "step": 6,
+  "expected": "wrong",
+  "why": "blue 1x4 shifted right (~cols 9-12)"
+ },
+ {
+  "clip": "run1_part1",
+  "frame": "052.jpg",
+  "step": 6,
+  "expected": "correct",
+  "why": "blue after the fix"
+ },
+ {
+  "clip": "run1_part1",
+  "frame": "053.jpg",
+  "step": 7,
+  "expected": "not_placed",
+  "why": ""
+ },
+ {
+  "clip": "run1_part1",
+  "frame": "059.jpg",
+  "step": 7,
+  "expected": "correct",
+  "why": "tail door placed"
+ },
+ {
+  "clip": "run1_part1",
+  "frame": "061.jpg",
+  "step": 8,
+  "expected": "not_placed",
+  "why": ""
+ },
+ {
+  "clip": "run1_part2_p1",
+  "frame": "007.jpg",
+  "step": 8,
+  "expected": "wrong",
+  "why": "lime 1x2 vertical outside the right end; hand may still be on the plate"
+ },
+ {
+  "clip": "run1_part2_p1",
+  "frame": "011.jpg",
+  "step": 8,
+  "expected": "correct",
+  "why": "lime lower-right after the fix"
+ },
+ {
+  "clip": "run1_part2_p1",
+  "frame": "025.jpg",
+  "step": 9,
+  "expected": "not_placed",
+  "why": "after the distraction, no disc yet"
+ },
+ {
+  "clip": "run1_part2_p1",
+  "frame": "031.jpg",
+  "step": 9,
+  "expected": "correct",
+  "why": "front disc placed"
+ },
+ {
+  "clip": "run1_part2_p1",
+  "frame": "031.jpg",
+  "step": 10,
+  "expected": "not_placed",
+  "why": "same frame, next step"
+ },
+ {
+  "clip": "run1_part2_p1",
+  "frame": "039.jpg",
+  "step": 10,
+  "expected": "wrong",
+  "why": "rear disc too far right, under the tail door"
+ },
+ {
+  "clip": "run1_part2_p1",
+  "frame": "049.jpg",
+  "step": 10,
+  "expected": "correct",
+  "why": "rear disc after the fix"
+ },
+ {
+  "clip": "run1_part2_p1",
+  "frame": "051.jpg",
+  "step": 11,
+  "expected": "not_placed",
+  "why": ""
+ },
+ {
+  "clip": "run1_part2_p1",
+  "frame": "056.jpg",
+  "step": 11,
+  "expected": "correct",
+  "why": "tan 1x6 placed"
+ },
+ {
+  "clip": "run1_part2_p1",
+  "frame": "056.jpg",
+  "step": 12,
+  "expected": "not_placed",
+  "why": "same frame, next step"
+ },
+ {
+  "clip": "run1_part2_p1",
+  "frame": "060.jpg",
+  "step": 12,
+  "expected": "correct",
+  "why": "white 1x6 ground placed"
+ },
+ {
+  "clip": "run1_part2_p1",
+  "frame": "060.jpg",
+  "step": 13,
+  "expected": "not_placed",
+  "why": "same frame, next step"
+ },
+ {
+  "clip": "run1_part2_p2",
+  "frame": "003.jpg",
+  "step": 13,
+  "expected": "correct",
+  "why": "yellow 1x4 placed; all done"
+ }
+]

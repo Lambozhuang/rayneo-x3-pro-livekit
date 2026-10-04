@@ -1,7 +1,8 @@
 """Judge routes B and C on a recorded run: one narrow question per frame and step.
 
   python eval/judge_eval.py labels                       write the per-frame label table + a sample sheet, no API calls
-  python eval/judge_eval.py run --route B --provider openai [--subset truck/subset_small.json] [--limit N]
+  python eval/judge_eval.py run --route B --provider openai --questions truck/rest.json      30 rest-state questions (step 1 of the plan)
+  python eval/judge_eval.py run --route B --provider openai [--subset truck/subset_small.json] [--limit N]   derived per-frame labels
   python eval/judge_eval.py summarize truck/results/B_<model>_<detail>.jsonl
 
 Models come from backend/.env: OPENAI_CHECK_MODEL (+ OPENAI_CHECK_DETAIL, OPENAI_CHECK_EFFORT) for
@@ -343,14 +344,18 @@ def cmd_labels(args):
 def cmd_run(args):
     steps, events = load()
     load_env()
-    rows = label_frames(events)
+    if args.questions:  # hand-picked rest-state questions with their own expected answers
+        rows = [dict(q, t=int(q["frame"][:3]) - 1, distraction=False) for q in json.loads(Path(args.questions).read_text(encoding="utf-8"))]
+    else:
+        rows = label_frames(events)
     if args.subset:
         keep = {(s["clip"], s["frame"], s["step"]) for s in json.loads(Path(args.subset).read_text(encoding="utf-8"))}
         rows = [r for r in rows if (r["clip"], r["frame"], r["step"]) in keep]
     judge = {"openai": OpenAIJudge, "gemini": GeminiJudge, "dry": DryJudge}[args.provider]()
     RESULTS.mkdir(exist_ok=True)
-    out = RESULTS / f"{args.route}_{judge.tag}.jsonl"
-    calls = RESULTS / f"{args.route}_{judge.tag}"  # exactly what was sent, per question: ref png + photo jpeg (gitignored)
+    name = f"{Path(args.questions).stem}_" if args.questions else ""
+    out = RESULTS / f"{name}{args.route}_{judge.tag}.jsonl"
+    calls = RESULTS / f"{name}{args.route}_{judge.tag}"  # exactly what was sent, per question: ref png + photo jpeg (gitignored)
     calls.mkdir(exist_ok=True)
     header = [f"provider={args.provider} model={judge.tag} route={args.route} side={SIDE}"]
     if args.provider == "openai":
@@ -440,6 +445,7 @@ def main():
     p = sub.add_parser("run")
     p.add_argument("--route", choices=["B", "C"], required=True)
     p.add_argument("--provider", choices=["openai", "gemini", "dry"], required=True)
+    p.add_argument("--questions", help="question file such as truck/rest.json instead of the derived per-frame labels")
     p.add_argument("--subset")
     p.add_argument("--limit", type=int)
     p.set_defaults(fn=cmd_run)
