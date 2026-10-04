@@ -109,7 +109,7 @@
   "frame": "059.jpg",
   "step": 7,
   "expected": "correct",
-  "why": "tail door placed"
+  "why": "lime lower-right placed"
  },
  {
   "clip": "run1_part1",
@@ -120,17 +120,10 @@
  },
  {
   "clip": "run1_part2_p1",
-  "frame": "007.jpg",
-  "step": 8,
-  "expected": "wrong",
-  "why": "lime 1x2 vertical outside the right end; hand may still be on the plate"
- },
- {
-  "clip": "run1_part2_p1",
   "frame": "011.jpg",
   "step": 8,
   "expected": "correct",
-  "why": "lime lower-right after the fix"
+  "why": "tail door after the fix"
  },
  {
   "clip": "run1_part2_p1",

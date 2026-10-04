@@ -29,4 +29,4 @@ python eval/judge_eval.py run --route C --provider openai         # 全集 276 �
 python eval/judge_eval.py summarize truck/results/C_<model>.jsonl  # 三类准确率、4 处错误检出、误报、延迟、token
 ```
 
-每帧问当前步 N（期望 未放/错/对）和上一步 N−1（期望 对），两图输入：layout 渲染的第 N 步目标图（新砖黄框）+ 现场照片。B 发整帧（长边 1024），C 发绿色掩码裁出的底板（闭运算 + 最大连通块，手、屏幕、浅绿砖不再干扰；8 帧找不到底板直接答"看不见"）。错误窗口到完成之间的帧标 `moving`，干扰窗口单独统计，都不计分。结果按 (clip, frame, step) 追加写入，中断可续跑。
+先跑 `--questions truck/rest.json`：29 个静止状态各一问（13 对、3 错、13 未放），每问独立：系统提示 + 一句步骤问题 + layout 渲染的第 N 步目标图（新砖黄框，detail=low）+ 照片（B 整帧 768×1024 detail=high；C 为绿色掩码裁出的底板）。第 8 步的错放全程手在板上，静止判定器按设计不会看到这种帧，所以不在 rest 集里。不带 `--questions` 则用 events.json 推出的 276 个逐帧问题（当前步 N 和上一步 N−1），留给门控和逐帧统计。结果按 (clip, frame, step) 追加写入，中断可续跑；每次调用发出的图和原始回复都落在 `results/<run>/`。

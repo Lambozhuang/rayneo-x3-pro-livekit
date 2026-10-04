@@ -67,23 +67,23 @@
  },
  {
   "step": 7,
-  "name": "white 1x4 tail door",
-  "color": "white",
-  "cells": [
-   13,
-   5,
-   13,
-   8
-  ]
- },
- {
-  "step": 8,
   "name": "green 1x2 lower-right",
   "color": "lime",
   "cells": [
    11,
    8,
    12,
+   8
+  ]
+ },
+ {
+  "step": 8,
+  "name": "white 1x4 tail door",
+  "color": "white",
+  "cells": [
+   13,
+   5,
+   13,
    8
   ]
  },

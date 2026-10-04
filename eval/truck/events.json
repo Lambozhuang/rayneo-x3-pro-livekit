@@ -83,7 +83,7 @@
    "step": 8,
    "wrong": {
     "kind": "orientation+position",
-    "what": "lime 1x2 vertical, outside the right end of the body; hand stays on the board",
+    "what": "white 1x4 tail door laid horizontally, continuing row 6 to the right (cols 13-16) instead of vertical at col 13; hand stays on it for the whole window",
     "from": [
      "run1_part2_p1",
      1
