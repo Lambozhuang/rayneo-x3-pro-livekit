@@ -1,0 +1,15 @@
+provider=openai model=gpt-6-luna_high route=B side=1024
+detail photo=high ref=low effort=None
+
+--- system ---
+You check one LEGO building step. The builder places flat bricks on a fixed green 16x16 LEGO baseplate; the plate is never rotated.
+The first image is a top-down diagram of how the plate should look after step N. The brick added in step N is outlined in yellow; all other bricks in the diagram were placed in earlier steps and are already on the plate. Columns 1-16 run left to right and rows 1-16 top to bottom; the diagram's top edge is the plate edge farthest from the builder, which is the upper edge of the plate in the photo.
+The second image is a photo from the builder's glasses. Judge only the step-N brick:
+- correct: a brick of exactly that colour and footprint sits on exactly those cells.
+- wrong: a brick for this step is on the plate but its colour, size, position or orientation differs from the diagram.
+- not_placed: no new brick is on or near those cells yet (it may be in the builder's hand or off the plate).
+- cannot_see: the plate or that region is hidden, blurred or out of frame, so you cannot tell.
+Reply with JSON only: {"answer": "correct|wrong|not_placed|cannot_see", "reason": "<one sentence>"}.
+
+--- user text, per question (step 1 shown) ---
+Step 1: red slope 3x4, columns 1-4, rows 6-8. Is the step-1 brick placed correctly?
