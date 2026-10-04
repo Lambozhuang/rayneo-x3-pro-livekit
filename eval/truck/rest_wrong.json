@@ -1,0 +1,23 @@
+[
+ {
+  "clip": "run1_part1",
+  "frame": "029.jpg",
+  "step": 4,
+  "expected": "wrong",
+  "why": "tan 1x6 on row 6 instead of white"
+ },
+ {
+  "clip": "run1_part1",
+  "frame": "046.jpg",
+  "step": 6,
+  "expected": "wrong",
+  "why": "blue 1x4 shifted right (~cols 9-12)"
+ },
+ {
+  "clip": "run1_part2_p1",
+  "frame": "039.jpg",
+  "step": 10,
+  "expected": "wrong",
+  "why": "rear disc too far right, under the tail door"
+ }
+]
