@@ -8,6 +8,12 @@
    6,
    4,
    8
+  ],
+  "where": "the red 3x4 slope brick, sloped face up, against the left edge of the plate, a little below the middle of the plate's height",
+  "checks": [
+   "the brick touches the left edge of the plate",
+   "it is red",
+   "it sits roughly at mid-height of the plate, not near the top or bottom edge"
   ]
  },
  {
@@ -19,6 +25,12 @@
    5,
    6,
    8
+  ],
+  "where": "the purple 2x4 brick standing upright (2 wide, 4 tall), directly to the right of the red slope and touching it; its bottom is level with the red brick's bottom and its top sticks up one stud above the red brick's top",
+  "checks": [
+   "the purple brick touches the right side of the red slope",
+   "its bottom edge is level with the red brick's bottom edge",
+   "it is taller than the red brick by one stud at the top"
   ]
  },
  {
@@ -30,6 +42,12 @@
    4,
    7,
    5
+  ],
+  "where": "the small lime-green 1x2 brick standing upright (1 wide, 2 tall), immediately to the right of the purple brick at its top corner, sticking up one stud above the purple brick like an exhaust pipe",
+  "checks": [
+   "the lime brick touches the right side of the purple brick",
+   "it is vertical (taller than wide)",
+   "its top is one stud higher than the purple brick's top"
   ]
  },
  {
@@ -41,6 +59,13 @@
    6,
    12,
    6
+  ],
+  "where": "the first white 1x6 brick lying flat, directly to the right of the purple brick with its left end touching the purple brick, just under the lime exhaust (the exhaust sits on top of its left end)",
+  "checks": [
+   "the brick is pure white, not beige or cream",
+   "it is horizontal, 6 studs long",
+   "its left end touches the purple brick",
+   "the lime exhaust stands directly above its left end"
   ]
  },
  {
@@ -52,6 +77,13 @@
    7,
    12,
    7
+  ],
+  "where": "the second white 1x6 brick lying flat directly under the first white brick, same length, left end touching the purple brick, both ends lined up with the brick above",
+  "checks": [
+   "the brick is pure white like the one above it",
+   "it sits directly under the first white brick with no gap",
+   "its left end touches the purple brick",
+   "its right end lines up with the right end of the brick above"
   ]
  },
  {
@@ -63,6 +95,13 @@
    8,
    10,
    8
+  ],
+  "where": "the blue 1x4 brick lying flat directly under the lower white brick, its left end touching the purple brick, its right end stopping two studs short of the white bricks' right end; its bottom is level with the bottom of the red and purple bricks",
+  "checks": [
+   "the blue brick's left end touches the purple brick",
+   "it sits directly under the lower white brick with no gap",
+   "its right end is two studs short of the white bricks' right end",
+   "its bottom edge is level with the red and purple bricks' bottom edge"
   ]
  },
  {
@@ -74,6 +113,12 @@
    8,
    12,
    8
+  ],
+  "where": "the lime-green 1x2 brick lying flat to the right of the blue brick and touching it, filling the row so that its right end lines up with the white bricks' right end",
+  "checks": [
+   "the lime brick touches the right end of the blue brick",
+   "it is horizontal, in the same row as the blue brick",
+   "its right end lines up with the right end of the white bricks above"
   ]
  },
  {
@@ -85,6 +130,13 @@
    5,
    13,
    8
+  ],
+  "where": "the white 1x4 brick standing upright (1 wide, 4 tall) against the right end of the body, touching the ends of the two white bricks and the lime brick, like a tail door; its top is one stud above the top white brick and its bottom is level with the body's bottom",
+  "checks": [
+   "the brick is vertical (taller than wide), not lying flat",
+   "it touches the right ends of the white bricks and the lime brick",
+   "its top is one stud higher than the top white brick",
+   "its bottom is level with the bottom of the body"
   ]
  },
  {
@@ -96,6 +148,12 @@
    9,
    4,
    12
+  ],
+  "where": "the red round disc (4 studs across) directly under the red slope, touching its bottom edge, same width as the slope, against the left edge of the plate, like a front wheel",
+  "checks": [
+   "the disc touches the bottom edge of the red slope",
+   "it is as wide as the red slope and lined up with it",
+   "it touches the left edge of the plate"
   ]
  },
  {
@@ -107,6 +165,13 @@
    9,
    11,
    12
+  ],
+  "where": "the second red round disc directly under the right half of the body, as the rear wheel: its right edge is one stud column left of the tail door, its top touches the bottom of the body (the blue and lime bricks), and three empty stud columns separate it from the front disc",
+  "checks": [
+   "the disc's top touches the bottom of the body",
+   "its right edge is one stud to the left of the tail door, not under it",
+   "there are about three empty stud columns between the two discs",
+   "it is not under the purple cab or the red slope"
   ]
  },
  {
@@ -118,6 +183,12 @@
    13,
    6,
    13
+  ],
+  "where": "the tan (beige) 1x6 brick lying flat directly under the front disc, its left end at the left edge of the plate, like the ground line",
+  "checks": [
+   "the brick is beige/tan, not white",
+   "it is horizontal and lies directly under the front disc",
+   "its left end is at the left edge of the plate"
   ]
  },
  {
@@ -129,6 +200,12 @@
    13,
    12,
    13
+  ],
+  "where": "the white 1x6 brick lying flat in the same row as the tan brick, continuing it to the right and touching it, running under the rear disc",
+  "checks": [
+   "the brick is pure white",
+   "it is in the same row as the tan brick and touches its right end",
+   "it runs under the rear disc"
   ]
  },
  {
@@ -140,6 +217,12 @@
    13,
    16,
    13
+  ],
+  "where": "the yellow 1x4 brick lying flat in the same row, continuing the white ground brick to the right and touching it, ending at the right edge of the plate under the tail door",
+  "checks": [
+   "the brick is yellow",
+   "it is in the same row as the white ground brick and touches its right end",
+   "its right end is at the right edge of the plate"
   ]
  }
 ]

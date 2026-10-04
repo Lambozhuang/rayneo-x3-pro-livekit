@@ -56,6 +56,14 @@ The second image is a photo from the builder's glasses. Judge only the step-N br
 Reply with JSON only: {"answer": "correct|wrong|not_placed|cannot_see", "reason": "<one sentence>"}."""
 
 
+SYSTEM_REL = """You check one step of a LEGO build from a photo taken by the builder's glasses. The builder places flat bricks on a fixed green 16x16 baseplate that is never rotated. You get a plain-language description of what was already on the plate and of the brick this step adds, with a few facts about where it sits relative to the other bricks and the plate edges. No diagram, no coordinates.
+Work in this order and report all of it:
+1. seen: describe only what you actually see for this step's brick: is a brick of that kind on the plate, its colour, whether it lies flat or stands upright, what it touches, how its ends line up with its neighbours. If there is no such brick, say so. Do not repeat the description you were given; look.
+2. checks: answer each listed fact with yes, no, or unsure, from the photo.
+3. answer: correct if the brick is there and every fact is yes; wrong if the brick is there but any fact is no (wrong colour, wrong place, wrong orientation); not_placed if no such brick is on the plate yet (it may be in the builder's hand); cannot_see if the plate or that area is hidden, blurred or out of frame.
+Reply with JSON only: {"seen": "...", "checks": [{"fact": "...", "result": "yes|no|unsure"}, ...], "answer": "correct|wrong|not_placed|cannot_see", "reason": "<one sentence>"}."""
+
+
 def load():
     layout = json.loads((TRUCK / "layout.json").read_text(encoding="utf-8"))
     events = json.loads((TRUCK / "events.json").read_text(encoding="utf-8"))
@@ -219,6 +227,20 @@ def step_text(steps, n: int) -> str:
     return f"Step {n}: {desc}, columns {c0}-{c1}, rows {r0}-{r1}. Is the step-{n} brick placed correctly?"
 
 
+def step_text_rel(steps, n: int) -> str:
+    s = next(s for s in steps if s["step"] == n)
+    before = [x for x in steps if x["step"] < n]
+    lines = []
+    if before:
+        lines.append("Already on the plate from earlier steps: " + "; ".join(x["name"] for x in before) + ".")
+    else:
+        lines.append("The plate is empty before this step.")
+    lines.append(f"Step {n} adds {s['where']}.")
+    lines.append("Facts to check:")
+    lines += [f"{i}. {c}" for i, c in enumerate(s["checks"], 1)]
+    return chr(10).join(lines)
+
+
 # ---------------------------------------------------------------- providers
 
 def load_env():
@@ -239,16 +261,15 @@ class OpenAIJudge:
         self.effort = os.environ.get("OPENAI_CHECK_EFFORT")
         self.tag = f"{self.model}_{self.detail}"
 
-    def ask(self, ref: bytes, photo: bytes, text: str) -> tuple[str, dict]:
-        content = [
-            {"type": "input_text", "text": text},
-            {"type": "input_image", "image_url": "data:image/png;base64," + base64.b64encode(ref).decode(), "detail": "low"},
-            {"type": "input_image", "image_url": "data:image/jpeg;base64," + base64.b64encode(photo).decode(), "detail": self.detail},
-        ]
+    def ask(self, ref: bytes | None, photo: bytes, text: str, system: str) -> tuple[str, dict]:
+        content = [{"type": "input_text", "text": text}]
+        if ref:
+            content.append({"type": "input_image", "image_url": "data:image/png;base64," + base64.b64encode(ref).decode(), "detail": "low"})
+        content.append({"type": "input_image", "image_url": "data:image/jpeg;base64," + base64.b64encode(photo).decode(), "detail": self.detail})
         kw = {}
         if self.effort:
             kw["reasoning"] = {"effort": self.effort}
-        r = self.client.responses.create(model=self.model, instructions=SYSTEM,
+        r = self.client.responses.create(model=self.model, instructions=system,
                                          input=[{"role": "user", "content": content}], **kw)
         u = r.usage
         return r.output_text, {"in": u.input_tokens, "out": u.output_tokens}
@@ -263,12 +284,13 @@ class GeminiJudge:
         self.model = os.environ.get("GEMINI_CHECK_MODEL") or sys.exit("GEMINI_CHECK_MODEL not set in backend/.env")
         self.tag = self.model
 
-    def ask(self, ref: bytes, photo: bytes, text: str) -> tuple[str, dict]:
+    def ask(self, ref: bytes | None, photo: bytes, text: str, system: str) -> tuple[str, dict]:
         t = self.types
+        parts = [text] + ([t.Part.from_bytes(data=ref, mime_type="image/png")] if ref else []) + [t.Part.from_bytes(data=photo, mime_type="image/jpeg")]
         r = self.client.models.generate_content(
             model=self.model,
-            contents=[text, t.Part.from_bytes(data=ref, mime_type="image/png"), t.Part.from_bytes(data=photo, mime_type="image/jpeg")],
-            config=t.GenerateContentConfig(system_instruction=SYSTEM, response_mime_type="application/json"),
+            contents=parts,
+            config=t.GenerateContentConfig(system_instruction=system, response_mime_type="application/json"),
         )
         u = r.usage_metadata
         return r.text, {"in": u.prompt_token_count, "out": u.candidates_token_count}
@@ -278,7 +300,7 @@ class DryJudge:
     """No API: writes the exact request material and a placeholder answer, to check the pipeline."""
     tag = "dry"
 
-    def ask(self, ref: bytes, photo: bytes, text: str) -> tuple[str, dict]:
+    def ask(self, ref, photo, text, system) -> tuple[str, dict]:
         return '{"answer": "cannot_see", "reason": "dry run"}', {}
 
 
@@ -352,16 +374,19 @@ def cmd_run(args):
         keep = {(s["clip"], s["frame"], s["step"]) for s in json.loads(Path(args.subset).read_text(encoding="utf-8"))}
         rows = [r for r in rows if (r["clip"], r["frame"], r["step"]) in keep]
     judge = {"openai": OpenAIJudge, "gemini": GeminiJudge, "dry": DryJudge}[args.provider]()
+    rel = args.prompt == "relational"
+    system = SYSTEM_REL if rel else SYSTEM
+    judge.tag += "_rel" if rel else ""
     RESULTS.mkdir(exist_ok=True)
     name = f"{Path(args.questions).stem}_" if args.questions else ""
     out = RESULTS / f"{name}{args.route}_{judge.tag}.jsonl"
     calls = RESULTS / f"{name}{args.route}_{judge.tag}"  # exactly what was sent, per question: ref png + photo jpeg (gitignored)
     calls.mkdir(exist_ok=True)
-    header = [f"provider={args.provider} model={judge.tag} route={args.route} side={SIDE}"]
+    header = [f"provider={args.provider} model={judge.tag} route={args.route} side={SIDE} prompt={args.prompt}"]
     if args.provider == "openai":
         header.append(f"detail photo={judge.detail} ref=low effort={judge.effort}")
-    (calls / "prompt.txt").write_text("\n".join(header) + "\n\n--- system ---\n" + SYSTEM
-                                      + "\n\n--- user text, per question (step 1 shown) ---\n" + step_text(steps, 1) + "\n", encoding="utf-8")
+    (calls / "prompt.txt").write_text("\n".join(header) + "\n\n--- system ---\n" + system
+                                      + "\n\n--- user text, per question (one example) ---\n" + (step_text_rel(steps, 6) if rel else step_text(steps, 1)) + "\n", encoding="utf-8")
     done = set()
     if out.exists():
         for line in out.read_text(encoding="utf-8").splitlines():
@@ -376,19 +401,20 @@ def cmd_run(args):
         for i, r in enumerate(todo, 1):
             n = r["step"]
             if n not in refs:
-                refs[n] = to_png(render_ref(steps, n))
+                refs[n] = None if rel else to_png(render_ref(steps, n))
             photo = prep_photo(FRAMES / r["clip"] / r["frame"], args.route)
-            rec = dict(r, route=args.route, model=judge.tag, question=step_text(steps, n))
+            rec = dict(r, route=args.route, model=judge.tag, question=(step_text_rel if rel else step_text)(steps, n))
             if photo is None:
                 rec.update(answer="cannot_see", reason="no plate in green mask", raw="", latency=0, usage={})
             else:
                 stem = f"{r['clip']}_{r['frame'][:3]}_s{n:02d}"
                 jpeg = to_jpeg(photo)
-                (calls / f"{stem}_ref.png").write_bytes(refs[n])
+                if refs[n]:
+                    (calls / f"{stem}_ref.png").write_bytes(refs[n])
                 (calls / f"{stem}_photo.jpg").write_bytes(jpeg)
                 t0 = time.perf_counter()
                 try:
-                    text, usage = judge.ask(refs[n], jpeg, rec["question"])
+                    text, usage = judge.ask(refs[n], jpeg, rec["question"], system)
                 except Exception as e:  # quota, network: keep what we have, resume later
                     print(f"\n{r['clip']}/{r['frame']} step {n}: {type(e).__name__}: {str(e)[:300]}")
                     break
@@ -446,6 +472,8 @@ def main():
     p.add_argument("--route", choices=["B", "C"], required=True)
     p.add_argument("--provider", choices=["openai", "gemini", "dry"], required=True)
     p.add_argument("--questions", help="question file such as truck/rest.json instead of the derived per-frame labels")
+    p.add_argument("--prompt", choices=["grid", "relational"], default="grid",
+                   help="grid: numbered diagram + columns/rows; relational: plain-language neighbours and alignment, describe first, no diagram")
     p.add_argument("--subset")
     p.add_argument("--limit", type=int)
     p.set_defaults(fn=cmd_run)
