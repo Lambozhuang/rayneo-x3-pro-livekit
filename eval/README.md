@@ -18,3 +18,15 @@
 
 run1 里的故意错误：第 4 步错色（米色代白）、第 6 步错位（右偏约 2 格）、第 8 步错向加错位（手未离开）、
 第 10 步错位（后轮右偏）。工作距离下底板约 750 px 宽，一格约 45 px。
+
+## 判定器评测（路线 B / C）
+
+`eval/judge_eval.py`，模型只从 `backend/.env` 读：`OPENAI_CHECK_MODEL`（+ `OPENAI_CHECK_DETAIL`、`OPENAI_CHECK_EFFORT`）、`GEMINI_CHECK_MODEL`。
+
+```
+python eval/judge_eval.py labels                                  # 真值表 truck/results/labels.{jsonl,txt}、样例图，不调 API
+python eval/judge_eval.py run --route C --provider openai         # 全集 276 问；--subset truck/subset_small.json 跑 18 问小集；--limit N
+python eval/judge_eval.py summarize truck/results/C_<model>.jsonl  # 三类准确率、4 处错误检出、误报、延迟、token
+```
+
+每帧问当前步 N（期望 未放/错/对）和上一步 N−1（期望 对），两图输入：layout 渲染的第 N 步目标图（新砖黄框）+ 现场照片。B 发整帧（长边 1024），C 发绿色掩码裁出的底板（闭运算 + 最大连通块，手、屏幕、浅绿砖不再干扰；8 帧找不到底板直接答"看不见"）。错误窗口到完成之间的帧标 `moving`，干扰窗口单独统计，都不计分。结果按 (clip, frame, step) 追加写入，中断可续跑。

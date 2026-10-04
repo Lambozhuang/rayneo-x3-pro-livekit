@@ -1,0 +1,148 @@
+run1_part1 001.jpg  s1=not_placed
+run1_part1 002.jpg  s1=not_placed
+run1_part1 003.jpg  s1=not_placed
+run1_part1 004.jpg  s1=not_placed
+run1_part1 005.jpg  s1=not_placed
+run1_part1 006.jpg  s1=not_placed
+run1_part1 007.jpg  s1=not_placed
+run1_part1 008.jpg  s1=not_placed
+run1_part1 009.jpg  s2=not_placed
+run1_part1 010.jpg  s2=not_placed  s1=correct
+run1_part1 011.jpg  s2=not_placed  s1=correct
+run1_part1 012.jpg  s2=not_placed  s1=correct
+run1_part1 013.jpg  s2=not_placed  s1=correct
+run1_part1 014.jpg  s2=not_placed  s1=correct
+run1_part1 015.jpg  s3=not_placed
+run1_part1 016.jpg  s3=not_placed  s2=correct
+run1_part1 017.jpg  s3=not_placed  s2=correct
+run1_part1 018.jpg  s3=not_placed  s2=correct
+run1_part1 019.jpg  s3=not_placed  s2=correct
+run1_part1 020.jpg  s3=not_placed  s2=correct
+run1_part1 021.jpg  s3=not_placed  s2=correct
+run1_part1 022.jpg  s3=not_placed  s2=correct
+run1_part1 023.jpg  s3=not_placed  s2=correct
+run1_part1 024.jpg  s4=not_placed
+run1_part1 025.jpg  s4=not_placed  s3=correct
+run1_part1 026.jpg  s4=not_placed  s3=correct
+run1_part1 027.jpg  s4=not_placed  s3=correct
+run1_part1 028.jpg  s4=wrong  s3=correct
+run1_part1 029.jpg  s4=wrong  s3=correct
+run1_part1 030.jpg  s4=wrong  s3=correct
+run1_part1 031.jpg  s4=wrong  s3=correct
+run1_part1 032.jpg  s4=moving  s3=correct
+run1_part1 033.jpg  s4=moving  s3=correct
+run1_part1 034.jpg  s5=not_placed
+run1_part1 035.jpg  s5=not_placed  s4=correct
+run1_part1 036.jpg  s5=not_placed  s4=correct
+run1_part1 037.jpg  s5=not_placed  s4=correct
+run1_part1 038.jpg  s5=not_placed  s4=correct
+run1_part1 039.jpg  s5=not_placed  s4=correct
+run1_part1 040.jpg  s5=not_placed  s4=correct
+run1_part1 041.jpg  s6=not_placed
+run1_part1 042.jpg  s6=not_placed  s5=correct
+run1_part1 043.jpg  s6=not_placed  s5=correct
+run1_part1 044.jpg  s6=not_placed  s5=correct
+run1_part1 045.jpg  s6=wrong  s5=correct
+run1_part1 046.jpg  s6=wrong  s5=correct
+run1_part1 047.jpg  s6=wrong  s5=correct
+run1_part1 048.jpg  s6=wrong  s5=correct
+run1_part1 049.jpg  s6=moving  s5=correct
+run1_part1 050.jpg  s6=moving  s5=correct
+run1_part1 051.jpg  s6=moving  s5=correct
+run1_part1 052.jpg  s7=not_placed
+run1_part1 053.jpg  s7=not_placed  s6=correct
+run1_part1 054.jpg  s7=not_placed  s6=correct
+run1_part1 055.jpg  s7=not_placed  s6=correct
+run1_part1 056.jpg  s7=not_placed  s6=correct
+run1_part1 057.jpg  s7=not_placed  s6=correct
+run1_part1 058.jpg  s8=not_placed
+run1_part1 059.jpg  s8=not_placed  s7=correct
+run1_part1 060.jpg  s8=not_placed  s7=correct
+run1_part1 061.jpg  s8=not_placed  s7=correct
+run1_part1 062.jpg  s8=not_placed  s7=correct
+run1_part2_p1 001.jpg  s8=not_placed  s7=correct
+run1_part2_p1 002.jpg  s8=wrong  s7=correct
+run1_part2_p1 003.jpg  s8=wrong  s7=correct
+run1_part2_p1 004.jpg  s8=wrong  s7=correct
+run1_part2_p1 005.jpg  s8=wrong  s7=correct
+run1_part2_p1 006.jpg  s8=wrong  s7=correct
+run1_part2_p1 007.jpg  s8=wrong  s7=correct
+run1_part2_p1 008.jpg  s8=wrong  s7=correct
+run1_part2_p1 009.jpg  s8=moving  s7=correct
+run1_part2_p1 010.jpg  s9=not_placed
+run1_part2_p1 011.jpg  s9=not_placed  s8=correct
+run1_part2_p1 012.jpg  s9=not_placed  s8=correct  [distraction]
+run1_part2_p1 013.jpg  s9=not_placed  s8=correct  [distraction]
+run1_part2_p1 014.jpg  s9=not_placed  s8=correct  [distraction]
+run1_part2_p1 015.jpg  s9=not_placed  s8=correct  [distraction]
+run1_part2_p1 016.jpg  s9=not_placed  s8=correct  [distraction]
+run1_part2_p1 017.jpg  s9=not_placed  s8=correct  [distraction]
+run1_part2_p1 018.jpg  s9=not_placed  s8=correct  [distraction]
+run1_part2_p1 019.jpg  s9=not_placed  s8=correct  [distraction]
+run1_part2_p1 020.jpg  s9=not_placed  s8=correct  [distraction]
+run1_part2_p1 021.jpg  s9=not_placed  s8=correct  [distraction]
+run1_part2_p1 022.jpg  s9=not_placed  s8=correct  [distraction]
+run1_part2_p1 023.jpg  s9=not_placed  s8=correct  [distraction]
+run1_part2_p1 024.jpg  s9=not_placed  s8=correct  [distraction]
+run1_part2_p1 025.jpg  s9=not_placed  s8=correct
+run1_part2_p1 026.jpg  s9=not_placed  s8=correct
+run1_part2_p1 027.jpg  s9=not_placed  s8=correct
+run1_part2_p1 028.jpg  s9=not_placed  s8=correct
+run1_part2_p1 029.jpg  s9=not_placed  s8=correct
+run1_part2_p1 030.jpg  s9=not_placed  s8=correct
+run1_part2_p1 031.jpg  s10=not_placed
+run1_part2_p1 032.jpg  s10=not_placed  s9=correct
+run1_part2_p1 033.jpg  s10=not_placed  s9=correct
+run1_part2_p1 034.jpg  s10=not_placed  s9=correct
+run1_part2_p1 035.jpg  s10=not_placed  s9=correct
+run1_part2_p1 036.jpg  s10=not_placed  s9=correct
+run1_part2_p1 037.jpg  s10=not_placed  s9=correct
+run1_part2_p1 038.jpg  s10=wrong  s9=correct
+run1_part2_p1 039.jpg  s10=wrong  s9=correct
+run1_part2_p1 040.jpg  s10=wrong  s9=correct
+run1_part2_p1 041.jpg  s10=wrong  s9=correct
+run1_part2_p1 042.jpg  s10=wrong  s9=correct
+run1_part2_p1 043.jpg  s10=moving  s9=correct
+run1_part2_p1 044.jpg  s10=moving  s9=correct
+run1_part2_p1 045.jpg  s10=moving  s9=correct
+run1_part2_p1 046.jpg  s10=moving  s9=correct
+run1_part2_p1 047.jpg  s10=moving  s9=correct
+run1_part2_p1 048.jpg  s11=not_placed
+run1_part2_p1 049.jpg  s11=not_placed  s10=correct
+run1_part2_p1 050.jpg  s11=not_placed  s10=correct
+run1_part2_p1 051.jpg  s11=not_placed  s10=correct
+run1_part2_p1 052.jpg  s11=not_placed  s10=correct
+run1_part2_p1 053.jpg  s11=not_placed  s10=correct
+run1_part2_p1 054.jpg  s11=not_placed  s10=correct
+run1_part2_p1 055.jpg  s11=not_placed  s10=correct
+run1_part2_p1 056.jpg  s12=not_placed
+run1_part2_p1 057.jpg  s12=not_placed  s11=correct
+run1_part2_p1 058.jpg  s12=not_placed  s11=correct
+run1_part2_p1 059.jpg  s12=not_placed  s11=correct
+run1_part2_p1 060.jpg  s13=not_placed
+run1_part2_p1 061.jpg  s13=not_placed  s12=correct
+run1_part2_p2 001.jpg  s13=correct  s12=correct
+run1_part2_p2 002.jpg  s13=correct  s12=correct
+run1_part2_p2 003.jpg  s13=correct  s12=correct
+run1_part2_p2 004.jpg  s13=correct  s12=correct
+run1_part2_p2 005.jpg  s13=correct  s12=correct
+run1_part2_p2 006.jpg  s13=correct  s12=correct
+run1_part2_p2 007.jpg  s13=correct  s12=correct
+run1_part2_p2 008.jpg  s13=correct  s12=correct
+run1_part2_p2 009.jpg  s13=correct  s12=correct  [distraction]
+run1_part2_p2 010.jpg  s13=correct  s12=correct  [distraction]
+run1_part2_p2 011.jpg  s13=correct  s12=correct  [distraction]
+run1_part2_p2 012.jpg  s13=correct  s12=correct  [distraction]
+run1_part2_p2 013.jpg  s13=correct  s12=correct
+run1_part2_p2 014.jpg  s13=correct  s12=correct
+run1_part2_p2 015.jpg  s13=correct  s12=correct
+run1_part2_p2 016.jpg  s13=correct  s12=correct
+run1_part2_p2 017.jpg  s13=correct  s12=correct
+run1_part2_p2 018.jpg  s13=correct  s12=correct
+run1_part2_p2 019.jpg  s13=correct  s12=correct
+run1_part2_p2 020.jpg  s13=correct  s12=correct
+run1_part2_p2 021.jpg  s13=correct  s12=correct
+run1_part2_p2 022.jpg  s13=correct  s12=correct
+run1_part2_p2 023.jpg  s13=correct  s12=correct
+run1_part2_p2 024.jpg  s13=correct  s12=correct
+run1_part2_p2 025.jpg  s13=correct  s12=correct
