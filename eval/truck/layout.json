@@ -1,0 +1,145 @@
+[
+ {
+  "step": 1,
+  "name": "red slope 3x4",
+  "color": "red",
+  "cells": [
+   1,
+   6,
+   4,
+   8
+  ]
+ },
+ {
+  "step": 2,
+  "name": "purple 2x4 cab",
+  "color": "purple",
+  "cells": [
+   5,
+   5,
+   6,
+   8
+  ]
+ },
+ {
+  "step": 3,
+  "name": "green 1x2 exhaust",
+  "color": "lime",
+  "cells": [
+   7,
+   4,
+   7,
+   5
+  ]
+ },
+ {
+  "step": 4,
+  "name": "white 1x6 top",
+  "color": "white",
+  "cells": [
+   7,
+   6,
+   12,
+   6
+  ]
+ },
+ {
+  "step": 5,
+  "name": "white 1x6 middle",
+  "color": "white",
+  "cells": [
+   7,
+   7,
+   12,
+   7
+  ]
+ },
+ {
+  "step": 6,
+  "name": "blue 1x4 lower-left",
+  "color": "blue",
+  "cells": [
+   7,
+   8,
+   10,
+   8
+  ]
+ },
+ {
+  "step": 7,
+  "name": "white 1x4 tail door",
+  "color": "white",
+  "cells": [
+   13,
+   5,
+   13,
+   8
+  ]
+ },
+ {
+  "step": 8,
+  "name": "green 1x2 lower-right",
+  "color": "lime",
+  "cells": [
+   11,
+   8,
+   12,
+   8
+  ]
+ },
+ {
+  "step": 9,
+  "name": "red disc front wheel",
+  "color": "red",
+  "cells": [
+   1,
+   9,
+   4,
+   12
+  ]
+ },
+ {
+  "step": 10,
+  "name": "red disc rear wheel",
+  "color": "red",
+  "cells": [
+   8,
+   9,
+   11,
+   12
+  ]
+ },
+ {
+  "step": 11,
+  "name": "tan 1x6 ground left",
+  "color": "tan",
+  "cells": [
+   1,
+   13,
+   6,
+   13
+  ]
+ },
+ {
+  "step": 12,
+  "name": "white 1x6 ground mid",
+  "color": "white",
+  "cells": [
+   7,
+   13,
+   12,
+   13
+  ]
+ },
+ {
+  "step": 13,
+  "name": "yellow 1x4 ground right",
+  "color": "yellow",
+  "cells": [
+   13,
+   13,
+   16,
+   13
+  ]
+ }
+]

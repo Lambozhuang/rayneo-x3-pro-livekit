@@ -18,3 +18,8 @@ docs/papers/
 
 # scratch: PoC scripts and their output, not part of the project
 tmp/
+
+# recorded evaluation material: videos and extracted frames are large and regenerable from the videos
+eval/**/*.mp4
+eval/**/frames/
+eval/**/sheets/

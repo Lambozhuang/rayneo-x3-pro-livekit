@@ -1,0 +1,161 @@
+{
+ "clips": {
+  "run1_part1": 61.8,
+  "run1_part2_p1": 61.6,
+  "run1_part2_p2": 25.6
+ },
+ "note": "run1_part1 -> run1_part2_p1: ~7 min gap, board untouched; run1_part2_p1 -> run1_part2_p2: ~2 s gap (60 s clip limit), step 13 placed in it",
+ "steps": [
+  {
+   "step": 1,
+   "done": [
+    "run1_part1",
+    8
+   ]
+  },
+  {
+   "step": 2,
+   "done": [
+    "run1_part1",
+    14
+   ]
+  },
+  {
+   "step": 3,
+   "done": [
+    "run1_part1",
+    23
+   ]
+  },
+  {
+   "step": 4,
+   "wrong": {
+    "kind": "color",
+    "what": "tan 1x6 instead of white, row 6",
+    "from": [
+     "run1_part1",
+     27
+    ],
+    "to": [
+     "run1_part1",
+     30
+    ]
+   },
+   "done": [
+    "run1_part1",
+    33
+   ]
+  },
+  {
+   "step": 5,
+   "done": [
+    "run1_part1",
+    40
+   ]
+  },
+  {
+   "step": 6,
+   "wrong": {
+    "kind": "position",
+    "what": "blue 1x4 on row 8 but shifted right, about cols 9-12",
+    "from": [
+     "run1_part1",
+     44
+    ],
+    "to": [
+     "run1_part1",
+     47
+    ]
+   },
+   "done": [
+    "run1_part1",
+    51
+   ]
+  },
+  {
+   "step": 7,
+   "done": [
+    "run1_part1",
+    57
+   ]
+  },
+  {
+   "step": 8,
+   "wrong": {
+    "kind": "orientation+position",
+    "what": "lime 1x2 vertical, outside the right end of the body; hand stays on the board",
+    "from": [
+     "run1_part2_p1",
+     1
+    ],
+    "to": [
+     "run1_part2_p1",
+     7
+    ]
+   },
+   "done": [
+    "run1_part2_p1",
+    9
+   ]
+  },
+  {
+   "step": 9,
+   "done": [
+    "run1_part2_p1",
+    30
+   ]
+  },
+  {
+   "step": 10,
+   "wrong": {
+    "kind": "position",
+    "what": "rear disc too far right, under the tail door",
+    "from": [
+     "run1_part2_p1",
+     37
+    ],
+    "to": [
+     "run1_part2_p1",
+     41
+    ]
+   },
+   "done": [
+    "run1_part2_p1",
+    47
+   ]
+  },
+  {
+   "step": 11,
+   "done": [
+    "run1_part2_p1",
+    55
+   ]
+  },
+  {
+   "step": 12,
+   "done": [
+    "run1_part2_p1",
+    59
+   ]
+  },
+  {
+   "step": 13,
+   "done": [
+    "run1_part2_p2",
+    0
+   ]
+  }
+ ],
+ "distractions": [
+  [
+   "run1_part2_p1",
+   11,
+   23
+  ],
+  [
+   "run1_part2_p2",
+   8,
+   11
+  ]
+ ]
+}
