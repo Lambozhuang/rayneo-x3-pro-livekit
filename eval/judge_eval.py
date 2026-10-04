@@ -214,7 +214,8 @@ def to_png(img: Image.Image) -> bytes:
 def step_text(steps, n: int) -> str:
     s = next(s for s in steps if s["step"] == n)
     c0, r0, c1, r1 = s["cells"]
-    return f"Step {n}: {s['color']} {s['name']}, columns {c0}-{c1}, rows {r0}-{r1}. Is the step-{n} brick placed correctly?"
+    desc = s["name"] if s["name"].startswith(s["color"]) else f"{s['color']} {s['name']}"
+    return f"Step {n}: {desc}, columns {c0}-{c1}, rows {r0}-{r1}. Is the step-{n} brick placed correctly?"
 
 
 # ---------------------------------------------------------------- providers
@@ -233,7 +234,7 @@ class OpenAIJudge:
         from openai import OpenAI
         self.client = OpenAI()
         self.model = os.environ.get("OPENAI_CHECK_MODEL") or sys.exit("OPENAI_CHECK_MODEL not set in backend/.env")
-        self.detail = os.environ.get("OPENAI_CHECK_DETAIL", "low")
+        self.detail = os.environ.get("OPENAI_CHECK_DETAIL", "high")  # same default as backend vision.py
         self.effort = os.environ.get("OPENAI_CHECK_EFFORT")
         self.tag = f"{self.model}_{self.detail}"
 
@@ -270,6 +271,14 @@ class GeminiJudge:
         )
         u = r.usage_metadata
         return r.text, {"in": u.prompt_token_count, "out": u.candidates_token_count}
+
+
+class DryJudge:
+    """No API: writes the exact request material and a placeholder answer, to check the pipeline."""
+    tag = "dry"
+
+    def ask(self, ref: bytes, photo: bytes, text: str) -> tuple[str, dict]:
+        return '{"answer": "cannot_see", "reason": "dry run"}', {}
 
 
 def parse_answer(text: str) -> tuple[str, str]:
@@ -338,9 +347,16 @@ def cmd_run(args):
     if args.subset:
         keep = {(s["clip"], s["frame"], s["step"]) for s in json.loads(Path(args.subset).read_text(encoding="utf-8"))}
         rows = [r for r in rows if (r["clip"], r["frame"], r["step"]) in keep]
-    judge = OpenAIJudge() if args.provider == "openai" else GeminiJudge()
+    judge = {"openai": OpenAIJudge, "gemini": GeminiJudge, "dry": DryJudge}[args.provider]()
     RESULTS.mkdir(exist_ok=True)
     out = RESULTS / f"{args.route}_{judge.tag}.jsonl"
+    calls = RESULTS / f"{args.route}_{judge.tag}"  # exactly what was sent, per question: ref png + photo jpeg (gitignored)
+    calls.mkdir(exist_ok=True)
+    header = [f"provider={args.provider} model={judge.tag} route={args.route} side={SIDE}"]
+    if args.provider == "openai":
+        header.append(f"detail photo={judge.detail} ref=low effort={judge.effort}")
+    (calls / "prompt.txt").write_text("\n".join(header) + "\n\n--- system ---\n" + SYSTEM
+                                      + "\n\n--- user text, per question (step 1 shown) ---\n" + step_text(steps, 1) + "\n", encoding="utf-8")
     done = set()
     if out.exists():
         for line in out.read_text(encoding="utf-8").splitlines():
@@ -357,17 +373,22 @@ def cmd_run(args):
             if n not in refs:
                 refs[n] = to_png(render_ref(steps, n))
             photo = prep_photo(FRAMES / r["clip"] / r["frame"], args.route)
-            rec = dict(r, route=args.route, model=judge.tag)
+            rec = dict(r, route=args.route, model=judge.tag, question=step_text(steps, n))
             if photo is None:
-                rec.update(answer="cannot_see", reason="no plate in green mask", latency=0, usage={})
+                rec.update(answer="cannot_see", reason="no plate in green mask", raw="", latency=0, usage={})
             else:
+                stem = f"{r['clip']}_{r['frame'][:3]}_s{n:02d}"
+                jpeg = to_jpeg(photo)
+                (calls / f"{stem}_ref.png").write_bytes(refs[n])
+                (calls / f"{stem}_photo.jpg").write_bytes(jpeg)
                 t0 = time.perf_counter()
                 try:
-                    text, usage = judge.ask(refs[n], to_jpeg(photo), step_text(steps, n))
+                    text, usage = judge.ask(refs[n], jpeg, rec["question"])
                 except Exception as e:  # quota, network: keep what we have, resume later
                     print(f"\n{r['clip']}/{r['frame']} step {n}: {type(e).__name__}: {str(e)[:300]}")
                     break
                 rec["latency"] = round(time.perf_counter() - t0, 2)
+                rec["raw"] = text
                 rec["answer"], rec["reason"] = parse_answer(text)
                 rec["usage"] = usage
                 rec["photo_size"] = list(photo.size)
@@ -418,7 +439,7 @@ def main():
     sub.add_parser("labels").set_defaults(fn=cmd_labels)
     p = sub.add_parser("run")
     p.add_argument("--route", choices=["B", "C"], required=True)
-    p.add_argument("--provider", choices=["openai", "gemini"], required=True)
+    p.add_argument("--provider", choices=["openai", "gemini", "dry"], required=True)
     p.add_argument("--subset")
     p.add_argument("--limit", type=int)
     p.set_defaults(fn=cmd_run)

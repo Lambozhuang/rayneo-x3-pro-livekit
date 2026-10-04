@@ -23,3 +23,5 @@ tmp/
 eval/**/*.mp4
 eval/**/frames/
 eval/**/sheets/
+eval/**/results/*/*.png
+eval/**/results/*/*.jpg
