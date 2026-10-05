@@ -77,11 +77,11 @@
    12,
    7
   ],
-  "where": "the second white 1x6 brick lying flat directly below the first white brick, same length, left end touching the purple brick, ends lined up with the brick above; together the two white bricks form one white block two studs deep",
+  "where": "another white 1x6 brick lying flat directly in front of the first white brick (toward the builder), so that the white area to the right of the purple brick becomes two rows of studs deep, a 2x6 white block whose left end touches the purple brick and whose right end is straight",
   "checks": [
-   "the white area to the right of the purple brick is two studs deep (two 1x6 bricks side by side), not one",
-   "its left end touches the purple brick",
-   "its right end lines up with the right end of the brick above"
+   "the white area to the right of the purple brick has two rows of studs from front to back, not one",
+   "the white area's left end touches the purple brick",
+   "the white area's right end is straight: both rows end at the same place"
   ]
  },
  {

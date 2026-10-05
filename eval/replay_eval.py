@@ -4,7 +4,7 @@
   python eval/replay_eval.py report
 
 Frames are taken in order at 1 fps. For each frame the gate (eval/gate_eval.py) decides whether to ask; if so the
-judge (gpt-6-sol, no reasoning, terse relational prompt, server-side crop; same code as judge_eval.py) is asked
+judge (gpt-6-sol, no reasoning, terse2 relational prompt, server-side crop; same code as judge_eval.py) is asked
 about the state machine's current step N. The state machine:
   correct  CONFIRM times in a row -> step N done, N += 1, fact "step N placed"
   wrong    CONFIRM times in a row -> fact "step N wrong: <first failed check>", said once per wrong spell
@@ -53,7 +53,7 @@ class Judge:
         self.frames = frames
         self.steps, _ = je.load()
         self.model = je.OpenAIJudge()
-        self.tag = self.model.tag + "_terse"
+        self.tag = self.model.tag + "_terse2"
         self.cache = {}
         if CACHE.exists():
             for line in CACHE.read_text(encoding="utf-8").splitlines():
@@ -70,7 +70,7 @@ class Judge:
             rec = {"answer": "cannot_see", "checks": "", "reason": "no plate in green mask", "latency": 0.0, "raw": ""}
         else:
             t0 = time.perf_counter()
-            text, usage = self.model.ask(None, je.to_jpeg(photo), je.step_text_rel(self.steps, step), je.SYSTEM_REL_TERSE)
+            text, usage = self.model.ask(None, je.to_jpeg(photo), je.step_text_rel(self.steps, step), je.SYSTEM_REL_TERSE2)
             answer, reason = je.parse_answer(text)
             checks = ""
             try:

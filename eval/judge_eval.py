@@ -82,6 +82,15 @@ Work in this order:
 Reply with JSON only: {"seen": "...", "answer": "correct|wrong|not_placed|cannot_see", "reason": "<at most ten words>"}."""
 
 
+# terse2: 'seen' asks for what is at the place, not for "a brick of that kind" -- at call quality two adjacent white 1x6
+# read as one brick and the model answered "no second brick" (step 5 stalled the state machine); asked about the
+# place it reports two rows of studs.
+SYSTEM_REL_TERSE2 = SYSTEM_REL_TERSE.replace(
+    "1. seen: describe only what you actually see for this step's brick: is a brick of that kind on the plate, its colour, whether it lies flat or stands upright, what it touches, how its ends line up with its neighbours. If there is no such brick, say so. Do not repeat the description you were given; look.",
+    "1. seen: describe only what you actually see at the place where this step's brick belongs: what colours are there, how many rows of studs, what touches what, how ends line up. Do not repeat the description you were given; look.")
+assert SYSTEM_REL_TERSE2 != SYSTEM_REL_TERSE
+
+
 def load():
     layout = json.loads((TRUCK / "layout.json").read_text(encoding="utf-8"))
     events = json.loads((TRUCK / "events.json").read_text(encoding="utf-8"))
@@ -245,11 +254,13 @@ def step_text(steps, n: int) -> str:
     return f"Step {n}: {desc}, columns {c0}-{c1}, rows {r0}-{r1}. Is the step-{n} brick placed correctly?"
 
 
-def step_text_rel(steps, n: int) -> str:
+def step_text_rel(steps, n: int, history: bool = True) -> str:
     s = next(s for s in steps if s["step"] == n)
     before = [x for x in steps if x["step"] < n]
     lines = []
-    if before:
+    if not history:
+        pass
+    elif before:
         lines.append("Already on the plate from earlier steps: " + "; ".join(x["name"] for x in before) + ".")
     else:
         lines.append("The plate is empty before this step.")
@@ -452,8 +463,10 @@ def cmd_run(args):
         rows = [r for r in rows if (r["clip"], r["frame"], r["step"]) in keep]
     judge = {"openai": OpenAIJudge, "openrouter": OpenRouterJudge, "gemini": GeminiJudge, "dry": DryJudge}[args.provider]()
     rel = args.prompt != "grid"
-    system = {"grid": SYSTEM, "relational": SYSTEM_REL, "terse": SYSTEM_REL_TERSE, "checks": SYSTEM_CHECKS, "image": SYSTEM_IMG}[args.prompt]
-    judge.tag += ({"grid": "", "relational": "_rel", "terse": "_terse", "checks": "_checks", "image": "_img"}[args.prompt]
+    system = {"grid": SYSTEM, "relational": SYSTEM_REL, "terse": SYSTEM_REL_TERSE, "terse2": SYSTEM_REL_TERSE2, "checks": SYSTEM_CHECKS, "image": SYSTEM_IMG}[args.prompt]
+    hist = not args.no_history
+    judge.tag += ({"grid": "", "relational": "_rel", "terse": "_terse", "terse2": "_terse2", "checks": "_checks", "image": "_img"}[args.prompt]
+                  + ("_nohist" if args.no_history else "")
                   + (f"_{args.frames.replace('frames_', '')}" if args.frames else "") + (f"_{args.tag}" if args.tag else ""))
     img = args.prompt == "image"  # diagram without numbers + one-line question, no coordinates, no facts
     if img:
@@ -467,7 +480,7 @@ def cmd_run(args):
     if args.provider in ("openai", "openrouter"):
         header.append(f"detail photo={judge.detail} ref=low effort={judge.effort}")
     (calls / "prompt.txt").write_text("\n".join(header) + "\n\n--- system ---\n" + system
-                                      + "\n\n--- user text, per question (one example) ---\n" + (step_text_rel(steps, 6) if rel else step_text_img(6) if img else step_text(steps, 1)) + "\n", encoding="utf-8")
+                                      + "\n\n--- user text, per question (one example) ---\n" + (step_text_rel(steps, 6, hist) if rel else step_text_img(6) if img else step_text(steps, 1)) + "\n", encoding="utf-8")
     done = set()
     if out.exists():
         for line in out.read_text(encoding="utf-8").splitlines():
@@ -484,7 +497,7 @@ def cmd_run(args):
             if n not in refs:
                 refs[n] = None if rel else to_png(render_ref(steps, n, labels=not img))
             photo = prep_photo(FRAMES / r["clip"] / r["frame"], args.route)
-            rec = dict(r, route=args.route, model=judge.tag, question=step_text_rel(steps, n) if rel else step_text_img(n) if img else step_text(steps, n))
+            rec = dict(r, route=args.route, model=judge.tag, question=step_text_rel(steps, n, hist) if rel else step_text_img(n) if img else step_text(steps, n))
             if photo is None:
                 rec.update(answer="cannot_see", reason="no plate in green mask", raw="", latency=0, usage={})
             else:
@@ -558,9 +571,10 @@ def main():
     p.add_argument("--route", choices=["B", "C"], required=True)
     p.add_argument("--provider", choices=["openai", "openrouter", "gemini", "dry"], required=True)
     p.add_argument("--questions", help="question file such as truck/rest.json instead of the derived per-frame labels")
-    p.add_argument("--prompt", choices=["grid", "relational", "terse", "checks", "image"], default="grid",
+    p.add_argument("--prompt", choices=["grid", "relational", "terse", "terse2", "checks", "image"], default="grid",
                    help="grid: numbered diagram + columns/rows; relational: plain-language neighbours and alignment, describe first, no diagram")
     p.add_argument("--frames", help="alternative frames folder under truck/run1, e.g. frames_1080p15")
+    p.add_argument("--no-history", action="store_true", help="relational prompts: leave out the 'already on the plate' line")
     p.add_argument("--tag", help="suffix for the result name, e.g. a repeat number")
     p.add_argument("--subset")
     p.add_argument("--limit", type=int)

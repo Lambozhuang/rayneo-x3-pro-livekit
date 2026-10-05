@@ -1,7 +1,7 @@
 {
  "confirm": 2,
  "frames": "frames_1080p15",
- "model": "gpt-6-sol_high_none_terse",
+ "model": "gpt-6-sol_high_none_terse2",
  "calls": 94,
  "facts": [
   {
@@ -45,52 +45,68 @@
    "text": "step 4 placed"
   },
   {
-   "i": 84,
+   "i": 72,
    "clip": "run1_part2_p1",
-   "t": 22,
+   "t": 10,
    "kind": "wrong",
    "step": 5,
-   "text": "step 5 wrong: its left end touches the purple brick"
+   "text": "step 5 wrong: the white area's left end touches the purple brick"
   },
   {
-   "i": 113,
+   "i": 85,
    "clip": "run1_part2_p1",
-   "t": 51,
-   "kind": "done",
+   "t": 23,
+   "kind": "wrong",
    "step": 5,
-   "text": "step 5 placed"
+   "text": "step 5 wrong: the white area's right end is straight: both rows end at the same place"
   },
   {
-   "i": 116,
+   "i": 109,
    "clip": "run1_part2_p1",
-   "t": 54,
-   "kind": "done",
-   "step": 6,
-   "text": "step 6 placed"
+   "t": 47,
+   "kind": "wrong",
+   "step": 5,
+   "text": "step 5 wrong: the white area's right end is straight: both rows end at the same place"
   },
   {
    "i": 124,
    "clip": "run1_part2_p2",
    "t": 1,
    "kind": "wrong",
-   "step": 7,
-   "text": "step 7 wrong: its right end lines up with the right end of the white bricks above"
+   "step": 5,
+   "text": "step 5 wrong: the white area's left end touches the purple brick"
   },
   {
-   "i": 142,
+   "i": 127,
    "clip": "run1_part2_p2",
-   "t": 19,
+   "t": 4,
    "kind": "wrong",
-   "step": 7,
-   "text": "step 7 wrong: its right end lines up with the right end of the white bricks above"
+   "step": 5,
+   "text": "step 5 wrong: the white area's left end touches the purple brick"
   },
   {
-   "i": 146,
+   "i": 141,
    "clip": "run1_part2_p2",
-   "t": 23,
+   "t": 18,
+   "kind": "wrong",
+   "step": 5,
+   "text": "step 5 wrong: the white area's right end is straight: both rows end at the same place"
+  },
+  {
+   "i": 145,
+   "clip": "run1_part2_p2",
+   "t": 22,
+   "kind": "wrong",
+   "step": 5,
+   "text": "step 5 wrong: the white area's right end is straight: both rows end at the same place"
+  },
+  {
+   "i": 147,
+   "clip": "run1_part2_p2",
+   "t": 24,
    "kind": "done",
-   "step": 7,
-   "text": "step 7 placed"
+   "step": 5,
+   "text": "step 5 placed"
   }
  ],
  "timeline": [
@@ -101,7 +117,7 @@
    "step": 1,
    "gate": "ok",
    "answer": "not_placed",
-   "latency": 2.78,
+   "latency": 2.92,
    "reason": "The plate is empty."
   },
   {
@@ -111,8 +127,8 @@
    "step": 1,
    "gate": "ok",
    "answer": "not_placed",
-   "latency": 2.8,
-   "reason": "No brick on the plate."
+   "latency": 2.34,
+   "reason": "The plate is empty."
   },
   {
    "i": 2,
@@ -121,8 +137,8 @@
    "step": 1,
    "gate": "ok",
    "answer": "not_placed",
-   "latency": 3.0,
-   "reason": "The plate is empty."
+   "latency": 1.98,
+   "reason": "No red brick is on the plate."
   },
   {
    "i": 3,
@@ -131,8 +147,8 @@
    "step": 1,
    "gate": "ok",
    "answer": "not_placed",
-   "latency": 2.15,
-   "reason": "The baseplate is empty."
+   "latency": 2.21,
+   "reason": "No red brick is on the plate."
   },
   {
    "i": 4,
@@ -169,8 +185,8 @@
    "step": 1,
    "gate": "ok",
    "answer": "correct",
-   "latency": 2.09,
-   "reason": "All three facts are visible."
+   "latency": 2.04,
+   "reason": "Red brick touches left edge, with space above and below."
   },
   {
    "i": 9,
@@ -179,8 +195,8 @@
    "step": 1,
    "gate": "ok",
    "answer": "correct",
-   "latency": 2.12,
-   "reason": "All three facts are visible."
+   "latency": 1.77,
+   "reason": "All three facts match."
   },
   {
    "i": 10,
@@ -189,8 +205,8 @@
    "step": 2,
    "gate": "ok",
    "answer": "not_placed",
-   "latency": 2.23,
-   "reason": "No purple brick visible."
+   "latency": 1.77,
+   "reason": "No purple brick is visible on the plate."
   },
   {
    "i": 11,
@@ -199,8 +215,8 @@
    "step": 2,
    "gate": "ok",
    "answer": "not_placed",
-   "latency": 1.8,
-   "reason": "Purple brick is absent."
+   "latency": 2.02,
+   "reason": "No purple brick is on the plate."
   },
   {
    "i": 12,
@@ -223,8 +239,8 @@
    "step": 2,
    "gate": "ok",
    "answer": "correct",
-   "latency": 2.24,
-   "reason": "All three facts are visible."
+   "latency": 1.98,
+   "reason": "All three facts match the photo."
   },
   {
    "i": 15,
@@ -243,8 +259,8 @@
    "step": 3,
    "gate": "ok",
    "answer": "not_placed",
-   "latency": 2.08,
-   "reason": "No lime brick is visible."
+   "latency": 2.0,
+   "reason": "No lime brick is on the plate."
   },
   {
    "i": 17,
@@ -253,8 +269,8 @@
    "step": 3,
    "gate": "ok",
    "answer": "not_placed",
-   "latency": 2.39,
-   "reason": "Only the red and purple bricks are visible."
+   "latency": 1.76,
+   "reason": "No lime brick is on the plate."
   },
   {
    "i": 18,
@@ -263,8 +279,8 @@
    "step": 3,
    "gate": "ok",
    "answer": "not_placed",
-   "latency": 1.77,
-   "reason": "Only the red and purple bricks are visible."
+   "latency": 2.91,
+   "reason": "No lime brick is visible on the plate."
   },
   {
    "i": 19,
@@ -273,7 +289,7 @@
    "step": 3,
    "gate": "ok",
    "answer": "not_placed",
-   "latency": 1.87,
+   "latency": 2.84,
    "reason": "No lime brick is visible on the plate."
   },
   {
@@ -283,7 +299,7 @@
    "step": 3,
    "gate": "ok",
    "answer": "not_placed",
-   "latency": 1.92,
+   "latency": 2.21,
    "reason": "No lime brick visible on the plate."
   },
   {
@@ -293,8 +309,8 @@
    "step": 3,
    "gate": "ok",
    "answer": "correct",
-   "latency": 2.03,
-   "reason": "All three placement facts are visible."
+   "latency": 2.23,
+   "reason": "The lime piece matches all three facts."
   },
   {
    "i": 22,
@@ -303,7 +319,7 @@
    "step": 3,
    "gate": "ok",
    "answer": "correct",
-   "latency": 2.01,
+   "latency": 3.21,
    "reason": "All three placement facts are visible."
   },
   {
@@ -313,8 +329,8 @@
    "step": 4,
    "gate": "ok",
    "answer": "not_placed",
-   "latency": 2.18,
-   "reason": "The white brick is absent."
+   "latency": 2.57,
+   "reason": "No white brick is visible on the plate."
   },
   {
    "i": 24,
@@ -323,8 +339,8 @@
    "step": 4,
    "gate": "ok",
    "answer": "not_placed",
-   "latency": 1.63,
-   "reason": "No white brick is present."
+   "latency": 2.24,
+   "reason": "No white brick is on the plate."
   },
   {
    "i": 25,
@@ -347,7 +363,7 @@
    "step": 4,
    "gate": "ok",
    "answer": "wrong",
-   "latency": 2.07,
+   "latency": 1.83,
    "reason": "The brick appears cream, not pure white."
   },
   {
@@ -357,8 +373,8 @@
    "step": 4,
    "gate": "ok",
    "answer": "wrong",
-   "latency": 3.52,
-   "reason": "The brick is cream, not pure white."
+   "latency": 1.96,
+   "reason": "Brick appears cream, not pure white."
   },
   {
    "i": 29,
@@ -374,8 +390,8 @@
    "step": 4,
    "gate": "ok",
    "answer": "not_placed",
-   "latency": 2.92,
-   "reason": "No white brick visible."
+   "latency": 2.55,
+   "reason": "No white brick is visible on the plate."
   },
   {
    "i": 31,
@@ -398,8 +414,8 @@
    "step": 4,
    "gate": "ok",
    "answer": "correct",
-   "latency": 1.81,
-   "reason": "White, six studs long, and touching purple."
+   "latency": 2.05,
+   "reason": "White 1x6 is horizontal and touches purple."
   },
   {
    "i": 34,
@@ -408,8 +424,8 @@
    "step": 4,
    "gate": "ok",
    "answer": "correct",
-   "latency": 1.89,
-   "reason": "All three facts are visible."
+   "latency": 1.99,
+   "reason": "White brick is horizontal and touches purple."
   },
   {
    "i": 35,
@@ -418,8 +434,8 @@
    "step": 5,
    "gate": "ok",
    "answer": "not_placed",
-   "latency": 1.95,
-   "reason": "The second white brick is not visible on the plate."
+   "latency": 2.21,
+   "reason": "Only the first white brick is visible."
   },
   {
    "i": 36,
@@ -448,9 +464,9 @@
    "t": 39,
    "step": 5,
    "gate": "ok",
-   "answer": "not_placed",
-   "latency": 1.99,
-   "reason": "Second white brick is not visible on the plate."
+   "answer": "correct",
+   "latency": 2.49,
+   "reason": "Both white rows are aligned beside purple."
   },
   {
    "i": 40,
@@ -458,9 +474,9 @@
    "t": 40,
    "step": 5,
    "gate": "ok",
-   "answer": "correct",
-   "latency": 2.03,
-   "reason": "Both white bricks appear aligned and touching purple."
+   "answer": "not_placed",
+   "latency": 2.12,
+   "reason": "Second white brick is absent."
   },
   {
    "i": 41,
@@ -468,9 +484,9 @@
    "t": 41,
    "step": 5,
    "gate": "ok",
-   "answer": "not_placed",
-   "latency": 2.6,
-   "reason": "Only one white brick is visible."
+   "answer": "wrong",
+   "latency": 1.81,
+   "reason": "White rows end at different places."
   },
   {
    "i": 42,
@@ -478,9 +494,9 @@
    "t": 42,
    "step": 5,
    "gate": "ok",
-   "answer": "correct",
-   "latency": 2.33,
-   "reason": "Both white rows are present and aligned."
+   "answer": "not_placed",
+   "latency": 2.13,
+   "reason": "Only one white row is visible."
   },
   {
    "i": 43,
@@ -496,8 +512,8 @@
    "step": 5,
    "gate": "ok",
    "answer": "not_placed",
-   "latency": 1.85,
-   "reason": "The second white brick is not on the plate."
+   "latency": 2.32,
+   "reason": "Only one white row is present."
   },
   {
    "i": 45,
@@ -505,9 +521,9 @@
    "t": 45,
    "step": 5,
    "gate": "ok",
-   "answer": "not_placed",
-   "latency": 1.83,
-   "reason": "Only one white brick is visible."
+   "answer": "correct",
+   "latency": 2.03,
+   "reason": "Both white rows align and touch the purple brick."
   },
   {
    "i": 46,
@@ -516,8 +532,8 @@
    "step": 5,
    "gate": "ok",
    "answer": "not_placed",
-   "latency": 2.86,
-   "reason": "Only one white brick is visible."
+   "latency": 2.69,
+   "reason": "Only one white row is present."
   },
   {
    "i": 47,
@@ -547,8 +563,8 @@
    "step": 5,
    "gate": "ok",
    "answer": "not_placed",
-   "latency": 3.31,
-   "reason": "The second white brick is not visible."
+   "latency": 3.28,
+   "reason": "Only one white row is visible."
   },
   {
    "i": 51,
@@ -556,9 +572,9 @@
    "t": 51,
    "step": 5,
    "gate": "ok",
-   "answer": "not_placed",
-   "latency": 1.82,
-   "reason": "Only one white brick is visible."
+   "answer": "correct",
+   "latency": 2.26,
+   "reason": "Both white rows are present and aligned."
   },
   {
    "i": 52,
@@ -567,8 +583,8 @@
    "step": 5,
    "gate": "ok",
    "answer": "not_placed",
-   "latency": 1.83,
-   "reason": "The second white brick is not on the plate."
+   "latency": 1.91,
+   "reason": "Only one white row is visible."
   },
   {
    "i": 53,
@@ -577,8 +593,8 @@
    "step": 5,
    "gate": "ok",
    "answer": "not_placed",
-   "latency": 2.74,
-   "reason": "No second white brick is visible."
+   "latency": 2.36,
+   "reason": "The second white row is not visible."
   },
   {
    "i": 54,
@@ -594,8 +610,8 @@
    "step": 5,
    "gate": "ok",
    "answer": "not_placed",
-   "latency": 2.22,
-   "reason": "Only one white brick is visible."
+   "latency": 4.07,
+   "reason": "Second white row is absent."
   },
   {
    "i": 56,
@@ -611,8 +627,8 @@
    "step": 5,
    "gate": "ok",
    "answer": "not_placed",
-   "latency": 2.76,
-   "reason": "Second white brick is not visible."
+   "latency": 2.05,
+   "reason": "Only the earlier white row is visible."
   },
   {
    "i": 58,
@@ -621,8 +637,8 @@
    "step": 5,
    "gate": "ok",
    "answer": "not_placed",
-   "latency": 1.89,
-   "reason": "Only one white brick is visible."
+   "latency": 2.6,
+   "reason": "The second white row is absent."
   },
   {
    "i": 59,
@@ -630,9 +646,9 @@
    "t": 59,
    "step": 5,
    "gate": "ok",
-   "answer": "correct",
-   "latency": 2.0,
-   "reason": "White area is two studs deep and aligned."
+   "answer": "not_placed",
+   "latency": 1.82,
+   "reason": "The second white brick is not on the plate."
   },
   {
    "i": 60,
@@ -641,8 +657,8 @@
    "step": 5,
    "gate": "ok",
    "answer": "not_placed",
-   "latency": 1.87,
-   "reason": "The second white brick is not visible on the plate."
+   "latency": 1.93,
+   "reason": "Second white row is absent."
   },
   {
    "i": 61,
@@ -650,9 +666,9 @@
    "t": 61,
    "step": 5,
    "gate": "ok",
-   "answer": "correct",
-   "latency": 1.89,
-   "reason": "Both white bricks appear aligned and touching purple."
+   "answer": "cannot_see",
+   "latency": 2.46,
+   "reason": "The hand hides the white area's right end."
   },
   {
    "i": 62,
@@ -660,9 +676,9 @@
    "t": 0,
    "step": 5,
    "gate": "ok",
-   "answer": "cannot_see",
-   "latency": 2.13,
-   "reason": "The right ends are hidden by the hand."
+   "answer": "wrong",
+   "latency": 1.8,
+   "reason": "The white rows do not end at the same place."
   },
   {
    "i": 63,
@@ -670,9 +686,9 @@
    "t": 1,
    "step": 5,
    "gate": "ok",
-   "answer": "correct",
-   "latency": 2.37,
-   "reason": "Both white bricks appear aligned and touch purple."
+   "answer": "not_placed",
+   "latency": 2.29,
+   "reason": "The second white brick is still in the builder\u2019s hand."
   },
   {
    "i": 64,
@@ -681,8 +697,8 @@
    "step": 5,
    "gate": "ok",
    "answer": "wrong",
-   "latency": 2.09,
-   "reason": "The white bricks\u2019 right ends do not align."
+   "latency": 1.92,
+   "reason": "The two white rows do not end together."
   },
   {
    "i": 65,
@@ -711,9 +727,9 @@
    "t": 6,
    "step": 5,
    "gate": "ok",
-   "answer": "correct",
-   "latency": 2.94,
-   "reason": "Both white bricks align and touch purple."
+   "answer": "not_placed",
+   "latency": 2.06,
+   "reason": "Only one white row is visible."
   },
   {
    "i": 69,
@@ -722,8 +738,8 @@
    "step": 5,
    "gate": "ok",
    "answer": "not_placed",
-   "latency": 2.34,
-   "reason": "Second white brick is still in the builder\u2019s hand."
+   "latency": 2.57,
+   "reason": "The second white brick is still in hand."
   },
   {
    "i": 70,
@@ -739,8 +755,8 @@
    "step": 5,
    "gate": "ok",
    "answer": "wrong",
-   "latency": 2.73,
-   "reason": "The second white brick is not in place."
+   "latency": 2.22,
+   "reason": "White area is not two rows deep or straight-ended."
   },
   {
    "i": 72,
@@ -748,9 +764,9 @@
    "t": 10,
    "step": 5,
    "gate": "ok",
-   "answer": "correct",
-   "latency": 2.42,
-   "reason": "Both white bricks align and touch the purple brick."
+   "answer": "wrong",
+   "latency": 2.35,
+   "reason": "The white area is not two aligned rows."
   },
   {
    "i": 73,
@@ -814,9 +830,9 @@
    "t": 19,
    "step": 5,
    "gate": "ok",
-   "answer": "not_placed",
-   "latency": 1.74,
-   "reason": "Second white brick is not visible on the plate."
+   "answer": "wrong",
+   "latency": 1.66,
+   "reason": "The white rows do not end at the same place."
   },
   {
    "i": 82,
@@ -825,8 +841,8 @@
    "step": 5,
    "gate": "ok",
    "answer": "cannot_see",
-   "latency": 2.26,
-   "reason": "Hand obscures the white brick area."
+   "latency": 2.96,
+   "reason": "Hand obscures the white brick\u2019s placement area."
   },
   {
    "i": 83,
@@ -834,9 +850,9 @@
    "t": 21,
    "step": 5,
    "gate": "ok",
-   "answer": "wrong",
-   "latency": 2.63,
-   "reason": "Lower row is blue, not white; ends misalign."
+   "answer": "not_placed",
+   "latency": 2.3,
+   "reason": "The added white brick is not on the plate."
   },
   {
    "i": 84,
@@ -845,8 +861,8 @@
    "step": 5,
    "gate": "ok",
    "answer": "wrong",
-   "latency": 2.0,
-   "reason": "Second white brick is absent from the required position."
+   "latency": 1.98,
+   "reason": "White area is not two aligned rows."
   },
   {
    "i": 85,
@@ -854,9 +870,9 @@
    "t": 23,
    "step": 5,
    "gate": "ok",
-   "answer": "cannot_see",
-   "latency": 3.35,
-   "reason": "Hand obscures the right-end alignment."
+   "answer": "wrong",
+   "latency": 1.91,
+   "reason": "The white rows do not end together."
   },
   {
    "i": 86,
@@ -865,8 +881,8 @@
    "step": 5,
    "gate": "ok",
    "answer": "wrong",
-   "latency": 1.82,
-   "reason": "White bricks do not form the specified block."
+   "latency": 2.27,
+   "reason": "White area is not two aligned rows."
   },
   {
    "i": 87,
@@ -903,8 +919,8 @@
    "step": 5,
    "gate": "ok",
    "answer": "wrong",
-   "latency": 2.0,
-   "reason": "White area is one stud deep; right ends misalign."
+   "latency": 2.29,
+   "reason": "White area is not two rows deep."
   },
   {
    "i": 92,
@@ -912,9 +928,9 @@
    "t": 30,
    "step": 5,
    "gate": "ok",
-   "answer": "wrong",
-   "latency": 2.05,
-   "reason": "Right ends do not line up."
+   "answer": "not_placed",
+   "latency": 2.39,
+   "reason": "The front row is blue, not white."
   },
   {
    "i": 93,
@@ -922,9 +938,9 @@
    "t": 31,
    "step": 5,
    "gate": "ok",
-   "answer": "cannot_see",
-   "latency": 2.87,
-   "reason": "Hand obscures the white area and right ends."
+   "answer": "not_placed",
+   "latency": 2.3,
+   "reason": "Second white row is not visible on the plate."
   },
   {
    "i": 94,
@@ -933,8 +949,8 @@
    "step": 5,
    "gate": "ok",
    "answer": "wrong",
-   "latency": 1.83,
-   "reason": "Second white brick is not in the required position."
+   "latency": 2.47,
+   "reason": "The white rows do not end together."
   },
   {
    "i": 95,
@@ -943,8 +959,8 @@
    "step": 5,
    "gate": "ok",
    "answer": "correct",
-   "latency": 2.06,
-   "reason": "Both white bricks appear aligned."
+   "latency": 2.32,
+   "reason": "Both white rows align and touch purple."
   },
   {
    "i": 96,
@@ -973,9 +989,9 @@
    "t": 37,
    "step": 5,
    "gate": "ok",
-   "answer": "not_placed",
-   "latency": 3.18,
-   "reason": "Second white brick is not visible on the plate."
+   "answer": "wrong",
+   "latency": 1.97,
+   "reason": "The white rows do not end together."
   },
   {
    "i": 100,
@@ -983,9 +999,9 @@
    "t": 38,
    "step": 5,
    "gate": "ok",
-   "answer": "wrong",
-   "latency": 2.01,
-   "reason": "The second white row is not visible."
+   "answer": "correct",
+   "latency": 2.04,
+   "reason": "Both rows touch purple and end together."
   },
   {
    "i": 101,
@@ -1035,9 +1051,9 @@
    "t": 45,
    "step": 5,
    "gate": "ok",
-   "answer": "correct",
-   "latency": 1.84,
-   "reason": "Both white rows are visible and aligned."
+   "answer": "wrong",
+   "latency": 2.39,
+   "reason": "White rows do not end at the same place."
   },
   {
    "i": 108,
@@ -1053,8 +1069,8 @@
    "step": 5,
    "gate": "ok",
    "answer": "wrong",
-   "latency": 2.23,
-   "reason": "White bricks do not form an aligned two-stud-deep block."
+   "latency": 2.14,
+   "reason": "The white rows end at different places."
   },
   {
    "i": 110,
@@ -1062,9 +1078,9 @@
    "t": 48,
    "step": 5,
    "gate": "ok",
-   "answer": "correct",
-   "latency": 2.29,
-   "reason": "Both white bricks appear aligned beside the purple brick."
+   "answer": "wrong",
+   "latency": 2.35,
+   "reason": "White area is not two aligned rows."
   },
   {
    "i": 111,
@@ -1072,9 +1088,9 @@
    "t": 49,
    "step": 5,
    "gate": "ok",
-   "answer": "not_placed",
-   "latency": 2.48,
-   "reason": "Second white brick is absent."
+   "answer": "wrong",
+   "latency": 1.8,
+   "reason": "White rows do not end at the same place."
   },
   {
    "i": 112,
@@ -1082,9 +1098,9 @@
    "t": 50,
    "step": 5,
    "gate": "ok",
-   "answer": "correct",
-   "latency": 2.29,
-   "reason": "Both white bricks form an aligned, two-stud-deep area."
+   "answer": "wrong",
+   "latency": 2.0,
+   "reason": "White area is one row deep, not two."
   },
   {
    "i": 113,
@@ -1092,325 +1108,325 @@
    "t": 51,
    "step": 5,
    "gate": "ok",
-   "answer": "correct",
-   "latency": 2.17,
-   "reason": "Both white bricks appear aligned and touch the purple brick."
+   "answer": "wrong",
+   "latency": 2.28,
+   "reason": "Front white row does not touch the purple brick."
   },
   {
    "i": 114,
    "clip": "run1_part2_p1",
    "t": 52,
-   "step": 6,
+   "step": 5,
    "gate": "no plate"
   },
   {
    "i": 115,
    "clip": "run1_part2_p1",
    "t": 53,
-   "step": 6,
+   "step": 5,
    "gate": "ok",
-   "answer": "correct",
-   "latency": 2.3,
-   "reason": "All three placements match."
+   "answer": "wrong",
+   "latency": 2.16,
+   "reason": "The white rows do not end at the same place."
   },
   {
    "i": 116,
    "clip": "run1_part2_p1",
    "t": 54,
-   "step": 6,
+   "step": 5,
    "gate": "ok",
-   "answer": "correct",
-   "latency": 1.8,
-   "reason": "All three placement facts are visible."
+   "answer": "wrong",
+   "latency": 2.12,
+   "reason": "White rows do not end at the same place."
   },
   {
    "i": 117,
    "clip": "run1_part2_p1",
    "t": 55,
-   "step": 7,
+   "step": 5,
    "gate": "ok",
-   "answer": "correct",
-   "latency": 2.04,
-   "reason": "All three placement facts are visible."
+   "answer": "wrong",
+   "latency": 2.18,
+   "reason": "Only one white row; right end is uneven."
   },
   {
    "i": 118,
    "clip": "run1_part2_p1",
    "t": 56,
-   "step": 7,
+   "step": 5,
    "gate": "hand"
   },
   {
    "i": 119,
    "clip": "run1_part2_p1",
    "t": 57,
-   "step": 7,
+   "step": 5,
    "gate": "plate partial"
   },
   {
    "i": 120,
    "clip": "run1_part2_p1",
    "t": 58,
-   "step": 7,
+   "step": 5,
    "gate": "ok",
    "answer": "wrong",
    "latency": 2.03,
-   "reason": "Lime brick ends before the white bricks."
+   "reason": "The second white row is incomplete."
   },
   {
    "i": 121,
    "clip": "run1_part2_p1",
    "t": 59,
-   "step": 7,
+   "step": 5,
    "gate": "ok",
-   "answer": "not_placed",
-   "latency": 2.05,
-   "reason": "The brick has not been placed."
+   "answer": "wrong",
+   "latency": 2.23,
+   "reason": "White pieces do not form an aligned two-row block."
   },
   {
    "i": 122,
    "clip": "run1_part2_p1",
    "t": 60,
-   "step": 7,
+   "step": 5,
    "gate": "ok",
    "answer": "not_placed",
-   "latency": 2.03,
-   "reason": "No lime brick is placed beside the blue brick."
+   "latency": 2.28,
+   "reason": "The second white brick is not beside the first."
   },
   {
    "i": 123,
    "clip": "run1_part2_p2",
    "t": 0,
-   "step": 7,
+   "step": 5,
    "gate": "ok",
    "answer": "wrong",
-   "latency": 2.08,
-   "reason": "Right end does not line up with white bricks."
+   "latency": 2.14,
+   "reason": "White area is not two aligned rows."
   },
   {
    "i": 124,
    "clip": "run1_part2_p2",
    "t": 1,
-   "step": 7,
+   "step": 5,
    "gate": "ok",
    "answer": "wrong",
-   "latency": 2.13,
-   "reason": "Lime brick ends short of the white bricks."
+   "latency": 2.09,
+   "reason": "White rows do not touch purple or end together."
   },
   {
    "i": 125,
    "clip": "run1_part2_p2",
    "t": 2,
-   "step": 7,
+   "step": 5,
    "gate": "ok",
-   "answer": "correct",
-   "latency": 2.19,
-   "reason": "All three placement facts are visible."
+   "answer": "not_placed",
+   "latency": 2.18,
+   "reason": "Only one white row is present beside the purple brick."
   },
   {
    "i": 126,
    "clip": "run1_part2_p2",
    "t": 3,
-   "step": 7,
+   "step": 5,
    "gate": "ok",
    "answer": "wrong",
-   "latency": 1.85,
-   "reason": "Right end does not line up."
+   "latency": 2.48,
+   "reason": "Only one white row; right end is uneven."
   },
   {
    "i": 127,
    "clip": "run1_part2_p2",
    "t": 4,
-   "step": 7,
+   "step": 5,
    "gate": "ok",
    "answer": "wrong",
-   "latency": 2.21,
-   "reason": "Its right end does not line up."
+   "latency": 2.29,
+   "reason": "The right end extends beyond the two white rows."
   },
   {
    "i": 128,
    "clip": "run1_part2_p2",
    "t": 5,
-   "step": 7,
+   "step": 5,
    "gate": "ok",
    "answer": "wrong",
-   "latency": 2.53,
-   "reason": "Lime brick\u2019s right end does not align with white bricks."
+   "latency": 2.76,
+   "reason": "Second white row is absent."
   },
   {
    "i": 129,
    "clip": "run1_part2_p2",
    "t": 6,
-   "step": 7,
+   "step": 5,
    "gate": "ok",
    "answer": "wrong",
-   "latency": 2.06,
-   "reason": "Its right end does not line up with the white bricks."
+   "latency": 2.37,
+   "reason": "The two white rows end at different places."
   },
   {
    "i": 130,
    "clip": "run1_part2_p2",
    "t": 7,
-   "step": 7,
+   "step": 5,
    "gate": "ok",
    "answer": "wrong",
-   "latency": 1.9,
-   "reason": "Its right end does not align with the white bricks."
+   "latency": 2.64,
+   "reason": "The second white row is missing."
   },
   {
    "i": 131,
    "clip": "run1_part2_p2",
    "t": 8,
-   "step": 7,
+   "step": 5,
    "gate": "no plate"
   },
   {
    "i": 132,
    "clip": "run1_part2_p2",
    "t": 9,
-   "step": 7,
+   "step": 5,
    "gate": "no plate"
   },
   {
    "i": 133,
    "clip": "run1_part2_p2",
    "t": 10,
-   "step": 7,
+   "step": 5,
    "gate": "no plate"
   },
   {
    "i": 134,
    "clip": "run1_part2_p2",
    "t": 11,
-   "step": 7,
+   "step": 5,
    "gate": "no plate"
   },
   {
    "i": 135,
    "clip": "run1_part2_p2",
    "t": 12,
-   "step": 7,
+   "step": 5,
    "gate": "hand"
   },
   {
    "i": 136,
    "clip": "run1_part2_p2",
    "t": 13,
-   "step": 7,
+   "step": 5,
    "gate": "ok",
    "answer": "wrong",
-   "latency": 1.92,
-   "reason": "Right end does not line up with white bricks."
+   "latency": 2.53,
+   "reason": "The white area is only one stud row deep."
   },
   {
    "i": 137,
    "clip": "run1_part2_p2",
    "t": 14,
-   "step": 7,
+   "step": 5,
    "gate": "ok",
    "answer": "wrong",
-   "latency": 2.17,
-   "reason": "Its right end does not line up."
+   "latency": 2.2,
+   "reason": "The white rows end at different places."
   },
   {
    "i": 138,
    "clip": "run1_part2_p2",
    "t": 15,
-   "step": 7,
+   "step": 5,
    "gate": "ok",
    "answer": "wrong",
-   "latency": 2.54,
-   "reason": "Its right end does not align with the white bricks."
+   "latency": 2.05,
+   "reason": "The white rows end at different places."
   },
   {
    "i": 139,
    "clip": "run1_part2_p2",
    "t": 16,
-   "step": 7,
+   "step": 5,
    "gate": "ok",
    "answer": "not_placed",
-   "latency": 1.76,
-   "reason": "The lime brick has not been placed."
+   "latency": 2.16,
+   "reason": "Only one white row is visible beside the purple brick."
   },
   {
    "i": 140,
    "clip": "run1_part2_p2",
    "t": 17,
-   "step": 7,
+   "step": 5,
    "gate": "ok",
-   "answer": "correct",
-   "latency": 1.98,
-   "reason": "All three placement facts match."
+   "answer": "wrong",
+   "latency": 2.02,
+   "reason": "Only one white row; right ends do not align."
   },
   {
    "i": 141,
    "clip": "run1_part2_p2",
    "t": 18,
-   "step": 7,
+   "step": 5,
    "gate": "ok",
    "answer": "wrong",
-   "latency": 1.97,
-   "reason": "Right end does not line up with white bricks."
+   "latency": 2.11,
+   "reason": "The white rows do not end together."
   },
   {
    "i": 142,
    "clip": "run1_part2_p2",
    "t": 19,
-   "step": 7,
+   "step": 5,
    "gate": "ok",
    "answer": "wrong",
-   "latency": 1.96,
-   "reason": "Lime brick ends before the white bricks."
+   "latency": 2.62,
+   "reason": "Front white row does not touch the purple brick."
   },
   {
    "i": 143,
    "clip": "run1_part2_p2",
    "t": 20,
-   "step": 7,
+   "step": 5,
    "gate": "ok",
-   "answer": "wrong",
-   "latency": 2.21,
-   "reason": "Lime brick ends before the white bricks."
+   "answer": "not_placed",
+   "latency": 2.13,
+   "reason": "Second white brick is not on the plate."
   },
   {
    "i": 144,
    "clip": "run1_part2_p2",
    "t": 21,
-   "step": 7,
+   "step": 5,
    "gate": "ok",
    "answer": "wrong",
-   "latency": 2.52,
-   "reason": "Its right end does not line up with the white bricks."
+   "latency": 2.18,
+   "reason": "The white rows end at different places."
   },
   {
    "i": 145,
    "clip": "run1_part2_p2",
    "t": 22,
-   "step": 7,
+   "step": 5,
    "gate": "ok",
-   "answer": "correct",
-   "latency": 3.63,
-   "reason": "All three placement facts match."
+   "answer": "wrong",
+   "latency": 1.82,
+   "reason": "The white rows do not end evenly."
   },
   {
    "i": 146,
    "clip": "run1_part2_p2",
    "t": 23,
-   "step": 7,
+   "step": 5,
    "gate": "ok",
    "answer": "correct",
-   "latency": 2.08,
-   "reason": "All three placement facts are visible."
+   "latency": 2.16,
+   "reason": "Both white rows touch purple and end together."
   },
   {
    "i": 147,
    "clip": "run1_part2_p2",
    "t": 24,
-   "step": 8,
+   "step": 5,
    "gate": "ok",
    "answer": "correct",
-   "latency": 1.99,
-   "reason": "Its orientation, contacts, and upper end match."
+   "latency": 2.03,
+   "reason": "Both white rows touch purple and end together."
   }
  ]
 }

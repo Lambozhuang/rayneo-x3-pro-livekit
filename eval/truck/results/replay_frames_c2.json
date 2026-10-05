@@ -1,8 +1,8 @@
 {
  "confirm": 2,
  "frames": "frames",
- "model": "gpt-6-sol_high_none_terse",
- "calls": 74,
+ "model": "gpt-6-sol_high_none_terse2",
+ "calls": 73,
  "facts": [
   {
    "i": 9,
@@ -125,9 +125,9 @@
    "text": "step 12 placed"
   },
   {
-   "i": 124,
+   "i": 123,
    "clip": "run1_part2_p2",
-   "t": 1,
+   "t": 0,
    "kind": "done",
    "step": 13,
    "text": "step 13 placed"
@@ -141,8 +141,8 @@
    "step": 1,
    "gate": "ok",
    "answer": "not_placed",
-   "latency": 2.76,
-   "reason": "The plate is empty."
+   "latency": 2.88,
+   "reason": "No red brick is on the plate."
   },
   {
    "i": 1,
@@ -151,8 +151,8 @@
    "step": 1,
    "gate": "ok",
    "answer": "not_placed",
-   "latency": 2.07,
-   "reason": "No brick is on the plate."
+   "latency": 2.0,
+   "reason": "No red brick is on the plate."
   },
   {
    "i": 2,
@@ -161,7 +161,7 @@
    "step": 1,
    "gate": "ok",
    "answer": "not_placed",
-   "latency": 1.98,
+   "latency": 1.94,
    "reason": "No brick is on the plate."
   },
   {
@@ -171,8 +171,8 @@
    "step": 1,
    "gate": "ok",
    "answer": "not_placed",
-   "latency": 1.81,
-   "reason": "No brick is on the plate."
+   "latency": 2.26,
+   "reason": "The plate is empty."
   },
   {
    "i": 4,
@@ -209,7 +209,7 @@
    "step": 1,
    "gate": "ok",
    "answer": "correct",
-   "latency": 1.97,
+   "latency": 2.77,
    "reason": "All three facts match."
   },
   {
@@ -219,8 +219,8 @@
    "step": 1,
    "gate": "ok",
    "answer": "correct",
-   "latency": 1.69,
-   "reason": "All three placement facts match."
+   "latency": 1.91,
+   "reason": "All three placement facts are visible."
   },
   {
    "i": 10,
@@ -229,7 +229,7 @@
    "step": 2,
    "gate": "ok",
    "answer": "not_placed",
-   "latency": 1.92,
+   "latency": 2.14,
    "reason": "No purple brick is on the plate."
   },
   {
@@ -239,7 +239,7 @@
    "step": 2,
    "gate": "ok",
    "answer": "not_placed",
-   "latency": 1.73,
+   "latency": 1.96,
    "reason": "No purple brick is on the plate."
   },
   {
@@ -263,8 +263,8 @@
    "step": 2,
    "gate": "ok",
    "answer": "correct",
-   "latency": 1.81,
-   "reason": "All three facts are visible."
+   "latency": 2.31,
+   "reason": "All three facts match."
   },
   {
    "i": 15,
@@ -273,8 +273,8 @@
    "step": 2,
    "gate": "ok",
    "answer": "correct",
-   "latency": 2.62,
-   "reason": "All three facts are visible."
+   "latency": 3.53,
+   "reason": "All three placement facts are visible."
   },
   {
    "i": 16,
@@ -283,8 +283,8 @@
    "step": 3,
    "gate": "ok",
    "answer": "not_placed",
-   "latency": 1.7,
-   "reason": "The lime-green brick is absent."
+   "latency": 1.96,
+   "reason": "No lime brick is visible on the plate."
   },
   {
    "i": 17,
@@ -293,8 +293,8 @@
    "step": 3,
    "gate": "ok",
    "answer": "not_placed",
-   "latency": 2.27,
-   "reason": "Only the red and purple bricks are visible."
+   "latency": 2.1,
+   "reason": "No lime brick is on the plate."
   },
   {
    "i": 18,
@@ -303,8 +303,8 @@
    "step": 3,
    "gate": "ok",
    "answer": "not_placed",
-   "latency": 1.74,
-   "reason": "No lime-green brick is visible."
+   "latency": 2.21,
+   "reason": "No lime brick is visible on the plate."
   },
   {
    "i": 19,
@@ -313,8 +313,8 @@
    "step": 3,
    "gate": "ok",
    "answer": "not_placed",
-   "latency": 2.2,
-   "reason": "No lime brick is on the plate."
+   "latency": 1.96,
+   "reason": "No lime brick is visible on the plate."
   },
   {
    "i": 20,
@@ -323,8 +323,8 @@
    "step": 3,
    "gate": "ok",
    "answer": "not_placed",
-   "latency": 1.64,
-   "reason": "No lime brick is visible on the plate."
+   "latency": 1.87,
+   "reason": "No lime brick is on the plate."
   },
   {
    "i": 21,
@@ -333,7 +333,7 @@
    "step": 3,
    "gate": "ok",
    "answer": "correct",
-   "latency": 2.72,
+   "latency": 2.17,
    "reason": "All three placement facts are visible."
   },
   {
@@ -343,8 +343,8 @@
    "step": 3,
    "gate": "ok",
    "answer": "correct",
-   "latency": 1.75,
-   "reason": "All three facts are visible."
+   "latency": 3.29,
+   "reason": "All three placement facts are visible."
   },
   {
    "i": 23,
@@ -353,8 +353,8 @@
    "step": 4,
    "gate": "ok",
    "answer": "not_placed",
-   "latency": 1.96,
-   "reason": "Only the earlier bricks are visible."
+   "latency": 1.88,
+   "reason": "No white brick is visible on the plate."
   },
   {
    "i": 24,
@@ -363,7 +363,7 @@
    "step": 4,
    "gate": "ok",
    "answer": "not_placed",
-   "latency": 1.8,
+   "latency": 2.47,
    "reason": "No white brick is on the plate."
   },
   {
@@ -380,8 +380,8 @@
    "step": 4,
    "gate": "ok",
    "answer": "not_placed",
-   "latency": 1.57,
-   "reason": "No brick is visible on the plate."
+   "latency": 1.8,
+   "reason": "No white brick is visible on the plate."
   },
   {
    "i": 27,
@@ -390,8 +390,8 @@
    "step": 4,
    "gate": "ok",
    "answer": "wrong",
-   "latency": 1.98,
-   "reason": "The brick appears cream, not pure white."
+   "latency": 2.29,
+   "reason": "Brick appears cream, not pure white."
   },
   {
    "i": 28,
@@ -400,8 +400,8 @@
    "step": 4,
    "gate": "ok",
    "answer": "wrong",
-   "latency": 2.09,
-   "reason": "The brick appears cream, not pure white."
+   "latency": 2.12,
+   "reason": "Brick appears cream, not pure white."
   },
   {
    "i": 29,
@@ -417,8 +417,8 @@
    "step": 4,
    "gate": "ok",
    "answer": "not_placed",
-   "latency": 1.94,
-   "reason": "The white brick is absent."
+   "latency": 2.34,
+   "reason": "No white brick is visible on the plate."
   },
   {
    "i": 31,
@@ -441,8 +441,8 @@
    "step": 4,
    "gate": "ok",
    "answer": "correct",
-   "latency": 2.56,
-   "reason": "All three facts match the photo."
+   "latency": 2.48,
+   "reason": "White six-stud brick touches purple at its left end."
   },
   {
    "i": 34,
@@ -451,8 +451,8 @@
    "step": 4,
    "gate": "ok",
    "answer": "correct",
-   "latency": 2.32,
-   "reason": "Colour, length, orientation, and contact match."
+   "latency": 1.92,
+   "reason": "White six-stud brick touches purple."
   },
   {
    "i": 35,
@@ -461,8 +461,8 @@
    "step": 5,
    "gate": "ok",
    "answer": "not_placed",
-   "latency": 1.79,
-   "reason": "Only one white brick is visible."
+   "latency": 2.1,
+   "reason": "The second white row is absent."
   },
   {
    "i": 36,
@@ -471,8 +471,8 @@
    "step": 5,
    "gate": "ok",
    "answer": "not_placed",
-   "latency": 2.61,
-   "reason": "The second white brick is still in hand."
+   "latency": 1.91,
+   "reason": "The second white brick has not been placed."
   },
   {
    "i": 37,
@@ -495,8 +495,8 @@
    "step": 5,
    "gate": "ok",
    "answer": "correct",
-   "latency": 2.11,
-   "reason": "Both white bricks form an aligned two-stud-deep block."
+   "latency": 2.5,
+   "reason": "Both white rows align and touch purple."
   },
   {
    "i": 40,
@@ -505,8 +505,8 @@
    "step": 5,
    "gate": "ok",
    "answer": "correct",
-   "latency": 2.18,
-   "reason": "Both white bricks form an aligned, two-stud-deep area."
+   "latency": 2.07,
+   "reason": "The white area matches all three facts."
   },
   {
    "i": 41,
@@ -514,9 +514,9 @@
    "t": 41,
    "step": 6,
    "gate": "ok",
-   "answer": "not_placed",
-   "latency": 1.7,
-   "reason": "Blue brick is absent."
+   "answer": "wrong",
+   "latency": 2.13,
+   "reason": "Blue piece is not beside purple under white."
   },
   {
    "i": 42,
@@ -525,8 +525,8 @@
    "step": 6,
    "gate": "ok",
    "answer": "not_placed",
-   "latency": 1.71,
-   "reason": "Blue brick remains in the builder\u2019s hand."
+   "latency": 2.08,
+   "reason": "Blue brick is still in the builder\u2019s hand."
   },
   {
    "i": 43,
@@ -542,8 +542,8 @@
    "step": 6,
    "gate": "ok",
    "answer": "wrong",
-   "latency": 2.13,
-   "reason": "Left end is separated; right ends align."
+   "latency": 2.9,
+   "reason": "Blue brick is shifted right, leaving a gap."
   },
   {
    "i": 45,
@@ -552,8 +552,8 @@
    "step": 6,
    "gate": "ok",
    "answer": "wrong",
-   "latency": 3.51,
-   "reason": "Left gap; right end is not two studs short."
+   "latency": 2.12,
+   "reason": "Blue brick does not touch purple brick."
   },
   {
    "i": 46,
@@ -562,8 +562,8 @@
    "step": 6,
    "gate": "ok",
    "answer": "wrong",
-   "latency": 2.65,
-   "reason": "Blue brick does not touch purple brick."
+   "latency": 2.51,
+   "reason": "Blue brick does not touch purple; right end extends too far."
   },
   {
    "i": 47,
@@ -593,8 +593,8 @@
    "step": 6,
    "gate": "ok",
    "answer": "correct",
-   "latency": 2.38,
-   "reason": "All three alignments appear correct."
+   "latency": 2.09,
+   "reason": "Blue brick is placed as specified."
   },
   {
    "i": 51,
@@ -603,8 +603,8 @@
    "step": 6,
    "gate": "ok",
    "answer": "correct",
-   "latency": 2.07,
-   "reason": "All three placements appear correct."
+   "latency": 1.95,
+   "reason": "All three positions match."
   },
   {
    "i": 52,
@@ -613,8 +613,8 @@
    "step": 7,
    "gate": "ok",
    "answer": "not_placed",
-   "latency": 1.94,
-   "reason": "The space beside the blue brick is empty."
+   "latency": 2.23,
+   "reason": "No lime brick is visible beside the blue brick."
   },
   {
    "i": 53,
@@ -623,8 +623,8 @@
    "step": 7,
    "gate": "ok",
    "answer": "not_placed",
-   "latency": 2.11,
-   "reason": "The space right of the blue brick is empty."
+   "latency": 2.14,
+   "reason": "No lime brick beside the blue brick."
   },
   {
    "i": 54,
@@ -640,8 +640,8 @@
    "step": 7,
    "gate": "ok",
    "answer": "not_placed",
-   "latency": 2.04,
-   "reason": "The space beside the blue brick is empty."
+   "latency": 2.11,
+   "reason": "No lime brick is visible beside the blue brick."
   },
   {
    "i": 56,
@@ -657,8 +657,8 @@
    "step": 7,
    "gate": "ok",
    "answer": "correct",
-   "latency": 2.15,
-   "reason": "All three placement facts are visible."
+   "latency": 1.67,
+   "reason": "All three placement facts match."
   },
   {
    "i": 58,
@@ -667,7 +667,7 @@
    "step": 7,
    "gate": "ok",
    "answer": "correct",
-   "latency": 1.91,
+   "latency": 2.13,
    "reason": "All three facts are visible."
   },
   {
@@ -677,8 +677,8 @@
    "step": 8,
    "gate": "ok",
    "answer": "not_placed",
-   "latency": 1.99,
-   "reason": "The target brick is absent."
+   "latency": 3.62,
+   "reason": "No white 1x4 is visible at the right end."
   },
   {
    "i": 60,
@@ -687,8 +687,8 @@
    "step": 8,
    "gate": "ok",
    "answer": "not_placed",
-   "latency": 2.24,
-   "reason": "The right-end brick is absent."
+   "latency": 3.14,
+   "reason": "No white 1x4 brick at the right end."
   },
   {
    "i": 61,
@@ -696,9 +696,9 @@
    "t": 61,
    "step": 8,
    "gate": "ok",
-   "answer": "cannot_see",
-   "latency": 2.17,
-   "reason": "Hand obscures the brick's placement."
+   "answer": "correct",
+   "latency": 2.29,
+   "reason": "All three visible placement facts match."
   },
   {
    "i": 62,
@@ -707,8 +707,8 @@
    "step": 8,
    "gate": "ok",
    "answer": "not_placed",
-   "latency": 2.12,
-   "reason": "Brick remains in the builder's hand."
+   "latency": 2.23,
+   "reason": "The white piece is still in the builder\u2019s hand."
   },
   {
    "i": 63,
@@ -717,8 +717,8 @@
    "step": 8,
    "gate": "ok",
    "answer": "cannot_see",
-   "latency": 2.07,
-   "reason": "Hand obscures the brick and its contact points."
+   "latency": 3.22,
+   "reason": "Hand obscures its placement and contact points."
   },
   {
    "i": 64,
@@ -727,8 +727,8 @@
    "step": 8,
    "gate": "ok",
    "answer": "wrong",
-   "latency": 2.22,
-   "reason": "Its long side runs left to right."
+   "latency": 2.56,
+   "reason": "White brick is oriented left to right, not front to back."
   },
   {
    "i": 65,
@@ -758,8 +758,8 @@
    "step": 8,
    "gate": "ok",
    "answer": "not_placed",
-   "latency": 2.12,
-   "reason": "The brick is not on the plate."
+   "latency": 2.48,
+   "reason": "The white brick is not on the plate."
   },
   {
    "i": 69,
@@ -768,8 +768,8 @@
    "step": 8,
    "gate": "ok",
    "answer": "not_placed",
-   "latency": 1.87,
-   "reason": "Brick remains in the builder\u2019s hand."
+   "latency": 3.3,
+   "reason": "The brick is still in the builder's hand."
   },
   {
    "i": 70,
@@ -785,8 +785,8 @@
    "step": 8,
    "gate": "ok",
    "answer": "correct",
-   "latency": 2.87,
-   "reason": "All three facts are visible."
+   "latency": 2.25,
+   "reason": "All three placement facts match."
   },
   {
    "i": 72,
@@ -795,8 +795,8 @@
    "step": 8,
    "gate": "ok",
    "answer": "correct",
-   "latency": 1.88,
-   "reason": "All three facts match."
+   "latency": 2.25,
+   "reason": "All three visible facts match."
   },
   {
    "i": 73,
@@ -861,8 +861,8 @@
    "step": 9,
    "gate": "ok",
    "answer": "not_placed",
-   "latency": 2.1,
-   "reason": "The disc is absent from the plate."
+   "latency": 2.65,
+   "reason": "No red disc is on the plate."
   },
   {
    "i": 82,
@@ -870,9 +870,9 @@
    "t": 20,
    "step": 9,
    "gate": "ok",
-   "answer": "not_placed",
-   "latency": 1.69,
-   "reason": "No red disc is visible on the plate."
+   "answer": "cannot_see",
+   "latency": 3.14,
+   "reason": "The hand hides where the disc belongs."
   },
   {
    "i": 83,
@@ -881,8 +881,8 @@
    "step": 9,
    "gate": "ok",
    "answer": "not_placed",
-   "latency": 1.89,
-   "reason": "The disc has not been placed."
+   "latency": 1.84,
+   "reason": "No red disc is on the plate."
   },
   {
    "i": 84,
@@ -905,8 +905,8 @@
    "step": 9,
    "gate": "ok",
    "answer": "not_placed",
-   "latency": 1.66,
-   "reason": "The red disc is absent."
+   "latency": 1.91,
+   "reason": "No red round disc is on the plate."
   },
   {
    "i": 87,
@@ -943,8 +943,8 @@
    "step": 9,
    "gate": "ok",
    "answer": "correct",
-   "latency": 1.95,
-   "reason": "All three placement facts match."
+   "latency": 2.05,
+   "reason": "Disc touches slope, aligns in width, and reaches edge."
   },
   {
    "i": 92,
@@ -953,8 +953,8 @@
    "step": 9,
    "gate": "ok",
    "answer": "correct",
-   "latency": 1.85,
-   "reason": "All three placement facts match."
+   "latency": 2.13,
+   "reason": "Disc touches slope, aligns with it, and reaches edge."
   },
   {
    "i": 93,
@@ -962,9 +962,9 @@
    "t": 31,
    "step": 10,
    "gate": "ok",
-   "answer": "not_placed",
-   "latency": 1.99,
-   "reason": "The disc is still in the builder's hand."
+   "answer": "cannot_see",
+   "latency": 2.51,
+   "reason": "Hand obscures the rear wheel position."
   },
   {
    "i": 94,
@@ -1008,8 +1008,8 @@
    "step": 10,
    "gate": "ok",
    "answer": "wrong",
-   "latency": 2.11,
-   "reason": "Disc extends too far right."
+   "latency": 2.12,
+   "reason": "Disc extends too far right beneath the white brick."
   },
   {
    "i": 100,
@@ -1018,8 +1018,8 @@
    "step": 10,
    "gate": "ok",
    "answer": "wrong",
-   "latency": 3.02,
-   "reason": "Disc extends too far right and overlaps below white brick."
+   "latency": 1.96,
+   "reason": "Disc extends too far right beneath the white brick."
   },
   {
    "i": 101,
@@ -1042,8 +1042,8 @@
    "step": 10,
    "gate": "ok",
    "answer": "wrong",
-   "latency": 2.12,
-   "reason": "Disc extends too far right."
+   "latency": 2.41,
+   "reason": "Disc extends past the lime brick\u2019s right end."
   },
   {
    "i": 104,
@@ -1087,8 +1087,8 @@
    "step": 10,
    "gate": "ok",
    "answer": "correct",
-   "latency": 1.99,
-   "reason": "All three placement facts are visible."
+   "latency": 2.52,
+   "reason": "All three positions match."
   },
   {
    "i": 110,
@@ -1097,8 +1097,8 @@
    "step": 10,
    "gate": "ok",
    "answer": "correct",
-   "latency": 2.25,
-   "reason": "All three placement facts are visible."
+   "latency": 1.85,
+   "reason": "The rear disc matches all three facts."
   },
   {
    "i": 111,
@@ -1107,8 +1107,8 @@
    "step": 11,
    "gate": "ok",
    "answer": "not_placed",
-   "latency": 1.99,
-   "reason": "The ground-line brick is absent."
+   "latency": 2.02,
+   "reason": "No tan brick is on the plate."
   },
   {
    "i": 112,
@@ -1117,8 +1117,8 @@
    "step": 11,
    "gate": "ok",
    "answer": "not_placed",
-   "latency": 1.66,
-   "reason": "The brick has not been placed."
+   "latency": 1.98,
+   "reason": "No tan brick is on the plate."
   },
   {
    "i": 113,
@@ -1127,8 +1127,8 @@
    "step": 11,
    "gate": "ok",
    "answer": "not_placed",
-   "latency": 1.84,
-   "reason": "The ground-line brick is absent."
+   "latency": 2.77,
+   "reason": "No beige brick is on the plate."
   },
   {
    "i": 114,
@@ -1144,8 +1144,8 @@
    "step": 11,
    "gate": "ok",
    "answer": "correct",
-   "latency": 1.83,
-   "reason": "All three facts match."
+   "latency": 1.93,
+   "reason": "Tan brick is positioned as specified."
   },
   {
    "i": 116,
@@ -1154,8 +1154,8 @@
    "step": 11,
    "gate": "ok",
    "answer": "correct",
-   "latency": 2.67,
-   "reason": "All three facts are visible."
+   "latency": 1.81,
+   "reason": "All three facts match."
   },
   {
    "i": 117,
@@ -1164,8 +1164,8 @@
    "step": 12,
    "gate": "ok",
    "answer": "not_placed",
-   "latency": 2.31,
-   "reason": "No step brick is visible on the plate."
+   "latency": 1.86,
+   "reason": "No white brick is present beside the tan brick."
   },
   {
    "i": 118,
@@ -1188,8 +1188,8 @@
    "step": 12,
    "gate": "ok",
    "answer": "correct",
-   "latency": 2.03,
-   "reason": "All three facts are visible."
+   "latency": 4.9,
+   "reason": "White brick touches tan and runs beneath rear disc."
   },
   {
    "i": 121,
@@ -1198,8 +1198,8 @@
    "step": 12,
    "gate": "ok",
    "answer": "correct",
-   "latency": 2.14,
-   "reason": "All three facts match the photo."
+   "latency": 2.88,
+   "reason": "All three facts are visible."
   },
   {
    "i": 122,
@@ -1207,9 +1207,9 @@
    "t": 60,
    "step": 13,
    "gate": "ok",
-   "answer": "cannot_see",
-   "latency": 2.05,
-   "reason": "Hand hides the yellow brick\u2019s far end."
+   "answer": "correct",
+   "latency": 2.3,
+   "reason": "Yellow brick aligns, touches, and reaches the edge."
   },
   {
    "i": 123,
@@ -1218,18 +1218,15 @@
    "step": 13,
    "gate": "ok",
    "answer": "correct",
-   "latency": 2.87,
-   "reason": "Yellow, aligned, touching, and reaches the edge."
+   "latency": 2.47,
+   "reason": "Yellow brick touches white brick and reaches right edge."
   },
   {
    "i": 124,
    "clip": "run1_part2_p2",
    "t": 1,
-   "step": 13,
-   "gate": "ok",
-   "answer": "correct",
-   "latency": 2.63,
-   "reason": "All three facts match."
+   "step": 14,
+   "gate": "ok"
   },
   {
    "i": 125,
