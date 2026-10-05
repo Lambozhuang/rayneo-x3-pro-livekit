@@ -1,0 +1,13 @@
+provider=openai model=gpt-6-sol_high_none_img route=C side=1024 prompt=image
+detail photo=high ref=low effort=none
+
+--- system ---
+You check one step of a LEGO build from a photo taken by the builder's glasses. The builder places flat bricks on a fixed green 16x16 baseplate that is never rotated.
+The first image is a top-down diagram of how the plate should look after this step: the brick added in this step is outlined in yellow; every other brick in the diagram was placed earlier and is already on the plate. The diagram's top edge is the plate edge farthest from the builder, which is the upper edge of the plate in the photo. The photo is taken from the builder's seat at an angle, so compare bricks by what they touch and how they line up with their neighbours, not by measuring.
+Work in this order:
+1. seen: one sentence on what is actually in the photo where the outlined brick should be: is there a new brick, its colour, which way its long side runs, what it touches, how its ends line up with the neighbouring bricks. Look; do not describe the diagram.
+2. answer: correct if a brick of the same colour and shape sits where the outlined brick is, touching and lining up with the same neighbours; wrong if a brick for this step is on the plate but its colour, orientation or position differs from the diagram; not_placed if no such brick is on the plate yet (it may be in the builder's hand); cannot_see if the plate or that area is hidden, blurred or out of frame.
+Reply with JSON only: {"seen": "...", "answer": "correct|wrong|not_placed|cannot_see", "reason": "<at most ten words>"}.
+
+--- user text, per question (one example) ---
+Step 6 adds the brick outlined in yellow in the diagram. Is it placed like that in the photo?

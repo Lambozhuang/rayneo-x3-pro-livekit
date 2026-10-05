@@ -74,6 +74,14 @@ SYSTEM_CHECKS = SYSTEM_REL.split("Work in this order")[0] + """Look at the photo
 Reply with JSON only, nothing else: {"checks": "<letters in order>", "answer": "correct|wrong|not_placed|cannot_see", "reason": "<at most eight words>"}."""
 
 
+SYSTEM_IMG = """You check one step of a LEGO build from a photo taken by the builder's glasses. The builder places flat bricks on a fixed green 16x16 baseplate that is never rotated.
+The first image is a top-down diagram of how the plate should look after this step: the brick added in this step is outlined in yellow; every other brick in the diagram was placed earlier and is already on the plate. The diagram's top edge is the plate edge farthest from the builder, which is the upper edge of the plate in the photo. The photo is taken from the builder's seat at an angle, so compare bricks by what they touch and how they line up with their neighbours, not by measuring.
+Work in this order:
+1. seen: one sentence on what is actually in the photo where the outlined brick should be: is there a new brick, its colour, which way its long side runs, what it touches, how its ends line up with the neighbouring bricks. Look; do not describe the diagram.
+2. answer: correct if a brick of the same colour and shape sits where the outlined brick is, touching and lining up with the same neighbours; wrong if a brick for this step is on the plate but its colour, orientation or position differs from the diagram; not_placed if no such brick is on the plate yet (it may be in the builder's hand); cannot_see if the plate or that area is hidden, blurred or out of frame.
+Reply with JSON only: {"seen": "...", "answer": "correct|wrong|not_placed|cannot_see", "reason": "<at most ten words>"}."""
+
+
 def load():
     layout = json.loads((TRUCK / "layout.json").read_text(encoding="utf-8"))
     events = json.loads((TRUCK / "events.json").read_text(encoding="utf-8"))
@@ -125,8 +133,8 @@ def label_frames(events) -> list[dict]:
 
 # ---------------------------------------------------------------- images
 
-def render_ref(steps, n: int) -> Image.Image:
-    m = CELL
+def render_ref(steps, n: int, labels: bool = True) -> Image.Image:
+    m = CELL if labels else 4
     img = Image.new("RGB", (m + 16 * CELL, m + 16 * CELL), (30, 120, 60))
     d = ImageDraw.Draw(img)
     for i in range(16):
@@ -134,7 +142,7 @@ def render_ref(steps, n: int) -> Image.Image:
             cx, cy = m + i * CELL + CELL // 2, m + j * CELL + CELL // 2
             d.ellipse([cx - 4, cy - 4, cx + 4, cy + 4], fill=(25, 100, 50))
     font = ImageFont.load_default()
-    for i in range(16):
+    for i in range(16 if labels else 0):
         d.text((m + i * CELL + 7, 6), str(i + 1), fill="white", font=font)
         d.text((6, m + i * CELL + 7), str(i + 1), fill="white", font=font)
     for s in steps:
@@ -249,6 +257,10 @@ def step_text_rel(steps, n: int) -> str:
     lines.append("Facts to check:")
     lines += [f"{i}. {c}" for i, c in enumerate(s["checks"], 1)]
     return chr(10).join(lines)
+
+
+def step_text_img(n: int) -> str:
+    return f"Step {n} adds the brick outlined in yellow in the diagram. Is it placed like that in the photo?"
 
 
 # ---------------------------------------------------------------- providers
@@ -437,8 +449,11 @@ def cmd_run(args):
         rows = [r for r in rows if (r["clip"], r["frame"], r["step"]) in keep]
     judge = {"openai": OpenAIJudge, "openrouter": OpenRouterJudge, "gemini": GeminiJudge, "dry": DryJudge}[args.provider]()
     rel = args.prompt != "grid"
-    system = {"grid": SYSTEM, "relational": SYSTEM_REL, "terse": SYSTEM_REL_TERSE, "checks": SYSTEM_CHECKS}[args.prompt]
-    judge.tag += {"grid": "", "relational": "_rel", "terse": "_terse", "checks": "_checks"}[args.prompt] + (f"_{args.tag}" if args.tag else "")
+    system = {"grid": SYSTEM, "relational": SYSTEM_REL, "terse": SYSTEM_REL_TERSE, "checks": SYSTEM_CHECKS, "image": SYSTEM_IMG}[args.prompt]
+    judge.tag += {"grid": "", "relational": "_rel", "terse": "_terse", "checks": "_checks", "image": "_img"}[args.prompt] + (f"_{args.tag}" if args.tag else "")
+    img = args.prompt == "image"  # diagram without numbers + one-line question, no coordinates, no facts
+    if img:
+        rel = False
     RESULTS.mkdir(exist_ok=True)
     name = f"{Path(args.questions).stem}_" if args.questions else ""
     out = RESULTS / f"{name}{args.route}_{judge.tag}.jsonl"
@@ -448,7 +463,7 @@ def cmd_run(args):
     if args.provider in ("openai", "openrouter"):
         header.append(f"detail photo={judge.detail} ref=low effort={judge.effort}")
     (calls / "prompt.txt").write_text("\n".join(header) + "\n\n--- system ---\n" + system
-                                      + "\n\n--- user text, per question (one example) ---\n" + (step_text_rel(steps, 6) if rel else step_text(steps, 1)) + "\n", encoding="utf-8")
+                                      + "\n\n--- user text, per question (one example) ---\n" + (step_text_rel(steps, 6) if rel else step_text_img(6) if img else step_text(steps, 1)) + "\n", encoding="utf-8")
     done = set()
     if out.exists():
         for line in out.read_text(encoding="utf-8").splitlines():
@@ -463,9 +478,9 @@ def cmd_run(args):
         for i, r in enumerate(todo, 1):
             n = r["step"]
             if n not in refs:
-                refs[n] = None if rel else to_png(render_ref(steps, n))
+                refs[n] = None if rel else to_png(render_ref(steps, n, labels=not img))
             photo = prep_photo(FRAMES / r["clip"] / r["frame"], args.route)
-            rec = dict(r, route=args.route, model=judge.tag, question=(step_text_rel if rel else step_text)(steps, n))
+            rec = dict(r, route=args.route, model=judge.tag, question=step_text_rel(steps, n) if rel else step_text_img(n) if img else step_text(steps, n))
             if photo is None:
                 rec.update(answer="cannot_see", reason="no plate in green mask", raw="", latency=0, usage={})
             else:
@@ -539,7 +554,7 @@ def main():
     p.add_argument("--route", choices=["B", "C"], required=True)
     p.add_argument("--provider", choices=["openai", "openrouter", "gemini", "dry"], required=True)
     p.add_argument("--questions", help="question file such as truck/rest.json instead of the derived per-frame labels")
-    p.add_argument("--prompt", choices=["grid", "relational", "terse", "checks"], default="grid",
+    p.add_argument("--prompt", choices=["grid", "relational", "terse", "checks", "image"], default="grid",
                    help="grid: numbered diagram + columns/rows; relational: plain-language neighbours and alignment, describe first, no diagram")
     p.add_argument("--tag", help="suffix for the result name, e.g. a repeat number")
     p.add_argument("--subset")
