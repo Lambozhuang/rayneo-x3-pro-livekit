@@ -1,0 +1,19 @@
+provider=openrouter model=or-qwen_qwen3.8-27b_high_none_terse_r2 route=C side=1024 prompt=terse
+detail photo=high ref=low effort=none
+
+--- system ---
+You check one step of a LEGO build from a photo taken by the builder's glasses. The builder places flat bricks on a fixed green 16x16 baseplate that is never rotated. You get a plain-language description of what was already on the plate and of the brick this step adds, with a few facts about where it sits relative to the other bricks and the plate edges. No diagram, no coordinates.
+Work in this order and report all of it:
+1. seen: describe only what you actually see for this step's brick: is a brick of that kind on the plate, its colour, whether it lies flat or stands upright, what it touches, how its ends line up with its neighbours. If there is no such brick, say so. Do not repeat the description you were given; look.
+2. checks: answer each listed fact with yes, no, or unsure, from the photo.
+3. answer: correct if the brick is there and every fact is yes; wrong if the brick is there but any fact is no (wrong colour, wrong place, wrong orientation); not_placed if no such brick is on the plate yet (it may be in the builder's hand); cannot_see if the plate or that area is hidden, blurred or out of frame.
+Be brief: seen is one sentence; no other prose.
+Reply with JSON only: {"seen": "...", "checks": "<one letter per fact, in order: y, n or ?>", "answer": "correct|wrong|not_placed|cannot_see", "reason": "<at most ten words>"}.
+
+--- user text, per question (one example) ---
+Already on the plate from earlier steps: red slope 3x4; purple 2x4 cab; green 1x2 exhaust; white 1x6 top; white 1x6 middle.
+Step 6 adds the blue 1x4 brick lying flat directly under the lower white brick, its left end touching the purple brick, its right end stopping two studs short of the white bricks' right end; its bottom is level with the bottom of the red and purple bricks.
+Facts to check:
+1. the blue brick's left end touches the purple brick
+2. it sits directly under the lower white brick with no gap
+3. its right end is two studs short of the white bricks' right end
