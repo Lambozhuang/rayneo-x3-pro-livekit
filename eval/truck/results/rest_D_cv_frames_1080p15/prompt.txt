@@ -1,0 +1,5 @@
+route=D prompt=cv frames=frames_1080p15 dv=-0.45 hit_ok=0.7 other_bad=0.5 stray_bad=2
+No model. Plate corners from the green silhouette, homography to the 16x16 grid, per-cell median colour at the
+cell centre shifted -0.45 toward the camera, nearest colour centre (centres from run1_part2_p2/003.jpg), compared
+with the expected map of step N (brick top faces shifted one row away from the camera).
+centres: {"plate": [0.194, 0.535, 0.268, 0.0], "red": [0.615, 0.199, 0.185, 0.0], "purple": [0.341, 0.274, 0.385, 0.0], "lime": [0.383, 0.481, 0.134, 0.0], "white": [0.339, 0.341, 0.319, 0.0], "blue": [0.171, 0.346, 0.483, 0.0], "tan": [0.397, 0.354, 0.246, 0.0], "yellow": [0.571, 0.392, 0.035, 0.0]} focal_px=670

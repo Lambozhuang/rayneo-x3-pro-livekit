@@ -1,0 +1,1399 @@
+{
+ "confirm": 2,
+ "frames": "frames_1080p15",
+ "model": "cv",
+ "calls": 75,
+ "facts": [
+  {
+   "i": 9,
+   "clip": "run1_part1",
+   "t": 9,
+   "kind": "done",
+   "step": 1,
+   "text": "step 1 placed"
+  },
+  {
+   "i": 15,
+   "clip": "run1_part1",
+   "t": 15,
+   "kind": "done",
+   "step": 2,
+   "text": "step 2 placed"
+  },
+  {
+   "i": 23,
+   "clip": "run1_part1",
+   "t": 23,
+   "kind": "done",
+   "step": 3,
+   "text": "step 3 placed"
+  },
+  {
+   "i": 28,
+   "clip": "run1_part1",
+   "t": 28,
+   "kind": "wrong",
+   "step": 4,
+   "text": "step 4 wrong: tan where the white brick should be"
+  },
+  {
+   "i": 34,
+   "clip": "run1_part1",
+   "t": 34,
+   "kind": "done",
+   "step": 4,
+   "text": "step 4 placed"
+  },
+  {
+   "i": 40,
+   "clip": "run1_part1",
+   "t": 40,
+   "kind": "done",
+   "step": 5,
+   "text": "step 5 placed"
+  },
+  {
+   "i": 44,
+   "clip": "run1_part1",
+   "t": 44,
+   "kind": "wrong",
+   "step": 6,
+   "text": "step 6 wrong: the blue brick sits about 2 studs to the right of where it should be"
+  },
+  {
+   "i": 52,
+   "clip": "run1_part1",
+   "t": 52,
+   "kind": "done",
+   "step": 6,
+   "text": "step 6 placed"
+  },
+  {
+   "i": 58,
+   "clip": "run1_part1",
+   "t": 58,
+   "kind": "done",
+   "step": 7,
+   "text": "step 7 placed"
+  },
+  {
+   "i": 63,
+   "clip": "run1_part2_p1",
+   "t": 1,
+   "kind": "done",
+   "step": 8,
+   "text": "step 8 placed"
+  },
+  {
+   "i": 92,
+   "clip": "run1_part2_p1",
+   "t": 30,
+   "kind": "done",
+   "step": 9,
+   "text": "step 9 placed"
+  },
+  {
+   "i": 95,
+   "clip": "run1_part2_p1",
+   "t": 33,
+   "kind": "wrong",
+   "step": 10,
+   "text": "step 10 wrong: lime/purple/white where the red brick should be"
+  },
+  {
+   "i": 110,
+   "clip": "run1_part2_p1",
+   "t": 48,
+   "kind": "done",
+   "step": 10,
+   "text": "step 10 placed"
+  },
+  {
+   "i": 116,
+   "clip": "run1_part2_p1",
+   "t": 54,
+   "kind": "done",
+   "step": 11,
+   "text": "step 11 placed"
+  },
+  {
+   "i": 121,
+   "clip": "run1_part2_p1",
+   "t": 59,
+   "kind": "done",
+   "step": 12,
+   "text": "step 12 placed"
+  },
+  {
+   "i": 123,
+   "clip": "run1_part2_p2",
+   "t": 0,
+   "kind": "done",
+   "step": 13,
+   "text": "step 13 placed"
+  }
+ ],
+ "timeline": [
+  {
+   "i": 0,
+   "clip": "run1_part1",
+   "t": 0,
+   "step": 1,
+   "gate": "ok",
+   "answer": "not_placed",
+   "latency": 0.112,
+   "reason": "only 0% of its cells show red"
+  },
+  {
+   "i": 1,
+   "clip": "run1_part1",
+   "t": 1,
+   "step": 1,
+   "gate": "ok",
+   "answer": "not_placed",
+   "latency": 0.113,
+   "reason": "only 0% of its cells show red"
+  },
+  {
+   "i": 2,
+   "clip": "run1_part1",
+   "t": 2,
+   "step": 1,
+   "gate": "ok",
+   "answer": "not_placed",
+   "latency": 0.114,
+   "reason": "only 0% of its cells show red"
+  },
+  {
+   "i": 3,
+   "clip": "run1_part1",
+   "t": 3,
+   "step": 1,
+   "gate": "ok",
+   "answer": "not_placed",
+   "latency": 0.113,
+   "reason": "only 0% of its cells show red"
+  },
+  {
+   "i": 4,
+   "clip": "run1_part1",
+   "t": 4,
+   "step": 1,
+   "gate": "no plate"
+  },
+  {
+   "i": 5,
+   "clip": "run1_part1",
+   "t": 5,
+   "step": 1,
+   "gate": "no plate"
+  },
+  {
+   "i": 6,
+   "clip": "run1_part1",
+   "t": 6,
+   "step": 1,
+   "gate": "no plate"
+  },
+  {
+   "i": 7,
+   "clip": "run1_part1",
+   "t": 7,
+   "step": 1,
+   "gate": "no plate"
+  },
+  {
+   "i": 8,
+   "clip": "run1_part1",
+   "t": 8,
+   "step": 1,
+   "gate": "ok",
+   "answer": "correct",
+   "latency": 0.122,
+   "reason": "100% of its cells show red"
+  },
+  {
+   "i": 9,
+   "clip": "run1_part1",
+   "t": 9,
+   "step": 1,
+   "gate": "ok",
+   "answer": "correct",
+   "latency": 0.119,
+   "reason": "100% of its cells show red"
+  },
+  {
+   "i": 10,
+   "clip": "run1_part1",
+   "t": 10,
+   "step": 2,
+   "gate": "ok",
+   "answer": "not_placed",
+   "latency": 0.13,
+   "reason": "only 0% of its cells show purple"
+  },
+  {
+   "i": 11,
+   "clip": "run1_part1",
+   "t": 11,
+   "step": 2,
+   "gate": "ok",
+   "answer": "not_placed",
+   "latency": 0.113,
+   "reason": "only 0% of its cells show purple"
+  },
+  {
+   "i": 12,
+   "clip": "run1_part1",
+   "t": 12,
+   "step": 2,
+   "gate": "plate partial"
+  },
+  {
+   "i": 13,
+   "clip": "run1_part1",
+   "t": 13,
+   "step": 2,
+   "gate": "no plate"
+  },
+  {
+   "i": 14,
+   "clip": "run1_part1",
+   "t": 14,
+   "step": 2,
+   "gate": "ok",
+   "answer": "correct",
+   "latency": 0.119,
+   "reason": "100% of its cells show purple"
+  },
+  {
+   "i": 15,
+   "clip": "run1_part1",
+   "t": 15,
+   "step": 2,
+   "gate": "ok",
+   "answer": "correct",
+   "latency": 0.12,
+   "reason": "100% of its cells show purple"
+  },
+  {
+   "i": 16,
+   "clip": "run1_part1",
+   "t": 16,
+   "step": 3,
+   "gate": "ok",
+   "answer": "not_placed",
+   "latency": 0.109,
+   "reason": "only 0% of its cells show lime"
+  },
+  {
+   "i": 17,
+   "clip": "run1_part1",
+   "t": 17,
+   "step": 3,
+   "gate": "ok",
+   "answer": "not_placed",
+   "latency": 0.109,
+   "reason": "only 0% of its cells show lime"
+  },
+  {
+   "i": 18,
+   "clip": "run1_part1",
+   "t": 18,
+   "step": 3,
+   "gate": "ok",
+   "answer": "not_placed",
+   "latency": 0.109,
+   "reason": "only 0% of its cells show lime"
+  },
+  {
+   "i": 19,
+   "clip": "run1_part1",
+   "t": 19,
+   "step": 3,
+   "gate": "ok",
+   "answer": "not_placed",
+   "latency": 0.102,
+   "reason": "only 0% of its cells show lime"
+  },
+  {
+   "i": 20,
+   "clip": "run1_part1",
+   "t": 20,
+   "step": 3,
+   "gate": "ok",
+   "answer": "not_placed",
+   "latency": 0.102,
+   "reason": "only 0% of its cells show lime"
+  },
+  {
+   "i": 21,
+   "clip": "run1_part1",
+   "t": 21,
+   "step": 3,
+   "gate": "ok",
+   "answer": "not_placed",
+   "latency": 0.11,
+   "reason": "only 50% of its cells show lime"
+  },
+  {
+   "i": 22,
+   "clip": "run1_part1",
+   "t": 22,
+   "step": 3,
+   "gate": "ok",
+   "answer": "correct",
+   "latency": 0.113,
+   "reason": "100% of its cells show lime"
+  },
+  {
+   "i": 23,
+   "clip": "run1_part1",
+   "t": 23,
+   "step": 3,
+   "gate": "ok",
+   "answer": "correct",
+   "latency": 0.112,
+   "reason": "100% of its cells show lime"
+  },
+  {
+   "i": 24,
+   "clip": "run1_part1",
+   "t": 24,
+   "step": 4,
+   "gate": "ok",
+   "answer": "not_placed",
+   "latency": 0.109,
+   "reason": "only 0% of its cells show white"
+  },
+  {
+   "i": 25,
+   "clip": "run1_part1",
+   "t": 25,
+   "step": 4,
+   "gate": "hand"
+  },
+  {
+   "i": 26,
+   "clip": "run1_part1",
+   "t": 26,
+   "step": 4,
+   "gate": "plate partial"
+  },
+  {
+   "i": 27,
+   "clip": "run1_part1",
+   "t": 27,
+   "step": 4,
+   "gate": "ok",
+   "answer": "wrong",
+   "latency": 0.109,
+   "reason": "tan where the white brick should be"
+  },
+  {
+   "i": 28,
+   "clip": "run1_part1",
+   "t": 28,
+   "step": 4,
+   "gate": "ok",
+   "answer": "wrong",
+   "latency": 0.11,
+   "reason": "tan where the white brick should be"
+  },
+  {
+   "i": 29,
+   "clip": "run1_part1",
+   "t": 29,
+   "step": 4,
+   "gate": "hand"
+  },
+  {
+   "i": 30,
+   "clip": "run1_part1",
+   "t": 30,
+   "step": 4,
+   "gate": "ok",
+   "answer": "wrong",
+   "latency": 0.109,
+   "reason": "the white brick sits about 5 studs to the left of where it should be"
+  },
+  {
+   "i": 31,
+   "clip": "run1_part1",
+   "t": 31,
+   "step": 4,
+   "gate": "hand"
+  },
+  {
+   "i": 32,
+   "clip": "run1_part1",
+   "t": 32,
+   "step": 4,
+   "gate": "hand"
+  },
+  {
+   "i": 33,
+   "clip": "run1_part1",
+   "t": 33,
+   "step": 4,
+   "gate": "ok",
+   "answer": "correct",
+   "latency": 0.116,
+   "reason": "100% of its cells show white"
+  },
+  {
+   "i": 34,
+   "clip": "run1_part1",
+   "t": 34,
+   "step": 4,
+   "gate": "ok",
+   "answer": "correct",
+   "latency": 0.111,
+   "reason": "100% of its cells show white"
+  },
+  {
+   "i": 35,
+   "clip": "run1_part1",
+   "t": 35,
+   "step": 5,
+   "gate": "ok",
+   "answer": "not_placed",
+   "latency": 0.111,
+   "reason": "only 0% of its cells show white"
+  },
+  {
+   "i": 36,
+   "clip": "run1_part1",
+   "t": 36,
+   "step": 5,
+   "gate": "hand"
+  },
+  {
+   "i": 37,
+   "clip": "run1_part1",
+   "t": 37,
+   "step": 5,
+   "gate": "hand"
+  },
+  {
+   "i": 38,
+   "clip": "run1_part1",
+   "t": 38,
+   "step": 5,
+   "gate": "no plate"
+  },
+  {
+   "i": 39,
+   "clip": "run1_part1",
+   "t": 39,
+   "step": 5,
+   "gate": "ok",
+   "answer": "correct",
+   "latency": 0.113,
+   "reason": "100% of its cells show white"
+  },
+  {
+   "i": 40,
+   "clip": "run1_part1",
+   "t": 40,
+   "step": 5,
+   "gate": "ok",
+   "answer": "correct",
+   "latency": 0.113,
+   "reason": "100% of its cells show white"
+  },
+  {
+   "i": 41,
+   "clip": "run1_part1",
+   "t": 41,
+   "step": 6,
+   "gate": "ok",
+   "answer": "not_placed",
+   "latency": 0.113,
+   "reason": "only 0% of its cells show blue"
+  },
+  {
+   "i": 42,
+   "clip": "run1_part1",
+   "t": 42,
+   "step": 6,
+   "gate": "ok",
+   "answer": "wrong",
+   "latency": 0.109,
+   "reason": "white where the blue brick should be"
+  },
+  {
+   "i": 43,
+   "clip": "run1_part1",
+   "t": 43,
+   "step": 6,
+   "gate": "no plate"
+  },
+  {
+   "i": 44,
+   "clip": "run1_part1",
+   "t": 44,
+   "step": 6,
+   "gate": "ok",
+   "answer": "wrong",
+   "latency": 0.109,
+   "reason": "the blue brick sits about 2 studs to the right of where it should be"
+  },
+  {
+   "i": 45,
+   "clip": "run1_part1",
+   "t": 45,
+   "step": 6,
+   "gate": "ok",
+   "answer": "wrong",
+   "latency": 0.111,
+   "reason": "the blue brick sits about 2 studs to the right of where it should be"
+  },
+  {
+   "i": 46,
+   "clip": "run1_part1",
+   "t": 46,
+   "step": 6,
+   "gate": "ok",
+   "answer": "wrong",
+   "latency": 0.109,
+   "reason": "the blue brick sits about 2 studs to the right of where it should be"
+  },
+  {
+   "i": 47,
+   "clip": "run1_part1",
+   "t": 47,
+   "step": 6,
+   "gate": "no plate"
+  },
+  {
+   "i": 48,
+   "clip": "run1_part1",
+   "t": 48,
+   "step": 6,
+   "gate": "hand"
+  },
+  {
+   "i": 49,
+   "clip": "run1_part1",
+   "t": 49,
+   "step": 6,
+   "gate": "no plate"
+  },
+  {
+   "i": 50,
+   "clip": "run1_part1",
+   "t": 50,
+   "step": 6,
+   "gate": "ok",
+   "answer": "wrong",
+   "latency": 0.103,
+   "reason": "white where the blue brick should be"
+  },
+  {
+   "i": 51,
+   "clip": "run1_part1",
+   "t": 51,
+   "step": 6,
+   "gate": "ok",
+   "answer": "correct",
+   "latency": 0.108,
+   "reason": "100% of its cells show blue"
+  },
+  {
+   "i": 52,
+   "clip": "run1_part1",
+   "t": 52,
+   "step": 6,
+   "gate": "ok",
+   "answer": "correct",
+   "latency": 0.111,
+   "reason": "100% of its cells show blue"
+  },
+  {
+   "i": 53,
+   "clip": "run1_part1",
+   "t": 53,
+   "step": 7,
+   "gate": "ok",
+   "answer": "not_placed",
+   "latency": 0.101,
+   "reason": "only 0% of its cells show lime"
+  },
+  {
+   "i": 54,
+   "clip": "run1_part1",
+   "t": 54,
+   "step": 7,
+   "gate": "plate partial"
+  },
+  {
+   "i": 55,
+   "clip": "run1_part1",
+   "t": 55,
+   "step": 7,
+   "gate": "ok",
+   "answer": "not_placed",
+   "latency": 0.103,
+   "reason": "only 0% of its cells show lime"
+  },
+  {
+   "i": 56,
+   "clip": "run1_part1",
+   "t": 56,
+   "step": 7,
+   "gate": "hand"
+  },
+  {
+   "i": 57,
+   "clip": "run1_part1",
+   "t": 57,
+   "step": 7,
+   "gate": "ok",
+   "answer": "correct",
+   "latency": 0.108,
+   "reason": "100% of its cells show lime"
+  },
+  {
+   "i": 58,
+   "clip": "run1_part1",
+   "t": 58,
+   "step": 7,
+   "gate": "ok",
+   "answer": "correct",
+   "latency": 0.111,
+   "reason": "100% of its cells show lime"
+  },
+  {
+   "i": 59,
+   "clip": "run1_part1",
+   "t": 59,
+   "step": 8,
+   "gate": "ok",
+   "answer": "not_placed",
+   "latency": 0.11,
+   "reason": "only 0% of its cells show white"
+  },
+  {
+   "i": 60,
+   "clip": "run1_part1",
+   "t": 60,
+   "step": 8,
+   "gate": "ok",
+   "answer": "not_placed",
+   "latency": 0.108,
+   "reason": "only 0% of its cells show white"
+  },
+  {
+   "i": 61,
+   "clip": "run1_part1",
+   "t": 61,
+   "step": 8,
+   "gate": "ok",
+   "answer": "not_placed",
+   "latency": 0.105,
+   "reason": "only 25% of its cells show white"
+  },
+  {
+   "i": 62,
+   "clip": "run1_part2_p1",
+   "t": 0,
+   "step": 8,
+   "gate": "ok",
+   "answer": "correct",
+   "latency": 0.102,
+   "reason": "75% of its cells show white"
+  },
+  {
+   "i": 63,
+   "clip": "run1_part2_p1",
+   "t": 1,
+   "step": 8,
+   "gate": "ok",
+   "answer": "correct",
+   "latency": 0.102,
+   "reason": "75% of its cells show white"
+  },
+  {
+   "i": 64,
+   "clip": "run1_part2_p1",
+   "t": 2,
+   "step": 9,
+   "gate": "ok",
+   "answer": "not_placed",
+   "latency": 0.103,
+   "reason": "only 0% of its cells show red"
+  },
+  {
+   "i": 65,
+   "clip": "run1_part2_p1",
+   "t": 3,
+   "step": 9,
+   "gate": "hand"
+  },
+  {
+   "i": 66,
+   "clip": "run1_part2_p1",
+   "t": 4,
+   "step": 9,
+   "gate": "hand"
+  },
+  {
+   "i": 67,
+   "clip": "run1_part2_p1",
+   "t": 5,
+   "step": 9,
+   "gate": "plate partial"
+  },
+  {
+   "i": 68,
+   "clip": "run1_part2_p1",
+   "t": 6,
+   "step": 9,
+   "gate": "ok",
+   "answer": "not_placed",
+   "latency": 0.099,
+   "reason": "only 0% of its cells show red"
+  },
+  {
+   "i": 69,
+   "clip": "run1_part2_p1",
+   "t": 7,
+   "step": 9,
+   "gate": "ok",
+   "answer": "not_placed",
+   "latency": 0.097,
+   "reason": "only 25% of its cells show red"
+  },
+  {
+   "i": 70,
+   "clip": "run1_part2_p1",
+   "t": 8,
+   "step": 9,
+   "gate": "hand"
+  },
+  {
+   "i": 71,
+   "clip": "run1_part2_p1",
+   "t": 9,
+   "step": 9,
+   "gate": "ok",
+   "answer": "not_placed",
+   "latency": 0.106,
+   "reason": "only 0% of its cells show red"
+  },
+  {
+   "i": 72,
+   "clip": "run1_part2_p1",
+   "t": 10,
+   "step": 9,
+   "gate": "ok",
+   "answer": "not_placed",
+   "latency": 0.111,
+   "reason": "only 0% of its cells show red"
+  },
+  {
+   "i": 73,
+   "clip": "run1_part2_p1",
+   "t": 11,
+   "step": 9,
+   "gate": "no plate"
+  },
+  {
+   "i": 74,
+   "clip": "run1_part2_p1",
+   "t": 12,
+   "step": 9,
+   "gate": "no plate"
+  },
+  {
+   "i": 75,
+   "clip": "run1_part2_p1",
+   "t": 13,
+   "step": 9,
+   "gate": "no plate"
+  },
+  {
+   "i": 76,
+   "clip": "run1_part2_p1",
+   "t": 14,
+   "step": 9,
+   "gate": "no plate"
+  },
+  {
+   "i": 77,
+   "clip": "run1_part2_p1",
+   "t": 15,
+   "step": 9,
+   "gate": "plate partial"
+  },
+  {
+   "i": 78,
+   "clip": "run1_part2_p1",
+   "t": 16,
+   "step": 9,
+   "gate": "no plate"
+  },
+  {
+   "i": 79,
+   "clip": "run1_part2_p1",
+   "t": 17,
+   "step": 9,
+   "gate": "hand"
+  },
+  {
+   "i": 80,
+   "clip": "run1_part2_p1",
+   "t": 18,
+   "step": 9,
+   "gate": "hand"
+  },
+  {
+   "i": 81,
+   "clip": "run1_part2_p1",
+   "t": 19,
+   "step": 9,
+   "gate": "ok",
+   "answer": "not_placed",
+   "latency": 0.1,
+   "reason": "only 22% of its cells show red"
+  },
+  {
+   "i": 82,
+   "clip": "run1_part2_p1",
+   "t": 20,
+   "step": 9,
+   "gate": "ok",
+   "answer": "cannot_see",
+   "latency": 0.099,
+   "reason": "the place of this step is out of view or covered"
+  },
+  {
+   "i": 83,
+   "clip": "run1_part2_p1",
+   "t": 21,
+   "step": 9,
+   "gate": "ok",
+   "answer": "wrong",
+   "latency": 0.103,
+   "reason": "the red brick sits about 4 rows away from the camera of where it should be"
+  },
+  {
+   "i": 84,
+   "clip": "run1_part2_p1",
+   "t": 22,
+   "step": 9,
+   "gate": "ok",
+   "answer": "not_placed",
+   "latency": 0.103,
+   "reason": "only 0% of its cells show red"
+  },
+  {
+   "i": 85,
+   "clip": "run1_part2_p1",
+   "t": 23,
+   "step": 9,
+   "gate": "ok",
+   "answer": "not_placed",
+   "latency": 0.099,
+   "reason": "only 50% of its cells show red"
+  },
+  {
+   "i": 86,
+   "clip": "run1_part2_p1",
+   "t": 24,
+   "step": 9,
+   "gate": "ok",
+   "answer": "not_placed",
+   "latency": 0.102,
+   "reason": "only 16% of its cells show red"
+  },
+  {
+   "i": 87,
+   "clip": "run1_part2_p1",
+   "t": 25,
+   "step": 9,
+   "gate": "no plate"
+  },
+  {
+   "i": 88,
+   "clip": "run1_part2_p1",
+   "t": 26,
+   "step": 9,
+   "gate": "no plate"
+  },
+  {
+   "i": 89,
+   "clip": "run1_part2_p1",
+   "t": 27,
+   "step": 9,
+   "gate": "hand"
+  },
+  {
+   "i": 90,
+   "clip": "run1_part2_p1",
+   "t": 28,
+   "step": 9,
+   "gate": "hand"
+  },
+  {
+   "i": 91,
+   "clip": "run1_part2_p1",
+   "t": 29,
+   "step": 9,
+   "gate": "ok",
+   "answer": "correct",
+   "latency": 0.104,
+   "reason": "100% of its cells show red"
+  },
+  {
+   "i": 92,
+   "clip": "run1_part2_p1",
+   "t": 30,
+   "step": 9,
+   "gate": "ok",
+   "answer": "correct",
+   "latency": 0.103,
+   "reason": "100% of its cells show red"
+  },
+  {
+   "i": 93,
+   "clip": "run1_part2_p1",
+   "t": 31,
+   "step": 10,
+   "gate": "ok",
+   "answer": "cannot_see",
+   "latency": 0.1,
+   "reason": "the place of this step is out of view or covered"
+  },
+  {
+   "i": 94,
+   "clip": "run1_part2_p1",
+   "t": 32,
+   "step": 10,
+   "gate": "ok",
+   "answer": "wrong",
+   "latency": 0.097,
+   "reason": "the red brick sits about 2 rows away from the camera of where it should be"
+  },
+  {
+   "i": 95,
+   "clip": "run1_part2_p1",
+   "t": 33,
+   "step": 10,
+   "gate": "ok",
+   "answer": "wrong",
+   "latency": 0.087,
+   "reason": "lime/purple/white where the red brick should be"
+  },
+  {
+   "i": 96,
+   "clip": "run1_part2_p1",
+   "t": 34,
+   "step": 10,
+   "gate": "plate partial"
+  },
+  {
+   "i": 97,
+   "clip": "run1_part2_p1",
+   "t": 35,
+   "step": 10,
+   "gate": "plate partial"
+  },
+  {
+   "i": 98,
+   "clip": "run1_part2_p1",
+   "t": 36,
+   "step": 10,
+   "gate": "no plate"
+  },
+  {
+   "i": 99,
+   "clip": "run1_part2_p1",
+   "t": 37,
+   "step": 10,
+   "gate": "ok",
+   "answer": "wrong",
+   "latency": 0.1,
+   "reason": "the red brick sits about 2 studs to the right of where it should be"
+  },
+  {
+   "i": 100,
+   "clip": "run1_part2_p1",
+   "t": 38,
+   "step": 10,
+   "gate": "ok",
+   "answer": "wrong",
+   "latency": 0.104,
+   "reason": "the red brick sits about 2 studs to the right of where it should be"
+  },
+  {
+   "i": 101,
+   "clip": "run1_part2_p1",
+   "t": 39,
+   "step": 10,
+   "gate": "no plate"
+  },
+  {
+   "i": 102,
+   "clip": "run1_part2_p1",
+   "t": 40,
+   "step": 10,
+   "gate": "no plate"
+  },
+  {
+   "i": 103,
+   "clip": "run1_part2_p1",
+   "t": 41,
+   "step": 10,
+   "gate": "no plate"
+  },
+  {
+   "i": 104,
+   "clip": "run1_part2_p1",
+   "t": 42,
+   "step": 10,
+   "gate": "plate partial"
+  },
+  {
+   "i": 105,
+   "clip": "run1_part2_p1",
+   "t": 43,
+   "step": 10,
+   "gate": "plate partial"
+  },
+  {
+   "i": 106,
+   "clip": "run1_part2_p1",
+   "t": 44,
+   "step": 10,
+   "gate": "plate partial"
+  },
+  {
+   "i": 107,
+   "clip": "run1_part2_p1",
+   "t": 45,
+   "step": 10,
+   "gate": "ok",
+   "answer": "wrong",
+   "latency": 0.09,
+   "reason": "lime/purple/white where the red brick should be"
+  },
+  {
+   "i": 108,
+   "clip": "run1_part2_p1",
+   "t": 46,
+   "step": 10,
+   "gate": "plate partial"
+  },
+  {
+   "i": 109,
+   "clip": "run1_part2_p1",
+   "t": 47,
+   "step": 10,
+   "gate": "ok",
+   "answer": "correct",
+   "latency": 0.123,
+   "reason": "100% of its cells show red"
+  },
+  {
+   "i": 110,
+   "clip": "run1_part2_p1",
+   "t": 48,
+   "step": 10,
+   "gate": "ok",
+   "answer": "correct",
+   "latency": 0.105,
+   "reason": "100% of its cells show red"
+  },
+  {
+   "i": 111,
+   "clip": "run1_part2_p1",
+   "t": 49,
+   "step": 11,
+   "gate": "ok",
+   "answer": "not_placed",
+   "latency": 0.105,
+   "reason": "only 0% of its cells show tan"
+  },
+  {
+   "i": 112,
+   "clip": "run1_part2_p1",
+   "t": 50,
+   "step": 11,
+   "gate": "ok",
+   "answer": "not_placed",
+   "latency": 0.099,
+   "reason": "only 0% of its cells show tan"
+  },
+  {
+   "i": 113,
+   "clip": "run1_part2_p1",
+   "t": 51,
+   "step": 11,
+   "gate": "ok",
+   "answer": "not_placed",
+   "latency": 0.091,
+   "reason": "only 0% of its cells show tan"
+  },
+  {
+   "i": 114,
+   "clip": "run1_part2_p1",
+   "t": 52,
+   "step": 11,
+   "gate": "no plate"
+  },
+  {
+   "i": 115,
+   "clip": "run1_part2_p1",
+   "t": 53,
+   "step": 11,
+   "gate": "ok",
+   "answer": "correct",
+   "latency": 0.097,
+   "reason": "100% of its cells show tan"
+  },
+  {
+   "i": 116,
+   "clip": "run1_part2_p1",
+   "t": 54,
+   "step": 11,
+   "gate": "ok",
+   "answer": "correct",
+   "latency": 0.1,
+   "reason": "100% of its cells show tan"
+  },
+  {
+   "i": 117,
+   "clip": "run1_part2_p1",
+   "t": 55,
+   "step": 12,
+   "gate": "ok",
+   "answer": "not_placed",
+   "latency": 0.1,
+   "reason": "only 0% of its cells show white"
+  },
+  {
+   "i": 118,
+   "clip": "run1_part2_p1",
+   "t": 56,
+   "step": 12,
+   "gate": "hand"
+  },
+  {
+   "i": 119,
+   "clip": "run1_part2_p1",
+   "t": 57,
+   "step": 12,
+   "gate": "plate partial"
+  },
+  {
+   "i": 120,
+   "clip": "run1_part2_p1",
+   "t": 58,
+   "step": 12,
+   "gate": "ok",
+   "answer": "correct",
+   "latency": 0.102,
+   "reason": "100% of its cells show white"
+  },
+  {
+   "i": 121,
+   "clip": "run1_part2_p1",
+   "t": 59,
+   "step": 12,
+   "gate": "ok",
+   "answer": "correct",
+   "latency": 0.1,
+   "reason": "100% of its cells show white"
+  },
+  {
+   "i": 122,
+   "clip": "run1_part2_p1",
+   "t": 60,
+   "step": 13,
+   "gate": "ok",
+   "answer": "correct",
+   "latency": 0.098,
+   "reason": "75% of its cells show yellow"
+  },
+  {
+   "i": 123,
+   "clip": "run1_part2_p2",
+   "t": 0,
+   "step": 13,
+   "gate": "ok",
+   "answer": "correct",
+   "latency": 0.101,
+   "reason": "100% of its cells show yellow"
+  },
+  {
+   "i": 124,
+   "clip": "run1_part2_p2",
+   "t": 1,
+   "step": 14,
+   "gate": "ok"
+  },
+  {
+   "i": 125,
+   "clip": "run1_part2_p2",
+   "t": 2,
+   "step": 14,
+   "gate": "ok"
+  },
+  {
+   "i": 126,
+   "clip": "run1_part2_p2",
+   "t": 3,
+   "step": 14,
+   "gate": "ok"
+  },
+  {
+   "i": 127,
+   "clip": "run1_part2_p2",
+   "t": 4,
+   "step": 14,
+   "gate": "ok"
+  },
+  {
+   "i": 128,
+   "clip": "run1_part2_p2",
+   "t": 5,
+   "step": 14,
+   "gate": "ok"
+  },
+  {
+   "i": 129,
+   "clip": "run1_part2_p2",
+   "t": 6,
+   "step": 14,
+   "gate": "ok"
+  },
+  {
+   "i": 130,
+   "clip": "run1_part2_p2",
+   "t": 7,
+   "step": 14,
+   "gate": "ok"
+  },
+  {
+   "i": 131,
+   "clip": "run1_part2_p2",
+   "t": 8,
+   "step": 14,
+   "gate": "no plate"
+  },
+  {
+   "i": 132,
+   "clip": "run1_part2_p2",
+   "t": 9,
+   "step": 14,
+   "gate": "no plate"
+  },
+  {
+   "i": 133,
+   "clip": "run1_part2_p2",
+   "t": 10,
+   "step": 14,
+   "gate": "no plate"
+  },
+  {
+   "i": 134,
+   "clip": "run1_part2_p2",
+   "t": 11,
+   "step": 14,
+   "gate": "no plate"
+  },
+  {
+   "i": 135,
+   "clip": "run1_part2_p2",
+   "t": 12,
+   "step": 14,
+   "gate": "hand"
+  },
+  {
+   "i": 136,
+   "clip": "run1_part2_p2",
+   "t": 13,
+   "step": 14,
+   "gate": "ok"
+  },
+  {
+   "i": 137,
+   "clip": "run1_part2_p2",
+   "t": 14,
+   "step": 14,
+   "gate": "ok"
+  },
+  {
+   "i": 138,
+   "clip": "run1_part2_p2",
+   "t": 15,
+   "step": 14,
+   "gate": "ok"
+  },
+  {
+   "i": 139,
+   "clip": "run1_part2_p2",
+   "t": 16,
+   "step": 14,
+   "gate": "ok"
+  },
+  {
+   "i": 140,
+   "clip": "run1_part2_p2",
+   "t": 17,
+   "step": 14,
+   "gate": "ok"
+  },
+  {
+   "i": 141,
+   "clip": "run1_part2_p2",
+   "t": 18,
+   "step": 14,
+   "gate": "ok"
+  },
+  {
+   "i": 142,
+   "clip": "run1_part2_p2",
+   "t": 19,
+   "step": 14,
+   "gate": "ok"
+  },
+  {
+   "i": 143,
+   "clip": "run1_part2_p2",
+   "t": 20,
+   "step": 14,
+   "gate": "ok"
+  },
+  {
+   "i": 144,
+   "clip": "run1_part2_p2",
+   "t": 21,
+   "step": 14,
+   "gate": "ok"
+  },
+  {
+   "i": 145,
+   "clip": "run1_part2_p2",
+   "t": 22,
+   "step": 14,
+   "gate": "ok"
+  },
+  {
+   "i": 146,
+   "clip": "run1_part2_p2",
+   "t": 23,
+   "step": 14,
+   "gate": "ok"
+  },
+  {
+   "i": 147,
+   "clip": "run1_part2_p2",
+   "t": 24,
+   "step": 14,
+   "gate": "ok"
+  }
+ ]
+}

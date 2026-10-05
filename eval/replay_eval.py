@@ -1,6 +1,6 @@
 """Replay the recorded run through gate -> judge -> state machine and compare the state timeline with the truth.
 
-  python eval/replay_eval.py run [--confirm 2] [--frames frames_1080p15]
+  python eval/replay_eval.py run [--confirm 2] [--frames frames_1080p15] [--judge vlm|cv]
   python eval/replay_eval.py report
 
 Frames are taken in order at 1 fps. For each frame the gate (eval/gate_eval.py) decides whether to ask; if so the
@@ -10,8 +10,10 @@ about the state machine's current step N. The state machine:
   wrong    CONFIRM times in a row -> fact "step N wrong: <first failed check>", said once per wrong spell
   not_placed / cannot_see         -> counters reset, nothing said
 Judge answers are cached per (frames folder, clip, frame, step) in truck/results/replay_cache.jsonl, so a rerun with
-another --confirm costs no calls. Output: truck/results/replay_<frames>_c<confirm>.json with the timeline and the
+another --confirm costs no calls. Output: truck/results/replay_<frames>[_cv]_c<confirm>.json with the timeline and the
 comparison against events.json (detection delay per step, alarm time per error window, false alarms).
+--judge cv swaps in the route-D judge (eval/cv_judge.py: no model, plate grid + per-cell colour); its "wrong" fact is
+the judge's own sentence (which colour or how many studs off).
 """
 from __future__ import annotations
 
@@ -87,6 +89,35 @@ class Judge:
         return rec
 
 
+class CVJudge:
+    """Route D: cv_judge on the frame, same ask() shape as Judge; nothing to cache (tens of ms per frame)."""
+
+    def __init__(self, frames: str):
+        import cv_judge as cj
+        self.cj = cj
+        self.frames = frames
+        self.steps, _ = je.load()
+        self.clf = cj.Classifier.calibrate(self.steps, je.FRAMES)
+        self.tag = "cv"
+        self.calls = 0
+        self._last = (None, None)
+
+    def ask(self, clip: str, frame: str, step: int) -> dict:
+        t0 = time.perf_counter()
+        if self._last[0] != (clip, frame):
+            img = Image.open(je.FRAMES / clip / frame).convert("RGB")
+            pl = self.cj.Plate(img, self.clf.f)
+            self._last = ((clip, frame), self.cj.observe(pl, self.clf) if pl.ok else None)
+        O = self._last[1]
+        if O is None:
+            answer, reason, info = "cannot_see", "no plate found", {}
+        else:
+            answer, reason, info = self.cj.judge(self.steps, step, O)
+        self.calls += 1
+        return {"answer": answer, "checks": "", "reason": reason, "fact": reason, "latency": round(time.perf_counter() - t0, 3),
+                "raw": json.dumps(info)}
+
+
 def failed_check(steps, step: int, checks: str) -> str:
     s = next(s for s in steps if s["step"] == step)
     for i, ch in enumerate(checks):
@@ -98,7 +129,7 @@ def failed_check(steps, step: int, checks: str) -> str:
 def cmd_run(args):
     if args.frames:
         je.FRAMES = je.RUN / args.frames
-    judge = Judge(args.frames or "frames")
+    judge = (CVJudge if args.judge == "cv" else Judge)(args.frames or "frames")
     steps = judge.steps
     n, last = 1, len(steps)
     streak_ok = streak_bad = 0
@@ -124,7 +155,7 @@ def cmd_run(args):
                 streak_bad, streak_ok = streak_bad + 1, 0
                 if streak_bad >= args.confirm and not said_wrong:
                     facts.append({"i": i, "clip": clip, "t": t, "kind": "wrong", "step": n,
-                                  "text": f"step {n} wrong: {failed_check(steps, n, v['checks'])}"})
+                                  "text": f"step {n} wrong: {v.get('fact') or failed_check(steps, n, v['checks'])}"})
                     said_wrong = True
             else:
                 streak_ok = streak_bad = 0
@@ -132,7 +163,7 @@ def cmd_run(args):
                     said_wrong = False
         timeline.append(entry)
         print(f"{i:3d} {clip[5:]}/{frame[:3]} N={n:2d} {why:<13} {entry.get('answer', ''):<10} {entry.get('reason', '')[:60]}")
-    out = je.RESULTS / f"replay_{args.frames or 'frames'}_c{args.confirm}.json"
+    out = je.RESULTS / f"replay_{args.frames or 'frames'}{'_cv' if args.judge == 'cv' else ''}_c{args.confirm}.json"
     out.write_text(json.dumps({"confirm": args.confirm, "frames": args.frames or "frames", "model": judge.tag,
                                "calls": judge.calls, "facts": facts, "timeline": timeline}, indent=1), encoding="utf-8")
     print(f"{judge.calls} new calls; facts {len(facts)}; -> {out.name}")
@@ -176,6 +207,7 @@ def main():
     p = sub.add_parser("run")
     p.add_argument("--confirm", type=int, default=2)
     p.add_argument("--frames")
+    p.add_argument("--judge", choices=["vlm", "cv"], default="vlm")
     p.set_defaults(fn=cmd_run)
     sub.add_parser("report").set_defaults(fn=cmd_report)
     args = ap.parse_args()

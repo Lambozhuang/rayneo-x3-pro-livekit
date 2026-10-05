@@ -34,4 +34,5 @@ python eval/judge_eval.py summarize truck/results/C_<model>.jsonl  # 三类准�
 ### 结果
 
 全部结果、每次送进去的东西、答错的是哪一帧、延迟，见 **`eval/RESULTS.md`**（由 `python eval/results_table.py` 从
-`truck/results/` 重新生成；文字部分在 `eval/results_notes.md`）。其他脚本：`gate_eval.py`（门控）、`replay_eval.py`（回放）。
+`truck/results/` 重新生成；文字部分在 `eval/results_notes.md`）。其他脚本：`gate_eval.py`（门控）、`replay_eval.py`（回放，
+`--judge cv` 换成 D 路线）、`cv_judge.py`（D 路线纯 CV 判定器：找板 → 焦距补缺边 → 单应 → 逐格颜色 → 比 layout；`run` 出同格式结果和拼图）。

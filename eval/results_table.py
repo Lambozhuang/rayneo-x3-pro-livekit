@@ -77,9 +77,10 @@ def run_row(path: Path, qs):
     tok = f"{st.mean(r['usage'].get('in', 0) for r in calls):.0f} / {st.mean(r['usage'].get('out', 0) for r in calls):.0f}" if calls else ""
     widths = [r["photo_size"][0] for r in recs if r.get("photo_size")]
     width = f"{st.median(widths):.0f}" if widths else "?"
+    crop = "整帧按格采样" if h.get("route") == "D" else f"裁后 {width} px"
     latency = f"{st.median(lat):.1f} / {lat[int(len(lat) * 0.9)]:.1f}" if lat else ""
     ttft = f"{st.median(tt):.1f}" if tt else "未记"
-    return (f"| `{path.stem}` | {h.get('prompt', '?')} | {h.get('route', '?')} | {frames}，裁后 {width} px | {ok}/{len(recs)} | "
+    return (f"| `{path.stem}` | {h.get('prompt', '?')} | {h.get('route', '?')} | {frames}，{crop} | {ok}/{len(recs)} | "
             f"{'；'.join(misses) or '—'} | {latency} | {ttft} | {tok} |")
 
 
@@ -99,6 +100,8 @@ def replays():
     for p in sorted(RESULTS.glob("replay_*_c*.json")):
         r = load_json(p)
         frames = "1080p15 派生" if "1080p15" in p.stem else "原始 2432×1824"
+        if r["model"] == "cv":
+            r["model"] = "D 路线纯 CV 判定器"
         asked = sum(1 for e in r["timeline"] if "answer" in e)
         print(f"\n**`{p.stem}`：{frames}帧，连续确认 {r['confirm']} 次，{r['model']}，判定调用 {asked} 次 / 148 帧**\n")
         print("| 步 | 真值完成（第几帧） | 系统推进（第几帧） | 差（秒） | 错误窗口（帧） | 报错时刻（帧） |")
@@ -128,6 +131,8 @@ def body():
     runs("rest_C", qs)
     print()
     runs("rest_B", qs)
+    print("\nD 路线（纯 CV，无模型；延迟是本机 Python 处理一帧的时间）：\n")
+    runs("rest_D", qs)
     print("\n## 6 问（Q8 Q9 Q13 Q14 Q22 Q23：3 个错 + 各自修正后的帧）各配置结果\n")
     runs("rest6", qs)
     print("\n## 回放\n")
