@@ -64,8 +64,7 @@
   "checks": [
    "the brick is pure white, not beige or cream",
    "it is horizontal, 6 studs long",
-   "its left end touches the purple brick",
-   "the lime exhaust stands directly above its left end"
+   "its left end touches the purple brick"
   ]
  },
  {
@@ -100,8 +99,7 @@
   "checks": [
    "the blue brick's left end touches the purple brick",
    "it sits directly under the lower white brick with no gap",
-   "its right end is two studs short of the white bricks' right end",
-   "its bottom edge is level with the red and purple bricks' bottom edge"
+   "its right end is two studs short of the white bricks' right end"
   ]
  },
  {

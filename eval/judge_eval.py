@@ -64,6 +64,14 @@ Work in this order and report all of it:
 Reply with JSON only: {"seen": "...", "checks": [{"fact": "...", "result": "yes|no|unsure"}, ...], "answer": "correct|wrong|not_placed|cannot_see", "reason": "<one sentence>"}."""
 
 
+SYSTEM_REL_TERSE = SYSTEM_REL.split("Reply with JSON only")[0] + """Be brief: seen is one sentence; no other prose.
+Reply with JSON only: {"seen": "...", "checks": "<one letter per fact, in order: y, n or ?>", "answer": "correct|wrong|not_placed|cannot_see", "reason": "<at most ten words>"}."""
+
+
+SYSTEM_CHECKS = SYSTEM_REL.split("Work in this order")[0] + """Look at the photo and answer each listed fact with one letter: y (true), n (false) or ? (cannot tell). Then answer: correct if the brick is there and every fact is y; wrong if the brick is there but any fact is n (wrong colour, wrong place, wrong orientation); not_placed if no such brick is on the plate yet; cannot_see if the plate or that area is hidden, blurred or out of frame.
+Reply with JSON only, nothing else: {"checks": "<letters in order>", "answer": "correct|wrong|not_placed|cannot_see", "reason": "<at most eight words>"}."""
+
+
 def load():
     layout = json.loads((TRUCK / "layout.json").read_text(encoding="utf-8"))
     events = json.loads((TRUCK / "events.json").read_text(encoding="utf-8"))
@@ -259,7 +267,7 @@ class OpenAIJudge:
         self.model = os.environ.get("OPENAI_CHECK_MODEL") or sys.exit("OPENAI_CHECK_MODEL not set in backend/.env")
         self.detail = os.environ.get("OPENAI_CHECK_DETAIL", "high")  # same default as backend vision.py
         self.effort = os.environ.get("OPENAI_CHECK_EFFORT")
-        self.tag = f"{self.model}_{self.detail}"
+        self.tag = f"{self.model}_{self.detail}" + (f"_{self.effort}" if self.effort else "")
 
     def ask(self, ref: bytes | None, photo: bytes, text: str, system: str) -> tuple[str, dict]:
         content = [{"type": "input_text", "text": text}]
@@ -374,9 +382,9 @@ def cmd_run(args):
         keep = {(s["clip"], s["frame"], s["step"]) for s in json.loads(Path(args.subset).read_text(encoding="utf-8"))}
         rows = [r for r in rows if (r["clip"], r["frame"], r["step"]) in keep]
     judge = {"openai": OpenAIJudge, "gemini": GeminiJudge, "dry": DryJudge}[args.provider]()
-    rel = args.prompt == "relational"
-    system = SYSTEM_REL if rel else SYSTEM
-    judge.tag += "_rel" if rel else ""
+    rel = args.prompt != "grid"
+    system = {"grid": SYSTEM, "relational": SYSTEM_REL, "terse": SYSTEM_REL_TERSE, "checks": SYSTEM_CHECKS}[args.prompt]
+    judge.tag += {"grid": "", "relational": "_rel", "terse": "_terse", "checks": "_checks"}[args.prompt] + (f"_{args.tag}" if args.tag else "")
     RESULTS.mkdir(exist_ok=True)
     name = f"{Path(args.questions).stem}_" if args.questions else ""
     out = RESULTS / f"{name}{args.route}_{judge.tag}.jsonl"
@@ -472,8 +480,9 @@ def main():
     p.add_argument("--route", choices=["B", "C"], required=True)
     p.add_argument("--provider", choices=["openai", "gemini", "dry"], required=True)
     p.add_argument("--questions", help="question file such as truck/rest.json instead of the derived per-frame labels")
-    p.add_argument("--prompt", choices=["grid", "relational"], default="grid",
+    p.add_argument("--prompt", choices=["grid", "relational", "terse", "checks"], default="grid",
                    help="grid: numbered diagram + columns/rows; relational: plain-language neighbours and alignment, describe first, no diagram")
+    p.add_argument("--tag", help="suffix for the result name, e.g. a repeat number")
     p.add_argument("--subset")
     p.add_argument("--limit", type=int)
     p.set_defaults(fn=cmd_run)
