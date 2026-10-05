@@ -121,7 +121,7 @@
  },
  {
   "step": 8,
-  "name": "white 1x4 tail door",
+  "name": "white 1x4 standing upright at the right end of the body",
   "color": "white",
   "cells": [
    13,
@@ -164,10 +164,10 @@
    11,
    12
   ],
-  "where": "the second red round disc under the right part of the body as the rear wheel: its top touches the blue and lime bricks, its right edge stays left of the lime brick's right end, and the bare green plate shows directly below the white tail door",
+  "where": "the second red round disc under the right part of the body as the rear wheel: its top touches the blue and lime bricks, its right edge stays left of the lime brick's right end, and bare green plate shows directly below the upright white brick that stands at the right end of the body",
   "checks": [
    "the disc's top touches the bottom of the body (the blue and lime bricks)",
-   "directly below the white tail door there is bare green plate, not the disc",
+   "directly below the upright white brick at the right end of the body there is bare green plate, not the disc",
    "the disc's right edge is to the left of the lime brick's right end"
   ]
  },
@@ -215,7 +215,7 @@
    16,
    13
   ],
-  "where": "the yellow 1x4 brick lying flat in the same row, continuing the white ground brick to the right and touching it, ending at the right edge of the plate under the tail door",
+  "where": "the yellow 1x4 brick lying flat in the same row, continuing the white ground brick to the right and touching it, ending at the right edge of the plate below the upright white brick at the right end of the body",
   "checks": [
    "the brick is yellow",
    "it is in the same row as the white ground brick and touches its right end",
