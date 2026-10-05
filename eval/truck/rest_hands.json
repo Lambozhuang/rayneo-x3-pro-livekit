@@ -1,0 +1,58 @@
+[
+ {
+  "clip": "run1_part2_p1",
+  "frame": "003.jpg",
+  "step": 8,
+  "expected": "wrong",
+  "why": "hand frame, gate leak test"
+ },
+ {
+  "clip": "run1_part1",
+  "frame": "062.jpg",
+  "step": 8,
+  "expected": "not_placed",
+  "why": "hand frame, gate leak test"
+ },
+ {
+  "clip": "run1_part2_p1",
+  "frame": "020.jpg",
+  "step": 9,
+  "expected": "not_placed",
+  "why": "hand frame, gate leak test"
+ },
+ {
+  "clip": "run1_part2_p1",
+  "frame": "009.jpg",
+  "step": 8,
+  "expected": "moving",
+  "why": "hand frame, gate leak test"
+ },
+ {
+  "clip": "run1_part2_p1",
+  "frame": "061.jpg",
+  "step": 13,
+  "expected": "not_placed",
+  "why": "hand frame, gate leak test"
+ },
+ {
+  "clip": "run1_part1",
+  "frame": "042.jpg",
+  "step": 6,
+  "expected": "not_placed",
+  "why": "hand frame, gate leak test"
+ },
+ {
+  "clip": "run1_part2_p1",
+  "frame": "010.jpg",
+  "step": 9,
+  "expected": "not_placed",
+  "why": "hand frame, gate leak test"
+ },
+ {
+  "clip": "run1_part1",
+  "frame": "041.jpg",
+  "step": 6,
+  "expected": "not_placed",
+  "why": "hand frame, gate leak test"
+ }
+]
