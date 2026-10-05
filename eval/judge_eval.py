@@ -438,8 +438,11 @@ def cmd_labels(args):
 
 
 def cmd_run(args):
+    global FRAMES
     steps, events = load()
     load_env()
+    if args.frames:  # e.g. frames_1080p15: the same seconds extracted from a derived, call-quality version of the clips
+        FRAMES = RUN / args.frames
     if args.questions:  # hand-picked rest-state questions with their own expected answers
         rows = [dict(q, t=int(q["frame"][:3]) - 1, distraction=False) for q in json.loads(Path(args.questions).read_text(encoding="utf-8"))]
     else:
@@ -450,7 +453,8 @@ def cmd_run(args):
     judge = {"openai": OpenAIJudge, "openrouter": OpenRouterJudge, "gemini": GeminiJudge, "dry": DryJudge}[args.provider]()
     rel = args.prompt != "grid"
     system = {"grid": SYSTEM, "relational": SYSTEM_REL, "terse": SYSTEM_REL_TERSE, "checks": SYSTEM_CHECKS, "image": SYSTEM_IMG}[args.prompt]
-    judge.tag += {"grid": "", "relational": "_rel", "terse": "_terse", "checks": "_checks", "image": "_img"}[args.prompt] + (f"_{args.tag}" if args.tag else "")
+    judge.tag += ({"grid": "", "relational": "_rel", "terse": "_terse", "checks": "_checks", "image": "_img"}[args.prompt]
+                  + (f"_{args.frames.replace('frames_', '')}" if args.frames else "") + (f"_{args.tag}" if args.tag else ""))
     img = args.prompt == "image"  # diagram without numbers + one-line question, no coordinates, no facts
     if img:
         rel = False
@@ -556,6 +560,7 @@ def main():
     p.add_argument("--questions", help="question file such as truck/rest.json instead of the derived per-frame labels")
     p.add_argument("--prompt", choices=["grid", "relational", "terse", "checks", "image"], default="grid",
                    help="grid: numbered diagram + columns/rows; relational: plain-language neighbours and alignment, describe first, no diagram")
+    p.add_argument("--frames", help="alternative frames folder under truck/run1, e.g. frames_1080p15")
     p.add_argument("--tag", help="suffix for the result name, e.g. a repeat number")
     p.add_argument("--subset")
     p.add_argument("--limit", type=int)
