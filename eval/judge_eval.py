@@ -391,7 +391,8 @@ class DryJudge:
 
 def parse_answer(text: str) -> tuple[str, str]:
     try:
-        start, end = text.index("{"), text.rindex("}") + 1
+        # the last JSON object in the reply: Sonnet sometimes writes one, then "wait", then a corrected one
+        start, end = text.rindex("{"), text.rindex("}") + 1
         obj = json.loads(text[start:end])
         a = str(obj.get("answer", "")).strip().lower()
         return (a if a in ANSWERS else "invalid"), str(obj.get("reason", ""))

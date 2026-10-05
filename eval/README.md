@@ -80,3 +80,7 @@ python eval/judge_eval.py summarize truck/results/C_<model>.jsonl  # 三类准�
 - 差别在语境：一旦题目说"这一步加了一条白砖"，它就按"砖"数，看到一块合并的白色就答"只有一条"；单独问"几排凸点"没有这个先验。sol 不支持 temperature=0，没法消掉随机性。
 - terse2 本身有用：29 问 1080p 从 26/29 到 **28/29**（只剩后轮偏移），原分辨率回放仍 13/13、3/3、零误报，已设为默认。
 - 结论不变：同色砖相邻在通话流画质下靠 prompt 救不稳，任务侧换色。
+
+### Claude Sonnet 5.5（OpenRouter，azure/global 端点，reasoning minimal），1080p 帧，29 问，terse2，一遍
+
+27/29：漏后轮偏移（039）、前轮误报（031），和 sol 一样的两题。另有两问它先写一个 JSON 又"wait"自我纠正再写一个，解析取了首尾花括号导致 invalid，实际答案都对，解析器已改成取最后一个对象。延迟中位 2.0 s、TTFT 1.3 s，和 sol 相当。
