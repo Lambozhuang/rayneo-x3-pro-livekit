@@ -10,7 +10,7 @@ build with LEGO: the model has to see well enough to count the studs on a brick.
   <source media="(prefers-color-scheme: dark)" srcset="docs/architecture-dark.png">
   <img alt="Architecture: the glasses reach our server over Wi-Fi, the link under test;
 livekit-server and the Python agent share that server; only the agent talks to OpenAI,
-GPT-Live over a WebSocket and the vision model over HTTPS"
+GPT-Live over a WebSocket"
        src="docs/architecture-light.png">
 </picture>
 
@@ -19,9 +19,10 @@ and the PNGs.</sub>
 
 The two halves meet in one place, a LiveKit room. The glasses publish microphone and
 camera tracks into it; the agent joins the same room, streams the audio to GPT-Live over a
-WebSocket, sends camera frames to a vision model over HTTPS, and publishes GPT-Live's speech
-back as its own audio track. The glasses hold no model credentials and do not know which
-model is in use.
+WebSocket, keeps the camera frames for its own code, and publishes GPT-Live's speech back
+as its own audio track. The glasses hold no model credentials and do not know which model
+is in use. The Wi-Fi hop between the glasses and the server is the experiment's only
+variable: loss and jitter are injected there, everything else stays fixed.
 
 Three processes, all in one compose project with host networking (WebRTC needs the
 server's UDP ports reachable at the address it advertises; a bridge network only adds NAT):
@@ -32,6 +33,98 @@ server's UDP ports reachable at the address it advertises; a bridge network only
   `room_config` naming the agent. Login, entitlements and billing would go here.
 - **agent** registers under `AGENT_NAME` and joins only rooms whose token names it. It
   alone holds the model API keys; nothing connects to it directly.
+
+### Inside the agent
+
+The voice talks, the code watches. GPT-Live hears the wearer and speaks; it knows every
+step's wording but never sees a frame. The camera goes to the code, which decides when a
+step is done or a brick is wrong and tells the voice in one line. One task file feeds both.
+
+```mermaid
+flowchart LR
+  subgraph G["Glasses: RayNeo X3 Pro, Android app"]
+    pub["Mic audio + camera video<br/>1080p, 15 fps, H.264"]
+    out["Plays the agent's speech<br/>step list from rayneo.build.*<br/>reply_ms on rayneo.latency"]
+  end
+  subgraph L["LiveKit server, lab PC"]
+    sfu["LiveKit SFU<br/>forwards both ways"]
+  end
+  subgraph A["Agent, lab PC: backend/agent/src"]
+    subgraph V["Voice path"]
+      voice["Voice session<br/>persona holds every step's wording"]
+    end
+    subgraph C["Camera path: the code, no model by default"]
+      tap["FrameTap, frames.py"] --> gate["gate.py<br/>whole plate, no hand, still ~1 s"]
+      gate --> judge["judge_cv.py default<br/>judge_vlm.py if JUDGE=vlm"]
+      judge -->|"verdict"| tr["progress.py Tracker"]
+      tr -->|"events"| watch["gpt/watch.py"]
+    end
+    task[("guides/truck/task.toml")]
+  end
+  subgraph O["OpenAI cloud"]
+    gpt["gpt-live-1, GPT-Live"]
+    be["OPENAI_BACKEND_MODEL<br/>tools: check_now, end_call"]
+    vlm["vision model<br/>fallback only"]
+  end
+  G <-->|"WebRTC, the experiment's variable (loss / jitter)"| sfu
+  sfu -->|"audio"| voice
+  sfu -->|"video"| tap
+  voice -->|"speech"| sfu
+  watch -->|"attributes rayneo.build.*"| sfu
+  watch -->|"commentary"| voice
+  voice <-->|"WebSocket"| gpt
+  gpt -->|"tool calls"| be
+  be -->|"check_now reads state"| tr
+  judge -.->|"JUDGE=vlm"| vlm
+  task -.-> judge
+  task -.->|"say"| voice
+  style vlm stroke-dasharray: 5 5
+```
+
+1. **Voice path.** Audio from the room goes to `gpt-live-1` over a WebSocket and its speech
+   comes back as the agent's audio track. Its instructions carry the persona and every
+   step's `say`. Tool calls go through a backend model with two tools: `check_now`, which
+   reads the camera path's state (no model call, instant), and `end_call`.
+2. **Camera path.** Every frame is kept by `FrameTap`; none reaches GPT-Live. The gate lets
+   a frame through only when the whole green plate is in view, no hand is over it and the
+   picture has been still for about a second. The judge then answers one question about
+   the current step: correct, wrong, not placed, or cannot see, plus one sentence. The
+   default judge is plain CV (plate corners, homography to the stud grid, colour per cell
+   against the layout), about 0.1 s and free; a vision model can be switched in as a
+   fallback. The tracker turns agreeing verdicts into two kinds of event, "step N done" and
+   "step N wrong: how", and never goes back on its own.
+3. **Events out.** `watch.py` moves the build's step, publishes it to the glasses as
+   participant attributes, and hands GPT-Live a commentary ("Camera: step 3 is done. Tell the
+   wearer, then give step 4: ...") that the voice says in its own words.
+4. **One task file.** `guides/truck/task.toml` holds, per step, the wording the wearer hears,
+   the brick's colour and cells for the CV judge, the facts for the VLM judge, and the
+   colour centres. The offline evaluation in `eval/` imports the same gate, judge and
+   tracker and replays a recorded run through them (`eval/RESULTS.md`).
+
+The camera path as a pipeline:
+
+```
+ video frame        1080p, 15 fps, H.264, from the LiveKit track
+      |
+      v
+ FrameTap           frames.py; none of these frames reach GPT-Live
+      |
+      v
+ gate.py            whole green plate in view, no hand, still ~1 s
+      | pass
+      v
+ judge              current step only             <-- guides/truck/task.toml
+   cv  (default)    judge_cv.py   ~0.1 s, no model    color, cells, [colours]
+   vlm (JUDGE=vlm)  judge_vlm.py  ~2 s, vision model  where, checks
+      |                                               say --> GPT-Live persona
+      |  verdict: correct | wrong | not_placed | cannot_see + one sentence
+      v
+ progress.py Tracker  N agreeing verdicts make one event; never goes back
+      |  events: "step N done" | "step N wrong: <sentence>"
+      v
+ gpt/watch.py --+--> Build.set_step + rayneo.build.* --> glasses step list
+                +--> commentary --> GPT-Live: "Camera: step 3 is done ..."
+```
 
 `AUTH_MODE` selects who may start a session: `dev` accepts everyone (private LAN),
 `static` wants one shared bearer token, `jwt` verifies a token from an account system and
@@ -188,31 +281,36 @@ from transport softness.
 
 ### The GPT path (`AGENT_BACKEND=openai`)
 
-`gpt-live-1` is audio only, full duplex, and owns turn-taking and barge-in; no VAD is
-passed to the session. The code owns the build. Every camera frame goes through
-`gpt/watch.py`: the gate (`gate.py`) passes it only when the whole green plate is in view,
-no hand is over it and it has been still for `GATE_STILL` seconds; the judge then answers
-one question about the current step only, correct / wrong / not_placed / cannot_see with
-one sentence. `JUDGE=cv` (default, `judge_cv.py`) does it without a model in ~0.1 s: plate
-silhouette to corners, a side cut by the frame rebuilt from the focal length (fitted from
-the first full-plate frames or `JUDGE_FOCAL_PX`), homography to the stud grid, the colour
-of each cell against the layout in `task.toml`; its wrong-sentences say which colour or how
-many studs off. `JUDGE=vlm` (`judge_vlm.py`) asks `OPENAI_CHECK_MODEL` the same question
-with the cropped plate and the step's `where`/`checks` text, ~2 s. The state machine
-(`progress.py`) needs `GPT_WATCH_CONFIRM` agreeing verdicts, at least `GPT_WATCH_GAP`
-seconds apart, before a step counts or a wrong brick is spoken, and never goes back on its
-own. Only those events reach GPT-Live, as commentary ("Camera: step 3 is done ... give step
-4"); between notes nothing has changed and the voice is told so. When the wearer asks "is it
-right?", the backend model (`OPENAI_BACKEND_MODEL`) calls `check_now`, which answers from the
-state at once, no model call; its other tool is `end_call`. The step shown on the glasses is
-the state machine's. Logs: `judge:` lines carry the judge's latency per frame, `voice:` the
-delay from a commentary to speech, `gate:` changes of the gate's reason; every run starts with
-an `experiment:` line naming its switches. Both judges, the gate and the state machine were
-measured offline on a recorded run (`eval/RESULTS.md`): CV 29/29 and 28/29 rest questions
-at full and call resolution, all 13 steps within a second in replay, no false alarms; the
-VLM 29/29 and 28/29 with a 70 s stall at call resolution. Earlier versions: the vision model
-counting steps from renders of a 3D model (`vision.py`, removed 2026-10-05) and the
-tool-driven one tagged `gpt-tools-v1`.
+The current system; how it fits together is in "Architecture" above. Details and knobs:
+
+- `gpt-live-1` is audio only, full duplex, and owns turn-taking and barge-in; no VAD is
+  passed to the session. It gets every step's `say` in its instructions and nothing else about
+  the bricks: what the camera confirms arrives as commentary (`generate_reply` with
+  instructions starting "Camera:"), which it says in its own words; between notes nothing has
+  changed and it is told so. It cannot look; `check_now` (through the backend model,
+  `OPENAI_BACKEND_MODEL`) answers from the code's state at once, no model call. Its other
+  tool is `end_call`.
+- The gate (`gate.py`): whole green plate in view, no gross skin over it, plate crop still
+  for `GATE_STILL` s (default 1). ~10 ms per frame, every frame.
+- The judge answers about the current step only. `JUDGE=cv` (default, `judge_cv.py`, ~0.1 s,
+  no model): plate silhouette to four corners; a side cut by the frame edge rebuilt from the
+  focal length, which the judge fits from the first full-plate frames of the call (or
+  `JUDGE_FOCAL_PX`); homography to the stud grid; the colour of each cell, read just inside its
+  far edge, against the layout in `task.toml`; "wrong" comes with which colour or how many
+  studs off. `JUDGE=vlm` (`judge_vlm.py`, ~2 s): the plate crop and the step's `where`/`checks`
+  text to `OPENAI_CHECK_MODEL`, which answers each fact y/n before the verdict.
+- The state machine (`progress.py`): `GPT_WATCH_CONFIRM` agreeing verdicts (default 2), at
+  least `GPT_WATCH_GAP` s apart (default 0.5), before a step counts or a wrong brick is spoken
+  once; it never goes back on its own.
+- Logs: `judge:` lines carry the judge's latency per frame, `voice:` the delay from a
+  commentary to speech, `gate:` changes of the gate's reason, `step n/m done` the build; every
+  run starts with an `experiment:` line naming its switches. `FRAME_DUMP_DIR` keeps every
+  judged frame, named step and verdict.
+- Measured offline on a recorded run (`eval/RESULTS.md`): CV 29/29 and 28/29 rest questions at
+  full and call resolution, all 13 steps within a second in replay, no false alarms; the VLM
+  29/29 and 28/29 with a 70 s stall at call resolution. Earlier versions: a vision model
+  counting steps against renders of a 3D model (`vision.py`, removed 2026-10-05) and the
+  tool-driven one tagged `gpt-tools-v1`.
 
 ### The Gemini path (`AGENT_BACKEND=gemini`)
 
@@ -235,9 +333,11 @@ tool-driven one tagged `gpt-tools-v1`.
   context updates, no `session.run` tests) are closed on this plugin version. Verification is
   still a real conversation, judged from the agent log.
 
-### Guided build
+### Guided build (Gemini path, tool-driven)
 
-`BUILD_GUIDE` names a TOML file in `agent/guides`: a title and an ordered list of steps, each
+On the Gemini path the model judges the bricks itself through tools; the GPT path above
+replaced that with the code's gate/judge/state machine. `BUILD_GUIDE` names a TOML file in
+`agent/guides`: a title and an ordered list of steps, each
 just the part to pick up, what to tell the wearer, and an optional one-line `name` for the list
 on the glasses. The agent process holds the position
 (`guide.py`, in `session.userdata`); the model sees one step at a time through `get_step`,
@@ -257,7 +357,7 @@ n/m done` and `build finished` lines with timings, so a run can be scored from t
 the dumped frames. Tools stay fast anyway: the model talks over them, and a slow one would
 have it narrating the wait.
 
-### Video
+### Video (Gemini path)
 
 Frames reach the model only while the wearer is speaking (`VIDEO_SPEAKING_FPS`, default
 0.5; `VIDEO_SILENT_FPS` defaults to 0) plus one whenever the model calls its `look` tool,
@@ -286,7 +386,7 @@ Held 25 cm from the camera it is about 260 px and readable, yet the model still 
 "8 studs" until the system prompt told it to count one by one and never assume a standard
 size. Distance and prompt matter more than pixels here.
 
-### Seeing what the model saw
+### Seeing what the model saw (Gemini path)
 
 - `FRAME_DUMP_DIR=/app/frames` in `.env` makes `framedump.py` write every frame the sampler
   passes to `backend/frames/<call timestamp>/NNN-full.jpg` (as received, JPEG 95) and

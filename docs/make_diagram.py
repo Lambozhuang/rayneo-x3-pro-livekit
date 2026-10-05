@@ -100,7 +100,7 @@ def build(t: dict) -> str:
         ("glasses", glasses, 48, "RayNeo X3 Pro", "on the wearer"),
         ("livekit", f'fill="{t["livekit"]}"', 40, "livekit-server", "our server"),
         ("python", f'fill="{t["python"]}"', 44, "Python agent", "our server"),
-        ("openai", f'fill="{t["cloud"]}"', 42, "GPT-Live + vision", "OpenAI cloud"),
+        ("openai", f'fill="{t["cloud"]}"', 42, "GPT-Live", "OpenAI cloud"),
     ]
     cols = [PAD + i * (CW + GAP) for i in range(4)]
 
@@ -121,7 +121,7 @@ def build(t: dict) -> str:
     for i, (labels, colour, marker) in enumerate([
         (["WebRTC", "Wi-Fi", "under test"], t["accent"], "head"),
         (["WebRTC", "localhost"], t["muted"], "headm"),
-        (["WSS + HTTPS", "internet"], t["cloud"], "headv"),
+        (["WSS", "internet"], t["cloud"], "headv"),
     ]):
         x1, x2 = cols[i] + CW + 12, cols[i + 1] - 12
         add(f'<line x1="{x1}" y1="{link_y}" x2="{x2}" y2="{link_y}" '
