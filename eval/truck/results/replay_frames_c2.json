@@ -1,0 +1,1396 @@
+{
+ "confirm": 2,
+ "frames": "frames",
+ "model": "gpt-6-sol_high_none_terse",
+ "calls": 74,
+ "facts": [
+  {
+   "i": 9,
+   "clip": "run1_part1",
+   "t": 9,
+   "kind": "done",
+   "step": 1,
+   "text": "step 1 placed"
+  },
+  {
+   "i": 15,
+   "clip": "run1_part1",
+   "t": 15,
+   "kind": "done",
+   "step": 2,
+   "text": "step 2 placed"
+  },
+  {
+   "i": 22,
+   "clip": "run1_part1",
+   "t": 22,
+   "kind": "done",
+   "step": 3,
+   "text": "step 3 placed"
+  },
+  {
+   "i": 28,
+   "clip": "run1_part1",
+   "t": 28,
+   "kind": "wrong",
+   "step": 4,
+   "text": "step 4 wrong: the brick is pure white, not beige or cream"
+  },
+  {
+   "i": 34,
+   "clip": "run1_part1",
+   "t": 34,
+   "kind": "done",
+   "step": 4,
+   "text": "step 4 placed"
+  },
+  {
+   "i": 40,
+   "clip": "run1_part1",
+   "t": 40,
+   "kind": "done",
+   "step": 5,
+   "text": "step 5 placed"
+  },
+  {
+   "i": 45,
+   "clip": "run1_part1",
+   "t": 45,
+   "kind": "wrong",
+   "step": 6,
+   "text": "step 6 wrong: the blue brick's left end touches the purple brick"
+  },
+  {
+   "i": 51,
+   "clip": "run1_part1",
+   "t": 51,
+   "kind": "done",
+   "step": 6,
+   "text": "step 6 placed"
+  },
+  {
+   "i": 58,
+   "clip": "run1_part1",
+   "t": 58,
+   "kind": "done",
+   "step": 7,
+   "text": "step 7 placed"
+  },
+  {
+   "i": 72,
+   "clip": "run1_part2_p1",
+   "t": 10,
+   "kind": "done",
+   "step": 8,
+   "text": "step 8 placed"
+  },
+  {
+   "i": 92,
+   "clip": "run1_part2_p1",
+   "t": 30,
+   "kind": "done",
+   "step": 9,
+   "text": "step 9 placed"
+  },
+  {
+   "i": 100,
+   "clip": "run1_part2_p1",
+   "t": 38,
+   "kind": "wrong",
+   "step": 10,
+   "text": "step 10 wrong: directly below the white 1x4 at the right end of the body there is bare green plate, not the disc"
+  },
+  {
+   "i": 110,
+   "clip": "run1_part2_p1",
+   "t": 48,
+   "kind": "done",
+   "step": 10,
+   "text": "step 10 placed"
+  },
+  {
+   "i": 116,
+   "clip": "run1_part2_p1",
+   "t": 54,
+   "kind": "done",
+   "step": 11,
+   "text": "step 11 placed"
+  },
+  {
+   "i": 121,
+   "clip": "run1_part2_p1",
+   "t": 59,
+   "kind": "done",
+   "step": 12,
+   "text": "step 12 placed"
+  },
+  {
+   "i": 124,
+   "clip": "run1_part2_p2",
+   "t": 1,
+   "kind": "done",
+   "step": 13,
+   "text": "step 13 placed"
+  }
+ ],
+ "timeline": [
+  {
+   "i": 0,
+   "clip": "run1_part1",
+   "t": 0,
+   "step": 1,
+   "gate": "ok",
+   "answer": "not_placed",
+   "latency": 2.76,
+   "reason": "The plate is empty."
+  },
+  {
+   "i": 1,
+   "clip": "run1_part1",
+   "t": 1,
+   "step": 1,
+   "gate": "ok",
+   "answer": "not_placed",
+   "latency": 2.07,
+   "reason": "No brick is on the plate."
+  },
+  {
+   "i": 2,
+   "clip": "run1_part1",
+   "t": 2,
+   "step": 1,
+   "gate": "ok",
+   "answer": "not_placed",
+   "latency": 1.98,
+   "reason": "No brick is on the plate."
+  },
+  {
+   "i": 3,
+   "clip": "run1_part1",
+   "t": 3,
+   "step": 1,
+   "gate": "ok",
+   "answer": "not_placed",
+   "latency": 1.81,
+   "reason": "No brick is on the plate."
+  },
+  {
+   "i": 4,
+   "clip": "run1_part1",
+   "t": 4,
+   "step": 1,
+   "gate": "hand"
+  },
+  {
+   "i": 5,
+   "clip": "run1_part1",
+   "t": 5,
+   "step": 1,
+   "gate": "plate partial"
+  },
+  {
+   "i": 6,
+   "clip": "run1_part1",
+   "t": 6,
+   "step": 1,
+   "gate": "plate partial"
+  },
+  {
+   "i": 7,
+   "clip": "run1_part1",
+   "t": 7,
+   "step": 1,
+   "gate": "plate partial"
+  },
+  {
+   "i": 8,
+   "clip": "run1_part1",
+   "t": 8,
+   "step": 1,
+   "gate": "ok",
+   "answer": "correct",
+   "latency": 1.97,
+   "reason": "All three facts match."
+  },
+  {
+   "i": 9,
+   "clip": "run1_part1",
+   "t": 9,
+   "step": 1,
+   "gate": "ok",
+   "answer": "correct",
+   "latency": 1.69,
+   "reason": "All three placement facts match."
+  },
+  {
+   "i": 10,
+   "clip": "run1_part1",
+   "t": 10,
+   "step": 2,
+   "gate": "ok",
+   "answer": "not_placed",
+   "latency": 1.92,
+   "reason": "No purple brick is on the plate."
+  },
+  {
+   "i": 11,
+   "clip": "run1_part1",
+   "t": 11,
+   "step": 2,
+   "gate": "ok",
+   "answer": "not_placed",
+   "latency": 1.73,
+   "reason": "No purple brick is on the plate."
+  },
+  {
+   "i": 12,
+   "clip": "run1_part1",
+   "t": 12,
+   "step": 2,
+   "gate": "plate partial"
+  },
+  {
+   "i": 13,
+   "clip": "run1_part1",
+   "t": 13,
+   "step": 2,
+   "gate": "plate partial"
+  },
+  {
+   "i": 14,
+   "clip": "run1_part1",
+   "t": 14,
+   "step": 2,
+   "gate": "ok",
+   "answer": "correct",
+   "latency": 1.81,
+   "reason": "All three facts are visible."
+  },
+  {
+   "i": 15,
+   "clip": "run1_part1",
+   "t": 15,
+   "step": 2,
+   "gate": "ok",
+   "answer": "correct",
+   "latency": 2.62,
+   "reason": "All three facts are visible."
+  },
+  {
+   "i": 16,
+   "clip": "run1_part1",
+   "t": 16,
+   "step": 3,
+   "gate": "ok",
+   "answer": "not_placed",
+   "latency": 1.7,
+   "reason": "The lime-green brick is absent."
+  },
+  {
+   "i": 17,
+   "clip": "run1_part1",
+   "t": 17,
+   "step": 3,
+   "gate": "ok",
+   "answer": "not_placed",
+   "latency": 2.27,
+   "reason": "Only the red and purple bricks are visible."
+  },
+  {
+   "i": 18,
+   "clip": "run1_part1",
+   "t": 18,
+   "step": 3,
+   "gate": "ok",
+   "answer": "not_placed",
+   "latency": 1.74,
+   "reason": "No lime-green brick is visible."
+  },
+  {
+   "i": 19,
+   "clip": "run1_part1",
+   "t": 19,
+   "step": 3,
+   "gate": "ok",
+   "answer": "not_placed",
+   "latency": 2.2,
+   "reason": "No lime brick is on the plate."
+  },
+  {
+   "i": 20,
+   "clip": "run1_part1",
+   "t": 20,
+   "step": 3,
+   "gate": "ok",
+   "answer": "not_placed",
+   "latency": 1.64,
+   "reason": "No lime brick is visible on the plate."
+  },
+  {
+   "i": 21,
+   "clip": "run1_part1",
+   "t": 21,
+   "step": 3,
+   "gate": "ok",
+   "answer": "correct",
+   "latency": 2.72,
+   "reason": "All three placement facts are visible."
+  },
+  {
+   "i": 22,
+   "clip": "run1_part1",
+   "t": 22,
+   "step": 3,
+   "gate": "ok",
+   "answer": "correct",
+   "latency": 1.75,
+   "reason": "All three facts are visible."
+  },
+  {
+   "i": 23,
+   "clip": "run1_part1",
+   "t": 23,
+   "step": 4,
+   "gate": "ok",
+   "answer": "not_placed",
+   "latency": 1.96,
+   "reason": "Only the earlier bricks are visible."
+  },
+  {
+   "i": 24,
+   "clip": "run1_part1",
+   "t": 24,
+   "step": 4,
+   "gate": "ok",
+   "answer": "not_placed",
+   "latency": 1.8,
+   "reason": "No white brick is on the plate."
+  },
+  {
+   "i": 25,
+   "clip": "run1_part1",
+   "t": 25,
+   "step": 4,
+   "gate": "plate partial"
+  },
+  {
+   "i": 26,
+   "clip": "run1_part1",
+   "t": 26,
+   "step": 4,
+   "gate": "ok",
+   "answer": "not_placed",
+   "latency": 1.57,
+   "reason": "No brick is visible on the plate."
+  },
+  {
+   "i": 27,
+   "clip": "run1_part1",
+   "t": 27,
+   "step": 4,
+   "gate": "ok",
+   "answer": "wrong",
+   "latency": 1.98,
+   "reason": "The brick appears cream, not pure white."
+  },
+  {
+   "i": 28,
+   "clip": "run1_part1",
+   "t": 28,
+   "step": 4,
+   "gate": "ok",
+   "answer": "wrong",
+   "latency": 2.09,
+   "reason": "The brick appears cream, not pure white."
+  },
+  {
+   "i": 29,
+   "clip": "run1_part1",
+   "t": 29,
+   "step": 4,
+   "gate": "plate partial"
+  },
+  {
+   "i": 30,
+   "clip": "run1_part1",
+   "t": 30,
+   "step": 4,
+   "gate": "ok",
+   "answer": "not_placed",
+   "latency": 1.94,
+   "reason": "The white brick is absent."
+  },
+  {
+   "i": 31,
+   "clip": "run1_part1",
+   "t": 31,
+   "step": 4,
+   "gate": "hand"
+  },
+  {
+   "i": 32,
+   "clip": "run1_part1",
+   "t": 32,
+   "step": 4,
+   "gate": "plate partial"
+  },
+  {
+   "i": 33,
+   "clip": "run1_part1",
+   "t": 33,
+   "step": 4,
+   "gate": "ok",
+   "answer": "correct",
+   "latency": 2.56,
+   "reason": "All three facts match the photo."
+  },
+  {
+   "i": 34,
+   "clip": "run1_part1",
+   "t": 34,
+   "step": 4,
+   "gate": "ok",
+   "answer": "correct",
+   "latency": 2.32,
+   "reason": "Colour, length, orientation, and contact match."
+  },
+  {
+   "i": 35,
+   "clip": "run1_part1",
+   "t": 35,
+   "step": 5,
+   "gate": "ok",
+   "answer": "not_placed",
+   "latency": 1.79,
+   "reason": "Only one white brick is visible."
+  },
+  {
+   "i": 36,
+   "clip": "run1_part1",
+   "t": 36,
+   "step": 5,
+   "gate": "ok",
+   "answer": "not_placed",
+   "latency": 2.61,
+   "reason": "The second white brick is still in hand."
+  },
+  {
+   "i": 37,
+   "clip": "run1_part1",
+   "t": 37,
+   "step": 5,
+   "gate": "hand"
+  },
+  {
+   "i": 38,
+   "clip": "run1_part1",
+   "t": 38,
+   "step": 5,
+   "gate": "plate partial"
+  },
+  {
+   "i": 39,
+   "clip": "run1_part1",
+   "t": 39,
+   "step": 5,
+   "gate": "ok",
+   "answer": "correct",
+   "latency": 2.11,
+   "reason": "Both white bricks form an aligned two-stud-deep block."
+  },
+  {
+   "i": 40,
+   "clip": "run1_part1",
+   "t": 40,
+   "step": 5,
+   "gate": "ok",
+   "answer": "correct",
+   "latency": 2.18,
+   "reason": "Both white bricks form an aligned, two-stud-deep area."
+  },
+  {
+   "i": 41,
+   "clip": "run1_part1",
+   "t": 41,
+   "step": 6,
+   "gate": "ok",
+   "answer": "not_placed",
+   "latency": 1.7,
+   "reason": "Blue brick is absent."
+  },
+  {
+   "i": 42,
+   "clip": "run1_part1",
+   "t": 42,
+   "step": 6,
+   "gate": "ok",
+   "answer": "not_placed",
+   "latency": 1.71,
+   "reason": "Blue brick remains in the builder\u2019s hand."
+  },
+  {
+   "i": 43,
+   "clip": "run1_part1",
+   "t": 43,
+   "step": 6,
+   "gate": "plate partial"
+  },
+  {
+   "i": 44,
+   "clip": "run1_part1",
+   "t": 44,
+   "step": 6,
+   "gate": "ok",
+   "answer": "wrong",
+   "latency": 2.13,
+   "reason": "Left end is separated; right ends align."
+  },
+  {
+   "i": 45,
+   "clip": "run1_part1",
+   "t": 45,
+   "step": 6,
+   "gate": "ok",
+   "answer": "wrong",
+   "latency": 3.51,
+   "reason": "Left gap; right end is not two studs short."
+  },
+  {
+   "i": 46,
+   "clip": "run1_part1",
+   "t": 46,
+   "step": 6,
+   "gate": "ok",
+   "answer": "wrong",
+   "latency": 2.65,
+   "reason": "Blue brick does not touch purple brick."
+  },
+  {
+   "i": 47,
+   "clip": "run1_part1",
+   "t": 47,
+   "step": 6,
+   "gate": "plate partial"
+  },
+  {
+   "i": 48,
+   "clip": "run1_part1",
+   "t": 48,
+   "step": 6,
+   "gate": "hand"
+  },
+  {
+   "i": 49,
+   "clip": "run1_part1",
+   "t": 49,
+   "step": 6,
+   "gate": "hand"
+  },
+  {
+   "i": 50,
+   "clip": "run1_part1",
+   "t": 50,
+   "step": 6,
+   "gate": "ok",
+   "answer": "correct",
+   "latency": 2.38,
+   "reason": "All three alignments appear correct."
+  },
+  {
+   "i": 51,
+   "clip": "run1_part1",
+   "t": 51,
+   "step": 6,
+   "gate": "ok",
+   "answer": "correct",
+   "latency": 2.07,
+   "reason": "All three placements appear correct."
+  },
+  {
+   "i": 52,
+   "clip": "run1_part1",
+   "t": 52,
+   "step": 7,
+   "gate": "ok",
+   "answer": "not_placed",
+   "latency": 1.94,
+   "reason": "The space beside the blue brick is empty."
+  },
+  {
+   "i": 53,
+   "clip": "run1_part1",
+   "t": 53,
+   "step": 7,
+   "gate": "ok",
+   "answer": "not_placed",
+   "latency": 2.11,
+   "reason": "The space right of the blue brick is empty."
+  },
+  {
+   "i": 54,
+   "clip": "run1_part1",
+   "t": 54,
+   "step": 7,
+   "gate": "plate partial"
+  },
+  {
+   "i": 55,
+   "clip": "run1_part1",
+   "t": 55,
+   "step": 7,
+   "gate": "ok",
+   "answer": "not_placed",
+   "latency": 2.04,
+   "reason": "The space beside the blue brick is empty."
+  },
+  {
+   "i": 56,
+   "clip": "run1_part1",
+   "t": 56,
+   "step": 7,
+   "gate": "hand"
+  },
+  {
+   "i": 57,
+   "clip": "run1_part1",
+   "t": 57,
+   "step": 7,
+   "gate": "ok",
+   "answer": "correct",
+   "latency": 2.15,
+   "reason": "All three placement facts are visible."
+  },
+  {
+   "i": 58,
+   "clip": "run1_part1",
+   "t": 58,
+   "step": 7,
+   "gate": "ok",
+   "answer": "correct",
+   "latency": 1.91,
+   "reason": "All three facts are visible."
+  },
+  {
+   "i": 59,
+   "clip": "run1_part1",
+   "t": 59,
+   "step": 8,
+   "gate": "ok",
+   "answer": "not_placed",
+   "latency": 1.99,
+   "reason": "The target brick is absent."
+  },
+  {
+   "i": 60,
+   "clip": "run1_part1",
+   "t": 60,
+   "step": 8,
+   "gate": "ok",
+   "answer": "not_placed",
+   "latency": 2.24,
+   "reason": "The right-end brick is absent."
+  },
+  {
+   "i": 61,
+   "clip": "run1_part1",
+   "t": 61,
+   "step": 8,
+   "gate": "ok",
+   "answer": "cannot_see",
+   "latency": 2.17,
+   "reason": "Hand obscures the brick's placement."
+  },
+  {
+   "i": 62,
+   "clip": "run1_part2_p1",
+   "t": 0,
+   "step": 8,
+   "gate": "ok",
+   "answer": "not_placed",
+   "latency": 2.12,
+   "reason": "Brick remains in the builder's hand."
+  },
+  {
+   "i": 63,
+   "clip": "run1_part2_p1",
+   "t": 1,
+   "step": 8,
+   "gate": "ok",
+   "answer": "cannot_see",
+   "latency": 2.07,
+   "reason": "Hand obscures the brick and its contact points."
+  },
+  {
+   "i": 64,
+   "clip": "run1_part2_p1",
+   "t": 2,
+   "step": 8,
+   "gate": "ok",
+   "answer": "wrong",
+   "latency": 2.22,
+   "reason": "Its long side runs left to right."
+  },
+  {
+   "i": 65,
+   "clip": "run1_part2_p1",
+   "t": 3,
+   "step": 8,
+   "gate": "plate partial"
+  },
+  {
+   "i": 66,
+   "clip": "run1_part2_p1",
+   "t": 4,
+   "step": 8,
+   "gate": "hand"
+  },
+  {
+   "i": 67,
+   "clip": "run1_part2_p1",
+   "t": 5,
+   "step": 8,
+   "gate": "plate partial"
+  },
+  {
+   "i": 68,
+   "clip": "run1_part2_p1",
+   "t": 6,
+   "step": 8,
+   "gate": "ok",
+   "answer": "not_placed",
+   "latency": 2.12,
+   "reason": "The brick is not on the plate."
+  },
+  {
+   "i": 69,
+   "clip": "run1_part2_p1",
+   "t": 7,
+   "step": 8,
+   "gate": "ok",
+   "answer": "not_placed",
+   "latency": 1.87,
+   "reason": "Brick remains in the builder\u2019s hand."
+  },
+  {
+   "i": 70,
+   "clip": "run1_part2_p1",
+   "t": 8,
+   "step": 8,
+   "gate": "plate partial"
+  },
+  {
+   "i": 71,
+   "clip": "run1_part2_p1",
+   "t": 9,
+   "step": 8,
+   "gate": "ok",
+   "answer": "correct",
+   "latency": 2.87,
+   "reason": "All three facts are visible."
+  },
+  {
+   "i": 72,
+   "clip": "run1_part2_p1",
+   "t": 10,
+   "step": 8,
+   "gate": "ok",
+   "answer": "correct",
+   "latency": 1.88,
+   "reason": "All three facts match."
+  },
+  {
+   "i": 73,
+   "clip": "run1_part2_p1",
+   "t": 11,
+   "step": 9,
+   "gate": "no plate"
+  },
+  {
+   "i": 74,
+   "clip": "run1_part2_p1",
+   "t": 12,
+   "step": 9,
+   "gate": "plate partial"
+  },
+  {
+   "i": 75,
+   "clip": "run1_part2_p1",
+   "t": 13,
+   "step": 9,
+   "gate": "plate partial"
+  },
+  {
+   "i": 76,
+   "clip": "run1_part2_p1",
+   "t": 14,
+   "step": 9,
+   "gate": "no plate"
+  },
+  {
+   "i": 77,
+   "clip": "run1_part2_p1",
+   "t": 15,
+   "step": 9,
+   "gate": "plate partial"
+  },
+  {
+   "i": 78,
+   "clip": "run1_part2_p1",
+   "t": 16,
+   "step": 9,
+   "gate": "no plate"
+  },
+  {
+   "i": 79,
+   "clip": "run1_part2_p1",
+   "t": 17,
+   "step": 9,
+   "gate": "hand"
+  },
+  {
+   "i": 80,
+   "clip": "run1_part2_p1",
+   "t": 18,
+   "step": 9,
+   "gate": "hand"
+  },
+  {
+   "i": 81,
+   "clip": "run1_part2_p1",
+   "t": 19,
+   "step": 9,
+   "gate": "ok",
+   "answer": "not_placed",
+   "latency": 2.1,
+   "reason": "The disc is absent from the plate."
+  },
+  {
+   "i": 82,
+   "clip": "run1_part2_p1",
+   "t": 20,
+   "step": 9,
+   "gate": "ok",
+   "answer": "not_placed",
+   "latency": 1.69,
+   "reason": "No red disc is visible on the plate."
+  },
+  {
+   "i": 83,
+   "clip": "run1_part2_p1",
+   "t": 21,
+   "step": 9,
+   "gate": "ok",
+   "answer": "not_placed",
+   "latency": 1.89,
+   "reason": "The disc has not been placed."
+  },
+  {
+   "i": 84,
+   "clip": "run1_part2_p1",
+   "t": 22,
+   "step": 9,
+   "gate": "hand"
+  },
+  {
+   "i": 85,
+   "clip": "run1_part2_p1",
+   "t": 23,
+   "step": 9,
+   "gate": "hand"
+  },
+  {
+   "i": 86,
+   "clip": "run1_part2_p1",
+   "t": 24,
+   "step": 9,
+   "gate": "ok",
+   "answer": "not_placed",
+   "latency": 1.66,
+   "reason": "The red disc is absent."
+  },
+  {
+   "i": 87,
+   "clip": "run1_part2_p1",
+   "t": 25,
+   "step": 9,
+   "gate": "plate partial"
+  },
+  {
+   "i": 88,
+   "clip": "run1_part2_p1",
+   "t": 26,
+   "step": 9,
+   "gate": "plate partial"
+  },
+  {
+   "i": 89,
+   "clip": "run1_part2_p1",
+   "t": 27,
+   "step": 9,
+   "gate": "hand"
+  },
+  {
+   "i": 90,
+   "clip": "run1_part2_p1",
+   "t": 28,
+   "step": 9,
+   "gate": "hand"
+  },
+  {
+   "i": 91,
+   "clip": "run1_part2_p1",
+   "t": 29,
+   "step": 9,
+   "gate": "ok",
+   "answer": "correct",
+   "latency": 1.95,
+   "reason": "All three placement facts match."
+  },
+  {
+   "i": 92,
+   "clip": "run1_part2_p1",
+   "t": 30,
+   "step": 9,
+   "gate": "ok",
+   "answer": "correct",
+   "latency": 1.85,
+   "reason": "All three placement facts match."
+  },
+  {
+   "i": 93,
+   "clip": "run1_part2_p1",
+   "t": 31,
+   "step": 10,
+   "gate": "ok",
+   "answer": "not_placed",
+   "latency": 1.99,
+   "reason": "The disc is still in the builder's hand."
+  },
+  {
+   "i": 94,
+   "clip": "run1_part2_p1",
+   "t": 32,
+   "step": 10,
+   "gate": "hand"
+  },
+  {
+   "i": 95,
+   "clip": "run1_part2_p1",
+   "t": 33,
+   "step": 10,
+   "gate": "plate partial"
+  },
+  {
+   "i": 96,
+   "clip": "run1_part2_p1",
+   "t": 34,
+   "step": 10,
+   "gate": "plate partial"
+  },
+  {
+   "i": 97,
+   "clip": "run1_part2_p1",
+   "t": 35,
+   "step": 10,
+   "gate": "plate partial"
+  },
+  {
+   "i": 98,
+   "clip": "run1_part2_p1",
+   "t": 36,
+   "step": 10,
+   "gate": "plate partial"
+  },
+  {
+   "i": 99,
+   "clip": "run1_part2_p1",
+   "t": 37,
+   "step": 10,
+   "gate": "ok",
+   "answer": "wrong",
+   "latency": 2.11,
+   "reason": "Disc extends too far right."
+  },
+  {
+   "i": 100,
+   "clip": "run1_part2_p1",
+   "t": 38,
+   "step": 10,
+   "gate": "ok",
+   "answer": "wrong",
+   "latency": 3.02,
+   "reason": "Disc extends too far right and overlaps below white brick."
+  },
+  {
+   "i": 101,
+   "clip": "run1_part2_p1",
+   "t": 39,
+   "step": 10,
+   "gate": "plate partial"
+  },
+  {
+   "i": 102,
+   "clip": "run1_part2_p1",
+   "t": 40,
+   "step": 10,
+   "gate": "no plate"
+  },
+  {
+   "i": 103,
+   "clip": "run1_part2_p1",
+   "t": 41,
+   "step": 10,
+   "gate": "ok",
+   "answer": "wrong",
+   "latency": 2.12,
+   "reason": "Disc extends too far right."
+  },
+  {
+   "i": 104,
+   "clip": "run1_part2_p1",
+   "t": 42,
+   "step": 10,
+   "gate": "plate partial"
+  },
+  {
+   "i": 105,
+   "clip": "run1_part2_p1",
+   "t": 43,
+   "step": 10,
+   "gate": "plate partial"
+  },
+  {
+   "i": 106,
+   "clip": "run1_part2_p1",
+   "t": 44,
+   "step": 10,
+   "gate": "plate partial"
+  },
+  {
+   "i": 107,
+   "clip": "run1_part2_p1",
+   "t": 45,
+   "step": 10,
+   "gate": "plate partial"
+  },
+  {
+   "i": 108,
+   "clip": "run1_part2_p1",
+   "t": 46,
+   "step": 10,
+   "gate": "plate partial"
+  },
+  {
+   "i": 109,
+   "clip": "run1_part2_p1",
+   "t": 47,
+   "step": 10,
+   "gate": "ok",
+   "answer": "correct",
+   "latency": 1.99,
+   "reason": "All three placement facts are visible."
+  },
+  {
+   "i": 110,
+   "clip": "run1_part2_p1",
+   "t": 48,
+   "step": 10,
+   "gate": "ok",
+   "answer": "correct",
+   "latency": 2.25,
+   "reason": "All three placement facts are visible."
+  },
+  {
+   "i": 111,
+   "clip": "run1_part2_p1",
+   "t": 49,
+   "step": 11,
+   "gate": "ok",
+   "answer": "not_placed",
+   "latency": 1.99,
+   "reason": "The ground-line brick is absent."
+  },
+  {
+   "i": 112,
+   "clip": "run1_part2_p1",
+   "t": 50,
+   "step": 11,
+   "gate": "ok",
+   "answer": "not_placed",
+   "latency": 1.66,
+   "reason": "The brick has not been placed."
+  },
+  {
+   "i": 113,
+   "clip": "run1_part2_p1",
+   "t": 51,
+   "step": 11,
+   "gate": "ok",
+   "answer": "not_placed",
+   "latency": 1.84,
+   "reason": "The ground-line brick is absent."
+  },
+  {
+   "i": 114,
+   "clip": "run1_part2_p1",
+   "t": 52,
+   "step": 11,
+   "gate": "plate partial"
+  },
+  {
+   "i": 115,
+   "clip": "run1_part2_p1",
+   "t": 53,
+   "step": 11,
+   "gate": "ok",
+   "answer": "correct",
+   "latency": 1.83,
+   "reason": "All three facts match."
+  },
+  {
+   "i": 116,
+   "clip": "run1_part2_p1",
+   "t": 54,
+   "step": 11,
+   "gate": "ok",
+   "answer": "correct",
+   "latency": 2.67,
+   "reason": "All three facts are visible."
+  },
+  {
+   "i": 117,
+   "clip": "run1_part2_p1",
+   "t": 55,
+   "step": 12,
+   "gate": "ok",
+   "answer": "not_placed",
+   "latency": 2.31,
+   "reason": "No step brick is visible on the plate."
+  },
+  {
+   "i": 118,
+   "clip": "run1_part2_p1",
+   "t": 56,
+   "step": 12,
+   "gate": "hand"
+  },
+  {
+   "i": 119,
+   "clip": "run1_part2_p1",
+   "t": 57,
+   "step": 12,
+   "gate": "plate partial"
+  },
+  {
+   "i": 120,
+   "clip": "run1_part2_p1",
+   "t": 58,
+   "step": 12,
+   "gate": "ok",
+   "answer": "correct",
+   "latency": 2.03,
+   "reason": "All three facts are visible."
+  },
+  {
+   "i": 121,
+   "clip": "run1_part2_p1",
+   "t": 59,
+   "step": 12,
+   "gate": "ok",
+   "answer": "correct",
+   "latency": 2.14,
+   "reason": "All three facts match the photo."
+  },
+  {
+   "i": 122,
+   "clip": "run1_part2_p1",
+   "t": 60,
+   "step": 13,
+   "gate": "ok",
+   "answer": "cannot_see",
+   "latency": 2.05,
+   "reason": "Hand hides the yellow brick\u2019s far end."
+  },
+  {
+   "i": 123,
+   "clip": "run1_part2_p2",
+   "t": 0,
+   "step": 13,
+   "gate": "ok",
+   "answer": "correct",
+   "latency": 2.87,
+   "reason": "Yellow, aligned, touching, and reaches the edge."
+  },
+  {
+   "i": 124,
+   "clip": "run1_part2_p2",
+   "t": 1,
+   "step": 13,
+   "gate": "ok",
+   "answer": "correct",
+   "latency": 2.63,
+   "reason": "All three facts match."
+  },
+  {
+   "i": 125,
+   "clip": "run1_part2_p2",
+   "t": 2,
+   "step": 14,
+   "gate": "ok"
+  },
+  {
+   "i": 126,
+   "clip": "run1_part2_p2",
+   "t": 3,
+   "step": 14,
+   "gate": "ok"
+  },
+  {
+   "i": 127,
+   "clip": "run1_part2_p2",
+   "t": 4,
+   "step": 14,
+   "gate": "ok"
+  },
+  {
+   "i": 128,
+   "clip": "run1_part2_p2",
+   "t": 5,
+   "step": 14,
+   "gate": "ok"
+  },
+  {
+   "i": 129,
+   "clip": "run1_part2_p2",
+   "t": 6,
+   "step": 14,
+   "gate": "ok"
+  },
+  {
+   "i": 130,
+   "clip": "run1_part2_p2",
+   "t": 7,
+   "step": 14,
+   "gate": "ok"
+  },
+  {
+   "i": 131,
+   "clip": "run1_part2_p2",
+   "t": 8,
+   "step": 14,
+   "gate": "no plate"
+  },
+  {
+   "i": 132,
+   "clip": "run1_part2_p2",
+   "t": 9,
+   "step": 14,
+   "gate": "no plate"
+  },
+  {
+   "i": 133,
+   "clip": "run1_part2_p2",
+   "t": 10,
+   "step": 14,
+   "gate": "no plate"
+  },
+  {
+   "i": 134,
+   "clip": "run1_part2_p2",
+   "t": 11,
+   "step": 14,
+   "gate": "no plate"
+  },
+  {
+   "i": 135,
+   "clip": "run1_part2_p2",
+   "t": 12,
+   "step": 14,
+   "gate": "hand"
+  },
+  {
+   "i": 136,
+   "clip": "run1_part2_p2",
+   "t": 13,
+   "step": 14,
+   "gate": "ok"
+  },
+  {
+   "i": 137,
+   "clip": "run1_part2_p2",
+   "t": 14,
+   "step": 14,
+   "gate": "ok"
+  },
+  {
+   "i": 138,
+   "clip": "run1_part2_p2",
+   "t": 15,
+   "step": 14,
+   "gate": "ok"
+  },
+  {
+   "i": 139,
+   "clip": "run1_part2_p2",
+   "t": 16,
+   "step": 14,
+   "gate": "ok"
+  },
+  {
+   "i": 140,
+   "clip": "run1_part2_p2",
+   "t": 17,
+   "step": 14,
+   "gate": "ok"
+  },
+  {
+   "i": 141,
+   "clip": "run1_part2_p2",
+   "t": 18,
+   "step": 14,
+   "gate": "ok"
+  },
+  {
+   "i": 142,
+   "clip": "run1_part2_p2",
+   "t": 19,
+   "step": 14,
+   "gate": "ok"
+  },
+  {
+   "i": 143,
+   "clip": "run1_part2_p2",
+   "t": 20,
+   "step": 14,
+   "gate": "ok"
+  },
+  {
+   "i": 144,
+   "clip": "run1_part2_p2",
+   "t": 21,
+   "step": 14,
+   "gate": "ok"
+  },
+  {
+   "i": 145,
+   "clip": "run1_part2_p2",
+   "t": 22,
+   "step": 14,
+   "gate": "ok"
+  },
+  {
+   "i": 146,
+   "clip": "run1_part2_p2",
+   "t": 23,
+   "step": 14,
+   "gate": "ok"
+  },
+  {
+   "i": 147,
+   "clip": "run1_part2_p2",
+   "t": 24,
+   "step": 14,
+   "gate": "ok"
+  }
+ ]
+}
