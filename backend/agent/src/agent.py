@@ -4,8 +4,9 @@ Two implementations share this process, chosen once at start by AGENT_BACKEND:
 
   gemini  gemini/   Gemini Live: one native-audio model that hears, sees the
                     camera frames itself, and judges the bricks. The original.
-  openai  gpt/      GPT-Live voice model with a gpt-6-luna backend; the camera
-                    is judged by a separate vision call, the code moves the step.
+  openai  gpt/      GPT-Live voice model with a delegated backend model; the
+                    code watches the camera (gate -> judge -> state machine)
+                    and holds the step.
 
 Both register with livekit-server under AGENT_NAME and wait to be dispatched;
 the api puts that name into every join token it signs, so the agent turns up

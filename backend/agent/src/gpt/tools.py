@@ -2,9 +2,10 @@
 
 GPT-Live has no tool channel of its own; tools reach it through the backend
 model it delegates to. The voice model knows the steps (prompts.py) and gets
-the camera's confirmed changes as context (watch.py); between those it cannot
-look for itself, so when the wearer asks it to, check_now fetches the camera's
-verdict on a fresh frame. And hanging up, which only a tool can do.
+the camera's confirmed changes as commentary (watch.py); when the wearer asks
+it to look, check_now reads the camera loop's state: which step the code is
+on, the last verdict and its age. No model call, no wait. And hanging up,
+which only a tool can do.
 """
 
 from __future__ import annotations
@@ -37,10 +38,11 @@ async def publish_build(build: Build) -> None:
 
 @function_tool()
 async def check_now(context: RunContext[Run]) -> str:
-    """What the camera sees right now: how many steps are done and whether a
-    brick is placed wrongly. Call it when the wearer asks you to look, to
-    check, or whether something is right. Takes a few seconds."""
-    return await context.userdata.watch.check_now()
+    """What the camera knows right now: which steps are done, which step the
+    wearer is on, and what the last clear look showed (in place, placed
+    wrongly and how, not placed yet, or not visible). Call it when the wearer
+    asks you to look, to check, or whether something is right. Instant."""
+    return context.userdata.watch.check_now()
 
 
 @function_tool()

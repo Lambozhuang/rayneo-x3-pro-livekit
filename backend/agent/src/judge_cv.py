@@ -44,6 +44,7 @@ this file; the numbers in eval/RESULTS.md are from this code.
 
 from __future__ import annotations
 
+import asyncio
 import time
 from dataclasses import dataclass, field
 
@@ -550,6 +551,10 @@ class CVJudge:
         t0 = time.perf_counter()
         v = self.decide(self.observe(img), step)
         return Verdict(v.answer, v.reason, v.info, time.perf_counter() - t0)
+
+    async def ajudge(self, img: Image.Image, step: int) -> Verdict:
+        """judge() off the event loop (~0.1 s of numpy at 1080p)."""
+        return await asyncio.to_thread(self.judge, img, step)
 
     def calibrate(self, img: Image.Image, steps_done: int | None = None) -> dict[str, list[float]]:
         """Colour centres from a frame showing the build after `steps_done` steps (default: finished): the median

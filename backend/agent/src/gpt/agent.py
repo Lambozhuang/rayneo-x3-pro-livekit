@@ -1,16 +1,17 @@
-"""The GPT path: GPT-Live speaks, a vision model watches, the process only pipes.
+"""The GPT path: GPT-Live speaks, the code watches the camera and holds the step.
 
-    glasses --audio--> SFU --> this process --ws--> gpt-live-1 (knows every step)
-            --video-->     --> FrameTap --frame after frame--> vision model --> "Camera: ..." into GPT-Live's context
+    glasses --audio--> SFU --> this process --ws--> gpt-live-1 (knows every step's wording)
+            --video-->     --> FrameTap --> gate --> judge (CV, or a vision model) --> state machine
+                                                          --> "Camera: step N is done ..." as commentary to GPT-Live
             <--audio-- SFU <-- this process <---------------- gpt-live-1
-            <--step list, model render track-- this process (step index = the camera's count)
+            <--step list (participant attributes)-- this process (step index = the state machine's)
 
-The voice model owns the conversation and the build: the steps are in its
-instructions, the camera's verdicts arrive as context every few seconds
-(watch.py), and it decides when to speak and when to move on. No tools for the
-build; the backend model behind GPT-Live exists to hang up (tools.py). No VAD
-is passed to the session: the model listens while it speaks and stops on its
-own. The Gemini path (gemini/) is untouched.
+The voice model owns the conversation; the code owns the build: the steps are
+in the voice's instructions, the camera's confirmed changes arrive as
+commentary (watch.py), and check_now answers from the code's state (tools.py).
+No VAD is passed to the session: the model listens while it speaks and stops
+on its own. The Gemini path (gemini/) is untouched; the reference-model stream
+(render.py) stays wired but unused by the flat-layout guides.
 """
 
 import logging
@@ -33,9 +34,10 @@ from frames import FrameTap
 from gpt.config import Settings, build_live_model, language, openai_client, require_env
 from gpt.prompts import backend_instructions, voice_persona
 from gpt.tools import Run, check_now, end_call, publish_build
-from gpt.vision import Eyes
 from gpt.watch import Watch
 from guide import Build, load_guide
+from gate import Gate
+from judge_cv import CVJudge, Layout
 from render import ModelState, ModelStream, stream_enabled
 
 logger = logging.getLogger("rayneo-agent")
@@ -53,7 +55,12 @@ async def rayneo_assistant(ctx: JobContext) -> None:
     logger.info(settings.experiment_line(guide.name))
     tap = FrameTap(os.environ.get("FRAME_DUMP_DIR"), int(os.environ.get("FRAME_DUMP_MAX", "60")))
     build = Build(guide=guide, run=ctx.room.name)
-    eyes = Eyes(openai_client(), settings.check_model, settings.check_effort, guide, detail=settings.check_detail)
+    if settings.judge == "vlm":
+        from judge_vlm import VLMJudge
+
+        judge = VLMJudge(openai_client(), guide, settings.check_model, settings.check_effort, settings.check_detail)
+    else:
+        judge = CVJudge(Layout.from_guide(guide), guide.colours, settings.focal_px)
     stream = ModelStream(guide.model, ModelState()) if guide.model and stream_enabled() else None
     if stream is not None:
         ctx.add_shutdown_callback(stream.stop)
@@ -61,14 +68,15 @@ async def rayneo_assistant(ctx: JobContext) -> None:
         video_sampler=tap,
         llm=build_live_model(settings, backend_instructions(lang)),
     )
-    watch = Watch(session, build, eyes, tap, publish_build, gap=settings.watch_gap, confirm=settings.watch_confirm)
+    watch = Watch(session, build, judge, Gate(settings.gate_still), tap, publish_build,
+                  gap=settings.watch_gap, confirm=settings.watch_confirm)
     session.userdata = Run(build=build, watch=watch)
     ctx.add_shutdown_callback(watch.stop)
 
     # Two bills. The voice model is priced by the second and reports cumulative
     # session time about once a minute (usage:); the backend by the token, one
-    # line per response (model:). The vision model's tokens are on the camera:
-    # lines (watch.py).
+    # line per response (model:). A VLM judge's tokens are on the judge: lines
+    # (watch.py); the CV judge costs nothing.
     @session.on("metrics_collected")
     def _log_metrics(ev: MetricsCollectedEvent) -> None:
         m = ev.metrics
@@ -98,8 +106,6 @@ async def rayneo_assistant(ctx: JobContext) -> None:
     def _log_turn(ev: ConversationItemAddedEvent) -> None:
         if isinstance(ev.item, ChatMessage):
             logger.info("%s: %s", ev.item.role, ev.item.text_content)
-            if ev.item.role == "user" and ev.item.text_content:
-                watch.note_user(ev.item.text_content)
 
     @ctx.room.on("track_subscribed")
     def _want_full_video(
@@ -131,7 +137,6 @@ async def rayneo_assistant(ctx: JobContext) -> None:
         build.model, build.model_nodes = stream.state, tuple(stream.nodes)
     build.start()
     await publish_build(build)
-    await eyes.prepare()
 
     # generate_reply on GPT-Live is commentary: a request the model may decline.
     handle = session.generate_reply(

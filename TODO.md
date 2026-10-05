@@ -10,16 +10,17 @@
 - [x] 门控：板完整 + 大片肤色，静止帧 70/70 放过，手帧漏 20/75 但判定器自己能答对（eval/README.md）
 - [x] 状态机 + 回放：原分辨率 13/13 步 ±1 s、3/3 错、零误报；1080p 下第 5 步卡死连锁（eval/README.md）
 - [ ] 改任务：第 5 步白砖换色（同色不相邻），第 9 步事实去掉"同宽对齐"；重录一段，原分辨率 + 1080p 各回放一遍
-- [ ] 判定器 / 门控 / 状态机搬进 agent（gpt/judge.py、gate.py、build.py），watch.py 瘦成胶水；eval 复用同一份代码
+- [x] 判定器 / 门控 / 状态机搬进 agent（src/judge_cv.py、judge_vlm.py、gate.py、progress.py），watch.py 瘦成胶水；eval 跑的就是这份代码
+- [ ] 上机：真实 1080p 通话流上看门控（静止 1 s、肤色阈值）、焦距拟合值、色心是否要重标（`eval/cv_judge.py calibrate`）、判定延迟和 commentary→开口延迟
 - [x] 判定器 D：纯 CV（eval/cv_judge.py），29 问原始 29/29、1080p 28/29，回放两种画质都不卡；弱点是手压板边 / 悬在板上（eval/RESULTS.md）
 - [ ] 判定器 D 续：手在板上的帧要么门控拦（15 fps 静止一秒），要么用凸点格纹校验格子对不对；阈值在第二段录像上验一遍
 - [x] 派生通话流规格视频（1080p 15 fps 4 Mbps）再跑一遍判定器：26/29，同色相邻砖和细位移丢失（eval/README.md）
 - [ ] 用 app 真实通话流抓一帧（FrameDump）对比底板像素占比，确认派生版和实际一致
 - [ ] 相机 60 s 单段上限：手机伴侣 app 看有没有时长设置；没有就给 app 加录像模式（CameraX，无上限）
-- [ ] 任务格式：task.toml 每步加窄问题 + 判定模式（匹配 / 连续 N 帧 / 瞬时为真），后端状态机按此推进，切步换问题、旧结果按代号丢弃
+- [x] 任务格式：guides/truck/task.toml 一份两用（say + color/cells + where/checks + [colours]），eval/truck/layout.json 删掉
 - [ ] 录像回放 harness：按真实节奏（取帧 → 判定耗时 → 下一帧）回放，输出状态时间线，对人工标注算检出延迟、误跳、费用。
       看 GlassKit 的 eval CLI 能否直接用
-- [ ] 接回 GPT-Live：watch 注记改为状态机事实；两层分别打点（语音轮次延迟、判定延迟）
+- [x] 接回 GPT-Live：commentary 只来自状态机事件，check_now 读状态不调模型；judge: / voice: 两层打点
 - [ ] 旧 3D 小房子的 guide、渲染参考图、`tmp/poc/eyes_eval.py` 在新任务跑通后清掉
 
 ## 眼镜

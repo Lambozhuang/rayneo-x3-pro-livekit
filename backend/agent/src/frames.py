@@ -4,11 +4,11 @@
 the framework never forwards video to the speech model, and keeps the frames
 for the code instead: `next_frame()` waits for the next one to arrive, which at
 the glasses' frame rate is a few tens of milliseconds, so whatever asks for a
-picture gets one taken after it asked. That is the whole point: the vision
-check judges the frame taken when the wearer said "done", never an older one.
+picture gets one taken after it asked, never an older one. The watch loop
+(gpt/watch.py) takes frame after frame from here.
 
-FRAME_DUMP_DIR keeps a copy of every frame that was actually sent to a vision
-model, named after what it was sent for, one subdirectory per call.
+FRAME_DUMP_DIR keeps a copy of every frame that was actually judged, named
+after the step and the verdict, one subdirectory per call.
 """
 
 from __future__ import annotations
@@ -58,6 +58,11 @@ class FrameTap:
         finally:
             if fut in self._waiters:
                 self._waiters.remove(fut)
+
+    @property
+    def dumping(self) -> bool:
+        """Whether dump() would keep another frame (so callers skip the JPEG encode otherwise)."""
+        return self._dump_dir is not None and self._dumped < self._dump_max
 
     def dump(self, jpeg: bytes, name: str) -> None:
         """Keep a copy of an encoded frame, if FRAME_DUMP_DIR is set."""

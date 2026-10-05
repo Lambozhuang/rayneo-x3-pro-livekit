@@ -1,12 +1,12 @@
 """Environment configuration for the GPT path.
 
-Three OpenAI models, all named in .env so they can be changed without a
-rebuild: the voice model (GPT-Live, priced by the second), the backend model it
-delegates reasoning and tool calls to, and the vision model that judges camera
-frames in a separate Responses call. The backend never sees a picture. The
-experiment switches are logged as
-one `experiment:` line at the start of every call, so a run's conditions can be
-read back from its log.
+Everything named in .env so it can be changed without a rebuild: the voice
+model (GPT-Live, priced by the second), the backend model it delegates
+reasoning and tool calls to, which judge watches the camera (JUDGE=cv, no
+model, the default; or vlm, a vision model in a separate Responses call), and
+the camera loop's knobs. The backend model never sees a picture. The experiment
+switches are logged as one `experiment:` line at the start of every call, so a
+run's conditions can be read back from its log.
 """
 
 from __future__ import annotations
@@ -15,7 +15,6 @@ import logging
 import os
 from dataclasses import dataclass, fields
 
-from livekit.agents.utils import images
 from livekit.plugins.openai.realtime import GPTLiveModel
 from openai import AsyncOpenAI
 
@@ -34,29 +33,28 @@ def language() -> str:
     return os.environ.get("AGENT_LANGUAGE", "English")
 
 
-# A camera frame as the vision model gets it: the captured size (the glasses
-# send 1080p portrait), JPEG at a quality that keeps studs countable.
-FRAME_ENCODE_OPTIONS = images.EncodeOptions(
-    format="JPEG",
-    quality=85,
-    resize_options=images.ResizeOptions(width=1920, height=1920, strategy="scale_aspect_fit"),
-)
-
-
 @dataclass(frozen=True)
 class Settings:
     live_model: str
     voice: str
     backend_model: str
     backend_effort: str
+    # The judge (JUDGE): cv = judge_cv.py on every gated frame, no model; vlm =
+    # judge_vlm.py, the check_* model in its own Responses call per frame.
+    judge: str
     check_model: str
     check_effort: str
     check_detail: str
-    # The camera loop (watch.py): seconds to wait between one verdict and the
-    # next frame (0 = back to back), and how many consecutive frames must agree
-    # before a change is announced.
+    # The camera loop (watch.py): the plate must have been still this long
+    # before a frame is judged (gate.py), at least this many seconds between
+    # two judged frames, and how many consecutive verdicts must agree before a
+    # step counts or a wrong placement is spoken (progress.py).
+    gate_still: float
     watch_gap: float
     watch_confirm: int
+    # The camera's focal length in px for the CV judge; blank = fitted from the
+    # first frames that show the whole plate.
+    focal_px: float | None
 
     @classmethod
     def from_env(cls) -> Settings:
@@ -65,19 +63,25 @@ class Settings:
             voice=os.environ.get("OPENAI_VOICE", "marin"),
             backend_model=require_env("OPENAI_BACKEND_MODEL"),
             backend_effort=os.environ.get("OPENAI_BACKEND_EFFORT", "low"),
-            check_model=require_env("OPENAI_CHECK_MODEL"),
-            # Measured on the 2026-09-22/23 frames: `none` judges as well as
-            # `low` in a third of the time; `medium` made the models doubt
-            # more, not see more. See vision.py.
+            judge=os.environ.get("JUDGE", "cv"),
+            check_model=os.environ.get("OPENAI_CHECK_MODEL", ""),
+            # gpt-6-sol with no reasoning was the stable VLM setting (eval/RESULTS.md)
             check_effort=os.environ.get("OPENAI_CHECK_EFFORT", "none"),
             check_detail=os.environ.get("OPENAI_CHECK_DETAIL", "high"),
-            watch_gap=float(os.environ.get("GPT_WATCH_GAP", "0")),
+            gate_still=float(os.environ.get("GATE_STILL", "1.0")),
+            watch_gap=float(os.environ.get("GPT_WATCH_GAP", "0.5")),
             watch_confirm=int(os.environ.get("GPT_WATCH_CONFIRM", "2")),
+            focal_px=float(os.environ["JUDGE_FOCAL_PX"]) if os.environ.get("JUDGE_FOCAL_PX") else None,
         )
         require_env("OPENAI_API_KEY")  # the SDK and the plugin read it themselves
+        if s.judge not in ("cv", "vlm"):
+            raise RuntimeError(f"JUDGE={s.judge!r}: must be cv or vlm")
+        if s.judge == "vlm":
+            require_env("OPENAI_CHECK_MODEL")
         logger.info(
-            "session model: %s voice=%s backend=%s effort=%s vision=%s effort=%s detail=%s",
-            s.live_model, s.voice, s.backend_model, s.backend_effort, s.check_model, s.check_effort, s.check_detail,
+            "session model: %s voice=%s backend=%s effort=%s judge=%s%s",
+            s.live_model, s.voice, s.backend_model, s.backend_effort, s.judge,
+            f" vision={s.check_model} effort={s.check_effort} detail={s.check_detail}" if s.judge == "vlm" else "",
         )
         return s
 

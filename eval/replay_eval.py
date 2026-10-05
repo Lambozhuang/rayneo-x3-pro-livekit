@@ -3,9 +3,9 @@
   python eval/replay_eval.py run [--confirm 2] [--frames frames_1080p15] [--judge vlm|cv]
   python eval/replay_eval.py report
 
-Frames are taken in order at 1 fps. For each frame the gate (eval/gate_eval.py) decides whether to ask; if so the
+Frames are taken in order at 1 fps. For each frame the gate (the agent's gate.py, still rule off) decides whether to ask; if so the
 judge (gpt-6-sol, no reasoning, terse2 relational prompt, server-side crop; same code as vlm_judge.py) is asked
-about the state machine's current step N. The state machine:
+about the state machine's current step N. The state machine is the agent's (backend/agent/src/progress.py):
   correct  CONFIRM times in a row -> step N done, N += 1, fact "step N placed"
   wrong    CONFIRM times in a row -> fact "step N wrong: <first failed check>", said once per wrong spell
   not_placed / cannot_see         -> counters reset, nothing said
@@ -29,6 +29,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 import common as cm  # noqa: E402
 import vlm_judge as vj  # noqa: E402
 from gate import Gate  # noqa: E402  (backend/agent/src: the agent's gate; motion/still rules off at 1 fps)
+from progress import Kind, Tracker  # noqa: E402  (the agent's state machine)
 
 CACHE = cm.RESULTS / "vlm" / "replay_cache.jsonl"
 
@@ -104,9 +105,7 @@ def cmd_run(args):
     judge = (CVJudge if args.judge == "cv" else Judge)(args.frames or "frames")
     steps = judge.steps
     gate = Gate(still_s=0, motion_max=None)  # 1 fps: the still rule cannot apply
-    n, last = 1, len(steps)
-    streak_ok = streak_bad = 0
-    said_wrong = False
+    tracker = Tracker(len(steps), args.confirm)
     timeline = []  # one entry per frame
     facts = []
     for i, (clip, t) in enumerate(cm.frame_list()):
@@ -114,27 +113,16 @@ def cmd_run(args):
         img = Image.open(cm.FRAMES / clip / frame).convert("RGB")
         g = gate(img, now=float(i))
         ok, why = g.ask, g.why
+        n = tracker.step
         entry = {"i": i, "clip": clip, "t": t, "step": n, "gate": why}
-        if ok and n <= last:
+        if ok and not tracker.finished:
             v = judge.ask(clip, frame, n)
             entry.update(answer=v["answer"], latency=v.get("latency"), reason=v["reason"])
-            if v["answer"] == "correct":
-                streak_ok, streak_bad = streak_ok + 1, 0
-                if streak_ok >= args.confirm:
-                    facts.append({"i": i, "clip": clip, "t": t, "kind": "done", "step": n, "text": f"step {n} placed"})
-                    n += 1
-                    streak_ok = streak_bad = 0
-                    said_wrong = False
-            elif v["answer"] == "wrong":
-                streak_bad, streak_ok = streak_bad + 1, 0
-                if streak_bad >= args.confirm and not said_wrong:
-                    facts.append({"i": i, "clip": clip, "t": t, "kind": "wrong", "step": n,
-                                  "text": f"step {n} wrong: {v.get('fact') or failed_check(steps, n, v['checks'])}"})
-                    said_wrong = True
-            else:
-                streak_ok = streak_bad = 0
-                if v["answer"] == "not_placed":
-                    said_wrong = False
+            ev = tracker.feed(v["answer"], v.get("fact") or (failed_check(steps, n, v["checks"]) if v["answer"] == "wrong" else ""))
+            if ev is not None and ev.kind in (Kind.DONE, Kind.FINISHED):
+                facts.append({"i": i, "clip": clip, "t": t, "kind": "done", "step": ev.step, "text": f"step {ev.step} placed"})
+            elif ev is not None:
+                facts.append({"i": i, "clip": clip, "t": t, "kind": "wrong", "step": ev.step, "text": f"step {ev.step} wrong: {ev.text}"})
         timeline.append(entry)
         print(f"{i:3d} {clip[5:]}/{frame[:3]} N={n:2d} {why:<13} {entry.get('answer', ''):<10} {entry.get('reason', '')[:60]}")
     out = (cm.RESULTS / "cv" / f"replay_cv{cm.frames_tag()}_c{args.confirm}.json" if args.judge == "cv"
