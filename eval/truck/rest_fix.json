@@ -1,0 +1,44 @@
+[
+ {
+  "clip": "run1_part1",
+  "frame": "010.jpg",
+  "step": 1,
+  "expected": "correct",
+  "why": "red slope just placed, hands off"
+ },
+ {
+  "clip": "run1_part1",
+  "frame": "016.jpg",
+  "step": 2,
+  "expected": "correct",
+  "why": "purple placed"
+ },
+ {
+  "clip": "run1_part1",
+  "frame": "024.jpg",
+  "step": 3,
+  "expected": "correct",
+  "why": "lime exhaust placed"
+ },
+ {
+  "clip": "run1_part1",
+  "frame": "042.jpg",
+  "step": 5,
+  "expected": "correct",
+  "why": "white middle placed"
+ },
+ {
+  "clip": "run1_part2_p1",
+  "frame": "011.jpg",
+  "step": 8,
+  "expected": "correct",
+  "why": "tail door after the fix"
+ },
+ {
+  "clip": "run1_part2_p2",
+  "frame": "003.jpg",
+  "step": 13,
+  "expected": "correct",
+  "why": "yellow 1x4 placed; all done"
+ }
+]

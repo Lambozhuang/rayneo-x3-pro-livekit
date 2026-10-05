@@ -9,11 +9,11 @@
    4,
    8
   ],
-  "where": "the red 3x4 slope brick, sloped face up, against the left edge of the plate, a little below the middle of the plate's height",
+  "where": "the red 3x4 slope brick, sloped face up, against the left edge of the plate, with several rows of empty plate above it and below it",
   "checks": [
    "the brick touches the left edge of the plate",
    "it is red",
-   "it sits roughly at mid-height of the plate, not near the top or bottom edge"
+   "there are empty studs both above it and below it (it touches neither the top nor the bottom edge of the plate)"
   ]
  },
  {
@@ -26,11 +26,11 @@
    6,
    8
   ],
-  "where": "the purple 2x4 brick standing upright (2 wide, 4 tall), directly to the right of the red slope and touching it; its bottom is level with the red brick's bottom and its top sticks up one stud above the red brick's top",
+  "where": "the purple 2x4 brick lying flat with its long side running front to back (2 studs wide, 4 studs deep), directly to the right of the red slope and touching it; its bottom is level with the red brick's bottom and it reaches one stud further up than the red brick",
   "checks": [
    "the purple brick touches the right side of the red slope",
-   "its bottom edge is level with the red brick's bottom edge",
-   "it is taller than the red brick by one stud at the top"
+   "its long side runs front to back (it is deeper than it is wide), not left to right",
+   "it reaches one stud further up than the red brick"
   ]
  },
  {
@@ -43,11 +43,11 @@
    7,
    5
   ],
-  "where": "the small lime-green 1x2 brick standing upright (1 wide, 2 tall), immediately to the right of the purple brick at its top corner, sticking up one stud above the purple brick like an exhaust pipe",
+  "where": "the small lime-green 1x2 brick lying flat with its long side running front to back (1 wide, 2 deep), immediately to the right of the purple brick at its upper corner, reaching one stud further up than the purple brick like an exhaust pipe",
   "checks": [
    "the lime brick touches the right side of the purple brick",
-   "it is vertical (taller than wide)",
-   "its top is one stud higher than the purple brick's top"
+   "its long side runs front to back, not left to right",
+   "it reaches one stud further up than the purple brick"
   ]
  },
  {
@@ -77,10 +77,9 @@
    12,
    7
   ],
-  "where": "the second white 1x6 brick lying flat directly under the first white brick, same length, left end touching the purple brick, both ends lined up with the brick above",
+  "where": "the second white 1x6 brick lying flat directly below the first white brick, same length, left end touching the purple brick, ends lined up with the brick above; together the two white bricks form one white block two studs deep",
   "checks": [
-   "the brick is pure white like the one above it",
-   "it sits directly under the first white brick with no gap",
+   "the white area to the right of the purple brick is two studs deep (two 1x6 bricks side by side), not one",
    "its left end touches the purple brick",
    "its right end lines up with the right end of the brick above"
   ]
@@ -121,7 +120,7 @@
  },
  {
   "step": 8,
-  "name": "white 1x4 standing upright at the right end of the body",
+  "name": "white 1x4 at the right end of the body, long side front to back",
   "color": "white",
   "cells": [
    13,
@@ -129,12 +128,11 @@
    13,
    8
   ],
-  "where": "the white 1x4 brick standing upright (1 wide, 4 tall) against the right end of the body, touching the ends of the two white bricks and the lime brick, like a tail door; its top is one stud above the top white brick and its bottom is level with the body's bottom",
+  "where": "the white 1x4 brick lying flat with its long side running front to back (1 wide, 4 deep) against the right end of the body, touching the ends of the two white bricks and the lime brick; it reaches one stud further up than the top white brick and its bottom is level with the body's bottom",
   "checks": [
-   "the brick is vertical (taller than wide), not lying flat",
+   "its long side runs front to back (it is deeper than it is wide), not left to right",
    "it touches the right ends of the white bricks and the lime brick",
-   "its top is one stud higher than the top white brick",
-   "its bottom is level with the bottom of the body"
+   "it reaches one stud further up than the top white brick"
   ]
  },
  {
@@ -164,10 +162,10 @@
    11,
    12
   ],
-  "where": "the second red round disc under the right part of the body as the rear wheel: its top touches the blue and lime bricks, its right edge stays left of the lime brick's right end, and bare green plate shows directly below the upright white brick that stands at the right end of the body",
+  "where": "the second red round disc under the right part of the body as the rear wheel: its top touches the blue and lime bricks, its right edge stays left of the lime brick's right end, and bare green plate shows directly below the white 1x4 at the right end of the body",
   "checks": [
    "the disc's top touches the bottom of the body (the blue and lime bricks)",
-   "directly below the upright white brick at the right end of the body there is bare green plate, not the disc",
+   "directly below the white 1x4 at the right end of the body there is bare green plate, not the disc",
    "the disc's right edge is to the left of the lime brick's right end"
   ]
  },
@@ -215,11 +213,11 @@
    16,
    13
   ],
-  "where": "the yellow 1x4 brick lying flat in the same row, continuing the white ground brick to the right and touching it, ending at the right edge of the plate below the upright white brick at the right end of the body",
+  "where": "the yellow 1x4 brick lying flat in the same row, continuing the white ground brick to the right and touching it, filling the row to the last stud column of the plate below the white 1x4 at the right end of the body",
   "checks": [
    "the brick is yellow",
    "it is in the same row as the white ground brick and touches its right end",
-   "its right end is at the right edge of the plate"
+   "its right end is at the right edge of the plate: no empty studs to its right in that row (the brick may look flush with or slightly past the plate's edge)"
   ]
  }
 ]
