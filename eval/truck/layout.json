@@ -164,12 +164,11 @@
    11,
    12
   ],
-  "where": "the second red round disc directly under the right half of the body, as the rear wheel: its right edge is one stud column left of the tail door, its top touches the bottom of the body (the blue and lime bricks), and three empty stud columns separate it from the front disc",
+  "where": "the second red round disc under the right part of the body as the rear wheel: its top touches the blue and lime bricks, its right edge stays left of the lime brick's right end, and the bare green plate shows directly below the white tail door",
   "checks": [
-   "the disc's top touches the bottom of the body",
-   "its right edge is one stud to the left of the tail door, not under it",
-   "there are about three empty stud columns between the two discs",
-   "it is not under the purple cab or the red slope"
+   "the disc's top touches the bottom of the body (the blue and lime bricks)",
+   "directly below the white tail door there is bare green plate, not the disc",
+   "the disc's right edge is to the left of the lime brick's right end"
   ]
  },
  {
