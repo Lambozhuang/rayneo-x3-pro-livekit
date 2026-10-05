@@ -44,7 +44,9 @@ python eval/judge_eval.py summarize truck/results/C_<model>.jsonl  # 三类准�
   | sol none，terse | 5/6 ×2 | 2.4 s | 稳定；后轮偏 2 格看不出 |
   | luna low，只答 y/n 不描述 | 4/6 | 6.3 s | 更差不更快 |
   | luna low，terse，图 detail=low | 5/6 | 5.2 s | 省 token 不省时间 |
+  | sol none，terse（流式，第 3 次） | 5/6 | 2.2 s，TTFT 1.4 s | 同上 |
+  | qwen3.8-27b（OpenRouter）none，terse | 3/6、4/6 | 2.0–10 s，TTFT 0.8–16 s | 对的后轮两次说错，偏的后轮两次说对；路由到的提供商不同，时延抖动大 |
 
 - 选型：要稳就 luna + low + terse（约 4–5 s）；要快就 sol + none + terse（约 2.4 s，最细的位置错看不到）。延迟 ≈ 输出 token ÷ 约 70 tok/s，1 s 以内 VLM 做不到。
 - 事实的写法决定误报：用"贴着 / 有缝 / 颜色 / 横放竖放 / 在某砖的左边或下面"，不用"齐平""正上方"（第 4、6 步因此各删一条）。
-- 待试：OpenRouter 上的小模型（TTFT 快），Gemini Flash。
+- 待试：Gemini Flash。OpenRouter 的 Qwen 不如 sol，TTFT 也不稳。
