@@ -6,7 +6,9 @@
   python eval/judge_eval.py summarize truck/results/B_<model>_<detail>.jsonl
 
 Models come from backend/.env: OPENAI_CHECK_MODEL (+ OPENAI_CHECK_DETAIL, OPENAI_CHECK_EFFORT) for
---provider openai, GEMINI_CHECK_MODEL for --provider gemini. Nothing is hardcoded here.
+--provider openai, OPENROUTER_CHECK_MODEL (+ OPENROUTER_API_KEY, _EFFORT, _DETAIL) for --provider openrouter,
+GEMINI_CHECK_MODEL for --provider gemini. Nothing is hardcoded here. OpenAI and OpenRouter stream, so
+time to first token is recorded next to total latency.
 
 Route B sends the whole frame (long side SIDE px). Route C crops the baseplate with a green mask
 (margin 10 %, native resolution, never upscaled) and sends the crop; frames where the mask finds no
@@ -277,10 +279,58 @@ class OpenAIJudge:
         kw = {}
         if self.effort:
             kw["reasoning"] = {"effort": self.effort}
-        r = self.client.responses.create(model=self.model, instructions=system,
-                                         input=[{"role": "user", "content": content}], **kw)
-        u = r.usage
-        return r.output_text, {"in": u.input_tokens, "out": u.output_tokens}
+        t0 = time.perf_counter()
+        ttft, text, usage = None, "", {}
+        for ev in self.client.responses.create(model=self.model, instructions=system,
+                                               input=[{"role": "user", "content": content}], stream=True, **kw):
+            if ev.type == "response.output_text.delta":
+                if ttft is None:
+                    ttft = time.perf_counter() - t0
+                text += ev.delta
+            elif ev.type == "response.completed":
+                u = ev.response.usage
+                usage = {"in": u.input_tokens, "out": u.output_tokens}
+        usage["ttft"] = round(ttft, 2) if ttft else None
+        return text, usage
+
+
+class OpenRouterJudge:
+    """OpenAI-compatible chat completions on OpenRouter; OPENROUTER_API_KEY, OPENROUTER_CHECK_MODEL
+    (provider slug as is), OPENROUTER_CHECK_EFFORT (none = reasoning off), OPENROUTER_CHECK_DETAIL."""
+
+    def __init__(self):
+        from openai import OpenAI
+        key = os.environ.get("OPENROUTER_API_KEY") or sys.exit("OPENROUTER_API_KEY not set in backend/.env")
+        self.client = OpenAI(base_url="https://openrouter.ai/api/v1", api_key=key)
+        self.model = os.environ.get("OPENROUTER_CHECK_MODEL") or sys.exit("OPENROUTER_CHECK_MODEL not set in backend/.env")
+        self.detail = os.environ.get("OPENROUTER_CHECK_DETAIL", "high")
+        self.effort = os.environ.get("OPENROUTER_CHECK_EFFORT")
+        self.tag = "or-" + self.model.replace("/", "_").replace(":", "-") + f"_{self.detail}" + (f"_{self.effort}" if self.effort else "")
+
+    def ask(self, ref: bytes | None, photo: bytes, text: str, system: str) -> tuple[str, dict]:
+        content = [{"type": "text", "text": text}]
+        if ref:
+            content.append({"type": "image_url", "image_url": {"url": "data:image/png;base64," + base64.b64encode(ref).decode(), "detail": "low"}})
+        content.append({"type": "image_url", "image_url": {"url": "data:image/jpeg;base64," + base64.b64encode(photo).decode(), "detail": self.detail}})
+        extra = {"usage": {"include": True}}
+        if self.effort == "none":
+            extra["reasoning"] = {"enabled": False}
+        elif self.effort:
+            extra["reasoning"] = {"effort": self.effort}
+        t0 = time.perf_counter()
+        ttft, out, usage = None, "", {}
+        for chunk in self.client.chat.completions.create(
+                model=self.model, stream=True, extra_body=extra,
+                messages=[{"role": "system", "content": system}, {"role": "user", "content": content}]):
+            if chunk.choices and chunk.choices[0].delta and chunk.choices[0].delta.content:
+                if ttft is None:
+                    ttft = time.perf_counter() - t0
+                out += chunk.choices[0].delta.content
+            u = getattr(chunk, "usage", None)
+            if u:
+                usage = {"in": u.prompt_tokens, "out": u.completion_tokens}
+        usage["ttft"] = round(ttft, 2) if ttft else None
+        return out, usage
 
 
 class GeminiJudge:
@@ -381,7 +431,7 @@ def cmd_run(args):
     if args.subset:
         keep = {(s["clip"], s["frame"], s["step"]) for s in json.loads(Path(args.subset).read_text(encoding="utf-8"))}
         rows = [r for r in rows if (r["clip"], r["frame"], r["step"]) in keep]
-    judge = {"openai": OpenAIJudge, "gemini": GeminiJudge, "dry": DryJudge}[args.provider]()
+    judge = {"openai": OpenAIJudge, "openrouter": OpenRouterJudge, "gemini": GeminiJudge, "dry": DryJudge}[args.provider]()
     rel = args.prompt != "grid"
     system = {"grid": SYSTEM, "relational": SYSTEM_REL, "terse": SYSTEM_REL_TERSE, "checks": SYSTEM_CHECKS}[args.prompt]
     judge.tag += {"grid": "", "relational": "_rel", "terse": "_terse", "checks": "_checks"}[args.prompt] + (f"_{args.tag}" if args.tag else "")
@@ -391,7 +441,7 @@ def cmd_run(args):
     calls = RESULTS / f"{name}{args.route}_{judge.tag}"  # exactly what was sent, per question: ref png + photo jpeg (gitignored)
     calls.mkdir(exist_ok=True)
     header = [f"provider={args.provider} model={judge.tag} route={args.route} side={SIDE} prompt={args.prompt}"]
-    if args.provider == "openai":
+    if args.provider in ("openai", "openrouter"):
         header.append(f"detail photo={judge.detail} ref=low effort={judge.effort}")
     (calls / "prompt.txt").write_text("\n".join(header) + "\n\n--- system ---\n" + system
                                       + "\n\n--- user text, per question (one example) ---\n" + (step_text_rel(steps, 6) if rel else step_text(steps, 1)) + "\n", encoding="utf-8")
@@ -429,12 +479,14 @@ def cmd_run(args):
                 rec["latency"] = round(time.perf_counter() - t0, 2)
                 rec["raw"] = text
                 rec["answer"], rec["reason"] = parse_answer(text)
+                rec["ttft"] = usage.pop("ttft", None)
                 rec["usage"] = usage
                 rec["photo_size"] = list(photo.size)
             f.write(json.dumps(rec) + "\n")
             f.flush()
             ok = "ok " if rec["answer"] == r["expected"] else "XX "
-            print(f"{i:3d} {r['clip']}/{r['frame']} s{n:02d} exp={r['expected']:<10} got={rec['answer']:<10} {ok}{rec.get('latency', 0):5.1f}s  {rec['reason'][:90]}")
+            ttft = f"ttft {rec['ttft']:.1f}s " if rec.get("ttft") else ""
+            print(f"{i:3d} {r['clip']}/{r['frame']} s{n:02d} exp={r['expected']:<10} got={rec['answer']:<10} {ok}{rec.get('latency', 0):5.1f}s {ttft} {rec['reason'][:80]}")
 
 
 def cmd_summarize(args):
@@ -468,6 +520,9 @@ def cmd_summarize(args):
     lat = sorted(r["latency"] for r in recs if r.get("latency"))
     if lat:
         print(f"latency median {lat[len(lat) // 2]:.2f}s  p90 {lat[int(len(lat) * 0.9)]:.2f}s")
+    tt = sorted(r["ttft"] for r in recs if r.get("ttft"))
+    if tt:
+        print(f"ttft median {tt[len(tt) // 2]:.2f}s  p90 {tt[int(len(tt) * 0.9)]:.2f}s")
     calls = [r for r in recs if r.get("usage")]
     print(f"tokens in {sum(r['usage'].get('in', 0) for r in calls)} out {sum(r['usage'].get('out', 0) for r in calls)} over {len(calls)} calls")
 
@@ -478,7 +533,7 @@ def main():
     sub.add_parser("labels").set_defaults(fn=cmd_labels)
     p = sub.add_parser("run")
     p.add_argument("--route", choices=["B", "C"], required=True)
-    p.add_argument("--provider", choices=["openai", "gemini", "dry"], required=True)
+    p.add_argument("--provider", choices=["openai", "openrouter", "gemini", "dry"], required=True)
     p.add_argument("--questions", help="question file such as truck/rest.json instead of the derived per-frame labels")
     p.add_argument("--prompt", choices=["grid", "relational", "terse", "checks"], default="grid",
                    help="grid: numbered diagram + columns/rows; relational: plain-language neighbours and alignment, describe first, no diagram")

@@ -30,3 +30,21 @@ python eval/judge_eval.py summarize truck/results/C_<model>.jsonl  # 三类准�
 ```
 
 先跑 `--questions truck/rest.json`：29 个静止状态各一问（13 对、3 错、13 未放），每问独立：系统提示 + 一句步骤问题 + layout 渲染的第 N 步目标图（新砖黄框，detail=low）+ 照片（B 整帧 768×1024 detail=high；C 为绿色掩码裁出的底板）。第 8 步的错放全程手在板上，静止判定器按设计不会看到这种帧，所以不在 rest 集里。不带 `--questions` 则用 events.json 推出的 276 个逐帧问题（当前步 N 和上一步 N−1），留给门控和逐帧统计。结果按 (clip, frame, step) 追加写入，中断可续跑；每次调用发出的图和原始回复都落在 `results/<run>/`。
+
+### 结果到目前（rest 集，模型来自 .env，原始记录在 `truck/results/`）
+
+- 网格 prompt（编号目标图 + 行列号，四选一）：luna 整帧 B 29 问 24/29，3 个错全漏；裁板 C 只多捉到蓝砖。理由在复述题目，不在看图。分辨率不是瓶颈。
+- 关系 prompt（人话描述 + 3–4 条可核对的关系，先描述再逐条 y/n，不给图不给坐标；`layout.json` 的 `where`/`checks`），C 路线，6 问 = 3 错 + 3 修正：
+
+  | 模型 / 推理 / 输出 | 6 问 | 延迟中位 | 备注 |
+  |---|---|---|---|
+  | luna 默认推理，完整输出 | 6/6 | 6.2 s（最大 18） | 输出 750 token |
+  | luna low，terse | 6/6 ×2 | 4.2–5.5 s | 均衡之选 |
+  | luna none，terse | 3–5/6 ×4 | 1.7 s | 位置错随机漏，偶有误报 |
+  | sol none，terse | 5/6 ×2 | 2.4 s | 稳定；后轮偏 2 格看不出 |
+  | luna low，只答 y/n 不描述 | 4/6 | 6.3 s | 更差不更快 |
+  | luna low，terse，图 detail=low | 5/6 | 5.2 s | 省 token 不省时间 |
+
+- 选型：要稳就 luna + low + terse（约 4–5 s）；要快就 sol + none + terse（约 2.4 s，最细的位置错看不到）。延迟 ≈ 输出 token ÷ 约 70 tok/s，1 s 以内 VLM 做不到。
+- 事实的写法决定误报：用"贴着 / 有缝 / 颜色 / 横放竖放 / 在某砖的左边或下面"，不用"齐平""正上方"（第 4、6 步因此各删一条）。
+- 待试：OpenRouter 上的小模型（TTFT 快），Gemini Flash。
