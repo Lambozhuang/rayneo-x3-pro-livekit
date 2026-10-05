@@ -6,6 +6,7 @@
 - [x] 判定器 B/C 第一轮：网格 prompt 不行，关系 prompt 行；luna low ≈ 4–5 s 稳，sol none ≈ 2.4 s 漏最细的位置错（eval/README.md 结果表）
 - [x] 判定器 VLM 续：Qwen@OpenRouter 不如 sol；sol none terse 跑完 29 问 29/29、约 1.9 s（措辞见 layout.json where/checks）
 - [ ] 判定器：换一次新录像验证措辞是否过拟合这一次的帧；派生 1080p15 版再跑 29 问
+- [ ] 每步事实生成器：从每步参考图（乐高可直接从格坐标）用大模型按本次措辞规则写 where/checks，再对录像校一遍；换任务不手写
 - [ ] 门控：148 帧上用本地 CV 判"板完整可见、无手、静止"，对人工标签
 - [ ] 判定器 D：纯 CV，找板 → 单应性 → 逐格颜色 → 比对；同一真值上出成绩
 - [x] 派生通话流规格视频（1080p 15 fps 4 Mbps）再跑一遍判定器：26/29，同色相邻砖和细位移丢失（eval/README.md）
