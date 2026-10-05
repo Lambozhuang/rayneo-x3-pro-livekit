@@ -1,0 +1,23 @@
+[
+ {
+  "clip": "run1_part1",
+  "frame": "042.jpg",
+  "step": 5,
+  "expected": "correct",
+  "why": "white middle placed"
+ },
+ {
+  "clip": "run1_part2_p1",
+  "frame": "031.jpg",
+  "step": 9,
+  "expected": "correct",
+  "why": "front disc placed"
+ },
+ {
+  "clip": "run1_part2_p1",
+  "frame": "039.jpg",
+  "step": 10,
+  "expected": "wrong",
+  "why": "rear disc too far right, under the tail door"
+ }
+]

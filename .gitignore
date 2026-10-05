@@ -27,3 +27,4 @@ eval/**/results/*/*.png
 eval/**/results/*/*.jpg
 eval/**/*_1080p15.mp4
 eval/**/frames_1080p15/
+eval/**/frames_cropstream/
