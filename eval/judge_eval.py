@@ -305,7 +305,9 @@ class OpenRouterJudge:
         self.model = os.environ.get("OPENROUTER_CHECK_MODEL") or sys.exit("OPENROUTER_CHECK_MODEL not set in backend/.env")
         self.detail = os.environ.get("OPENROUTER_CHECK_DETAIL", "high")
         self.effort = os.environ.get("OPENROUTER_CHECK_EFFORT")
-        self.tag = "or-" + self.model.replace("/", "_").replace(":", "-") + f"_{self.detail}" + (f"_{self.effort}" if self.effort else "")
+        self.provider = os.environ.get("OPENROUTER_PROVIDER")  # pin to one endpoint, e.g. cerebras/fp16; no fallbacks
+        self.tag = ("or-" + self.model.replace("/", "_").replace(":", "-") + f"_{self.detail}" + (f"_{self.effort}" if self.effort else "")
+                    + (f"_{self.provider.replace('/', '-')}" if self.provider else ""))
 
     def ask(self, ref: bytes | None, photo: bytes, text: str, system: str) -> tuple[str, dict]:
         content = [{"type": "text", "text": text}]
@@ -313,6 +315,8 @@ class OpenRouterJudge:
             content.append({"type": "image_url", "image_url": {"url": "data:image/png;base64," + base64.b64encode(ref).decode(), "detail": "low"}})
         content.append({"type": "image_url", "image_url": {"url": "data:image/jpeg;base64," + base64.b64encode(photo).decode(), "detail": self.detail}})
         extra = {"usage": {"include": True}}
+        if self.provider:
+            extra["provider"] = {"only": [self.provider], "allow_fallbacks": False}
         if self.effort == "none":
             extra["reasoning"] = {"enabled": False}
         elif self.effort:
