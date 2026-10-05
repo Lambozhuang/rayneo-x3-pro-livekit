@@ -8,11 +8,25 @@
 # brick's footprint [col0, row0, col1, row1], inclusive. Discs are round: their
 # four corner cells are not counted. `say` is what the wearer hears ("toward
 # you" is allowed there); `where` and `checks` are the camera-independent
-# wording for the VLM judge, and `color`/`cells` drive the CV judge.
-# CV judge colour names: red purple lime white blue tan yellow.
+# wording for the VLM judge, and `color`/`cells` drive the CV judge; every
+# `color` must have a centre in [colours].
 
 title = "LEGO truck on a baseplate"
 plate = 16
+
+# Colour centres for the CV judge: chromaticity (r, g, b) / (r + g + b) of each brick colour and of the plate,
+# median over the cells of the finished model on the recorded run (eval/truck, 1080p15 frames; the full-resolution
+# frames gave the same values within 0.01). Recompute with `python eval/cv_judge.py calibrate <frame>` when the
+# bricks, camera or lighting change.
+[colours]
+plate = [0.194, 0.535, 0.268]
+red = [0.615, 0.199, 0.185]
+purple = [0.341, 0.274, 0.385]
+lime = [0.383, 0.481, 0.134]
+white = [0.339, 0.341, 0.319]
+blue = [0.171, 0.346, 0.483]
+tan = [0.397, 0.354, 0.246]
+yellow = [0.571, 0.392, 0.035]
 
 [[steps]]
 part = "red 3x4 slope"

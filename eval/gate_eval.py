@@ -25,29 +25,15 @@ from PIL import Image, ImageDraw
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 import common as cm  # noqa: E402
-from common import SHEETS, TRUCK, components, frame_list, plate_bbox  # noqa: E402
+from common import SHEETS, TRUCK, components, frame_list  # noqa: E402
+from gate import ASPECT, BORDER, HAND_TOTAL, MIN_SIDE, MOTION_MAX, tight_box  # noqa: E402,F401  (the agent's gate)
 
 RESULTS = cm.RESULTS / "gate"
 from PIL import ImageFilter  # noqa: E402
 
-BORDER = 0.01       # tight plate box must stay this far (fraction of frame size) from every frame edge
 HAND_BLOB = 0.05    # largest skin blob this large (share of the plate box) = a hand; the tan 1x6 is ~2.5 %, red bricks are cut by the Cr bound
 HAND_EDGE_BLOB = 0.03  # a smaller blob still counts when it touches the box border (a hand reaching in)
-MIN_SIDE = 0.23     # tight box sides at least this fraction of the frame width: a whole plate at working distance (~420 px here)
 THIN = 3.0          # a skin blob whose bounding box is this elongated is a brick (the tan 1x6), not a hand
-ASPECT = (0.7, 1.45)  # tight box width/height for a whole plate seen from the builder's seat
-HAND_TOTAL = 0.15   # or this much skin altogether (tan brick + red shadow stay below ~6 %)
-MOTION_MAX = 12.0   # mean |grey diff| (0-255) between plate-aligned crops of consecutive frames
-
-
-def tight_box(img: Image.Image):
-    """plate_bbox without its 10 % margin."""
-    b = plate_bbox(img)
-    if not b:
-        return None
-    x0, y0, x1, y1 = b
-    w, h = x1 - x0, y1 - y0
-    return (int(x0 + w / 12), int(y0 + h / 12), int(x1 - w / 12), int(y1 - h / 12))
 
 
 def skin_stats(crop: Image.Image) -> dict:

@@ -28,26 +28,9 @@ from PIL import Image
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 import common as cm  # noqa: E402
 import vlm_judge as vj  # noqa: E402
-from gate_eval import HAND_TOTAL, skin_stats, tight_box  # noqa: E402
-from gate_eval import BORDER, MIN_SIDE, ASPECT  # noqa: E402
+from gate import Gate  # noqa: E402  (backend/agent/src: the agent's gate; motion/still rules off at 1 fps)
 
 CACHE = cm.RESULTS / "vlm" / "replay_cache.jsonl"
-
-
-def gate(img: Image.Image) -> tuple[bool, str]:
-    box = tight_box(img)
-    if not box:
-        return False, "no plate"
-    x0, y0, x1, y1 = box
-    w, h = img.size
-    bw, bh = x1 - x0, y1 - y0
-    if not (x0 > w * BORDER and y0 > h * BORDER and x1 < w * (1 - BORDER) and y1 < h * (1 - BORDER)):
-        return False, "plate cut"
-    if min(bw, bh) < w * MIN_SIDE or not (ASPECT[0] <= bw / bh <= ASPECT[1]):
-        return False, "plate partial"
-    if skin_stats(img.crop(box))["skin"] >= HAND_TOTAL:
-        return False, "hand"
-    return True, "ok"
 
 
 class Judge:
@@ -91,32 +74,21 @@ class Judge:
 
 
 class CVJudge:
-    """Route D: cv_judge on the frame, same ask() shape as Judge; nothing to cache (tens of ms per frame)."""
+    """Route D: the agent's judge_cv on the frame, same ask() shape as Judge; nothing to cache (tens of ms per frame)."""
 
     def __init__(self, frames: str):
         import cv_judge as cj
-        self.cj = cj
         self.frames = frames
         self.steps, _ = cm.load()
-        self.clf = cj.Classifier.calibrate(self.steps, cm.FRAMES)
+        self.judge = cj.make_judge(self.steps)
         self.tag = "cv"
         self.calls = 0
-        self._last = (None, None)
 
     def ask(self, clip: str, frame: str, step: int) -> dict:
-        t0 = time.perf_counter()
-        if self._last[0] != (clip, frame):
-            img = Image.open(cm.FRAMES / clip / frame).convert("RGB")
-            pl = self.cj.Plate(img, self.clf.f)
-            self._last = ((clip, frame), self.cj.observe(pl, self.clf) if pl.ok else None)
-        O = self._last[1]
-        if O is None:
-            answer, reason, info = "cannot_see", "no plate found", {}
-        else:
-            answer, reason, info = self.cj.judge(self.steps, step, O)
+        v = self.judge.judge(Image.open(cm.FRAMES / clip / frame).convert("RGB"), step)
         self.calls += 1
-        return {"answer": answer, "checks": "", "reason": reason, "fact": reason, "latency": round(time.perf_counter() - t0, 3),
-                "raw": json.dumps(info)}
+        return {"answer": v.answer, "checks": "", "reason": v.reason, "fact": v.reason, "latency": round(v.seconds, 3),
+                "raw": json.dumps(v.info)}
 
 
 def failed_check(steps, step: int, checks: str) -> str:
@@ -131,6 +103,7 @@ def cmd_run(args):
     cm.set_frames(args.frames)
     judge = (CVJudge if args.judge == "cv" else Judge)(args.frames or "frames")
     steps = judge.steps
+    gate = Gate(still_s=0, motion_max=None)  # 1 fps: the still rule cannot apply
     n, last = 1, len(steps)
     streak_ok = streak_bad = 0
     said_wrong = False
@@ -139,7 +112,8 @@ def cmd_run(args):
     for i, (clip, t) in enumerate(cm.frame_list()):
         frame = f"{t + 1:03d}.jpg"
         img = Image.open(cm.FRAMES / clip / frame).convert("RGB")
-        ok, why = gate(img)
+        g = gate(img, now=float(i))
+        ok, why = g.ask, g.why
         entry = {"i": i, "clip": clip, "t": t, "step": n, "gate": why}
         if ok and n <= last:
             v = judge.ask(clip, frame, n)

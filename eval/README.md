@@ -23,10 +23,10 @@ run1 里的故意错误：第 4 步错色（米色代白）、第 6 步错位（
 
 | 文件 | 作用 | 结果落在 |
 |---|---|---|
-| `common.py` | 共用：路径、真值、帧列表、绿色找板、编码；`set_frames("frames_1080p15")` 切帧源 | — |
+| `common.py` | 共用：路径、任务文件、真值、帧列表、编码；把 `backend/agent/src` 加进 path；`set_frames("frames_1080p15")` 切帧源 | — |
 | `vlm_judge.py` | **VLM 路线（B 整帧 / C 裁板）**：每问一次模型调用，模型只从 `backend/.env` 读（`OPENAI_CHECK_MODEL` 等） | `truck/results/vlm/` |
-| `cv_judge.py` | **CV 路线（D）**：找板 → 焦距补缺边 → 单应 → 逐格颜色 → 比 layout，无模型 | `truck/results/cv/` |
-| `gate_eval.py` | 门控（板完整 + 大片肤色），两条路线共用 | `truck/results/gate/` |
+| `cv_judge.py` | **CV 路线（D）**：跑正式系统的判定器 `backend/agent/src/judge_cv.py`（找板 → 拟合焦距补缺边 → 单应 → 逐格颜色 → 比任务文件 cells），只喂帧和画图；`calibrate` 重算色心 | `truck/results/cv/` |
+| `gate_eval.py` | 门控统计，代码是正式系统的 `backend/agent/src/gate.py`（板完整 + 大片肤色；静止规则 1 fps 量不了） | `truck/results/gate/` |
 | `replay_eval.py` | 门控 → 判定 → 状态机回放，`--judge vlm|cv` | 判定器各自目录 |
 | `results_table.py` | 从结果目录生成 `RESULTS.md`（文字在 `results_notes.md`） | `RESULTS.md` |
 
