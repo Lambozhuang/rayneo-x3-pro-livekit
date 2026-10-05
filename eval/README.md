@@ -6,7 +6,7 @@
 ## truck/ — 2D 卡车，16×16 底板，13 步
 
 - `plan.html`：搭建方案示意（行列坐标：列左→右 1–16，行上→下 1–16）
-- `layout.json`：13 步，按实际搭建顺序；每步颜色和占用格 `[col0,row0,col1,row1]`
+- 任务定义在 `backend/agent/guides/truck/task.toml`（和正式系统同一个文件）：13 步，每步 `color`/`cells` `[col0,row0,col1,row1]` 给 CV 判定器，`where`/`checks` 给 VLM 判定器，`say` 是眼镜端听到的话
 - `refs/ref_stepNN.png`：第 N 步完成后的俯视参考图（带行列号），`ref_sheet.png` 全部拼图
 - `events.json`：真值时间线。每步 `done` = 砖到位且手离开的 (片段, 秒)；`wrong` = 故意放错的区间和内容；
   `distractions` = 看别处的区间

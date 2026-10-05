@@ -16,6 +16,8 @@ import statistics as st
 import sys
 from pathlib import Path
 
+import common as cm
+
 ROOT = Path(__file__).resolve().parent
 TRUCK = ROOT / "truck"
 RESULTS = TRUCK / "results"
@@ -33,7 +35,7 @@ def load_json(p):
 
 
 def questions():
-    steps = {s["step"]: s for s in load_json(TRUCK / "layout.json")}
+    steps = {s["step"]: s for s in cm.load()[0]}
     qs = []
     for i, q in enumerate(load_json(TRUCK / "rest.json"), 1):
         qs.append({"id": f"Q{i}", "key": (q["clip"], q["frame"], q["step"]), "clip": q["clip"].replace("run1_", ""),

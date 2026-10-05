@@ -42,35 +42,35 @@
 
 | 编号 | 片段 / 秒 | 问第几步 | 那块砖 | 期望答案 | 画面里是什么 |
 |---|---|---|---|---|---|
-| Q1 | part1 2 s | 1 | red slope 3x4 | 未放 | empty plate at rest |
-| Q2 | part1 9 s | 1 | red slope 3x4 | 对 | red slope just placed, hands off |
-| Q3 | part1 11 s | 2 | purple 2x4 cab | 未放 | same state, a bit later |
-| Q4 | part1 15 s | 2 | purple 2x4 cab | 对 | purple placed |
-| Q5 | part1 17 s | 3 | green 1x2 exhaust | 未放 |  |
-| Q6 | part1 23 s | 3 | green 1x2 exhaust | 对 | lime exhaust placed |
-| Q7 | part1 24 s | 4 | white 1x6 top | 未放 |  |
-| Q8 | part1 28 s | 4 | white 1x6 top | 错 | tan 1x6 on row 6 instead of white |
-| Q9 | part1 34 s | 4 | white 1x6 top | 对 | white top after the fix |
-| Q10 | part1 35 s | 5 | white 1x6 middle | 未放 |  |
-| Q11 | part1 41 s | 5 | white 1x6 middle | 对 | white middle placed |
-| Q12 | part1 42 s | 6 | blue 1x4 lower-left | 未放 |  |
-| Q13 | part1 45 s | 6 | blue 1x4 lower-left | 错 | blue 1x4 shifted right (~cols 9-12) |
-| Q14 | part1 51 s | 6 | blue 1x4 lower-left | 对 | blue after the fix |
-| Q15 | part1 52 s | 7 | green 1x2 lower-right | 未放 |  |
-| Q16 | part1 58 s | 7 | green 1x2 lower-right | 对 | lime lower-right placed |
-| Q17 | part1 60 s | 8 | white 1x4 at the right end of the body, long side front to back | 未放 |  |
-| Q18 | part2_p1 10 s | 8 | white 1x4 at the right end of the body, long side front to back | 对 | tail door after the fix |
-| Q19 | part2_p1 24 s | 9 | red disc front wheel | 未放 | after the distraction, no disc yet |
-| Q20 | part2_p1 30 s | 9 | red disc front wheel | 对 | front disc placed |
-| Q21 | part2_p1 30 s | 10 | red disc rear wheel | 未放 | same frame, next step |
-| Q22 | part2_p1 38 s | 10 | red disc rear wheel | 错 | rear disc too far right, under the tail door |
-| Q23 | part2_p1 48 s | 10 | red disc rear wheel | 对 | rear disc after the fix |
-| Q24 | part2_p1 50 s | 11 | tan 1x6 ground left | 未放 |  |
-| Q25 | part2_p1 55 s | 11 | tan 1x6 ground left | 对 | tan 1x6 placed |
-| Q26 | part2_p1 55 s | 12 | white 1x6 ground mid | 未放 | same frame, next step |
-| Q27 | part2_p1 59 s | 12 | white 1x6 ground mid | 对 | white 1x6 ground placed |
-| Q28 | part2_p1 59 s | 13 | yellow 1x4 ground right | 未放 | same frame, next step |
-| Q29 | part2_p2 2 s | 13 | yellow 1x4 ground right | 对 | yellow 1x4 placed; all done |
+| Q1 | part1 2 s | 1 | Red slope, left edge | 未放 | empty plate at rest |
+| Q2 | part1 9 s | 1 | Red slope, left edge | 对 | red slope just placed, hands off |
+| Q3 | part1 11 s | 2 | Purple 2x4 cab, right of slope | 未放 | same state, a bit later |
+| Q4 | part1 15 s | 2 | Purple 2x4 cab, right of slope | 对 | purple placed |
+| Q5 | part1 17 s | 3 | Lime 1x2 exhaust, far right of cab | 未放 |  |
+| Q6 | part1 23 s | 3 | Lime 1x2 exhaust, far right of cab | 对 | lime exhaust placed |
+| Q7 | part1 24 s | 4 | White 1x6 top, right of cab | 未放 |  |
+| Q8 | part1 28 s | 4 | White 1x6 top, right of cab | 错 | tan 1x6 on row 6 instead of white |
+| Q9 | part1 34 s | 4 | White 1x6 top, right of cab | 对 | white top after the fix |
+| Q10 | part1 35 s | 5 | White 1x6 middle, in front of first | 未放 |  |
+| Q11 | part1 41 s | 5 | White 1x6 middle, in front of first | 对 | white middle placed |
+| Q12 | part1 42 s | 6 | Blue 1x4 in front of white, left | 未放 |  |
+| Q13 | part1 45 s | 6 | Blue 1x4 in front of white, left | 错 | blue 1x4 shifted right (~cols 9-12) |
+| Q14 | part1 51 s | 6 | Blue 1x4 in front of white, left | 对 | blue after the fix |
+| Q15 | part1 52 s | 7 | Lime 1x2 right of blue | 未放 |  |
+| Q16 | part1 58 s | 7 | Lime 1x2 right of blue | 对 | lime lower-right placed |
+| Q17 | part1 60 s | 8 | White 1x4 right end, front to back | 未放 |  |
+| Q18 | part2_p1 10 s | 8 | White 1x4 right end, front to back | 对 | tail door after the fix |
+| Q19 | part2_p1 24 s | 9 | Red disc front wheel, under slope | 未放 | after the distraction, no disc yet |
+| Q20 | part2_p1 30 s | 9 | Red disc front wheel, under slope | 对 | front disc placed |
+| Q21 | part2_p1 30 s | 10 | Red disc rear wheel, under body | 未放 | same frame, next step |
+| Q22 | part2_p1 38 s | 10 | Red disc rear wheel, under body | 错 | rear disc too far right, under the tail door |
+| Q23 | part2_p1 48 s | 10 | Red disc rear wheel, under body | 对 | rear disc after the fix |
+| Q24 | part2_p1 50 s | 11 | Tan 1x6 ground, left | 未放 |  |
+| Q25 | part2_p1 55 s | 11 | Tan 1x6 ground, left | 对 | tan 1x6 placed |
+| Q26 | part2_p1 55 s | 12 | White 1x6 ground, middle | 未放 | same frame, next step |
+| Q27 | part2_p1 59 s | 12 | White 1x6 ground, middle | 对 | white 1x6 ground placed |
+| Q28 | part2_p1 59 s | 13 | Yellow 1x4 ground, right | 未放 | same frame, next step |
+| Q29 | part2_p2 2 s | 13 | Yellow 1x4 ground, right | 对 | yellow 1x4 placed; all done |
 
 
 ## VLM 路线（B / C，`vlm_judge.py`）
@@ -78,7 +78,7 @@
 **送进模型的东西**（每问一次独立调用）
 - 系统提示（固定）+ 一段按步生成的用户文本 + 一张照片。照片 = 服务器端裁出的底板（绿色掩码 → 闭运算 → 最大连通块
   → 加 10% 边距），JPEG q90，OpenAI 侧 detail=high。这叫 C 路线；最早一轮的 B 路线发整帧 768×1024，之后没再用。
-- 用户文本来自 `truck/layout.json` 每步的 `name`（已放的砖）、`where`（本步加什么、放哪）、`checks`（3–4 条可核对的关系），
+- 用户文本来自任务文件（`backend/agent/guides/truck/task.toml`，和正式系统同一个）每步的 `name`（已放的砖）、`where`（本步加什么、放哪）、`checks`（3–4 条可核对的关系），
   例如第 6 步：
 
   ```
@@ -191,7 +191,7 @@
 3. **几何**：四角 → 单应矩阵 → 16×16 格坐标直接映到原图像素采样，不做整图透视矫正。
 4. **采样点**：量过这段录像，相机从行 16 一侧俯视约 45–60°，1 格高的砖顶面在图里向远离相机方向漂 0.3–0.8 行，正面侧壁只剩一条
    发暗偏绿的窄边。所以每格在**靠远端边缘内侧**（格心偏远 0.45 格，±0.15 格取中位）采样：这个点落在本格砖的顶面上，没砖就落在板上，
-   对这段漂移范围都成立；期望图因此就是 layout 本身，不用建漂移模型。圆盘是薄板（漂 ≈0.2 行），四个圆角格不算。
+   对这段漂移范围都成立；期望图因此就是任务文件里的 cells 本身，不用建漂移模型。圆盘是薄板（漂 ≈0.2 行），四个圆角格不算。
 5. **分色**：先按规则：g > 1.4r 且 g > 1.25b 且 b > 0.3g → 板绿（含阴影里的板）；最大通道 < 75 → 太暗不算；g > r > 1.5b → 浅绿。
    其余按色度 (r,g,b)/(r+g+b) 到 8 个色心的最近邻，距离 > 0.13 → 其他（手、桌面）。色心从 Q29 这一帧按已知布局自动取中位数，
    每种帧源各取一次（`prompt.txt` 里有数值）。亮度不参与：同一块砖顶面亮侧面暗。白和米色心相距 0.085，靠最近邻分。
@@ -201,7 +201,7 @@
    hit ≥ 70% 且没有以上两种 → correct；否则 not_placed。
 
 **调参过程**（都在这 29 问上，按顺序）：最初用格心采样 + 顶面漂一行的期望图，21/29；去掉亮度后 20/29，发现侧壁不可靠、
-Q11 的白砖顶面漂 0.5 行；改成远端边缘采样 + layout 直接比，28/29；加焦距补缺边、暗格中性、浅绿规则后 29/29，1080p 28/29。
+Q11 的白砖顶面漂 0.5 行；改成远端边缘采样 + 任务文件 cells 直接比，28/29；加焦距补缺边、暗格中性、浅绿规则后 29/29，1080p 28/29。
 
 **漏的**：1080p 的 Q12：左手压着板左缘、右手拿着蓝砖悬在板右上，近边又出画，四条边有两条不可靠，格子整体偏了一行，把白砖读到了
 蓝砖的格里 → 误报 wrong。这类帧 VLM 能答"砖还在手里"，CV 只能靠门控拦（实机 15 fps 可以要求静止一秒），或者用凸点格纹校验格子。
@@ -228,7 +228,7 @@ Q11 的白砖顶面漂 0.5 行；改成远端边缘采样 + layout 直接比，2
   反过来，第 8 步手一直在板上的那个错，CV 原始画质回放报出来了，VLM 从没报过。
 - **延迟 0.1–0.3 s 对 2 s，零费用对每次付费**。对"测网络质量对体验的影响"这个目的，判定器自己 2 s 的抖动会混进要测的量里，CV 没有。
 - **报错内容**：CV 自带"偏了 2 格向右 / 该是白的地方是米色"；VLM 只有事实编号。
-- **换任务**：CV 只改 layout.json；VLM 要重写每步事实并防措辞误报。
+- **换任务**：CV 只改任务文件的 cells；VLM 要重写每步事实并防措辞误报。
 - **适用范围**：CV 只适用于已知底板上的平铺任务，真 3D 搭建不行；VLM 通用。
 - 两者接口一样，可以作为两个可切换的传感器，也是一个可对比的实验变量。
 

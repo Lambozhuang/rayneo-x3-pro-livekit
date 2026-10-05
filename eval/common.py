@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import io
 import json
+import tomllib
 from pathlib import Path
 
 import numpy as np
@@ -18,6 +19,8 @@ TRUCK = ROOT / "truck"
 RUN = TRUCK / "run1"
 FRAMES = RUN / "frames"
 RESULTS = TRUCK / "results"  # subfolders vlm / cv / gate
+# The task the recording follows: the agent's own guide file, so eval and agent share one layout.
+TASK = ROOT.parent / "backend" / "agent" / "guides" / "truck" / "task.toml"
 SHEETS = RUN / "sheets"
 CLIP_ORDER = ["run1_part1", "run1_part2_p1", "run1_part2_p2"]
 
@@ -34,9 +37,12 @@ def frames_tag() -> str:
 
 
 def load():
-    layout = json.loads((TRUCK / "layout.json").read_text(encoding="utf-8"))
+    """(steps, events): steps are the task.toml [[steps]] as dicts with a 1-based "step" added
+    (keys: step, part, name, say, color, cells, where, checks); events is truck/events.json."""
+    with TASK.open("rb") as f:
+        task = tomllib.load(f)
+    steps = [{"step": i, **s} for i, s in enumerate(task["steps"], 1)]
     events = json.loads((TRUCK / "events.json").read_text(encoding="utf-8"))
-    steps = layout["steps"] if isinstance(layout, dict) else layout
     return steps, events
 
 

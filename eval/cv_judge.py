@@ -305,7 +305,7 @@ def cells_of(step) -> list[tuple[int, int]]:
 
 
 def is_disc(step) -> bool:
-    return "disc" in step["name"]
+    return "disc" in step["name"].lower()
 
 
 def expected_map(steps, n: int):

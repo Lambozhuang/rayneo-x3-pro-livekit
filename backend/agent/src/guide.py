@@ -51,6 +51,15 @@ class Step:
     # their hands). Defaults to `say`, which is wrong whenever `say` gives a
     # direction relative to the wearer.
     check: str = ""
+    # Flat-layout tasks (guides/truck): the brick's colour name and footprint on the
+    # baseplate, [col0, row0, col1, row1] inclusive, columns left to right and rows
+    # from the far edge toward the builder; what the CV judge compares against.
+    color: str = ""
+    cells: tuple[int, int, int, int] | None = None
+    # Camera-independent wording for the VLM judge: what the step adds and where,
+    # and the facts a photo must show.
+    where: str = ""
+    checks: tuple[str, ...] = ()
 
 
 @dataclass(frozen=True)
@@ -58,6 +67,7 @@ class Guide:
     name: str
     title: str
     steps: tuple[Step, ...]
+    plate: int = 16  # studs per side of the baseplate, for flat-layout tasks
     model: Path | None = None  # model.glb of the finished build, if the guide has one
 
 
@@ -73,14 +83,15 @@ def load_guide(path: str) -> Guide:
     steps = tuple(
         Step(
             part=s["part"], say=s["say"], name=s.get("name", s["part"]), node=s.get("node", f"step{i:02d}"),
-            check=s.get("check", s["say"]),
+            check=s.get("check", s["say"]), color=s.get("color", ""),
+            cells=tuple(s["cells"]) if "cells" in s else None, where=s.get("where", ""), checks=tuple(s.get("checks", ())),
         )
         for i, s in enumerate(data["steps"], 1)
     )
     if not steps:
         raise ValueError(f"{toml}: guide has no steps")
     return Guide(
-        name=p.stem, title=data["title"], steps=steps,
+        name=p.stem, title=data["title"], steps=steps, plate=int(data.get("plate", 16)),
         model=model if model is not None and model.exists() else None,
     )
 

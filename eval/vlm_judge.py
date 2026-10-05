@@ -13,7 +13,7 @@ time to first token is recorded next to total latency.
 Route B sends the whole frame (long side SIDE px). Route C crops the baseplate with a green mask
 (margin 10 %, native resolution, never upscaled) and sends the crop; frames where the mask finds no
 plate are answered cannot_see without a call. Both routes send the same reference diagram first:
-the target state after step N with the step-N brick outlined, drawn from layout.json.
+the target state after step N with the step-N brick outlined, drawn from the task file (common.TASK).
 
 Per frame t the truth gives the active step N (first step not done yet). Two questions are asked:
 step N (expected not_placed / wrong / correct) and step N-1 (expected correct). Frames between a
@@ -140,7 +140,7 @@ def render_ref(steps, n: int, labels: bool = True) -> Image.Image:
         c0, r0, c1, r1 = s["cells"]
         box = [m + (c0 - 1) * CELL, m + (r0 - 1) * CELL, m + c1 * CELL - 1, m + r1 * CELL - 1]
         fill = COLORS[s["color"]]
-        if "disc" in s["name"]:
+        if "disc" in s["name"].lower():
             d.ellipse(box, fill=fill, outline="black")
         else:
             d.rectangle(box, fill=fill, outline="black")
@@ -165,7 +165,7 @@ def prep_photo(path: Path, route: str) -> Image.Image | None:
 def step_text(steps, n: int) -> str:
     s = next(s for s in steps if s["step"] == n)
     c0, r0, c1, r1 = s["cells"]
-    desc = s["name"] if s["name"].startswith(s["color"]) else f"{s['color']} {s['name']}"
+    desc = s["name"] if s["name"].lower().startswith(s["color"]) else f"{s['color']} {s['name']}"
     return f"Step {n}: {desc}, columns {c0}-{c1}, rows {r0}-{r1}. Is the step-{n} brick placed correctly?"
 
 
