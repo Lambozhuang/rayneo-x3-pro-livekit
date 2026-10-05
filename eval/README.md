@@ -19,20 +19,30 @@
 run1 里的故意错误：第 4 步错色（米色代白）、第 6 步错位（右偏约 2 格）、第 8 步错向加错位（手未离开）、
 第 10 步错位（后轮右偏）。工作距离下底板约 750 px 宽，一格约 45 px。
 
-## 判定器评测（路线 B / C）
+## 脚本
 
-`eval/judge_eval.py`，模型只从 `backend/.env` 读：`OPENAI_CHECK_MODEL`（+ `OPENAI_CHECK_DETAIL`、`OPENAI_CHECK_EFFORT`）、`GEMINI_CHECK_MODEL`。
+| 文件 | 作用 | 结果落在 |
+|---|---|---|
+| `common.py` | 共用：路径、真值、帧列表、绿色找板、编码；`set_frames("frames_1080p15")` 切帧源 | — |
+| `vlm_judge.py` | **VLM 路线（B 整帧 / C 裁板）**：每问一次模型调用，模型只从 `backend/.env` 读（`OPENAI_CHECK_MODEL` 等） | `truck/results/vlm/` |
+| `cv_judge.py` | **CV 路线（D）**：找板 → 焦距补缺边 → 单应 → 逐格颜色 → 比 layout，无模型 | `truck/results/cv/` |
+| `gate_eval.py` | 门控（板完整 + 大片肤色），两条路线共用 | `truck/results/gate/` |
+| `replay_eval.py` | 门控 → 判定 → 状态机回放，`--judge vlm|cv` | 判定器各自目录 |
+| `results_table.py` | 从结果目录生成 `RESULTS.md`（文字在 `results_notes.md`） | `RESULTS.md` |
 
 ```
-python eval/judge_eval.py labels                                  # 真值表 truck/results/labels.{jsonl,txt}、样例图，不调 API
-python eval/judge_eval.py run --route C --provider openai         # 全集 276 问；--subset truck/subset_small.json 跑 18 问小集；--limit N
-python eval/judge_eval.py summarize truck/results/C_<model>.jsonl  # 三类准确率、4 处错误检出、误报、延迟、token
+python eval/vlm_judge.py run --route C --provider openai --prompt terse2 --questions truck/rest.json [--frames frames_1080p15]
+python eval/vlm_judge.py labels                       # events.json 推出的 276 个逐帧问题表，不调 API
+python eval/cv_judge.py overlay [--frames frames_1080p15]   # 先看格线对不对：sheets/cv/grid*.jpg
+python eval/cv_judge.py run     [--frames frames_1080p15]   # 29 问 + 拼图 sheets/cv/rest_cv*.jpg
+python eval/gate_eval.py signals && python eval/gate_eval.py score
+python eval/replay_eval.py run --judge cv --confirm 2 [--frames frames_1080p15] && python eval/replay_eval.py report
+python eval/results_table.py
 ```
 
-先跑 `--questions truck/rest.json`：29 个静止状态各一问（13 对、3 错、13 未放），每问独立：系统提示 + 一句步骤问题 + layout 渲染的第 N 步目标图（新砖黄框，detail=low）+ 照片（B 整帧 768×1024 detail=high；C 为绿色掩码裁出的底板）。第 8 步的错放全程手在板上，静止判定器按设计不会看到这种帧，所以不在 rest 集里。不带 `--questions` 则用 events.json 推出的 276 个逐帧问题（当前步 N 和上一步 N−1），留给门控和逐帧统计。结果按 (clip, frame, step) 追加写入，中断可续跑；每次调用发出的图和原始回复都落在 `results/<run>/`。
+29 问（`truck/rest.json`，Q1–Q29）= 每个"手离开、板静止"的状态挑一帧：13 对、3 错、13 未放。VLM 每问送系统提示 + 按 layout 生成的
+步骤事实 + 裁板照片；CV 不送任何东西，本机算。第 8 步的错放全程手在板上，静止判定器按设计看不到，不在 rest 集里。
 
-### 结果
+## 结果
 
-全部结果、每次送进去的东西、答错的是哪一帧、延迟，见 **`eval/RESULTS.md`**（由 `python eval/results_table.py` 从
-`truck/results/` 重新生成；文字部分在 `eval/results_notes.md`）。其他脚本：`gate_eval.py`（门控）、`replay_eval.py`（回放，
-`--judge cv` 换成 D 路线）、`cv_judge.py`（D 路线纯 CV 判定器：找板 → 焦距补缺边 → 单应 → 逐格颜色 → 比 layout；`run` 出同格式结果和拼图）。
+全部结果、每次送进去的东西、答错的是哪一问、延迟、两条路线对比，见 **`eval/RESULTS.md`**。

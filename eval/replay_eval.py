@@ -4,13 +4,13 @@
   python eval/replay_eval.py report
 
 Frames are taken in order at 1 fps. For each frame the gate (eval/gate_eval.py) decides whether to ask; if so the
-judge (gpt-6-sol, no reasoning, terse2 relational prompt, server-side crop; same code as judge_eval.py) is asked
+judge (gpt-6-sol, no reasoning, terse2 relational prompt, server-side crop; same code as vlm_judge.py) is asked
 about the state machine's current step N. The state machine:
   correct  CONFIRM times in a row -> step N done, N += 1, fact "step N placed"
   wrong    CONFIRM times in a row -> fact "step N wrong: <first failed check>", said once per wrong spell
   not_placed / cannot_see         -> counters reset, nothing said
-Judge answers are cached per (frames folder, clip, frame, step) in truck/results/replay_cache.jsonl, so a rerun with
-another --confirm costs no calls. Output: truck/results/replay_<frames>[_cv]_c<confirm>.json with the timeline and the
+Judge answers are cached per (frames folder, clip, frame, step) in truck/results/vlm/replay_cache.jsonl, so a rerun with
+another --confirm costs no calls. Output: truck/results/vlm/replay_<frames>_c<confirm>.json (or results/cv/replay_cv[_1080p15]_c<confirm>.json) with the timeline and the
 comparison against events.json (detection delay per step, alarm time per error window, false alarms).
 --judge cv swaps in the route-D judge (eval/cv_judge.py: no model, plate grid + per-cell colour); its "wrong" fact is
 the judge's own sentence (which colour or how many studs off).
@@ -26,11 +26,12 @@ from pathlib import Path
 from PIL import Image
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
-import judge_eval as je  # noqa: E402
+import common as cm  # noqa: E402
+import vlm_judge as vj  # noqa: E402
 from gate_eval import HAND_TOTAL, skin_stats, tight_box  # noqa: E402
 from gate_eval import BORDER, MIN_SIDE, ASPECT  # noqa: E402
 
-CACHE = je.RESULTS / "replay_cache.jsonl"
+CACHE = cm.RESULTS / "vlm" / "replay_cache.jsonl"
 
 
 def gate(img: Image.Image) -> tuple[bool, str]:
@@ -51,10 +52,10 @@ def gate(img: Image.Image) -> tuple[bool, str]:
 
 class Judge:
     def __init__(self, frames: str):
-        je.load_env()
+        vj.load_env()
         self.frames = frames
-        self.steps, _ = je.load()
-        self.model = je.OpenAIJudge()
+        self.steps, _ = cm.load()
+        self.model = vj.OpenAIJudge()
         self.tag = self.model.tag + "_terse2"
         self.cache = {}
         if CACHE.exists():
@@ -67,13 +68,13 @@ class Judge:
         key = (self.frames, clip, frame, step, self.tag)
         if key in self.cache:
             return self.cache[key]
-        photo = je.prep_photo(je.FRAMES / clip / frame, "C")
+        photo = vj.prep_photo(cm.FRAMES / clip / frame, "C")
         if photo is None:
             rec = {"answer": "cannot_see", "checks": "", "reason": "no plate in green mask", "latency": 0.0, "raw": ""}
         else:
             t0 = time.perf_counter()
-            text, usage = self.model.ask(None, je.to_jpeg(photo), je.step_text_rel(self.steps, step), je.SYSTEM_REL_TERSE2)
-            answer, reason = je.parse_answer(text)
+            text, usage = self.model.ask(None, cm.to_jpeg(photo), vj.step_text_rel(self.steps, step), vj.SYSTEM_REL_TERSE2)
+            answer, reason = vj.parse_answer(text)
             checks = ""
             try:
                 checks = str(json.loads(text[text.index("{"):text.rindex("}") + 1]).get("checks", ""))
@@ -96,8 +97,8 @@ class CVJudge:
         import cv_judge as cj
         self.cj = cj
         self.frames = frames
-        self.steps, _ = je.load()
-        self.clf = cj.Classifier.calibrate(self.steps, je.FRAMES)
+        self.steps, _ = cm.load()
+        self.clf = cj.Classifier.calibrate(self.steps, cm.FRAMES)
         self.tag = "cv"
         self.calls = 0
         self._last = (None, None)
@@ -105,7 +106,7 @@ class CVJudge:
     def ask(self, clip: str, frame: str, step: int) -> dict:
         t0 = time.perf_counter()
         if self._last[0] != (clip, frame):
-            img = Image.open(je.FRAMES / clip / frame).convert("RGB")
+            img = Image.open(cm.FRAMES / clip / frame).convert("RGB")
             pl = self.cj.Plate(img, self.clf.f)
             self._last = ((clip, frame), self.cj.observe(pl, self.clf) if pl.ok else None)
         O = self._last[1]
@@ -127,8 +128,7 @@ def failed_check(steps, step: int, checks: str) -> str:
 
 
 def cmd_run(args):
-    if args.frames:
-        je.FRAMES = je.RUN / args.frames
+    cm.set_frames(args.frames)
     judge = (CVJudge if args.judge == "cv" else Judge)(args.frames or "frames")
     steps = judge.steps
     n, last = 1, len(steps)
@@ -136,9 +136,9 @@ def cmd_run(args):
     said_wrong = False
     timeline = []  # one entry per frame
     facts = []
-    for i, (clip, t) in enumerate(je.frame_list()):
+    for i, (clip, t) in enumerate(cm.frame_list()):
         frame = f"{t + 1:03d}.jpg"
-        img = Image.open(je.FRAMES / clip / frame).convert("RGB")
+        img = Image.open(cm.FRAMES / clip / frame).convert("RGB")
         ok, why = gate(img)
         entry = {"i": i, "clip": clip, "t": t, "step": n, "gate": why}
         if ok and n <= last:
@@ -163,7 +163,8 @@ def cmd_run(args):
                     said_wrong = False
         timeline.append(entry)
         print(f"{i:3d} {clip[5:]}/{frame[:3]} N={n:2d} {why:<13} {entry.get('answer', ''):<10} {entry.get('reason', '')[:60]}")
-    out = je.RESULTS / f"replay_{args.frames or 'frames'}{'_cv' if args.judge == 'cv' else ''}_c{args.confirm}.json"
+    out = (cm.RESULTS / "cv" / f"replay_cv{cm.frames_tag()}_c{args.confirm}.json" if args.judge == "cv"
+           else cm.RESULTS / "vlm" / f"replay_{args.frames or 'frames'}_c{args.confirm}.json")
     out.write_text(json.dumps({"confirm": args.confirm, "frames": args.frames or "frames", "model": judge.tag,
                                "calls": judge.calls, "facts": facts, "timeline": timeline}, indent=1), encoding="utf-8")
     print(f"{judge.calls} new calls; facts {len(facts)}; -> {out.name}")
@@ -172,8 +173,8 @@ def cmd_run(args):
 
 def report(path: Path):
     r = json.loads(path.read_text(encoding="utf-8"))
-    _, events = je.load()
-    idx = {(c, t): i for i, (c, t) in enumerate(je.frame_list())}
+    _, events = cm.load()
+    idx = {(c, t): i for i, (c, t) in enumerate(cm.frame_list())}
     facts = r["facts"]
     print(f"\n== {path.name}: confirm {r['confirm']}, {len(r['facts'])} facts, {sum(1 for e in r['timeline'] if 'answer' in e)} judge answers over {len(r['timeline'])} frames")
     print(f"{'step':>4} {'truth done':>11} {'detected':>9} {'delay s':>8}   error window -> alarm")
@@ -197,7 +198,7 @@ def report(path: Path):
 
 
 def cmd_report(args):
-    for p in sorted(je.RESULTS.glob("replay_*_c*.json")):
+    for p in sorted(cm.RESULTS.glob("*/replay_*_c*.json")):
         report(p)
 
 

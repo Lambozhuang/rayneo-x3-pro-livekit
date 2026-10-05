@@ -2,9 +2,9 @@
 
   python eval/cv_judge.py overlay [--frames frames_1080p15] [--questions truck/rest.json]
   python eval/cv_judge.py run     [--frames frames_1080p15] [--questions truck/rest.json]
-      -> truck/results/<questions>_D_cv[_<frames>].jsonl (same shape as judge_eval) + sheet cv_<stem>.jpg with, per
+      -> truck/results/cv/<questions>_cv[_1080p15].jsonl (same shape as vlm_judge) + sheets/cv/<stem>.jpg with, per
          question, the crop with the grid, the observed class map and the expected map (new cells of the step outlined).
-      -> truck/run1/sheets/cv_grid[_<frames>].jpg : for each question frame, the plate crop with the fitted 16x16 grid
+      -> truck/run1/sheets/cv/grid[_1080p15].jpg : for each question frame, the plate crop with the fitted 16x16 grid
          and, beside it, the raw colour sampled at every cell. Look at this before trusting anything downstream.
 
 Pipeline: saturated-green mask -> plate silhouette (closing + nearby blobs, as plate_bbox) -> convex hull -> four
@@ -22,7 +22,10 @@ import numpy as np
 from PIL import Image, ImageDraw, ImageFilter
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
-import judge_eval as je  # noqa: E402
+import common as cm  # noqa: E402
+
+RESULTS = cm.RESULTS / "cv"
+SHEETS = cm.SHEETS / "cv"
 
 N = 16  # studs per side
 
@@ -43,7 +46,7 @@ def silhouette(img: Image.Image, s: int = 4):
     k = 2 * (9 * 8 // s // 2) + 1  # ~2 studs, odd
     closed = np.asarray(Image.fromarray(mask.astype(np.uint8) * 255).filter(ImageFilter.MaxFilter(k))
                         .filter(ImageFilter.MinFilter(k))) > 0
-    comps = je.components(closed)
+    comps = cm.components(closed)
     if not comps or len(comps[0]) < 400 * (8 / s) ** 2:
         return None
     main = comps[0]
@@ -444,13 +447,12 @@ def colour_map_image(cells: np.ndarray, size: int = 12) -> Image.Image:
 def cmd_run(args):
     """Answer every question in --questions with the CV judge; results in the same jsonl shape as judge_eval."""
     import time
-    if args.frames:
-        je.FRAMES = je.RUN / args.frames
-    steps, _ = je.load()
-    clf = Classifier.calibrate(steps, je.FRAMES)
+    cm.set_frames(args.frames)
+    steps, _ = cm.load()
+    clf = Classifier.calibrate(steps, cm.FRAMES)
     qs = json.loads(Path(args.questions).read_text(encoding="utf-8"))
-    stem = f"{Path(args.questions).stem}_D_cv{'_' + args.frames if args.frames else ''}"
-    out_dir = je.RESULTS / stem
+    stem = f"{Path(args.questions).stem}_cv{cm.frames_tag()}"
+    out_dir = RESULTS / stem
     out_dir.mkdir(parents=True, exist_ok=True)
     (out_dir / "prompt.txt").write_text(
         f"route=D prompt=cv frames={args.frames or 'frames'} dv={DV} hit_ok={HIT_OK} other_bad={OTHER_BAD} stray_bad={STRAY_BAD}\n"
@@ -464,7 +466,7 @@ def cmd_run(args):
         key = (q["clip"], q["frame"])
         t0 = time.perf_counter()
         if key not in plates:
-            img = Image.open(je.FRAMES / q["clip"] / q["frame"]).convert("RGB")
+            img = Image.open(cm.FRAMES / q["clip"] / q["frame"]).convert("RGB")
             pl = Plate(img, clf.f)
             plates[key] = (pl, observe(pl, clf) if pl.ok else None)
         pl, O = plates[key]
@@ -493,14 +495,15 @@ def cmd_run(args):
             tile.paste(class_map_image(O, care), (252, 24))
         tile.paste(class_map_image(E_now, care, mark=D), (252 + 204, 24))
         tiles.append(tile)
-    (je.RESULTS / f"{stem}.jsonl").write_text("".join(json.dumps(r) + "\n" for r in recs), encoding="utf-8")
+    (RESULTS / f"{stem}.jsonl").write_text("".join(json.dumps(r) + "\n" for r in recs), encoding="utf-8")
     cols = 2
     rows = (len(tiles) + cols - 1) // cols
     tw, th = tiles[0].size
     sheet = Image.new("RGB", (cols * tw, rows * th), "white")
     for i, t in enumerate(tiles):
         sheet.paste(t, ((i % cols) * tw, (i // cols) * th))
-    sheet_path = je.SHEETS / f"cv_{stem}.jpg"
+    SHEETS.mkdir(parents=True, exist_ok=True)
+    sheet_path = SHEETS / f"{stem}.jpg"
     sheet.save(sheet_path, quality=85)
     ok = sum(r["answer"] == r["expected"] for r in recs)
     print(f"{ok}/{len(recs)} ; median latency {sorted(r['latency'] for r in recs)[len(recs) // 2]:.3f} s ; sheet -> {sheet_path}")
@@ -508,8 +511,7 @@ def cmd_run(args):
 
 def cmd_overlay(args):
     """Grid fit check: crop with the grid | raw sampled colour per cell, for every distinct question frame."""
-    if args.frames:
-        je.FRAMES = je.RUN / args.frames
+    cm.set_frames(args.frames)
     qs = json.loads(Path(args.questions).read_text(encoding="utf-8"))
     seen = set()
     tiles = []
@@ -518,7 +520,7 @@ def cmd_overlay(args):
         if key in seen:
             continue
         seen.add(key)
-        img = Image.open(je.FRAMES / q["clip"] / q["frame"]).convert("RGB")
+        img = Image.open(cm.FRAMES / q["clip"] / q["frame"]).convert("RGB")
         pl = Plate(img)
         label = f"Q{i} {q['clip'][5:]}/{q['frame'][:3]}"
         if not pl.ok:
@@ -541,7 +543,8 @@ def cmd_overlay(args):
     sheet = Image.new("RGB", (cols * tw, rows * th), "white")
     for i, t in enumerate(tiles):
         sheet.paste(t, ((i % cols) * tw, (i // cols) * th))
-    out = je.SHEETS / f"cv_grid{'_' + args.frames if args.frames else ''}.jpg"
+    SHEETS.mkdir(parents=True, exist_ok=True)
+    out = SHEETS / f"grid{cm.frames_tag()}.jpg"
     sheet.save(out, quality=85)
     print("sheet ->", out)
 
@@ -551,11 +554,11 @@ def main():
     sub = ap.add_subparsers(dest="cmd", required=True)
     p = sub.add_parser("overlay")
     p.add_argument("--frames")
-    p.add_argument("--questions", default=str(je.TRUCK / "rest.json"))
+    p.add_argument("--questions", default=str(cm.TRUCK / "rest.json"))
     p.set_defaults(fn=cmd_overlay)
     p = sub.add_parser("run")
     p.add_argument("--frames")
-    p.add_argument("--questions", default=str(je.TRUCK / "rest.json"))
+    p.add_argument("--questions", default=str(cm.TRUCK / "rest.json"))
     p.set_defaults(fn=cmd_run)
     args = ap.parse_args()
     args.fn(args)

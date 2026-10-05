@@ -1,6 +1,6 @@
 """Rest-state gate on the recorded run: which frames are worth a judge call.
 
-  python eval/gate_eval.py signals        per-frame signals -> truck/results/gate_signals.jsonl + contact sheet with the decision
+  python eval/gate_eval.py signals        per-frame signals -> truck/results/gate/gate_signals.jsonl + contact sheet with the decision
   python eval/gate_eval.py score          compare the decision with truck/gate_labels.json (hand-labelled ask / skip)
 
 Three local signals, no model (PIL + numpy):
@@ -24,7 +24,10 @@ import numpy as np
 from PIL import Image, ImageDraw
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
-from judge_eval import CLIP_ORDER, FRAMES, RESULTS, RUN, SHEETS, TRUCK, components, frame_list, plate_bbox  # noqa: E402
+import common as cm  # noqa: E402
+from common import SHEETS, TRUCK, components, frame_list, plate_bbox  # noqa: E402
+
+RESULTS = cm.RESULTS / "gate"
 from PIL import ImageFilter  # noqa: E402
 
 BORDER = 0.01       # tight plate box must stay this far (fraction of frame size) from every frame edge
@@ -84,7 +87,7 @@ def signals():
     out = []
     prev_img, prev_box, prev_clip = None, None, None
     for clip, t in frame_list():
-        img = Image.open(FRAMES / clip / f"{t + 1:03d}.jpg").convert("RGB")
+        img = Image.open(cm.FRAMES / clip / f"{t + 1:03d}.jpg").convert("RGB")
         if clip != prev_clip:
             prev_img, prev_box = None, None
         box = tight_box(img)
@@ -112,7 +115,7 @@ def signals():
 def sheet(recs, labels=None):
     tiles = []
     for r in recs:
-        img = Image.open(FRAMES / r["clip"] / r["frame"]).convert("RGB")
+        img = Image.open(cm.FRAMES / r["clip"] / r["frame"]).convert("RGB")
         if r.get("box"):  # the box grown by half its size, so hands around the plate stay visible
             x0, y0, x1, y1 = r["box"]
             gx, gy = (x1 - x0) // 2, (y1 - y0) // 2
@@ -145,7 +148,7 @@ def sheet(recs, labels=None):
 
 def cmd_signals(args):
     recs = signals()
-    RESULTS.mkdir(exist_ok=True)
+    RESULTS.mkdir(parents=True, exist_ok=True)
     (RESULTS / "gate_signals.jsonl").write_text("".join(json.dumps(r) + "\n" for r in recs), encoding="utf-8")
     labels = None
     lp = TRUCK / "gate_labels.json"

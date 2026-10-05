@@ -1,9 +1,9 @@
-"""Judge routes B and C on a recorded run: one narrow question per frame and step.
+"""VLM judge, routes B and C, on the recorded run: one narrow question per frame and step. Results -> truck/results/vlm/.
 
-  python eval/judge_eval.py labels                       write the per-frame label table + a sample sheet, no API calls
-  python eval/judge_eval.py run --route B --provider openai --questions truck/rest.json      30 rest-state questions (step 1 of the plan)
-  python eval/judge_eval.py run --route B --provider openai [--subset truck/subset_small.json] [--limit N]   derived per-frame labels
-  python eval/judge_eval.py summarize truck/results/B_<model>_<detail>.jsonl
+  python eval/vlm_judge.py labels                       write the per-frame label table + a sample sheet, no API calls
+  python eval/vlm_judge.py run --route B --provider openai --questions truck/rest.json      30 rest-state questions (step 1 of the plan)
+  python eval/vlm_judge.py run --route B --provider openai [--subset truck/subset_small.json] [--limit N]   derived per-frame labels
+  python eval/vlm_judge.py summarize truck/results/vlm/<run>.jsonl
 
 Models come from backend/.env: OPENAI_CHECK_MODEL (+ OPENAI_CHECK_DETAIL, OPENAI_CHECK_EFFORT) for
 --provider openai, OPENROUTER_CHECK_MODEL (+ OPENROUTER_API_KEY, _EFFORT, _DETAIL) for --provider openrouter,
@@ -35,13 +35,12 @@ from pathlib import Path
 import numpy as np
 from PIL import Image, ImageDraw, ImageFilter, ImageFont
 
-ROOT = Path(__file__).resolve().parent
-TRUCK = ROOT / "truck"
-RUN = TRUCK / "run1"
-FRAMES = RUN / "frames"
-RESULTS = TRUCK / "results"
-SHEETS = RUN / "sheets"
-CLIP_ORDER = ["run1_part1", "run1_part2_p1", "run1_part2_p2"]
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+import common as cm  # noqa: E402
+from common import CLIP_ORDER, RUN, SHEETS, TRUCK, components, frame_list, load, plate_bbox, tkey, to_jpeg, to_png  # noqa: E402
+
+RESULTS = cm.RESULTS / "vlm"
+
 SIDE = 1024
 CELL = 24
 ANSWERS = ("correct", "wrong", "not_placed", "cannot_see")
@@ -91,26 +90,7 @@ SYSTEM_REL_TERSE2 = SYSTEM_REL_TERSE.replace(
 assert SYSTEM_REL_TERSE2 != SYSTEM_REL_TERSE
 
 
-def load():
-    layout = json.loads((TRUCK / "layout.json").read_text(encoding="utf-8"))
-    events = json.loads((TRUCK / "events.json").read_text(encoding="utf-8"))
-    steps = layout["steps"] if isinstance(layout, dict) else layout
-    return steps, events
-
-
-def tkey(clip: str, sec: float) -> tuple[int, float]:
-    return CLIP_ORDER.index(clip), sec
-
-
 # ---------------------------------------------------------------- labels
-
-def frame_list() -> list[tuple[str, int]]:
-    out = []
-    for clip in CLIP_ORDER:
-        for p in sorted((FRAMES / clip).glob("*.jpg")):
-            out.append((clip, int(p.stem) - 1))
-    return out
-
 
 def label_frames(events) -> list[dict]:
     steps = {s["step"]: s for s in events["steps"]}
@@ -169,59 +149,6 @@ def render_ref(steps, n: int, labels: bool = True) -> Image.Image:
     return img
 
 
-def components(mask: np.ndarray) -> list[np.ndarray]:
-    """4-connected True regions of a small boolean mask as (y, x) index arrays, largest first (plain BFS; no scipy/cv2 here)."""
-    h, w = mask.shape
-    seen = np.zeros_like(mask, dtype=bool)
-    comps = []
-    for y0, x0 in zip(*np.nonzero(mask)):
-        if seen[y0, x0]:
-            continue
-        comp = [(y0, x0)]
-        seen[y0, x0] = True
-        i = 0
-        while i < len(comp):
-            y, x = comp[i]
-            i += 1
-            for ny, nx in ((y - 1, x), (y + 1, x), (y, x - 1), (y, x + 1)):
-                if 0 <= ny < h and 0 <= nx < w and mask[ny, nx] and not seen[ny, nx]:
-                    seen[ny, nx] = True
-                    comp.append((ny, nx))
-        comps.append(np.array(comp))
-    return sorted(comps, key=len, reverse=True)
-
-
-def plate_bbox(img: Image.Image) -> tuple[int, int, int, int] | None:
-    """Bounding box of the baseplate with a 10 % margin.
-    Saturated-green mask at 1/8 scale, closed by a max filter so rows of bricks do not cut the plate in two;
-    the largest blob plus any blob at least a fifth of its size whose centre lies within one plate-width of it
-    (hands split the plate; screens and lime bricks also pass the colour test but are small or far away)."""
-    s, k = 8, 9  # downsample, closing kernel (px at 1/8 scale; ~2 studs)
-    small = img.copy()
-    small.thumbnail((img.width // s, img.height // s))
-    a = np.asarray(small.convert("RGB")).astype(np.float32) / 255
-    r, g, b = a[..., 0], a[..., 1], a[..., 2]
-    mx, mn = a.max(-1), a.min(-1)
-    sat = np.where(mx > 0, (mx - mn) / np.maximum(mx, 1e-6), 0)
-    mask = (g > 1.25 * r) & (g > 1.25 * b) & (sat > 0.35) & (mx > 0.25)
-    closed = np.asarray(Image.fromarray(mask.astype(np.uint8) * 255).filter(ImageFilter.MaxFilter(k))
-                        .filter(ImageFilter.MinFilter(k))) > 0
-    comps = components(closed)
-    if not comps or len(comps[0]) < 400:  # < ~160x160 px of plate at full resolution
-        return None
-    main = comps[0]
-    cy, cx = main.mean(0)
-    size = max(np.ptp(main[:, 0]), np.ptp(main[:, 1]))
-    keep = [main] + [c for c in comps[1:] if len(c) >= len(main) / 5 and np.hypot(*(c.mean(0) - (cy, cx))) < size]
-    pts = np.concatenate(keep)
-    y0, x0 = pts.min(0)
-    y1, x1 = pts.max(0) + 1
-    w, h = (x1 - x0) * s, (y1 - y0) * s
-    mg = 0.10
-    return (int(max(0, x0 * s - w * mg)), int(max(0, y0 * s - h * mg)),
-            int(min(img.width, x1 * s + w * mg)), int(min(img.height, y1 * s + h * mg)))
-
-
 def prep_photo(path: Path, route: str) -> Image.Image | None:
     img = Image.open(path).convert("RGB")
     if route == "B":
@@ -233,18 +160,6 @@ def prep_photo(path: Path, route: str) -> Image.Image | None:
     crop = img.crop(box)
     crop.thumbnail((SIDE, SIDE))
     return crop
-
-
-def to_jpeg(img: Image.Image, q: int = 90) -> bytes:
-    buf = io.BytesIO()
-    img.save(buf, "JPEG", quality=q)
-    return buf.getvalue()
-
-
-def to_png(img: Image.Image) -> bytes:
-    buf = io.BytesIO()
-    img.save(buf, "PNG")
-    return buf.getvalue()
 
 
 def step_text(steps, n: int) -> str:
@@ -410,7 +325,7 @@ def cmd_labels(args):
     print(len(rows), "questions over", len(frame_list()), "frames")
     print(dict(Counter(r["expected"] for r in rows)))
     print("in distraction windows:", sum(r["distraction"] for r in rows))
-    miss = [f"{c}/{t + 1:03d}" for c, t in frame_list() if plate_bbox(Image.open(FRAMES / c / f"{t + 1:03d}.jpg")) is None]
+    miss = [f"{c}/{t + 1:03d}" for c, t in frame_list() if plate_bbox(Image.open(cm.FRAMES / c / f"{t + 1:03d}.jpg")) is None]
     print("route C: no plate found in", len(miss), "frames", miss)
     # per-frame table, compact
     by_frame = defaultdict(list)
@@ -430,7 +345,7 @@ def cmd_labels(args):
     tiles = []
     for r in picks:
         ref = render_ref(steps, r["step"])
-        photo = prep_photo(FRAMES / r["clip"] / r["frame"], "C") or Image.new("RGB", (300, 300), "grey")
+        photo = prep_photo(cm.FRAMES / r["clip"] / r["frame"], "C") or Image.new("RGB", (300, 300), "grey")
         photo.thumbnail((360, 360))
         ref.thumbnail((360, 360))
         tile = Image.new("RGB", (ref.width + photo.width + 20, max(ref.height, photo.height) + 24), "white")
@@ -450,11 +365,10 @@ def cmd_labels(args):
 
 
 def cmd_run(args):
-    global FRAMES
     steps, events = load()
     load_env()
     if args.frames:  # e.g. frames_1080p15: the same seconds extracted from a derived, call-quality version of the clips
-        FRAMES = RUN / args.frames
+        cm.set_frames(args.frames)
     if args.questions:  # hand-picked rest-state questions with their own expected answers
         rows = [dict(q, t=int(q["frame"][:3]) - 1, distraction=False) for q in json.loads(Path(args.questions).read_text(encoding="utf-8"))]
     else:
@@ -497,7 +411,7 @@ def cmd_run(args):
             n = r["step"]
             if n not in refs:
                 refs[n] = None if rel else to_png(render_ref(steps, n, labels=not img))
-            photo = prep_photo(FRAMES / r["clip"] / r["frame"], args.route)
+            photo = prep_photo(cm.FRAMES / r["clip"] / r["frame"], args.route)
             rec = dict(r, route=args.route, model=judge.tag, question=step_text_rel(steps, n, hist) if rel else step_text_img(n) if img else step_text(steps, n))
             if photo is None:
                 rec.update(answer="cannot_see", reason="no plate in green mask", raw="", latency=0, usage={})
