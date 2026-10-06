@@ -7,7 +7,7 @@
                    sampled at each cell. Look at this before trusting anything downstream.
       run       -> truck/results/cv/<questions>_cv[_1080p15].jsonl (same shape as vlm_judge) + sheets/cv/<stem>.jpg with,
                    per question, the crop with the grid | the observed class map | the expected map (new cells outlined).
-      calibrate -> colour centres from one frame of the build after --steps steps, to paste into task.toml [colours].
+      calibrate -> colour centres from one frame of the build after --steps steps, to paste into task.toml [colours.<profile>].
 
 The method, thresholds and colour centres are the agent's (judge_cv.py, guides/truck/task.toml); this file only
 feeds frames in and draws. `run` fits the focal length on the full-plate question frames up front (a session has it after
@@ -29,6 +29,7 @@ import judge_cv as jc  # noqa: E402  (backend/agent/src, on the path via common)
 
 RESULTS = cm.RESULTS / "cv"
 SHEETS = cm.SHEETS / "cv"
+PROFILE = "camera-app"  # the [colours.<name>] table of the recording's camera (task.toml)
 
 PALETTE = {"plate": (40, 140, 60), "red": (200, 30, 20), "purple": (120, 30, 150), "lime": (170, 210, 40),
            "white": (240, 240, 240), "blue": (20, 80, 200), "tan": (215, 190, 140), "yellow": (250, 200, 0),
@@ -39,7 +40,7 @@ def make_judge(steps, calibrate_from=None) -> jc.CVJudge:
     """The agent's judge on the eval's task dicts, colour centres from the task file. `calibrate_from` = frame paths
     whose full-plate views fit the focal length up front (as a session has after its first seconds); None = online."""
     layout = jc.Layout.from_dicts(steps, cm.task()["plate"])
-    judge = jc.CVJudge(layout, cm.task()["colours"])
+    judge = jc.CVJudge(layout, cm.task()["colours"][PROFILE])
     if calibrate_from:
         for p in calibrate_from:
             img = Image.open(p).convert("RGB")
@@ -98,7 +99,7 @@ def cmd_run(args):
         f"route=D prompt=cv frames={args.frames or 'frames'} dv={jc.DV} hit_ok={jc.HIT_OK} other_bad={jc.OTHER_BAD} stray_bad={jc.STRAY_BAD}\n"
         f"No model: backend/agent/src/judge_cv.py (the agent's judge). Plate corners from the green silhouette, a side cut by the\n"
         f"frame rebuilt from the focal length, homography to the {L.n}x{L.n} grid, per-cell median colour {jc.DV} rows from the cell\n"
-        f"centre (just inside the far edge), nearest colour centre from guides/truck/task.toml [colours], compared with the layout.\n"
+        f"centre (just inside the far edge), nearest colour centre from guides/truck/task.toml [colours.{PROFILE}], compared with the layout.\n"
         f"centres: {json.dumps(judge.colours.as_dict())} focal_px={judge.f:.0f} (fit on {len(judge._full)} full-plate question frames, "
         f"corner error {judge.f_error:.2f} cells)\n", encoding="utf-8")
     recs, tiles, obs = [], [], {}
@@ -169,9 +170,9 @@ def cmd_overlay(args):
 
 def cmd_calibrate(args):
     steps, _ = cm.load()
-    judge = jc.CVJudge(jc.Layout.from_dicts(steps, cm.task()["plate"]), cm.task()["colours"])
+    judge = jc.CVJudge(jc.Layout.from_dicts(steps, cm.task()["plate"]), cm.task()["colours"][PROFILE])
     centres = judge.calibrate(Image.open(args.frame).convert("RGB"), args.steps)
-    print("[colours]")
+    print(f"[colours.{args.profile}]")
     for k, v in centres.items():
         print(f"{k} = {list(v)}")
 
@@ -187,6 +188,7 @@ def main():
     p = sub.add_parser("calibrate")
     p.add_argument("frame")
     p.add_argument("--steps", type=int, default=None, help="steps done in the frame (default: all)")
+    p.add_argument("--profile", default="livekit", help="name of the [colours.<name>] table to print")
     p.set_defaults(fn=cmd_calibrate)
     args = ap.parse_args()
     args.fn(args)

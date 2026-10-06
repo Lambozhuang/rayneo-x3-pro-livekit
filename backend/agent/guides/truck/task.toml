@@ -9,16 +9,19 @@
 # four corner cells are not counted. `say` is what the wearer hears ("toward
 # you" is allowed there); `where` and `checks` are the camera-independent
 # wording for the VLM judge, and `color`/`cells` drive the CV judge; every
-# `color` must have a centre in [colours].
+# `color` must have a centre in every [colours.<camera>] table.
 
 title = "LEGO truck on a baseplate"
 plate = 16
 
 # Colour centres for the CV judge: chromaticity (r, g, b) / (r + g + b) of each brick colour and of the plate,
-# median over the cells of the finished model on the recorded run (eval/truck, 1080p15 frames; the full-resolution
-# frames gave the same values within 0.01). Recompute with `python eval/cv_judge.py calibrate <frame>` when the
-# bricks, camera or lighting change.
-[colours]
+# median over the cells of the finished model in one frame. They depend on the camera pipeline, so one table per
+# camera, chosen with JUDGE_COLOURS (the agent defaults to "livekit"; eval/ uses "camera-app"):
+#   camera-app  the glasses' stock camera app, which recorded eval/truck (1080p15 frames; full resolution agreed
+#               within 0.01): deep green plate, muted bricks
+#   livekit     the app's live call stream (camerax -> H.264) in the lab: pale mint plate, vivid bricks
+# Recompute with `python eval/cv_judge.py calibrate <frame> [--steps N]` when the bricks, camera or lighting change.
+[colours.camera-app]
 plate = [0.194, 0.535, 0.268]
 red = [0.615, 0.199, 0.185]
 purple = [0.341, 0.274, 0.385]
@@ -27,6 +30,11 @@ white = [0.339, 0.341, 0.319]
 blue = [0.171, 0.346, 0.483]
 tan = [0.397, 0.354, 0.246]
 yellow = [0.571, 0.392, 0.035]
+
+[colours.livekit]
+# plate and red from a lab frame with step 1 done (2026-10-06); the rest still to be calibrated on a finished model
+plate = [0.296, 0.425, 0.278]
+red = [0.795, 0.15, 0.045]
 
 [[steps]]
 part = "red 3x4 slope"

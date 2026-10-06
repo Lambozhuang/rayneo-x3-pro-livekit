@@ -1,5 +1,5 @@
 route=D prompt=cv frames=frames dv=-0.45 hit_ok=0.7 other_bad=0.5 stray_bad=2
 No model: backend/agent/src/judge_cv.py (the agent's judge). Plate corners from the green silhouette, a side cut by the
 frame rebuilt from the focal length, homography to the 16x16 grid, per-cell median colour -0.45 rows from the cell
-centre (just inside the far edge), nearest colour centre from guides/truck/task.toml [colours], compared with the layout.
+centre (just inside the far edge), nearest colour centre from guides/truck/task.toml [colours.camera-app], compared with the layout.
 centres: {"plate": [0.194, 0.535, 0.268], "red": [0.615, 0.199, 0.185], "purple": [0.341, 0.274, 0.385], "lime": [0.383, 0.481, 0.134], "white": [0.339, 0.341, 0.319], "blue": [0.171, 0.346, 0.483], "tan": [0.397, 0.354, 0.246], "yellow": [0.571, 0.392, 0.035]} focal_px=1155 (fit on 21 full-plate question frames, corner error 0.09 cells)

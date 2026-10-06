@@ -70,15 +70,51 @@ FOCAL_MEMORY = 20  # full-plate frames kept for the fit; the fit is redone at ev
 
 # ------------------------------------------------------------------ plate geometry
 
-def green_mask(img: Image.Image, s: int) -> np.ndarray:
-    """Plate green at 1/s scale: g/r > 3 on the plate, ~1.3 on lime bricks, and blue has b > g."""
-    small = img.copy()
-    small.thumbnail((img.width // s, img.height // s))
-    a = np.asarray(small.convert("RGB")).astype(np.float32) / 255
+# The plate's green by hue, not by channel ratios: the glasses' call stream renders the plate a pale mint
+# (hue ~110 deg, saturation ~0.35) where the stock camera app showed it deep green (hue ~130, saturation
+# ~0.65), and a g/r rule tuned on one fails on the other. Lime bricks sit at hue 70-90, blue at ~220, so the
+# window below keeps both out at any saturation.
+PLATE_HUE = (95.0, 165.0)  # degrees
+PLATE_SAT = 0.2
+PLATE_VAL = 0.25
+
+
+def hsv(rgb) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
+    """Hue (deg), saturation, value of any (..., 3) RGB array in 0-255."""
+    a = np.asarray(rgb, dtype=np.float32) / 255
     r, g, b = a[..., 0], a[..., 1], a[..., 2]
     mx, mn = a.max(-1), a.min(-1)
-    sat = np.where(mx > 0, (mx - mn) / np.maximum(mx, 1e-6), 0)
-    return (g > 2.0 * r) & (g > 1.5 * b) & (sat > 0.35) & (mx > 0.25)
+    d = mx - mn
+    with np.errstate(invalid="ignore", divide="ignore"):
+        h = np.where(mx == r, (g - b) / d, np.where(mx == g, 2 + (b - r) / d, 4 + (r - g) / d))
+    h = np.where(d > 0, (h * 60) % 360, 0.0)
+    return h, np.where(mx > 0, d / np.maximum(mx, 1e-6), 0.0), mx
+
+
+def is_plate(rgb) -> np.ndarray:
+    h, s, v = hsv(rgb)
+    return (h >= PLATE_HUE[0]) & (h <= PLATE_HUE[1]) & (s > PLATE_SAT) & (v > PLATE_VAL)
+
+
+SAT_KEEP = 0.65  # refined mask keeps pixels at least this share of the plate's own median saturation
+
+
+def green_mask(img: Image.Image, s: int) -> np.ndarray:
+    """Plate pixels at 1/s scale, in two passes: the hue window above, then only pixels at least SAT_KEEP of the
+    median saturation of the largest blob. The plate sets its own bar: loose lime bricks lying near it read as a
+    dull green (hue 100-145, saturation 0.2-0.4) under the stock camera app, far below the plate's 0.6 there, while
+    on the call stream the plate itself is only ~0.35 and the bar drops with it."""
+    small = img.copy()
+    small.thumbnail((img.width // s, img.height // s))
+    rgb = np.asarray(small.convert("RGB"))
+    h, sat, v = hsv(rgb)
+    coarse = (h >= PLATE_HUE[0]) & (h <= PLATE_HUE[1]) & (sat > PLATE_SAT) & (v > PLATE_VAL)
+    comps = components(coarse)
+    if not comps:
+        return coarse
+    main = comps[0]
+    med = float(np.median(sat[main[:, 0], main[:, 1]]))
+    return coarse & (sat >= SAT_KEEP * med)
 
 
 def components(mask: np.ndarray) -> list[np.ndarray]:
@@ -446,8 +482,9 @@ class Colours:
 
     def __call__(self, rgb) -> str:
         r, g, b = (float(x) for x in rgb)
-        if g > 1.4 * r and g > 1.25 * b and b > 0.3 * g:
-            return "plate"  # any shade of the plate's green incl. shadow (lime: g/r ~1.3, little blue; blue: b > g)
+        h, s, _ = hsv(rgb)
+        if PLATE_HUE[0] <= h <= PLATE_HUE[1] and s > 0.15:
+            return "plate"  # any shade of the plate's green incl. shadow; lime (hue 70-90) and blue (~220) fall outside
         if max(r, g, b) < DARK:
             return "dark"
         lime = g > r > 1.5 * b  # yellow-green with little blue; plate shadows keep b/g ~0.5 and fail this
@@ -522,6 +559,15 @@ class CVJudge:
         E_prev, _ = L.expected(step - 1)
         E_now, care = L.expected(step)
         D = L.new_cells(step)
+        # A side the frame cuts off is rebuilt, not seen; cells along it can land a column or two off (seen live:
+        # the red slope on the plate's left edge read "2 studs to the right" with the left side cut), so a step that
+        # touches such a side is not judged from this frame.
+        edge = {"top": lambda r, c: r <= 1, "bottom": lambda r, c: r >= n - 2,
+                "left": lambda r, c: c <= 1, "right": lambda r, c: c >= n - 2}
+        for side in obs.plate.cut:
+            if any(edge[side](r, c) for r, c in D):
+                return Verdict("cannot_see", f"the {side} edge of the plate, where this brick goes, is out of view",
+                               {"cut": "/".join(obs.plate.cut), "cells": len(D)})
         blind = sum(1 for r, c in D if O[r, c] in ("unseen", "other", "dark"))  # off-image, hand/shadow, too dark
         if not D or blind / len(D) > UNSEEN_MAX:
             return Verdict("cannot_see", "the place of this step is out of view or covered", {"blind": blind, "cells": len(D)})

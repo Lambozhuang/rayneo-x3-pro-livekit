@@ -26,36 +26,50 @@ import time
 from dataclasses import dataclass
 
 import numpy as np
-from PIL import Image
+from PIL import Image, ImageDraw
 
-from judge_cv import close, components
+from judge_cv import close, components, green_mask, hull
 
 BORDER = 0.01       # tight plate box must stay this far (fraction of frame size) from every frame edge
 MIN_SIDE = 0.23     # tight box sides at least this fraction of the frame width: a whole plate at working distance
-ASPECT = (0.7, 1.45)  # tight box width/height for a whole plate seen from the builder's seat
-HAND_TOTAL = 0.15   # skin share inside the plate box from which a hand is assumed (tan brick + red shadow stay < 6 %)
+ASPECT = (0.55, 1.45)  # tight box width/height for a whole plate seen from the builder's seat (steep view in portrait: ~0.6)
+HAND_TOTAL = 0.15   # skin share inside the plate outline from which a hand is assumed (tan brick + red shadow stay < 6 %)
 MOTION_MAX = 12.0   # mean |grey diff| (0-255) between plate-aligned crops of consecutive frames above which it moved
 
 
-def plate_bbox(img: Image.Image) -> tuple[int, int, int, int] | None:
-    """Bounding box of the baseplate with a 10 % margin: a loose green mask at 1/8 scale, closed so rows of bricks
-    do not cut the plate in two; the largest blob plus any blob at least a fifth of its size within one plate-width."""
-    s, k = 8, 9  # downsample, closing kernel (px at 1/8 scale; ~2 studs)
-    small = img.copy()
-    small.thumbnail((img.width // s, img.height // s))
-    a = np.asarray(small.convert("RGB")).astype(np.float32) / 255
-    r, g, b = a[..., 0], a[..., 1], a[..., 2]
-    mx, mn = a.max(-1), a.min(-1)
-    sat = np.where(mx > 0, (mx - mn) / np.maximum(mx, 1e-6), 0)
-    mask = (g > 1.25 * r) & (g > 1.25 * b) & (sat > 0.35) & (mx > 0.25)
-    comps = components(close(mask, k))
-    if not comps or len(comps[0]) < 400:  # < ~160x160 px of plate at full resolution
+def plate_pixels(img: Image.Image, s: int = 8):
+    """(y, x) points of the baseplate at 1/s scale: the plate-green mask (judge_cv.green_mask), closed so rows of
+    bricks do not cut the plate in two; the largest blob plus any blob at least a fifth of its size within one
+    plate-width (hands split the plate). None when there is no plate-sized blob."""
+    k = 9  # closing kernel (px at 1/8 scale; ~2 studs)
+    comps = components(close(green_mask(img, s), k))
+    if not comps or len(comps[0]) < 400 * (8 / s) ** 2:  # < ~160x160 px of plate at full resolution
         return None
     main = comps[0]
     cy, cx = main.mean(0)
     size = max(np.ptp(main[:, 0]), np.ptp(main[:, 1]))
     keep = [main] + [c for c in comps[1:] if len(c) >= len(main) / 5 and np.hypot(*(c.mean(0) - (cy, cx))) < size]
-    pts = np.concatenate(keep)
+    return np.concatenate(keep)
+
+
+def plate_outline(img: Image.Image, s: int = 8) -> Image.Image | None:
+    """Full-size 1-bit mask of the plate's convex hull: where a hand would have to be to cover the plate. The
+    table around a tilted plate falls inside its bounding box but outside this outline."""
+    pts = plate_pixels(img, s)
+    if pts is None:
+        return None
+    h = hull(pts[:, ::-1].astype(np.float64) * s + s / 2)
+    m = Image.new("1", img.size, 0)
+    ImageDraw.Draw(m).polygon([tuple(p) for p in h], fill=1)
+    return m
+
+
+def plate_bbox(img: Image.Image) -> tuple[int, int, int, int] | None:
+    """Bounding box of the baseplate with a 10 % margin (plate_pixels)."""
+    s = 8
+    pts = plate_pixels(img, s)
+    if pts is None:
+        return None
     y0, x0 = pts.min(0)
     y1, x1 = pts.max(0) + 1
     w, h = (x1 - x0) * s, (y1 - y0) * s
@@ -82,13 +96,18 @@ def whole_plate(box, size) -> bool:
             and min(bw, bh) >= w * MIN_SIDE and ASPECT[0] <= bw / bh <= ASPECT[1])
 
 
-def skin_share(crop: Image.Image) -> float:
-    """Share of skin-coloured pixels (YCbCr window; measured: hands Cr 135-148, red bricks 150-170)."""
+def skin_share(crop: Image.Image, within: Image.Image | None = None) -> float:
+    """Share of skin-coloured pixels (YCbCr window; measured: hands Cr 135-148, red bricks 150-170), over the
+    whole crop or over the pixels where `within` (a 1-bit mask of the same size) is set."""
     small = crop.copy()
     small.thumbnail((max(1, crop.width // 4), max(1, crop.height // 4)))
     a = np.asarray(small.convert("YCbCr")).astype(np.int16)
     y, cb, cr = a[..., 0], a[..., 1], a[..., 2]
-    return float(((cr >= 135) & (cr <= 152) & (cb >= 100) & (cb <= 140) & (y > 60)).mean())
+    skin = (cr >= 135) & (cr <= 152) & (cb >= 100) & (cb <= 140) & (y > 60)
+    if within is None:
+        return float(skin.mean())
+    w = np.asarray(within.resize(small.size)) > 0
+    return float(skin[w].mean()) if w.any() else 0.0
 
 
 def plate_grey(img: Image.Image, box) -> np.ndarray:
@@ -129,7 +148,8 @@ class Gate:
             cut = not (x0 > w * BORDER and y0 > h * BORDER and x1 < w * (1 - BORDER) and y1 < h * (1 - BORDER))
             self._still_since = None
             return Decision(False, "plate cut" if cut else "plate partial", box, motion=motion)
-        skin = skin_share(img.crop(box))
+        outline = plate_outline(img)
+        skin = skin_share(img.crop(box), outline.crop(box) if outline is not None else None)
         if skin >= HAND_TOTAL:
             self._still_since = None
             return Decision(False, "hand", box, skin, motion)

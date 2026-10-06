@@ -60,7 +60,9 @@ async def rayneo_assistant(ctx: JobContext) -> None:
 
         judge = VLMJudge(openai_client(), guide, settings.check_model, settings.check_effort, settings.check_detail)
     else:
-        judge = CVJudge(Layout.from_guide(guide), guide.colours, settings.focal_px)
+        if settings.colours not in guide.colours:
+            raise RuntimeError(f"JUDGE_COLOURS={settings.colours!r}: {guide.name}/task.toml has colour tables {sorted(guide.colours)}")
+        judge = CVJudge(Layout.from_guide(guide), guide.colours[settings.colours], settings.focal_px)
     stream = ModelStream(guide.model, ModelState()) if guide.model and stream_enabled() else None
     if stream is not None:
         ctx.add_shutdown_callback(stream.stop)

@@ -2,7 +2,7 @@
  "confirm": 2,
  "frames": "frames_1080p15",
  "model": "cv",
- "calls": 75,
+ "calls": 79,
  "facts": [
   {
    "i": 9,
@@ -21,9 +21,9 @@
    "text": "step 2 placed"
   },
   {
-   "i": 23,
+   "i": 22,
    "clip": "run1_part1",
-   "t": 23,
+   "t": 22,
    "kind": "done",
    "step": 3,
    "text": "step 3 placed"
@@ -93,12 +93,12 @@
    "text": "step 9 placed"
   },
   {
-   "i": 95,
+   "i": 99,
    "clip": "run1_part2_p1",
-   "t": 33,
+   "t": 37,
    "kind": "wrong",
    "step": 10,
-   "text": "step 10 wrong: lime/purple/white where the red brick should be"
+   "text": "step 10 wrong: the red brick sits about 2 studs to the right of where it should be"
   },
   {
    "i": 110,
@@ -125,9 +125,9 @@
    "text": "step 12 placed"
   },
   {
-   "i": 123,
+   "i": 124,
    "clip": "run1_part2_p2",
-   "t": 0,
+   "t": 1,
    "kind": "done",
    "step": 13,
    "text": "step 13 placed"
@@ -141,7 +141,7 @@
    "step": 1,
    "gate": "ok",
    "answer": "not_placed",
-   "latency": 0.114,
+   "latency": 0.124,
    "reason": "only 0% of its cells show red"
   },
   {
@@ -151,7 +151,7 @@
    "step": 1,
    "gate": "ok",
    "answer": "not_placed",
-   "latency": 0.109,
+   "latency": 0.125,
    "reason": "only 0% of its cells show red"
   },
   {
@@ -161,7 +161,7 @@
    "step": 1,
    "gate": "ok",
    "answer": "not_placed",
-   "latency": 0.111,
+   "latency": 0.127,
    "reason": "only 0% of its cells show red"
   },
   {
@@ -171,7 +171,7 @@
    "step": 1,
    "gate": "ok",
    "answer": "not_placed",
-   "latency": 0.109,
+   "latency": 0.13,
    "reason": "only 0% of its cells show red"
   },
   {
@@ -209,7 +209,7 @@
    "step": 1,
    "gate": "ok",
    "answer": "correct",
-   "latency": 0.105,
+   "latency": 0.125,
    "reason": "100% of its cells show red"
   },
   {
@@ -219,7 +219,7 @@
    "step": 1,
    "gate": "ok",
    "answer": "correct",
-   "latency": 0.297,
+   "latency": 0.32,
    "reason": "100% of its cells show red"
   },
   {
@@ -229,7 +229,7 @@
    "step": 2,
    "gate": "ok",
    "answer": "not_placed",
-   "latency": 0.102,
+   "latency": 0.12,
    "reason": "only 0% of its cells show purple"
   },
   {
@@ -239,7 +239,7 @@
    "step": 2,
    "gate": "ok",
    "answer": "not_placed",
-   "latency": 0.112,
+   "latency": 0.125,
    "reason": "only 0% of its cells show purple"
   },
   {
@@ -263,7 +263,7 @@
    "step": 2,
    "gate": "ok",
    "answer": "correct",
-   "latency": 0.106,
+   "latency": 0.126,
    "reason": "100% of its cells show purple"
   },
   {
@@ -273,7 +273,7 @@
    "step": 2,
    "gate": "ok",
    "answer": "correct",
-   "latency": 0.114,
+   "latency": 0.132,
    "reason": "100% of its cells show purple"
   },
   {
@@ -283,7 +283,7 @@
    "step": 3,
    "gate": "ok",
    "answer": "not_placed",
-   "latency": 0.103,
+   "latency": 0.121,
    "reason": "only 0% of its cells show lime"
   },
   {
@@ -293,7 +293,7 @@
    "step": 3,
    "gate": "ok",
    "answer": "not_placed",
-   "latency": 0.096,
+   "latency": 0.105,
    "reason": "only 0% of its cells show lime"
   },
   {
@@ -303,7 +303,7 @@
    "step": 3,
    "gate": "ok",
    "answer": "not_placed",
-   "latency": 0.103,
+   "latency": 0.119,
    "reason": "only 0% of its cells show lime"
   },
   {
@@ -313,7 +313,7 @@
    "step": 3,
    "gate": "ok",
    "answer": "not_placed",
-   "latency": 0.099,
+   "latency": 0.112,
    "reason": "only 0% of its cells show lime"
   },
   {
@@ -321,10 +321,7 @@
    "clip": "run1_part1",
    "t": 20,
    "step": 3,
-   "gate": "ok",
-   "answer": "not_placed",
-   "latency": 0.097,
-   "reason": "only 0% of its cells show lime"
+   "gate": "plate partial"
   },
   {
    "i": 21,
@@ -332,9 +329,9 @@
    "t": 21,
    "step": 3,
    "gate": "ok",
-   "answer": "not_placed",
-   "latency": 0.482,
-   "reason": "only 50% of its cells show lime"
+   "answer": "correct",
+   "latency": 0.122,
+   "reason": "100% of its cells show lime"
   },
   {
    "i": 22,
@@ -343,18 +340,18 @@
    "step": 3,
    "gate": "ok",
    "answer": "correct",
-   "latency": 0.106,
+   "latency": 0.523,
    "reason": "100% of its cells show lime"
   },
   {
    "i": 23,
    "clip": "run1_part1",
    "t": 23,
-   "step": 3,
+   "step": 4,
    "gate": "ok",
-   "answer": "correct",
-   "latency": 0.106,
-   "reason": "100% of its cells show lime"
+   "answer": "not_placed",
+   "latency": 0.157,
+   "reason": "only 0% of its cells show white"
   },
   {
    "i": 24,
@@ -363,7 +360,7 @@
    "step": 4,
    "gate": "ok",
    "answer": "not_placed",
-   "latency": 0.105,
+   "latency": 0.132,
    "reason": "only 0% of its cells show white"
   },
   {
@@ -371,7 +368,10 @@
    "clip": "run1_part1",
    "t": 25,
    "step": 4,
-   "gate": "hand"
+   "gate": "ok",
+   "answer": "not_placed",
+   "latency": 0.104,
+   "reason": "only 0% of its cells show white"
   },
   {
    "i": 26,
@@ -387,7 +387,7 @@
    "step": 4,
    "gate": "ok",
    "answer": "wrong",
-   "latency": 0.105,
+   "latency": 0.122,
    "reason": "tan where the white brick should be"
   },
   {
@@ -397,7 +397,7 @@
    "step": 4,
    "gate": "ok",
    "answer": "wrong",
-   "latency": 0.108,
+   "latency": 0.123,
    "reason": "tan where the white brick should be"
   },
   {
@@ -414,7 +414,7 @@
    "step": 4,
    "gate": "ok",
    "answer": "wrong",
-   "latency": 0.669,
+   "latency": 0.119,
    "reason": "the white brick sits about 5 studs to the left of where it should be"
   },
   {
@@ -422,7 +422,10 @@
    "clip": "run1_part1",
    "t": 31,
    "step": 4,
-   "gate": "hand"
+   "gate": "ok",
+   "answer": "wrong",
+   "latency": 0.701,
+   "reason": "the white brick sits about 2 studs to the left of where it should be"
   },
   {
    "i": 32,
@@ -438,7 +441,7 @@
    "step": 4,
    "gate": "ok",
    "answer": "correct",
-   "latency": 0.108,
+   "latency": 0.123,
    "reason": "100% of its cells show white"
   },
   {
@@ -448,7 +451,7 @@
    "step": 4,
    "gate": "ok",
    "answer": "correct",
-   "latency": 0.106,
+   "latency": 0.124,
    "reason": "100% of its cells show white"
   },
   {
@@ -458,7 +461,7 @@
    "step": 5,
    "gate": "ok",
    "answer": "not_placed",
-   "latency": 0.107,
+   "latency": 0.12,
    "reason": "only 0% of its cells show white"
   },
   {
@@ -466,14 +469,17 @@
    "clip": "run1_part1",
    "t": 36,
    "step": 5,
-   "gate": "hand"
+   "gate": "ok",
+   "answer": "wrong",
+   "latency": 0.117,
+   "reason": "the white brick sits about 2 studs to the left of where it should be"
   },
   {
    "i": 37,
    "clip": "run1_part1",
    "t": 37,
    "step": 5,
-   "gate": "hand"
+   "gate": "plate partial"
   },
   {
    "i": 38,
@@ -489,7 +495,7 @@
    "step": 5,
    "gate": "ok",
    "answer": "correct",
-   "latency": 0.106,
+   "latency": 0.12,
    "reason": "100% of its cells show white"
   },
   {
@@ -499,7 +505,7 @@
    "step": 5,
    "gate": "ok",
    "answer": "correct",
-   "latency": 0.108,
+   "latency": 0.126,
    "reason": "100% of its cells show white"
   },
   {
@@ -509,7 +515,7 @@
    "step": 6,
    "gate": "ok",
    "answer": "not_placed",
-   "latency": 0.106,
+   "latency": 0.125,
    "reason": "only 0% of its cells show blue"
   },
   {
@@ -519,7 +525,7 @@
    "step": 6,
    "gate": "ok",
    "answer": "wrong",
-   "latency": 0.105,
+   "latency": 0.123,
    "reason": "white where the blue brick should be"
   },
   {
@@ -536,7 +542,7 @@
    "step": 6,
    "gate": "ok",
    "answer": "wrong",
-   "latency": 0.103,
+   "latency": 0.121,
    "reason": "the blue brick sits about 2 studs to the right of where it should be"
   },
   {
@@ -546,7 +552,7 @@
    "step": 6,
    "gate": "ok",
    "answer": "wrong",
-   "latency": 0.858,
+   "latency": 0.903,
    "reason": "the blue brick sits about 2 studs to the right of where it should be"
   },
   {
@@ -556,7 +562,7 @@
    "step": 6,
    "gate": "ok",
    "answer": "wrong",
-   "latency": 0.102,
+   "latency": 0.123,
    "reason": "the blue brick sits about 2 studs to the right of where it should be"
   },
   {
@@ -587,7 +593,7 @@
    "step": 6,
    "gate": "ok",
    "answer": "wrong",
-   "latency": 0.098,
+   "latency": 0.112,
    "reason": "white where the blue brick should be"
   },
   {
@@ -597,7 +603,7 @@
    "step": 6,
    "gate": "ok",
    "answer": "correct",
-   "latency": 0.105,
+   "latency": 0.121,
    "reason": "100% of its cells show blue"
   },
   {
@@ -607,7 +613,7 @@
    "step": 6,
    "gate": "ok",
    "answer": "correct",
-   "latency": 0.106,
+   "latency": 0.123,
    "reason": "100% of its cells show blue"
   },
   {
@@ -617,7 +623,7 @@
    "step": 7,
    "gate": "ok",
    "answer": "not_placed",
-   "latency": 0.093,
+   "latency": 0.108,
    "reason": "only 0% of its cells show lime"
   },
   {
@@ -634,7 +640,7 @@
    "step": 7,
    "gate": "ok",
    "answer": "not_placed",
-   "latency": 0.1,
+   "latency": 0.114,
    "reason": "only 0% of its cells show lime"
   },
   {
@@ -642,7 +648,10 @@
    "clip": "run1_part1",
    "t": 56,
    "step": 7,
-   "gate": "hand"
+   "gate": "ok",
+   "answer": "not_placed",
+   "latency": 1.057,
+   "reason": "only 0% of its cells show lime"
   },
   {
    "i": 57,
@@ -651,7 +660,7 @@
    "step": 7,
    "gate": "ok",
    "answer": "correct",
-   "latency": 0.104,
+   "latency": 0.121,
    "reason": "100% of its cells show lime"
   },
   {
@@ -661,7 +670,7 @@
    "step": 7,
    "gate": "ok",
    "answer": "correct",
-   "latency": 0.105,
+   "latency": 0.121,
    "reason": "100% of its cells show lime"
   },
   {
@@ -671,7 +680,7 @@
    "step": 8,
    "gate": "ok",
    "answer": "not_placed",
-   "latency": 0.105,
+   "latency": 0.12,
    "reason": "only 0% of its cells show white"
   },
   {
@@ -681,7 +690,7 @@
    "step": 8,
    "gate": "ok",
    "answer": "not_placed",
-   "latency": 1.038,
+   "latency": 0.119,
    "reason": "only 0% of its cells show white"
   },
   {
@@ -691,7 +700,7 @@
    "step": 8,
    "gate": "ok",
    "answer": "not_placed",
-   "latency": 0.102,
+   "latency": 0.114,
    "reason": "only 25% of its cells show white"
   },
   {
@@ -701,7 +710,7 @@
    "step": 8,
    "gate": "ok",
    "answer": "correct",
-   "latency": 0.096,
+   "latency": 0.109,
    "reason": "75% of its cells show white"
   },
   {
@@ -711,7 +720,7 @@
    "step": 8,
    "gate": "ok",
    "answer": "correct",
-   "latency": 0.097,
+   "latency": 0.116,
    "reason": "75% of its cells show white"
   },
   {
@@ -721,7 +730,7 @@
    "step": 9,
    "gate": "ok",
    "answer": "not_placed",
-   "latency": 0.097,
+   "latency": 0.112,
    "reason": "only 0% of its cells show red"
   },
   {
@@ -729,14 +738,17 @@
    "clip": "run1_part2_p1",
    "t": 3,
    "step": 9,
-   "gate": "hand"
+   "gate": "plate partial"
   },
   {
    "i": 66,
    "clip": "run1_part2_p1",
    "t": 4,
    "step": 9,
-   "gate": "hand"
+   "gate": "ok",
+   "answer": "wrong",
+   "latency": 0.096,
+   "reason": "lime/tan where the red brick should be"
   },
   {
    "i": 67,
@@ -752,7 +764,7 @@
    "step": 9,
    "gate": "ok",
    "answer": "not_placed",
-   "latency": 0.096,
+   "latency": 0.105,
    "reason": "only 0% of its cells show red"
   },
   {
@@ -762,15 +774,18 @@
    "step": 9,
    "gate": "ok",
    "answer": "not_placed",
-   "latency": 0.092,
-   "reason": "only 25% of its cells show red"
+   "latency": 0.105,
+   "reason": "only 22% of its cells show red"
   },
   {
    "i": 70,
    "clip": "run1_part2_p1",
    "t": 8,
    "step": 9,
-   "gate": "hand"
+   "gate": "ok",
+   "answer": "not_placed",
+   "latency": 0.103,
+   "reason": "only 16% of its cells show red"
   },
   {
    "i": 71,
@@ -779,7 +794,7 @@
    "step": 9,
    "gate": "ok",
    "answer": "not_placed",
-   "latency": 0.101,
+   "latency": 0.114,
    "reason": "only 0% of its cells show red"
   },
   {
@@ -789,7 +804,7 @@
    "step": 9,
    "gate": "ok",
    "answer": "not_placed",
-   "latency": 0.102,
+   "latency": 0.113,
    "reason": "only 0% of its cells show red"
   },
   {
@@ -839,7 +854,7 @@
    "clip": "run1_part2_p1",
    "t": 17,
    "step": 9,
-   "gate": "hand"
+   "gate": "plate partial"
   },
   {
    "i": 80,
@@ -855,8 +870,8 @@
    "step": 9,
    "gate": "ok",
    "answer": "not_placed",
-   "latency": 0.093,
-   "reason": "only 25% of its cells show red"
+   "latency": 0.105,
+   "reason": "only 0% of its cells show red"
   },
   {
    "i": 82,
@@ -865,7 +880,7 @@
    "step": 9,
    "gate": "ok",
    "answer": "cannot_see",
-   "latency": 0.094,
+   "latency": 0.101,
    "reason": "the place of this step is out of view or covered"
   },
   {
@@ -874,9 +889,9 @@
    "t": 21,
    "step": 9,
    "gate": "ok",
-   "answer": "wrong",
-   "latency": 0.096,
-   "reason": "the red brick sits about 4 rows away from the camera of where it should be"
+   "answer": "not_placed",
+   "latency": 0.109,
+   "reason": "only 0% of its cells show red"
   },
   {
    "i": 84,
@@ -885,7 +900,7 @@
    "step": 9,
    "gate": "ok",
    "answer": "not_placed",
-   "latency": 0.098,
+   "latency": 0.11,
    "reason": "only 0% of its cells show red"
   },
   {
@@ -895,7 +910,7 @@
    "step": 9,
    "gate": "ok",
    "answer": "not_placed",
-   "latency": 0.093,
+   "latency": 0.106,
    "reason": "only 50% of its cells show red"
   },
   {
@@ -905,7 +920,7 @@
    "step": 9,
    "gate": "ok",
    "answer": "not_placed",
-   "latency": 0.097,
+   "latency": 0.11,
    "reason": "only 25% of its cells show red"
   },
   {
@@ -927,14 +942,14 @@
    "clip": "run1_part2_p1",
    "t": 27,
    "step": 9,
-   "gate": "hand"
+   "gate": "plate partial"
   },
   {
    "i": 90,
    "clip": "run1_part2_p1",
    "t": 28,
    "step": 9,
-   "gate": "hand"
+   "gate": "plate partial"
   },
   {
    "i": 91,
@@ -943,7 +958,7 @@
    "step": 9,
    "gate": "ok",
    "answer": "correct",
-   "latency": 0.096,
+   "latency": 0.114,
    "reason": "100% of its cells show red"
   },
   {
@@ -953,7 +968,7 @@
    "step": 9,
    "gate": "ok",
    "answer": "correct",
-   "latency": 0.097,
+   "latency": 0.114,
    "reason": "100% of its cells show red"
   },
   {
@@ -961,10 +976,7 @@
    "clip": "run1_part2_p1",
    "t": 31,
    "step": 10,
-   "gate": "ok",
-   "answer": "cannot_see",
-   "latency": 0.096,
-   "reason": "the place of this step is out of view or covered"
+   "gate": "plate partial"
   },
   {
    "i": 94,
@@ -973,32 +985,29 @@
    "step": 10,
    "gate": "ok",
    "answer": "wrong",
-   "latency": 0.09,
-   "reason": "the red brick sits about 2 rows away from the camera of where it should be"
+   "latency": 0.105,
+   "reason": "the red brick sits about 1 rows away from the camera of where it should be"
   },
   {
    "i": 95,
    "clip": "run1_part2_p1",
    "t": 33,
    "step": 10,
-   "gate": "ok",
-   "answer": "wrong",
-   "latency": 0.084,
-   "reason": "lime/purple/white where the red brick should be"
+   "gate": "plate partial"
   },
   {
    "i": 96,
    "clip": "run1_part2_p1",
    "t": 34,
    "step": 10,
-   "gate": "plate partial"
+   "gate": "no plate"
   },
   {
    "i": 97,
    "clip": "run1_part2_p1",
    "t": 35,
    "step": 10,
-   "gate": "plate partial"
+   "gate": "no plate"
   },
   {
    "i": 98,
@@ -1014,7 +1023,7 @@
    "step": 10,
    "gate": "ok",
    "answer": "wrong",
-   "latency": 0.095,
+   "latency": 0.11,
    "reason": "the red brick sits about 2 studs to the right of where it should be"
   },
   {
@@ -1024,7 +1033,7 @@
    "step": 10,
    "gate": "ok",
    "answer": "wrong",
-   "latency": 0.097,
+   "latency": 0.112,
    "reason": "the red brick sits about 2 studs to the right of where it should be"
   },
   {
@@ -1053,7 +1062,7 @@
    "clip": "run1_part2_p1",
    "t": 42,
    "step": 10,
-   "gate": "plate partial"
+   "gate": "no plate"
   },
   {
    "i": 105,
@@ -1067,24 +1076,21 @@
    "clip": "run1_part2_p1",
    "t": 44,
    "step": 10,
-   "gate": "plate partial"
+   "gate": "no plate"
   },
   {
    "i": 107,
    "clip": "run1_part2_p1",
    "t": 45,
    "step": 10,
-   "gate": "ok",
-   "answer": "wrong",
-   "latency": 0.083,
-   "reason": "lime/purple/white where the red brick should be"
+   "gate": "plate partial"
   },
   {
    "i": 108,
    "clip": "run1_part2_p1",
    "t": 46,
    "step": 10,
-   "gate": "plate partial"
+   "gate": "no plate"
   },
   {
    "i": 109,
@@ -1093,7 +1099,7 @@
    "step": 10,
    "gate": "ok",
    "answer": "correct",
-   "latency": 0.104,
+   "latency": 0.119,
    "reason": "100% of its cells show red"
   },
   {
@@ -1103,7 +1109,7 @@
    "step": 10,
    "gate": "ok",
    "answer": "correct",
-   "latency": 0.101,
+   "latency": 0.117,
    "reason": "100% of its cells show red"
   },
   {
@@ -1113,7 +1119,7 @@
    "step": 11,
    "gate": "ok",
    "answer": "not_placed",
-   "latency": 0.1,
+   "latency": 0.117,
    "reason": "only 0% of its cells show tan"
   },
   {
@@ -1123,7 +1129,7 @@
    "step": 11,
    "gate": "ok",
    "answer": "not_placed",
-   "latency": 0.094,
+   "latency": 0.11,
    "reason": "only 0% of its cells show tan"
   },
   {
@@ -1133,7 +1139,7 @@
    "step": 11,
    "gate": "ok",
    "answer": "not_placed",
-   "latency": 0.093,
+   "latency": 0.109,
    "reason": "only 0% of its cells show tan"
   },
   {
@@ -1150,7 +1156,7 @@
    "step": 11,
    "gate": "ok",
    "answer": "correct",
-   "latency": 0.093,
+   "latency": 0.113,
    "reason": "100% of its cells show tan"
   },
   {
@@ -1160,7 +1166,7 @@
    "step": 11,
    "gate": "ok",
    "answer": "correct",
-   "latency": 0.092,
+   "latency": 0.112,
    "reason": "100% of its cells show tan"
   },
   {
@@ -1170,7 +1176,7 @@
    "step": 12,
    "gate": "ok",
    "answer": "not_placed",
-   "latency": 0.094,
+   "latency": 0.107,
    "reason": "only 0% of its cells show white"
   },
   {
@@ -1178,14 +1184,17 @@
    "clip": "run1_part2_p1",
    "t": 56,
    "step": 12,
-   "gate": "hand"
+   "gate": "ok",
+   "answer": "not_placed",
+   "latency": 0.098,
+   "reason": "only 0% of its cells show white"
   },
   {
    "i": 119,
    "clip": "run1_part2_p1",
    "t": 57,
    "step": 12,
-   "gate": "plate partial"
+   "gate": "no plate"
   },
   {
    "i": 120,
@@ -1194,7 +1203,7 @@
    "step": 12,
    "gate": "ok",
    "answer": "correct",
-   "latency": 0.095,
+   "latency": 0.109,
    "reason": "100% of its cells show white"
   },
   {
@@ -1204,7 +1213,7 @@
    "step": 12,
    "gate": "ok",
    "answer": "correct",
-   "latency": 0.093,
+   "latency": 0.111,
    "reason": "100% of its cells show white"
   },
   {
@@ -1213,9 +1222,9 @@
    "t": 60,
    "step": 13,
    "gate": "ok",
-   "answer": "correct",
-   "latency": 0.093,
-   "reason": "75% of its cells show yellow"
+   "answer": "not_placed",
+   "latency": 0.107,
+   "reason": "only 66% of its cells show yellow"
   },
   {
    "i": 123,
@@ -1224,15 +1233,18 @@
    "step": 13,
    "gate": "ok",
    "answer": "correct",
-   "latency": 0.096,
+   "latency": 0.115,
    "reason": "100% of its cells show yellow"
   },
   {
    "i": 124,
    "clip": "run1_part2_p2",
    "t": 1,
-   "step": 14,
-   "gate": "ok"
+   "step": 13,
+   "gate": "ok",
+   "answer": "correct",
+   "latency": 0.109,
+   "reason": "100% of its cells show yellow"
   },
   {
    "i": 125,
@@ -1309,7 +1321,7 @@
    "clip": "run1_part2_p2",
    "t": 12,
    "step": 14,
-   "gate": "hand"
+   "gate": "ok"
   },
   {
    "i": 136,

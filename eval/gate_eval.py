@@ -26,7 +26,7 @@ from PIL import Image, ImageDraw
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 import common as cm  # noqa: E402
 from common import SHEETS, TRUCK, components, frame_list  # noqa: E402
-from gate import ASPECT, BORDER, HAND_TOTAL, MIN_SIDE, MOTION_MAX, tight_box  # noqa: E402,F401  (the agent's gate)
+from gate import ASPECT, BORDER, HAND_TOTAL, MIN_SIDE, MOTION_MAX, plate_outline, skin_share, tight_box  # noqa: E402,F401  (the agent's gate)
 
 RESULTS = cm.RESULTS / "gate"
 from PIL import ImageFilter  # noqa: E402
@@ -86,6 +86,8 @@ def signals():
             rec["plate"] = bool(x0 > w * BORDER and y0 > h * BORDER and x1 < w * (1 - BORDER) and y1 < h * (1 - BORDER)
                                 and min(bw, bh) >= w * MIN_SIDE and ASPECT[0] <= bw / bh <= ASPECT[1])
             rec.update(skin_stats(img.crop(box)))
+            outline = plate_outline(img)  # the agent's rule: skin inside the plate outline, not its bounding box
+            rec["skin"] = round(skin_share(img.crop(box), outline.crop(box) if outline is not None else None), 4)
             m = motion(prev_img, prev_box, img, box)
             rec["motion"] = None if m is None else round(m, 2)
         # Only gross skin counts: finer skin rules confuse hands with the tan, purple and red bricks, and the judge

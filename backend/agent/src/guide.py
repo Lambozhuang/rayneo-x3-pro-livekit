@@ -68,8 +68,8 @@ class Guide:
     title: str
     steps: tuple[Step, ...]
     plate: int = 16  # studs per side of the baseplate, for flat-layout tasks
-    # CV judge colour centres, name -> chromaticity (r, g, b)/(r+g+b); see the task file
-    colours: dict[str, tuple[float, float, float]] = field(default_factory=dict)
+    # CV judge colour centres per camera profile: profile -> colour name -> chromaticity (r, g, b)/(r+g+b)
+    colours: dict[str, dict[str, tuple[float, float, float]]] = field(default_factory=dict)
     model: Path | None = None  # model.glb of the finished build, if the guide has one
 
 
@@ -94,7 +94,7 @@ def load_guide(path: str) -> Guide:
         raise ValueError(f"{toml}: guide has no steps")
     return Guide(
         name=p.stem, title=data["title"], steps=steps, plate=int(data.get("plate", 16)),
-        colours={k: tuple(v) for k, v in data.get("colours", {}).items()},
+        colours={prof: {k: tuple(v) for k, v in table.items()} for prof, table in data.get("colours", {}).items()},
         model=model if model is not None and model.exists() else None,
     )
 

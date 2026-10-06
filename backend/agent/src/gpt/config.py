@@ -55,6 +55,8 @@ class Settings:
     # The camera's focal length in px for the CV judge; blank = fitted from the
     # first frames that show the whole plate.
     focal_px: float | None
+    # Which [colours.<name>] table of the task file the CV judge uses (JUDGE_COLOURS).
+    colours: str
 
     @classmethod
     def from_env(cls) -> Settings:
@@ -72,6 +74,7 @@ class Settings:
             watch_gap=float(os.environ.get("GPT_WATCH_GAP", "0.5")),
             watch_confirm=int(os.environ.get("GPT_WATCH_CONFIRM", "2")),
             focal_px=float(os.environ["JUDGE_FOCAL_PX"]) if os.environ.get("JUDGE_FOCAL_PX") else None,
+            colours=os.environ.get("JUDGE_COLOURS", "livekit"),
         )
         require_env("OPENAI_API_KEY")  # the SDK and the plugin read it themselves
         if s.judge not in ("cv", "vlm"):
