@@ -44,6 +44,7 @@ from progress import Event, Kind, Tracker
 logger = logging.getLogger("rayneo-agent.watch")
 
 FRAME_TIMEOUT = 3.0  # no camera frame for this long: log once, keep waiting
+STATS_EVERY = 30.0   # seconds between `watch: N frames ...` summary lines
 
 
 def to_image(frame: rtc.VideoFrame) -> Image.Image:
@@ -71,6 +72,8 @@ class Watch:
         self._last_judged = 0.0
         self._pending_say: str | None = None  # commentary held back while the voice speaks
         self._camera_quiet = False
+        self._frames = self._passed = self._judged = 0  # since the last stats line
+        self._stats_at = time.monotonic()
 
     def start(self) -> None:
         if self._task is None:
@@ -85,6 +88,11 @@ class Watch:
 
     def check_now(self) -> str:
         """What the camera knows right now, from the state here; no model call."""
+        text = self._state_text()
+        logger.info("check_now: %s", text)
+        return text
+
+    def _state_text(self) -> str:
         build, tr = self._build, self.tracker
         total = len(build.guide.steps)
         if tr.finished:
@@ -139,7 +147,7 @@ class Watch:
                 logger.exception("watch: gate failed")
                 await asyncio.sleep(1)
                 continue
-            self._note_gate(d)
+            self._note_gate(d, img)
             if not d.ask or self.tracker.finished or time.monotonic() - self._last_judged < self._gap:
                 continue
             step = self.tracker.step
@@ -153,6 +161,7 @@ class Watch:
                     await asyncio.sleep(1)
                 continue
             self._last_judged = time.monotonic()
+            self._judged += 1
             self.last = (v, step, self._last_judged)
             logger.info("judge: step %d %s %.0f ms %s%s skin=%.2f motion=%s", step, v.answer, v.seconds * 1000, v.reason,
                         f" {v.info}" if v.info else "", d.skin, f"{d.motion:.1f}" if d.motion is not None else "-")
@@ -162,12 +171,29 @@ class Watch:
             if ev is not None:
                 await self._on_event(ev)
 
-    def _note_gate(self, d: Decision) -> None:
+    def _note_gate(self, d: Decision, img: Image.Image) -> None:
+        """Log the gate's reason when it changes, with the numbers behind it, and keep that frame if dumping."""
         prev = self._last_gate
+        self._frames += 1
+        self._passed += d.ask
         if prev is None or prev.why != d.why:
-            logger.info("gate: %s%s", d.why, f" (was {prev.why} for {time.monotonic() - self._gate_since:.1f}s)" if prev else "")
+            box = ""
+            if d.box:
+                x0, y0, x1, y1 = d.box
+                w, h = img.size
+                box = f" box={x1 - x0}x{y1 - y0} of {w}x{h} aspect={(x1 - x0) / max(1, y1 - y0):.2f}"
+            logger.info("gate: %s%s%s skin=%.2f motion=%s", d.why,
+                        f" (was {prev.why} for {time.monotonic() - self._gate_since:.1f}s)" if prev else "", box, d.skin,
+                        f"{d.motion:.1f}" if d.motion is not None else "-")
             self._gate_since = time.monotonic()
+            if self._tap.dumping and not d.ask:
+                self._tap.dump(_jpeg(img), f"gate-{d.why.replace(' ', '_')}")
         self._last_gate = d
+        if time.monotonic() - self._stats_at > STATS_EVERY:
+            logger.info("watch: %d frames in %.0fs, gate passed %d, judged %d, at step %d",
+                        self._frames, time.monotonic() - self._stats_at, self._passed, self._judged, self.tracker.step)
+            self._stats_at = time.monotonic()
+            self._frames = self._passed = self._judged = 0
 
     async def _on_event(self, ev: Event) -> None:
         build = self._build

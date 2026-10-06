@@ -45,11 +45,14 @@ this file; the numbers in eval/RESULTS.md are from this code.
 from __future__ import annotations
 
 import asyncio
+import logging
 import time
 from dataclasses import dataclass, field
 
 import numpy as np
 from PIL import Image, ImageDraw, ImageFilter
+
+logger = logging.getLogger("rayneo-agent.judge")
 
 ANSWERS = ("correct", "wrong", "not_placed", "cannot_see")
 
@@ -499,6 +502,8 @@ class CVJudge:
             self._full.append(pl.corners.copy())
             if len(self._full) % FOCAL_MIN == 0:
                 self.f, self.f_error = fit_focal(self._full, img.size, self.layout.n)
+                logger.info("judge: focal length %.0f px fitted on %d full-plate frames of %dx%d, corner error %.2f cells",
+                            self.f, len(self._full), *img.size, self.f_error)
         cols, seen = pl.cell_colours(DV)
         n = self.layout.n
         O = np.full((n, n), "unseen", dtype=object)
@@ -511,7 +516,7 @@ class CVJudge:
     def decide(self, obs: Observation, step: int) -> Verdict:
         """Verdict on step `step` (1-based) from an observation."""
         if not obs.ok:
-            return Verdict("cannot_see", "the plate is not in view", {})
+            return Verdict("cannot_see", "the plate is not in view", {"plate": False})
         L, O, n = self.layout, obs.classes, self.layout.n
         k = L.bricks[step - 1].color
         E_prev, _ = L.expected(step - 1)
@@ -532,7 +537,8 @@ class CVJudge:
         c0, c1 = min(c for _, c in D) - NEAR, max(c for _, c in D) + NEAR
         near = [(r, c) for r in range(max(0, r0), min(n, r1 + 1)) for c in range(max(0, c0), min(n, c1 + 1)) if O[r, c] == k]
         stray = [(r, c) for r, c in near if not allowed[r, c]]
-        info = {"hit": round(hit, 2), "other": round(other, 2), "stray": len(stray), "blind": blind, "cells": len(D)}
+        info = {"hit": round(hit, 2), "other": round(other, 2), "stray": len(stray), "blind": blind, "cells": len(D),
+                "cut": "/".join(obs.plate.cut) or "-", "f": round(self.f) if self.f else None}
         if hit >= HIT_OK and len(stray) < STRAY_BAD and other < OTHER_BAD:
             return Verdict("correct", f"{int(hit * 100)}% of its cells show {k}", info)
         if other >= OTHER_BAD:

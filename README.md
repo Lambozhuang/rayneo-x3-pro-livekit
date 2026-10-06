@@ -335,7 +335,7 @@ size. Distance and prompt matter more than pixels here.
 
 - `FRAME_DUMP_DIR=/app/frames` in `.env` makes `framedump.py` write every frame the sampler
   passes to `backend/frames/<call timestamp>/NNN-full.jpg` (as received, JPEG 95) and
-  `NNN-sent.jpg` (exactly as uploaded). `FRAME_DUMP_MAX` caps the count, default 60. Nothing
+  `NNN-sent.jpg` (exactly as uploaded). `FRAME_DUMP_MAX` caps the count, default 60; 600 keeps a whole truck build at ~2 judged frames a second. Nothing
   is deleted automatically. The container writes as root, so on the host delete with
   `docker run --rm -v "$PWD/frames:/f" backend-agent sh -c "rm -rf /f/2026*"`.
 - `inspect_frame.py` sends a saved frame through `generate_content` at `low` / `high` /
