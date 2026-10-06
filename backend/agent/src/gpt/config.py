@@ -47,10 +47,13 @@ class Settings:
     check_detail: str
     # The camera loop (watch.py): the plate must have been still this long
     # before a frame is judged (gate.py), at least this many seconds between
-    # two judged frames, and how many consecutive verdicts must agree before a
-    # step counts or a wrong placement is spoken (progress.py).
+    # two frames sent to the judge, how many judge calls may be in the air at
+    # once (a VLM takes ~2.5 s; serial calls made a step take 6 s to confirm),
+    # and how many consecutive verdicts must agree before a step counts or a
+    # wrong placement is spoken (progress.py).
     gate_still: float
     watch_gap: float
+    watch_inflight: int
     watch_confirm: int
     # The camera's focal length in px for the CV judge; blank = fitted from the
     # first frames that show the whole plate.
@@ -72,6 +75,7 @@ class Settings:
             check_detail=os.environ.get("OPENAI_CHECK_DETAIL", "high"),
             gate_still=float(os.environ.get("GATE_STILL", "1.0")),
             watch_gap=float(os.environ.get("GPT_WATCH_GAP", "0.5")),
+            watch_inflight=int(os.environ.get("GPT_WATCH_INFLIGHT", "2")),
             watch_confirm=int(os.environ.get("GPT_WATCH_CONFIRM", "2")),
             focal_px=float(os.environ["JUDGE_FOCAL_PX"]) if os.environ.get("JUDGE_FOCAL_PX") else None,
             colours=os.environ.get("JUDGE_COLOURS", "livekit"),

@@ -71,7 +71,7 @@ async def rayneo_assistant(ctx: JobContext) -> None:
         llm=build_live_model(settings, backend_instructions(lang)),
     )
     watch = Watch(session, build, judge, Gate(settings.gate_still), tap, publish_build,
-                  gap=settings.watch_gap, confirm=settings.watch_confirm)
+                  gap=settings.watch_gap, confirm=settings.watch_confirm, inflight=settings.watch_inflight)
     session.userdata = Run(build=build, watch=watch)
     ctx.add_shutdown_callback(watch.stop)
 

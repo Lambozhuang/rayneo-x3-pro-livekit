@@ -7,12 +7,17 @@ with JUDGE=vlm) then answers about the current step only; the state machine
 (progress.py) needs `confirm` agreeing answers before anything counts. The
 code owns the step: the voice model never decides where the build stands.
 
+Judging does not wait for the previous verdict: while the gate passes, a new
+frame goes to the judge every `gap` seconds with up to `inflight` calls in the
+air (a VLM takes ~2.5 s; serial calls made a step take 6 s to confirm). A
+verdict that arrives after the step has moved on is dropped.
+
 What reaches GPT-Live:
-- a step newly confirmed, or a brick confirmed wrong, as *commentary*
-  (generate_reply with instructions starting "Camera:"), so the voice says it
-  in its own words right away. Commentary waits while the voice is speaking
-  and only the newest one is kept: two events a second apart must not become
-  two overlapping sentences;
+- a step newly confirmed, or a brick confirmed wrong, as an *instruction*
+  (the plugin's append_instructions, which the model follows at once and which
+  may cut into its current sentence). Commentary (generate_reply) does not
+  interrupt, and holding the note until the voice was quiet made the wearer
+  hear "let me check" and only then "yes, that's right";
 - nothing per frame. Early versions put every verdict into the model's
   context and it narrated the camera from stale notes;
 - check_now (tools.py) answers from the state here, no new model call: the
@@ -20,8 +25,9 @@ What reaches GPT-Live:
   has had no clear view.
 
 Two timing layers in the log: `judge:` lines carry the judge's own latency per
-frame; `voice:` lines the delay from a commentary to the voice starting to
-speak. The glasses measure the wearer's wait separately (`latency:` lines).
+frame; `voice:` lines the delay from a camera note to the voice starting to
+speak, or that it cut into speech. The glasses measure the wearer's wait
+separately (`latency:` lines).
 """
 
 from __future__ import annotations
@@ -55,7 +61,7 @@ def to_image(frame: rtc.VideoFrame) -> Image.Image:
 class Watch:
     def __init__(
         self, session: AgentSession, build: Build, judge, gate: Gate, tap: FrameTap, publish,
-        gap: float = 0.5, confirm: int = 2,
+        gap: float = 0.5, confirm: int = 2, inflight: int = 2,
     ) -> None:
         self._session = session
         self._build = build
@@ -64,13 +70,14 @@ class Watch:
         self._tap = tap
         self._publish = publish
         self._gap = gap
+        self._max_inflight = max(1, inflight)
         self.tracker = Tracker(len(build.guide.steps), confirm, step=build.step + 1)
         self._task: asyncio.Task | None = None
+        self._inflight: set[asyncio.Task] = set()
         self.last: tuple[Verdict, int, float] | None = None  # last verdict, the step it was about, when
         self._last_gate: Decision | None = None
         self._gate_since = time.monotonic()  # when the gate's current reason started
-        self._last_judged = 0.0
-        self._pending_say: str | None = None  # commentary held back while the voice speaks
+        self._last_fired = 0.0
         self._camera_quiet = False
         self._frames = self._passed = self._judged = 0  # since the last stats line
         self._stats_at = time.monotonic()
@@ -83,6 +90,8 @@ class Watch:
         if self._task is not None:
             self._task.cancel()
             self._task = None
+        for t in self._inflight:
+            t.cancel()
 
     # ------------------------------------------------------------------ for the voice
 
@@ -129,8 +138,8 @@ class Watch:
     # ------------------------------------------------------------------ the loop
 
     async def _run(self) -> None:
-        logger.info("watch: on, judge=%s gap=%.1fs confirm=%d still=%.1fs",
-                    type(self._judge).__name__, self._gap, self.tracker.confirm, self._gate.still_s)
+        logger.info("watch: on, judge=%s gap=%.1fs inflight=%d confirm=%d still=%.1fs",
+                    type(self._judge).__name__, self._gap, self._max_inflight, self.tracker.confirm, self._gate.still_s)
         while True:
             try:
                 frame = await self._tap.next_frame(FRAME_TIMEOUT)
@@ -148,28 +157,37 @@ class Watch:
                 await asyncio.sleep(1)
                 continue
             self._note_gate(d, img)
-            if not d.ask or self.tracker.finished or time.monotonic() - self._last_judged < self._gap:
+            now = time.monotonic()
+            if (not d.ask or self.tracker.finished or now - self._last_fired < self._gap
+                    or len(self._inflight) >= self._max_inflight):
                 continue
-            step = self.tracker.step
-            try:
-                v: Verdict = await self._judge.ajudge(img, step)
-            except Exception as e:
-                if type(e).__name__ == "APITimeoutError":
-                    logger.warning("judge: call stalled, dropping the frame")
-                else:
-                    logger.exception("judge: failed")
-                    await asyncio.sleep(1)
-                continue
-            self._last_judged = time.monotonic()
-            self._judged += 1
-            self.last = (v, step, self._last_judged)
-            logger.info("judge: step %d %s %.0f ms %s%s skin=%.2f motion=%s", step, v.answer, v.seconds * 1000, v.reason,
-                        f" {v.info}" if v.info else "", d.skin, f"{d.motion:.1f}" if d.motion is not None else "-")
-            if self._tap.dumping:
-                self._tap.dump(await asyncio.to_thread(_jpeg, img), f"s{step}-{v.answer}")
-            ev = self.tracker.feed(v.answer, v.reason)
-            if ev is not None:
-                await self._on_event(ev)
+            self._last_fired = now
+            t = asyncio.create_task(self._judge_one(img, self.tracker.step, d), name="judge")
+            self._inflight.add(t)
+            t.add_done_callback(self._inflight.discard)
+
+    async def _judge_one(self, img: Image.Image, step: int, d: Decision) -> None:
+        """One frame to the judge; its verdict into the tracker if the step is still the same."""
+        try:
+            v: Verdict = await self._judge.ajudge(img, step)
+        except Exception as e:
+            if type(e).__name__ == "APITimeoutError":
+                logger.warning("judge: call stalled, dropping the frame")
+            else:
+                logger.exception("judge: failed")
+            return
+        self._judged += 1
+        logger.info("judge: step %d %s %.0f ms %s%s skin=%.2f motion=%s", step, v.answer, v.seconds * 1000, v.reason,
+                    f" {v.info}" if v.info else "", d.skin, f"{d.motion:.1f}" if d.motion is not None else "-")
+        if self._tap.dumping:
+            self._tap.dump(await asyncio.to_thread(_jpeg, img), f"s{step}-{v.answer}")
+        if step != self.tracker.step:
+            logger.info("judge: verdict about step %d arrived after the step moved on, dropped", step)
+            return
+        self.last = (v, step, time.monotonic())
+        ev = self.tracker.feed(v.answer, v.reason)
+        if ev is not None:
+            await self._on_event(ev)
 
     def _note_gate(self, d: Decision, img: Image.Image) -> None:
         """Log the gate's reason when it changes, with the numbers behind it, and keep that frame if dumping."""
@@ -202,49 +220,39 @@ class Watch:
             build.set_step(ev.step)  # index of the next step = the number of steps done
             await self._publish(build)
             if ev.kind == Kind.FINISHED:
-                self._say(f"Camera: step {ev.step} is done and it was the last one. Tell the wearer it is right, "
-                          "then that the build is finished, and congratulate them.")
+                self._say(f"Camera, just now: step {ev.step} is done and it was the last one. Tell the wearer it is "
+                          "right, then that the build is finished, and congratulate them.")
             else:
                 nxt = build.guide.steps[build.step]
-                self._say(f"Camera: step {ev.step} is done. Tell the wearer it is right in a few words, "
+                self._say(f"Camera, just now: step {ev.step} is done. Tell the wearer it is right in a few words, "
                           f"then give step {ev.step + 1}: {nxt.say}")
         elif ev.kind == Kind.WRONG:
             logger.info("step %d wrong: %s", ev.step, ev.text)
-            self._say(f"Camera, on step {ev.step}: {ev.text}. Tell the wearer in one short sentence what to move or swap.")
+            self._say(f"Camera, just now: step {ev.step} is placed wrongly: {ev.text}. "
+                      "Tell the wearer in one short sentence what to move or swap.")
 
-    # ------------------------------------------------------------------ commentary
+    # ------------------------------------------------------------------ the camera's notes to the voice
 
     def _say(self, text: str) -> None:
-        """Commentary, once the voice is quiet. A newer one replaces a held one."""
-        if self._session.agent_state == "speaking":
-            if self._pending_say is None:
-                asyncio.create_task(self._say_when_quiet(), name="say_when_quiet")
-            self._pending_say = text
-            return
-        self._say_now(text)
-
-    async def _say_when_quiet(self) -> None:
-        t0 = time.monotonic()
-        while self._session.agent_state == "speaking" and time.monotonic() - t0 < 20:
-            await asyncio.sleep(0.1)
-        text, self._pending_say = self._pending_say, None
-        if text:
-            self._say_now(text)
-
-    def _say_now(self, text: str) -> None:
+        """A camera note the voice acts on now, even mid-sentence. The newest note wins over older ones."""
+        text = ("This replaces every earlier camera note. If you are speaking, stop and say this instead. "
+                "Do not wait for the wearer to speak first; after that, pause and listen.\n" + text)
         logger.info("watch: commentary: %s", text)
         t0 = time.monotonic()
-        handle = self._session.generate_reply(instructions=text)
+        speaking = self._session.agent_state == "speaking"
+        try:
+            self._session.current_agent.duplex_session.append_instructions(text)
+        except (RuntimeError, AttributeError):  # not a GPT-Live session: the generic way, no interruption
+            handle = self._session.generate_reply(instructions=text)
+            handle.add_done_callback(lambda h: h.exception() is not None and logger.warning(
+                "watch: the voice model declined the commentary"))
+        asyncio.create_task(self._time_voice(t0, speaking), name="time_voice")
 
-        def _done(h) -> None:
-            if h.exception() is not None:
-                logger.warning("watch: the voice model declined the commentary")
-
-        handle.add_done_callback(_done)
-        asyncio.create_task(self._time_voice(t0), name="time_voice")
-
-    async def _time_voice(self, t0: float, limit: float = 10.0) -> None:
-        """Log how long the voice took to start speaking after a commentary."""
+    async def _time_voice(self, t0: float, speaking: bool, limit: float = 10.0) -> None:
+        """Log how long the voice took to start speaking after a camera note, or that it was already speaking."""
+        if speaking:
+            logger.info("voice: cut into speech with the camera note")
+            return
         while self._session.agent_state != "speaking":
             if time.monotonic() - t0 > limit:
                 logger.info("voice: not speaking %.0fs after commentary", limit)

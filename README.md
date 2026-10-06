@@ -64,8 +64,9 @@ the voice, the CV judge and the VLM judge; the backend model's check_now reads t
    fallback. The tracker turns agreeing verdicts into two kinds of event, "step N done" and
    "step N wrong: how", and never goes back on its own.
 3. **Events out.** `watch.py` moves the build's step, publishes it to the glasses as
-   participant attributes, and hands GPT-Live a commentary ("Camera: step 3 is done. Tell the
-   wearer, then give step 4: ...") that the voice says in its own words.
+   participant attributes, and hands GPT-Live a camera note ("Camera, just now: step 3 is
+   done. Tell the wearer, then give step 4: ...") as an appended instruction, which the voice
+   acts on at once, cutting into its own sentence if it has to.
 4. **One task file.** `guides/truck/task.toml` holds, per step, the wording the wearer hears,
    the brick's colour and cells for the CV judge, the facts for the VLM judge, and the
    colour centres. The offline evaluation in `eval/` imports the same gate, judge and
@@ -230,9 +231,11 @@ The current system; how it fits together is in "Architecture" above. Details and
 
 - `gpt-live-1` is audio only, full duplex, and owns turn-taking and barge-in; no VAD is
   passed to the session. It gets every step's `say` in its instructions and nothing else about
-  the bricks: what the camera confirms arrives as commentary (`generate_reply` with
-  instructions starting "Camera:"), which it says in its own words; between notes nothing has
-  changed and it is told so. It cannot look; `check_now` (through the backend model,
+  the bricks: what the camera confirms arrives as a camera note (the plugin's
+  `append_instructions`, text starting "Camera, just now:"), which it says in its own words,
+  interrupting itself if it was mid-sentence; a commentary (`generate_reply`) would wait for
+  the current sentence, and holding notes until the voice was quiet made the wearer hear "let
+  me check" and only then "yes, that's right". It cannot look; `check_now` (through the backend model,
   `OPENAI_BACKEND_MODEL`) answers from the code's state at once, no model call. Its other
   tool is `end_call`.
 - The gate (`gate.py`): whole green plate in view, no gross skin over it, plate crop still
@@ -244,11 +247,13 @@ The current system; how it fits together is in "Architecture" above. Details and
   far edge, against the layout in `task.toml`; "wrong" comes with which colour or how many
   studs off. `JUDGE=vlm` (`judge_vlm.py`, ~2 s): the plate crop and the step's `where`/`checks`
   text to `OPENAI_CHECK_MODEL`, which answers each fact y/n before the verdict.
-- The state machine (`progress.py`): `GPT_WATCH_CONFIRM` agreeing verdicts (default 2), at
-  least `GPT_WATCH_GAP` s apart (default 0.5), before a step counts or a wrong brick is spoken
-  once; it never goes back on its own.
-- Logs: `judge:` lines carry the judge's latency per frame, `voice:` the delay from a
-  commentary to speech, `gate:` changes of the gate's reason, `step n/m done` the build; every
+- The state machine (`progress.py`): `GPT_WATCH_CONFIRM` agreeing verdicts (default 2) before
+  a step counts or a wrong brick is spoken once; it never goes back on its own. Frames go to
+  the judge at least `GPT_WATCH_GAP` s apart (default 0.5) with up to `GPT_WATCH_INFLIGHT`
+  calls in the air (default 2), so two VLM verdicts arrive about a second apart rather than
+  one after the other; a verdict about a step that has since moved on is dropped.
+- Logs: `judge:` lines carry the judge's latency per frame, `voice:` the delay from a camera
+  note to speech (or that it cut into speech), `gate:` changes of the gate's reason, `step n/m done` the build; every
   run starts with an `experiment:` line naming its switches. `FRAME_DUMP_DIR` keeps every
   judged frame, named step and verdict.
 - Measured offline on a recorded run (`eval/RESULTS.md`): CV 29/29 and 28/29 rest questions at

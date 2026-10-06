@@ -165,11 +165,11 @@ name = "Red disc rear wheel, under body"
 color = "red"
 cells = [8, 9, 11, 12]
 say = "The second red disc is the rear wheel. Put it in front of the body, touching the blue and lime bricks, leaving three empty columns between it and the front wheel. The plate stays bare in front of the white brick at the right end."
-where = "the second red round disc under the right part of the body as the rear wheel: its top touches the blue and lime bricks, its right edge stays left of the lime brick's right end, and bare green plate shows directly below the white 1x4 at the right end of the body"
+where = "the second red round disc under the right part of the body as the rear wheel: its top touches the body under the right part of the blue brick and the left part of the lime brick, three empty columns of studs separate it from the front disc, and bare green plate shows directly below the white 1x4 at the right end of the body"
 checks = [
-  "the disc's top touches the bottom of the body (the blue and lime bricks)",
+  "the disc's top touches the body under both the right part of the blue brick and the left part of the lime brick",
+  "between the front disc and this disc there are three empty columns of studs",
   "directly below the white 1x4 at the right end of the body there is bare green plate, not the disc",
-  "the disc's right edge is to the left of the lime brick's right end",
 ]
 
 [[steps]]

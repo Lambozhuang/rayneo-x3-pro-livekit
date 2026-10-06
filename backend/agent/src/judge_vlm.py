@@ -67,7 +67,9 @@ def crop_plate(img: Image.Image) -> bytes | None:
 
 
 def parse(text: str, checks: tuple[str, ...]) -> tuple[str, str]:
-    """(answer, reason): the last JSON object in the reply; a wrong answer's reason is the first failed fact."""
+    """(answer, reason): the last JSON object in the reply; a wrong answer's reason names the first failed fact as
+    something the photo does not show. The fact itself is written as what should be true ("the disc touches the
+    body"); handed to the voice as it stands, it read like a confirmation."""
     try:
         obj = json.loads(text[text.rindex("{"):text.rindex("}") + 1])
     except (ValueError, AttributeError):
@@ -80,7 +82,7 @@ def parse(text: str, checks: tuple[str, ...]) -> tuple[str, str]:
         letters = str(obj.get("checks", ""))
         for i, ch in enumerate(letters):
             if ch == "n" and i < len(checks):
-                reason = checks[i]
+                reason = "the photo does not show that " + checks[i]
                 break
     return answer, reason
 
