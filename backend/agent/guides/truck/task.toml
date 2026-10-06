@@ -32,11 +32,15 @@ tan = [0.397, 0.354, 0.246]
 yellow = [0.571, 0.392, 0.035]
 
 [colours.livekit]
-# plate, red, purple from lab frames with steps 1-2 done (2026-10-06); lime white blue tan yellow still to be
-# calibrated on a finished model in the lab
-plate = [0.3, 0.417, 0.284]
-red = [0.8, 0.157, 0.048]
-purple = [0.399, 0.275, 0.326]
+# median over five whole-plate frames of the finished model in the lab, 2026-10-06 (spread <= 0.008 per channel)
+plate = [0.307, 0.41, 0.284]
+red = [0.814, 0.143, 0.041]
+purple = [0.399, 0.277, 0.327]
+lime = [0.454, 0.391, 0.154]
+white = [0.373, 0.332, 0.295]
+blue = [0.258, 0.321, 0.418]
+tan = [0.443, 0.34, 0.217]
+yellow = [0.578, 0.417, 0.002]
 
 [[steps]]
 part = "red 3x4 slope"

@@ -64,6 +64,7 @@ OTHER_BAD = 0.5  # share of the step's cells showing a colour that belongs to no
 STRAY_BAD = 2    # cells of the step's colour near its place but outside every expected place -> wrong place
 NEAR = 3         # "near": within this many cells of the step's bounding box (a misplaced brick lands close by)
 UNSEEN_MAX = 0.5  # more of the step's cells than this unreadable -> cannot_see
+FACE_CLASSES = ("white", "lime", "tan")  # what a brick's shadowed near face can read as; see decide()
 FOCAL_MIN = 4      # full-plate frames needed before the focal length is fitted
 FOCAL_MEMORY = 20  # full-plate frames kept for the fit; the fit is redone at every FOCAL_MIN new ones until full
 
@@ -487,13 +488,10 @@ class Colours:
             return "plate"  # any shade of the plate's green incl. shadow; lime (hue 70-90) and blue (~220) fall outside
         if max(r, g, b) < DARK:
             return "dark"
-        lime = g > r > 1.5 * b  # yellow-green with little blue; plate shadows keep b/g ~0.5 and fail this
         d = np.linalg.norm(self.c - chroma(rgb), axis=1)
         i = int(d.argmin())
-        if self.names[i] == "lime" and not lime:
-            return "other"
-        if lime and "lime" in self.names and d[self.names.index("lime")] < 2 * OTHER_D:
-            return "lime"
+        if self.names[i] == "lime" and not g > 1.5 * b:
+            return "other"  # lime has little blue; a plate shadow (b/g ~0.5) near the lime centre is not a brick
         return self.names[i] if d[i] < OTHER_D else "other"
 
     def as_dict(self) -> dict[str, list[float]]:
@@ -579,9 +577,15 @@ class CVJudge:
             for c in range(n):
                 if E_now[r, c] == k or not care[r, c]:
                     allowed[max(0, r - 1):r + 2, c] = True  # one row of slack for the top-face shift
+        # The cell just toward the camera from any placed brick samples that brick's shadowed near face, which on
+        # the call stream reads as a light neutral class (a tan face as white, a yellow one as lime), so such a cell
+        # reading one of FACE_CLASSES is not a stray brick. Saturated strays (blue, red, purple, yellow) still count.
+        face = {(r + 1, c) for r in range(n - 1) for c in range(n)
+                if E_now[r, c] != "plate" and E_now[r + 1, c] == "plate" and (r + 1, c) not in D} if k in FACE_CLASSES else set()
         r0, r1 = min(r for r, _ in D) - NEAR, max(r for r, _ in D) + NEAR
         c0, c1 = min(c for _, c in D) - NEAR, max(c for _, c in D) + NEAR
-        near = [(r, c) for r in range(max(0, r0), min(n, r1 + 1)) for c in range(max(0, c0), min(n, c1 + 1)) if O[r, c] == k]
+        near = [(r, c) for r in range(max(0, r0), min(n, r1 + 1)) for c in range(max(0, c0), min(n, c1 + 1))
+                if O[r, c] == k and (r, c) not in face]
         stray = [(r, c) for r, c in near if not allowed[r, c]]
         info = {"hit": round(hit, 2), "other": round(other, 2), "stray": len(stray), "blind": blind, "cells": len(D),
                 "cut": "/".join(obs.plate.cut) or "-", "f": round(self.f) if self.f else None}
