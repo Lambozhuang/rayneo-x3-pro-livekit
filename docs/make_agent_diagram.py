@@ -253,7 +253,7 @@ def build(t: dict) -> str:
     text(ccx, by + 65, "end_call", 11.5, t["muted"])
     xt = cx1 + 34
     wire([(xt, VY + VH + 2), (xt, by - 3)], t["cloud"], "headv", 1.4)
-    text(xt + 8, (VY + VH + by) / 2 + 4, "tool calls", 11.5, t["cloud"], "start")
+    text(xt + 8, (VY + VH + by) / 2 + 4, "delegation", 11.5, t["cloud"], "start")
 
     vy, vh = Y_VISION - 40, 80
     card(cx1, vy, cw, vh, edge=t["cloud"], dash=True)
