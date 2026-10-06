@@ -5,17 +5,20 @@ wrong, not yet placed, or can't you see" about that step. This class turns the
 stream of answers into events (pure Python, no I/O; eval/replay_eval.py runs it
 over the recorded run, gpt/watch.py in the live session):
 
-  correct   `confirm` times in a row -> DONE: step N is in place, N += 1
-                                        (FINISHED when it was the last)
-  wrong     `confirm` times in a row -> WRONG: once per spell of wrong answers,
-                                        with the judge's sentence; said again
-                                        only after the brick has been seen gone
-  not_placed / cannot_see           -> the counters reset, nothing is said
-                                        (not_placed also ends a wrong spell)
+  correct   `confirm` times in a row       -> DONE: step N is in place, N += 1
+                                              (FINISHED when it was the last)
+  wrong     `wrong_confirm` times in a row -> WRONG: once per spell of wrong answers,
+                                              with the judge's sentence; said again
+                                              only after the brick has been seen gone
+  not_placed / cannot_see                 -> the counters reset, nothing is said
+                                              (not_placed also ends a wrong spell)
 
 Steps never go back on their own: a hand, a lifted brick or a bad angle must
 not undo a step. `confirm` is an experiment knob (GPT_WATCH_CONFIRM); the
-replays in eval/RESULTS.md compare 1 and 2.
+replays in eval/RESULTS.md compare 1 and 2. `wrong_confirm` (default: the
+same) is higher with a loose gate: a brick still being pushed into place is
+judged while it moves, and two wrong verdicts a second apart must not become
+a spoken correction (GPT_WATCH_WRONG_CONFIRM).
 """
 
 from __future__ import annotations
@@ -38,9 +41,10 @@ class Event:
 
 
 class Tracker:
-    def __init__(self, total: int, confirm: int = 2, step: int = 1) -> None:
+    def __init__(self, total: int, confirm: int = 2, step: int = 1, wrong_confirm: int | None = None) -> None:
         self.total = total
         self.confirm = max(1, confirm)
+        self.wrong_confirm = max(1, wrong_confirm) if wrong_confirm else self.confirm
         self.step = step  # 1-based current step; total + 1 once finished
         self._ok = 0
         self._bad = 0
@@ -71,7 +75,7 @@ class Tracker:
             return None
         if answer == "wrong":
             self._bad, self._ok = self._bad + 1, 0
-            if self._bad >= self.confirm and not self._said_wrong:
+            if self._bad >= self.wrong_confirm and not self._said_wrong:
                 self._said_wrong = True
                 return Event(Kind.WRONG, self.step, reason)
             return None

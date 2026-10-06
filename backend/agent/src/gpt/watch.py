@@ -51,6 +51,7 @@ logger = logging.getLogger("rayneo-agent.watch")
 
 FRAME_TIMEOUT = 3.0  # no camera frame for this long: log once, keep waiting
 STATS_EVERY = 30.0   # seconds between `watch: N frames ...` summary lines
+GATE_DUMP_EVERY = 5.0  # seconds between two kept frames of the same gate reason
 
 
 def to_image(frame: rtc.VideoFrame) -> Image.Image:
@@ -61,7 +62,7 @@ def to_image(frame: rtc.VideoFrame) -> Image.Image:
 class Watch:
     def __init__(
         self, session: AgentSession, build: Build, judge, gate: Gate, tap: FrameTap, publish,
-        gap: float = 0.5, confirm: int = 2, inflight: int = 2,
+        gap: float = 0.5, confirm: int = 2, inflight: int = 2, wrong_confirm: int | None = None,
     ) -> None:
         self._session = session
         self._build = build
@@ -71,9 +72,10 @@ class Watch:
         self._publish = publish
         self._gap = gap
         self._max_inflight = max(1, inflight)
-        self.tracker = Tracker(len(build.guide.steps), confirm, step=build.step + 1)
+        self.tracker = Tracker(len(build.guide.steps), confirm, step=build.step + 1, wrong_confirm=wrong_confirm)
         self._task: asyncio.Task | None = None
         self._inflight: set[asyncio.Task] = set()
+        self._gate_dumped: dict[str, float] = {}  # reason -> when its frame was last kept
         self.last: tuple[Verdict, int, float] | None = None  # last verdict, the step it was about, when
         self._last_gate: Decision | None = None
         self._gate_since = time.monotonic()  # when the gate's current reason started
@@ -138,8 +140,9 @@ class Watch:
     # ------------------------------------------------------------------ the loop
 
     async def _run(self) -> None:
-        logger.info("watch: on, judge=%s gap=%.1fs inflight=%d confirm=%d still=%.1fs",
-                    type(self._judge).__name__, self._gap, self._max_inflight, self.tracker.confirm, self._gate.still_s)
+        logger.info("watch: on, judge=%s gap=%.1fs inflight=%d confirm=%d/%d gate still=%.1fs min_side=%.2f motion<%s",
+                    type(self._judge).__name__, self._gap, self._max_inflight, self.tracker.confirm,
+                    self.tracker.wrong_confirm, self._gate.still_s, self._gate.min_side, self._gate.motion_max)
         while True:
             try:
                 frame = await self._tap.next_frame(FRAME_TIMEOUT)
@@ -204,7 +207,9 @@ class Watch:
                         f" (was {prev.why} for {time.monotonic() - self._gate_since:.1f}s)" if prev else "", box, d.skin,
                         f"{d.motion:.1f}" if d.motion is not None else "-")
             self._gate_since = time.monotonic()
-            if self._tap.dumping and not d.ask:
+            # one frame per reason every few seconds: a flickering gate ate the dump budget in two minutes
+            if self._tap.dumping and not d.ask and self._gate_since - self._gate_dumped.get(d.why, 0) > GATE_DUMP_EVERY:
+                self._gate_dumped[d.why] = self._gate_since
                 name = f"gate-{d.why.replace(' ', '_')}"
                 asyncio.get_running_loop().run_in_executor(None, lambda: self._tap.dump(_jpeg(img), name))
         self._last_gate = d

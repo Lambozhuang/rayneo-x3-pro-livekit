@@ -45,16 +45,26 @@ class Settings:
     check_model: str
     check_effort: str
     check_detail: str
-    # The camera loop (watch.py): the plate must have been still this long
-    # before a frame is judged (gate.py), at least this many seconds between
-    # two frames sent to the judge, how many judge calls may be in the air at
-    # once (a VLM takes ~2.5 s; serial calls made a step take 6 s to confirm),
-    # and how many consecutive verdicts must agree before a step counts or a
-    # wrong placement is spoken (progress.py).
+    # The gate (gate.py): the plate must have been still this long before a
+    # frame is judged, must be at least this fraction of the frame width, and
+    # the frame-to-frame motion must stay below this. Defaults depend on the
+    # judge: the CV judge reads cells and gets the strict set the thresholds
+    # were tuned for (1.0 s, 0.23, 12); the VLM only needs the plate in view
+    # and not blurred (0.3 s, 0.10, 30). On the glasses with the wearer sitting
+    # up (plate ~300 px) the strict set passed nothing for minutes.
     gate_still: float
+    gate_min_side: float
+    gate_motion: float
+    # The camera loop (watch.py): at least this many seconds between two frames
+    # sent to the judge, how many judge calls may be in the air at once (a VLM
+    # takes ~2.5 s; serial calls made a step take 6 s to confirm), and how many
+    # consecutive verdicts must agree before a step counts / before a wrong
+    # placement is spoken (progress.py; wrong needs more with a loose gate,
+    # since a brick still being pushed into place is judged while it moves).
     watch_gap: float
     watch_inflight: int
     watch_confirm: int
+    watch_wrong_confirm: int
     # The camera's focal length in px for the CV judge; blank = fitted from the
     # first frames that show the whole plate.
     focal_px: float | None
@@ -63,20 +73,25 @@ class Settings:
 
     @classmethod
     def from_env(cls) -> Settings:
+        judge = os.environ.get("JUDGE", "cv")
+        strict = judge == "cv"
         s = cls(
             live_model=require_env("OPENAI_LIVE_MODEL"),
             voice=os.environ.get("OPENAI_VOICE", "marin"),
             backend_model=require_env("OPENAI_BACKEND_MODEL"),
             backend_effort=os.environ.get("OPENAI_BACKEND_EFFORT", "low"),
-            judge=os.environ.get("JUDGE", "cv"),
+            judge=judge,
             check_model=os.environ.get("OPENAI_CHECK_MODEL", ""),
             # gpt-6-sol with no reasoning was the stable VLM setting (eval/RESULTS.md)
             check_effort=os.environ.get("OPENAI_CHECK_EFFORT", "none"),
             check_detail=os.environ.get("OPENAI_CHECK_DETAIL", "high"),
-            gate_still=float(os.environ.get("GATE_STILL", "1.0")),
+            gate_still=float(os.environ.get("GATE_STILL", "1.0" if strict else "0.3")),
+            gate_min_side=float(os.environ.get("GATE_MIN_SIDE", "0.23" if strict else "0.10")),
+            gate_motion=float(os.environ.get("GATE_MOTION_MAX", "12" if strict else "30")),
             watch_gap=float(os.environ.get("GPT_WATCH_GAP", "0.5")),
             watch_inflight=int(os.environ.get("GPT_WATCH_INFLIGHT", "2")),
             watch_confirm=int(os.environ.get("GPT_WATCH_CONFIRM", "2")),
+            watch_wrong_confirm=int(os.environ.get("GPT_WATCH_WRONG_CONFIRM", "2" if strict else "3")),
             focal_px=float(os.environ["JUDGE_FOCAL_PX"]) if os.environ.get("JUDGE_FOCAL_PX") else None,
             colours=os.environ.get("JUDGE_COLOURS", "livekit"),
         )

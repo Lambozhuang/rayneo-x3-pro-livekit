@@ -238,8 +238,12 @@ The current system; how it fits together is in "Architecture" above. Details and
   me check" and only then "yes, that's right". It cannot look; `check_now` (through the backend model,
   `OPENAI_BACKEND_MODEL`) answers from the code's state at once, no model call. Its other
   tool is `end_call`.
-- The gate (`gate.py`): whole green plate in view, no gross skin over it, plate crop still
-  for `GATE_STILL` s (default 1). ~10 ms per frame, every frame.
+- The gate (`gate.py`): whole green plate in view and at least `GATE_MIN_SIDE` of the frame
+  width, no gross skin over it, frame-to-frame motion of the plate crop under
+  `GATE_MOTION_MAX`, and that for `GATE_STILL` s. ~10 ms per frame, every frame. The CV judge
+  gets the strict set it was tuned on (0.23 / 12 / 1.0 s); the VLM a loose one (0.10 / 30 /
+  0.3 s), since it only needs the plate in the picture and not blurred: with the strict set a
+  wearer sitting up (plate ~300 px) got nothing judged for minutes.
 - The judge answers about the current step only. `JUDGE=cv` (default, `judge_cv.py`, ~0.1 s,
   no model): plate silhouette to four corners; a side cut by the frame edge rebuilt from the
   focal length, which the judge fits from the first full-plate frames of the call (or
@@ -248,7 +252,8 @@ The current system; how it fits together is in "Architecture" above. Details and
   studs off. `JUDGE=vlm` (`judge_vlm.py`, ~2 s): the plate crop and the step's `where`/`checks`
   text to `OPENAI_CHECK_MODEL`, which answers each fact y/n before the verdict.
 - The state machine (`progress.py`): `GPT_WATCH_CONFIRM` agreeing verdicts (default 2) before
-  a step counts or a wrong brick is spoken once; it never goes back on its own. Frames go to
+  a step counts, `GPT_WATCH_WRONG_CONFIRM` (default 2 with cv, 3 with vlm) before a wrong
+  brick is spoken once; it never goes back on its own. Frames go to
   the judge at least `GPT_WATCH_GAP` s apart (default 0.5) with up to `GPT_WATCH_INFLIGHT`
   calls in the air (default 2), so two VLM verdicts arrive about a second apart rather than
   one after the other; a verdict about a step that has since moved on is dropped.

@@ -18,6 +18,13 @@ model, a few milliseconds per frame:
 Thresholds were set on the recorded run (eval/gate_eval.py, which imports this
 file): 70/70 rest frames pass, 55/75 frames with a hand are stopped; the still
 rule is for the live 15 fps stream and was not measurable at 1 fps.
+
+The constants are the CV judge's: it reads cells, so the plate must be close
+and still. A VLM only needs the plate in the picture and not blurred, so the
+agent gives it a loose gate (gpt/config.py: smaller `min_side`, higher
+`motion_max`, shorter `still_s`). On the glasses, with the wearer sitting up
+(plate ~300 px of 1080), the CV thresholds passed nothing for minutes: the
+plate hovered at MIN_SIDE and head sway kept the motion above MOTION_MAX.
 """
 
 from __future__ import annotations
@@ -88,12 +95,12 @@ def tight_box(img: Image.Image) -> tuple[int, int, int, int] | None:
     return (int(x0 + w / 12), int(y0 + h / 12), int(x1 - w / 12), int(y1 - h / 12))
 
 
-def whole_plate(box, size) -> bool:
+def whole_plate(box, size, min_side: float = MIN_SIDE) -> bool:
     x0, y0, x1, y1 = box
     w, h = size
     bw, bh = x1 - x0, y1 - y0
     return (x0 > w * BORDER and y0 > h * BORDER and x1 < w * (1 - BORDER) and y1 < h * (1 - BORDER)
-            and min(bw, bh) >= w * MIN_SIDE and ASPECT[0] <= bw / bh <= ASPECT[1])
+            and min(bw, bh) >= w * min_side and ASPECT[0] <= bw / bh <= ASPECT[1])
 
 
 def skin_share(crop: Image.Image, within: Image.Image | None = None) -> float:
@@ -124,11 +131,13 @@ class Decision:
 
 
 class Gate:
-    """Per-frame decision with the still rule across frames. `still_s` = 0 disables it (offline replay at 1 fps)."""
+    """Per-frame decision with the still rule across frames. `still_s` = 0 disables it (offline replay at 1 fps);
+    `motion_max` None disables the motion rule; `min_side` is the smallest plate accepted (fraction of frame width)."""
 
-    def __init__(self, still_s: float = 1.0, motion_max: float | None = MOTION_MAX) -> None:
+    def __init__(self, still_s: float = 1.0, motion_max: float | None = MOTION_MAX, min_side: float = MIN_SIDE) -> None:
         self.still_s = still_s
         self.motion_max = motion_max
+        self.min_side = min_side
         self._prev: np.ndarray | None = None
         self._still_since: float | None = None
 
@@ -142,7 +151,7 @@ class Gate:
         grey = plate_grey(img, box)
         motion = None if self._prev is None else float(np.abs(grey - self._prev).mean())
         self._prev = grey
-        if not whole_plate(box, img.size):
+        if not whole_plate(box, img.size, self.min_side):
             x0, y0, x1, y1 = box
             w, h = img.size
             cut = not (x0 > w * BORDER and y0 > h * BORDER and x1 < w * (1 - BORDER) and y1 < h * (1 - BORDER))

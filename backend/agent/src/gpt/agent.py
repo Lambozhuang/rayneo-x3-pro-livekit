@@ -70,8 +70,10 @@ async def rayneo_assistant(ctx: JobContext) -> None:
         video_sampler=tap,
         llm=build_live_model(settings, backend_instructions(lang)),
     )
-    watch = Watch(session, build, judge, Gate(settings.gate_still), tap, publish_build,
-                  gap=settings.watch_gap, confirm=settings.watch_confirm, inflight=settings.watch_inflight)
+    gate = Gate(settings.gate_still, settings.gate_motion, settings.gate_min_side)
+    watch = Watch(session, build, judge, gate, tap, publish_build, gap=settings.watch_gap,
+                  confirm=settings.watch_confirm, inflight=settings.watch_inflight,
+                  wrong_confirm=settings.watch_wrong_confirm)
     session.userdata = Run(build=build, watch=watch)
     ctx.add_shutdown_callback(watch.stop)
 
