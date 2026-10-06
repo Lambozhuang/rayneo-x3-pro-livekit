@@ -15,7 +15,7 @@ GPT-Live over a WebSocket"
 </picture>
 
 <sub>Sources: `docs/architecture-*.svg`; `python docs/make_diagram.py` regenerates them
-and the PNGs.</sub>
+and the PNGs (`make_agent_diagram.py` for the figure below).</sub>
 
 The two halves meet in one place, a LiveKit room. The glasses publish microphone and
 camera tracks into it; the agent joins the same room, streams the audio to GPT-Live over a
@@ -40,46 +40,16 @@ The voice talks, the code watches. GPT-Live hears the wearer and speaks; it know
 step's wording but never sees a frame. The camera goes to the code, which decides when a
 step is done or a brick is wrong and tells the voice in one line. One task file feeds both.
 
-```mermaid
-flowchart LR
-  subgraph G["Glasses: RayNeo X3 Pro, Android app"]
-    pub["Mic audio + camera video<br/>1080p, 15 fps, H.264"]
-    out["Plays the agent's speech<br/>step list from rayneo.build.*<br/>reply_ms on rayneo.latency"]
-  end
-  subgraph L["LiveKit server, lab PC"]
-    sfu["LiveKit SFU<br/>forwards both ways"]
-  end
-  subgraph A["Agent, lab PC: backend/agent/src"]
-    subgraph V["Voice path"]
-      voice["Voice session<br/>persona holds every step's wording"]
-    end
-    subgraph C["Camera path: the code, no model by default"]
-      tap["FrameTap, frames.py"] --> gate["gate.py<br/>whole plate, no hand, still ~1 s"]
-      gate --> judge["judge_cv.py default<br/>judge_vlm.py if JUDGE=vlm"]
-      judge -->|"verdict"| tr["progress.py Tracker"]
-      tr -->|"events"| watch["gpt/watch.py"]
-    end
-    task[("guides/truck/task.toml")]
-  end
-  subgraph O["OpenAI cloud"]
-    gpt["gpt-live-1, GPT-Live"]
-    be["OPENAI_BACKEND_MODEL<br/>tools: check_now, end_call"]
-    vlm["vision model<br/>fallback only"]
-  end
-  G <-->|"WebRTC, the experiment's variable (loss / jitter)"| sfu
-  sfu -->|"audio"| voice
-  sfu -->|"video"| tap
-  voice -->|"speech"| sfu
-  watch -->|"attributes rayneo.build.*"| sfu
-  watch -->|"commentary"| voice
-  voice <-->|"WebSocket"| gpt
-  gpt -->|"tool calls"| be
-  be -->|"check_now reads state"| tr
-  judge -.->|"JUDGE=vlm"| vlm
-  task -.-> judge
-  task -.->|"say"| voice
-  style vlm stroke-dasharray: 5 5
-```
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="docs/agent-dark.png">
+  <img alt="Inside the agent: audio to a GPT-Live session whose persona holds every step's wording;
+video to FrameTap, gate, judge (CV by default, a vision model as fallback), tracker and watch,
+which publishes the step list to the glasses and hands GPT-Live a commentary; the task file feeds
+the voice, the CV judge and the VLM judge; the backend model's check_now reads the watch's state"
+       src="docs/agent-light.png">
+</picture>
+
+<sub>Source: `docs/make_agent_diagram.py`.</sub>
 
 1. **Voice path.** Audio from the room goes to `gpt-live-1` over a WebSocket and its speech
    comes back as the agent's audio track. Its instructions carry the persona and every
@@ -100,31 +70,6 @@ flowchart LR
    the brick's colour and cells for the CV judge, the facts for the VLM judge, and the
    colour centres. The offline evaluation in `eval/` imports the same gate, judge and
    tracker and replays a recorded run through them (`eval/RESULTS.md`).
-
-The camera path as a pipeline:
-
-```
- video frame        1080p, 15 fps, H.264, from the LiveKit track
-      |
-      v
- FrameTap           frames.py; none of these frames reach GPT-Live
-      |
-      v
- gate.py            whole green plate in view, no hand, still ~1 s
-      | pass
-      v
- judge              current step only             <-- guides/truck/task.toml
-   cv  (default)    judge_cv.py   ~0.1 s, no model    color, cells, [colours]
-   vlm (JUDGE=vlm)  judge_vlm.py  ~2 s, vision model  where, checks
-      |                                               say --> GPT-Live persona
-      |  verdict: correct | wrong | not_placed | cannot_see + one sentence
-      v
- progress.py Tracker  N agreeing verdicts make one event; never goes back
-      |  events: "step N done" | "step N wrong: <sentence>"
-      v
- gpt/watch.py --+--> Build.set_step + rayneo.build.* --> glasses step list
-                +--> commentary --> GPT-Live: "Camera: step 3 is done ..."
-```
 
 `AUTH_MODE` selects who may start a session: `dev` accepts everyone (private LAN),
 `static` wants one shared bearer token, `jwt` verifies a token from an account system and
