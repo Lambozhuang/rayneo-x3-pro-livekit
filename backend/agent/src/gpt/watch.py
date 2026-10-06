@@ -187,7 +187,8 @@ class Watch:
                         f"{d.motion:.1f}" if d.motion is not None else "-")
             self._gate_since = time.monotonic()
             if self._tap.dumping and not d.ask:
-                self._tap.dump(_jpeg(img), f"gate-{d.why.replace(' ', '_')}")
+                name = f"gate-{d.why.replace(' ', '_')}"
+                asyncio.get_running_loop().run_in_executor(None, lambda: self._tap.dump(_jpeg(img), name))
         self._last_gate = d
         if time.monotonic() - self._stats_at > STATS_EVERY:
             logger.info("watch: %d frames in %.0fs, gate passed %d, judged %d, at step %d",

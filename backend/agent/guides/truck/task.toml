@@ -32,16 +32,18 @@ tan = [0.397, 0.354, 0.246]
 yellow = [0.571, 0.392, 0.035]
 
 [colours.livekit]
-# plate and red from a lab frame with step 1 done (2026-10-06); the rest still to be calibrated on a finished model
-plate = [0.296, 0.425, 0.278]
-red = [0.795, 0.15, 0.045]
+# plate, red, purple from lab frames with steps 1-2 done (2026-10-06); lime white blue tan yellow still to be
+# calibrated on a finished model in the lab
+plate = [0.3, 0.417, 0.284]
+red = [0.8, 0.157, 0.048]
+purple = [0.399, 0.275, 0.326]
 
 [[steps]]
 part = "red 3x4 slope"
 name = "Red slope, left edge"
 color = "red"
 cells = [1, 6, 4, 8]
-say = "Take the red three-by-four slope and press it flat against the left edge of the plate, sloped face up, slope facing left. Leave about five empty rows beyond it and eight rows toward you."
+say = "Take the red three-by-four slope and lay it flat against the left edge of the plate, long side running left to right, sloped face up. Leave about five empty rows beyond it and eight rows toward you."
 where = "the red 3x4 slope brick, sloped face up, against the left edge of the plate, with several rows of empty plate above it and below it"
 checks = [
   "the brick touches the left edge of the plate",
