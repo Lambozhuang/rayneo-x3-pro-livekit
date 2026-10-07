@@ -1,26 +1,32 @@
 package io.livekit.android.example.voiceassistant.ui
 
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.snapshotFlow
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.layout.Layout
-import androidx.compose.ui.layout.Placeable
-import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import io.livekit.android.compose.types.ReceivedMessage
 import io.livekit.android.room.participant.Participant
 
 /**
- * The last few turns of the conversation, newest at the bottom and brightest,
- * the wearer's turns in green. The wearer's lines are not what they said but
- * what the model heard: the transcript comes back from the model, late and
- * sometimes wrong, and on a network-quality test bed that is the point, a
- * dropped word shows up here as a dropped word. The agent's lines stream in
- * and grow word by word; [ReceivedMessage.id] is stable across those updates,
- * which is what lets the list stay put.
+ * The conversation, newest at the bottom and brightest, the wearer's turns in
+ * green. The wearer's lines are not what they said but what the model heard:
+ * the transcript comes back from the model, late and sometimes wrong, and on a
+ * network-quality test bed that is the point, a dropped word shows up here as
+ * a dropped word. The agent's lines stream in and grow word by word;
+ * [ReceivedMessage.id] is stable across those updates, which is what lets the
+ * list stay put.
  *
  * A full-duplex model (GPT-Live) does not stop when the wearer talks over it,
  * so its transcript keeps growing in the same segment after the wearer's
@@ -30,12 +36,11 @@ import io.livekit.android.room.participant.Participant
  * was actually heard. Transcript deltas also arrive with a leading space; the
  * text is trimmed so every line starts at the margin.
  *
- * The newest turn is never cut short: it is measured first and gets as many
- * lines as the space allows, and older turns are stacked above it only while
- * they still fit. So a long answer pushes the history off the top rather than
- * ending in "...". A plain custom layout, not a LazyColumn: there is no
- * scrolling on the glasses and never more than [MAX_ITEMS] items, and it
- * composes identically in both eyes.
+ * Every line is shown whole. Short, the column sits at the bottom of its
+ * space; longer than the space, it scrolls and stays pinned to the newest
+ * line as it grows (there is no pointer, so no one scrolls back). The scroll
+ * position is per eye (Eyes composes this twice); both copies follow the same
+ * bottom, so they agree. At most [MAX_ITEMS] lines are kept.
  *
  * @param wearerIdentity the local participant; everything else is the agent.
  */
@@ -46,9 +51,19 @@ fun Captions(messages: List<ReceivedMessage>, wearerIdentity: Participant.Identi
     // not state: recomposition is driven by `messages` already.
     val cuts = remember { mutableMapOf<String, MutableList<Pair<String, Int>>>() }
     val recent = split(messages, wearerIdentity, cuts).takeLast(MAX_ITEMS)
-    Layout(
-        modifier = modifier,
-        content = {
+    val scroll = rememberScrollState()
+    // Whenever the content grows (a new line, a longer one), go to the bottom.
+    LaunchedEffect(scroll) {
+        snapshotFlow { scroll.maxValue }.collect { scroll.scrollTo(it) }
+    }
+    Box(modifier = modifier) {
+        Column(
+            modifier = Modifier
+                .align(Alignment.BottomStart)
+                .fillMaxWidth()
+                .verticalScroll(scroll, enabled = false),
+            verticalArrangement = Arrangement.spacedBy(8.dp),
+        ) {
             recent.forEachIndexed { i, line ->
                 val newest = i == recent.lastIndex
                 Text(
@@ -61,34 +76,7 @@ fun Captions(messages: List<ReceivedMessage>, wearerIdentity: Participant.Identi
                     },
                     fontSize = if (newest) 22.sp else 18.sp,
                     lineHeight = if (newest) 30.sp else 24.sp,
-                    maxLines = if (newest) Int.MAX_VALUE else 2,
-                    overflow = TextOverflow.Ellipsis,
                 )
-            }
-        }
-    ) { measurables, constraints ->
-        val spacing = 8.dp.roundToPx()
-        val width = constraints.maxWidth
-        val placed = arrayOfNulls<Placeable>(measurables.size)
-        // Newest first, each with whatever height is left; stop at the first
-        // one that does not fit whole.
-        var remaining = constraints.maxHeight
-        for (i in measurables.indices.reversed()) {
-            if (remaining <= 0) break
-            val p = measurables[i].measure(
-                constraints.copy(minWidth = width, minHeight = 0, maxHeight = remaining)
-            )
-            if (p.height > remaining) break
-            placed[i] = p
-            remaining -= p.height + spacing
-        }
-        layout(width, constraints.maxHeight) {
-            var y = constraints.maxHeight
-            for (i in placed.indices.reversed()) {
-                val p = placed[i] ?: continue
-                y -= p.height
-                p.placeRelative(0, y)
-                y -= spacing
             }
         }
     }
@@ -144,4 +132,4 @@ private fun split(
     return out
 }
 
-private const val MAX_ITEMS = 3
+private const val MAX_ITEMS = 40

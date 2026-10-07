@@ -1,11 +1,12 @@
-"""The two tools of the GPT path.
+"""The tools of the GPT path.
 
 GPT-Live has no tool channel of its own; tools reach it through the backend
-model it delegates to. The voice model knows the steps (prompts.py) and gets
-the camera's confirmed changes as commentary (watch.py); when the wearer asks
-it to look, check_now reads the camera loop's state: which step the code is
-on, the last verdict and its age. No model call, no wait. And hanging up,
-which only a tool can do.
+model it delegates to. The voice model knows the steps (prompts.py), gets the
+camera's confirmed changes as instructions and the camera's state as thinking
+whenever the wearer speaks (watch.py). The one tool registered is end_call:
+hanging up, which only a tool can do. check_now (the same state, on request)
+is kept but not registered: in a whole lab run the voice never delegated to
+call it, and the delegation hop added a second or two when it did earlier.
 """
 
 from __future__ import annotations

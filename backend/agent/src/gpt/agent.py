@@ -2,13 +2,14 @@
 
     glasses --audio--> SFU --> this process --ws--> gpt-live-1 (knows every step's wording)
             --video-->     --> FrameTap --> gate --> judge (CV, or a vision model) --> state machine
-                                                          --> "Camera: step N is done ..." as commentary to GPT-Live
+                                                          --> "Camera, just now: step N is done ..." to GPT-Live
             <--audio-- SFU <-- this process <---------------- gpt-live-1
             <--step list (participant attributes)-- this process (step index = the state machine's)
 
 The voice model owns the conversation; the code owns the build: the steps are
 in the voice's instructions, the camera's confirmed changes arrive as
-commentary (watch.py), and check_now answers from the code's state (tools.py).
+instructions and its current state as thinking each time the wearer speaks
+(watch.py). The backend model only hangs up (tools.py).
 No VAD is passed to the session: the model listens while it speaks and stops
 on its own. The Gemini path (gemini/) is untouched; the reference-model stream
 (render.py) stays wired but unused by the flat-layout guides.
@@ -33,7 +34,7 @@ from livekit.agents.metrics import LLMMetrics, RealtimeModelMetrics
 from frames import FrameTap
 from gpt.config import Settings, build_live_model, language, openai_client, require_env
 from gpt.prompts import backend_instructions, voice_persona
-from gpt.tools import Run, check_now, end_call, publish_build
+from gpt.tools import Run, end_call, publish_build
 from gpt.watch import Watch
 from guide import Build, load_guide
 from gate import Gate
@@ -125,7 +126,7 @@ async def rayneo_assistant(ctx: JobContext) -> None:
             )
 
     await session.start(
-        agent=Agent(instructions=voice_persona(guide, lang), tools=[check_now, end_call]),
+        agent=Agent(instructions=voice_persona(guide, lang), tools=[end_call]),
         room=ctx.room,
         # GPT-Live's transcript already trails its audio; the framework's
         # pacing of text to playout only added to that on the glasses.
@@ -133,6 +134,28 @@ async def rayneo_assistant(ctx: JobContext) -> None:
             video_input=True, text_output=room_io.TextOutputOptions(sync_transcription=False)
         ),
     )
+
+    # What the voice hands to the backend model, and what that model does with it: invisible otherwise.
+    def _log_backend(event: dict) -> None:
+        etype = event.get("type")
+        if etype == "session.delegation.created":
+            d = event.get("delegation") or {}
+            logger.info("delegation: created id=%s target=%s", d.get("id"), d.get("target"))
+        elif etype == "response.event":
+            inner = event.get("event") or {}
+            itype = inner.get("type")
+            item = inner.get("item") or {}
+            if itype == "response.output_item.done" and item.get("type") == "function_call":
+                logger.info("delegation: %s calls %s(%s)", event.get("delegation_id"), item.get("name"),
+                            item.get("arguments"))
+            elif itype == "response.output_item.done" and item.get("type") == "message":
+                text = " ".join(c.get("text", "") for c in item.get("content") or [] if isinstance(c, dict))
+                logger.info("delegation: %s answers: %s", event.get("delegation_id"), text)
+
+    try:
+        session.current_agent.duplex_session.on("openai_server_event_received", _log_backend)
+    except (RuntimeError, AttributeError):
+        logger.warning("no GPT-Live session to follow delegations on")
 
     wearer = await ctx.wait_for_participant()
     logger.info("session for user=%s room=%s", wearer.identity, ctx.room.name)

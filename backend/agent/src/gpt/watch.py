@@ -20,9 +20,12 @@ What reaches GPT-Live:
   hear "let me check" and only then "yes, that's right";
 - nothing per frame. Early versions put every verdict into the model's
   context and it narrated the camera from stale notes;
-- check_now (tools.py) answers from the state here, no new model call: the
-  step the code is on, the last verdict and how old it is, or why the camera
-  has had no clear view.
+- each time the wearer starts speaking, the camera's state as *thinking*
+  (silent context, append_thinking): the step the code is on, the last
+  verdict and how old it is, or why the camera has had no clear view. The
+  voice answers "is it right?" from that line. The model did not call
+  check_now (tools.py, now unregistered) once in a whole lab run; it waited
+  for the next note instead, 5 s and up to 21 s of silence.
 
 Two timing layers in the log: `judge:` lines carry the judge's own latency per
 frame; `voice:` lines the delay from a camera note to the voice starting to
@@ -87,6 +90,7 @@ class Watch:
     def start(self) -> None:
         if self._task is None:
             self._task = asyncio.create_task(self._run(), name="watch")
+            self._session.on("user_state_changed", self._on_user_state)
 
     async def stop(self) -> None:
         if self._task is not None:
@@ -96,6 +100,19 @@ class Watch:
             t.cancel()
 
     # ------------------------------------------------------------------ for the voice
+
+    def _on_user_state(self, ev) -> None:
+        if ev.new_state == "speaking":
+            self._think()
+
+    def _think(self) -> None:
+        """The camera's state as silent context, for the voice to answer from; nothing is said because of it."""
+        text = self._state_text()
+        logger.info("watch: thinking: %s", text)
+        try:
+            self._session.current_agent.duplex_session.append_thinking(text)
+        except (RuntimeError, AttributeError):  # not a GPT-Live session
+            pass
 
     def check_now(self) -> str:
         """What the camera knows right now, from the state here; no model call."""
@@ -234,7 +251,8 @@ class Watch:
         elif ev.kind == Kind.WRONG:
             logger.info("step %d wrong: %s", ev.step, ev.text)
             self._say(f"Camera, just now: step {ev.step} is placed wrongly: {ev.text}. "
-                      "Tell the wearer in one short sentence what to move or swap.")
+                      "First tell the wearer that this step is not right, then in one short sentence what to move "
+                      "or swap.")
 
     # ------------------------------------------------------------------ the camera's notes to the voice
 

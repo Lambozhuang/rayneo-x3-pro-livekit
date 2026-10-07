@@ -44,8 +44,9 @@ step is done or a brick is wrong and tells the voice in one line. One task file 
   <source media="(prefers-color-scheme: dark)" srcset="docs/agent-dark.png">
   <img alt="Inside the agent: audio to a GPT-Live session whose persona holds every step's wording;
 video to FrameTap, gate, judge (CV by default, a vision model as fallback), tracker and watch,
-which publishes the step list to the glasses and hands GPT-Live a commentary; the task file feeds
-the voice, the CV judge and the VLM judge; the backend model's check_now reads the watch's state"
+which publishes the step list to the glasses and hands GPT-Live a note per change and the state
+when the wearer speaks; the task file feeds the voice, the CV judge and the VLM judge; the
+backend model only ends the call"
        src="docs/agent-light.png">
 </picture>
 
@@ -53,8 +54,9 @@ the voice, the CV judge and the VLM judge; the backend model's check_now reads t
 
 1. **Voice path.** Audio from the room goes to `gpt-live-1` over a WebSocket and its speech
    comes back as the agent's audio track. Its instructions carry the persona and every
-   step's `say`. Tool calls go through a backend model with two tools: `check_now`, which
-   reads the camera path's state (no model call, instant), and `end_call`.
+   step's `say`. Each time the wearer starts speaking, the camera path's state goes in as
+   silent context ("Camera now: ..."), which it answers "is it right?" from. Its one tool,
+   `end_call`, goes through a backend model.
 2. **Camera path.** Every frame is kept by `FrameTap`; none reaches GPT-Live. The gate lets
    a frame through only when the whole green plate is in view, no hand is over it and the
    picture has been still for about a second. The judge then answers one question about
@@ -100,7 +102,7 @@ backend/
   agent/src/judge_vlm.py the fallback judge: the same question to a vision model (JUDGE=vlm)
   agent/src/progress.py the state machine: confirm N verdicts -> step done / brick wrong
   agent/src/gemini/     agent, config (session model factory), prompts, tools (look, get_step, step_done, ...), sampler, framedump
-  agent/src/gpt/        agent, config, prompts (persona with every step), watch (camera -> gate -> judge -> state -> commentary), tools (check_now, end_call)
+  agent/src/gpt/        agent, config, prompts (persona with every step), watch (camera -> gate -> judge -> state -> notes), tools (end_call)
   agent/guides/         build guides, chosen with BUILD_GUIDE: <name>/task.toml (+ model.glb), or a bare .toml;
                         guides/truck/task.toml carries each step's colour and cells for the CV judge (also read by eval/)
   agent/src/inspect_frame.py   see "Seeing what the model saw"
@@ -179,9 +181,10 @@ The app stores the token endpoint and credential in SharedPreferences; `glasses.
 passes them as intent extras (`-e token_endpoint ... -e credential ...`), and the connect
 screen has the same two fields. The temple touchpad is a touchscreen to Android: tap
 starts the call, double tap ends it, swipes are logged (`adb logcat -s rayneo-input`) but
-unused. Under the status the screen lists the build's steps by name with the current one
-highlighted; the agent publishes them as participant attributes (`guide.py`, `BuildSteps.kt`).
-The bottom of the screen shows the last three turns, the wearer's in green: those are
+unused. Under the status the left half lists the build's steps by name with the current one
+highlighted and kept in view; the agent publishes them as participant attributes (`guide.py`,
+`BuildSteps.kt`). The right half shows the conversation, newest at the bottom, the wearer's
+in green; both halves scroll by themselves when they run out of room. Those lines are
 the model's transcript of what it heard, not a local one, so a word the network dropped is
 missing there too. The mic is switched on only once the agent reports that it is listening, and the
 banner says "Ready" at that moment; before it nothing is heard. The agent opens with one
@@ -235,9 +238,10 @@ The current system; how it fits together is in "Architecture" above. Details and
   `append_instructions`, text starting "Camera, just now:"), which it says in its own words,
   interrupting itself if it was mid-sentence; a commentary (`generate_reply`) would wait for
   the current sentence, and holding notes until the voice was quiet made the wearer hear "let
-  me check" and only then "yes, that's right". It cannot look; `check_now` (through the backend model,
-  `OPENAI_BACKEND_MODEL`) answers from the code's state at once, no model call. Its other
-  tool is `end_call`.
+  me check" and only then "yes, that's right". It cannot look; when the wearer starts speaking
+  the watch's state goes in as thinking (`append_thinking`, "Camera now: ..."). A `check_now`
+  tool did the same on request through the backend model but was never called in a lab run
+  and is unregistered. The backend model (`OPENAI_BACKEND_MODEL`) only runs `end_call`.
 - The gate (`gate.py`): whole green plate in view and at least `GATE_MIN_SIDE` of the frame
   width, no gross skin over it, frame-to-frame motion of the plate crop under
   `GATE_MOTION_MAX`, and that for `GATE_STILL` s. ~10 ms per frame, every frame. The CV judge
@@ -252,8 +256,9 @@ The current system; how it fits together is in "Architecture" above. Details and
   studs off. `JUDGE=vlm` (`judge_vlm.py`, ~2 s): the plate crop and the step's `where`/`checks`
   text to `OPENAI_CHECK_MODEL`, which answers each fact y/n before the verdict.
 - The state machine (`progress.py`): `GPT_WATCH_CONFIRM` agreeing verdicts (default 2) before
-  a step counts, `GPT_WATCH_WRONG_CONFIRM` (default 2 with cv, 3 with vlm) before a wrong
-  brick is spoken once; it never goes back on its own. Frames go to
+  a step counts; a wrong brick is spoken once when `GPT_WATCH_WRONG_CONFIRM` (default 2) of
+  the last three verdicts say wrong, and again only after three "not placed" in a row; it
+  never goes back on its own. Frames go to
   the judge at least `GPT_WATCH_GAP` s apart (default 0.5) with up to `GPT_WATCH_INFLIGHT`
   calls in the air (default 2), so two VLM verdicts arrive about a second apart rather than
   one after the other; a verdict about a step that has since moved on is dropped.

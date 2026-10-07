@@ -91,7 +91,7 @@ class Settings:
             watch_gap=float(os.environ.get("GPT_WATCH_GAP", "0.5")),
             watch_inflight=int(os.environ.get("GPT_WATCH_INFLIGHT", "2")),
             watch_confirm=int(os.environ.get("GPT_WATCH_CONFIRM", "2")),
-            watch_wrong_confirm=int(os.environ.get("GPT_WATCH_WRONG_CONFIRM", "2" if strict else "3")),
+            watch_wrong_confirm=int(os.environ.get("GPT_WATCH_WRONG_CONFIRM", "2")),
             focal_px=float(os.environ["JUDGE_FOCAL_PX"]) if os.environ.get("JUDGE_FOCAL_PX") else None,
             colours=os.environ.get("JUDGE_COLOURS", "livekit"),
         )

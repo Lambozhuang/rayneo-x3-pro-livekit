@@ -83,7 +83,7 @@
 <path d="M400 292 L400 250" fill="none" stroke="#a3b2c2" stroke-width="1.2" stroke-linejoin="round" stroke-dasharray="5 4" marker-end="url(#headm)"/>
 <path d="M602 339.0 L706.0 339.0 L706.0 414" fill="none" stroke="#a3b2c2" stroke-width="1.2" stroke-linejoin="round" stroke-dasharray="5 4" marker-end="url(#headm)"/>
 <path d="M1142 416 L1142 280 L560 280 L560 250" fill="none" stroke="#a3b2c2" stroke-width="1.6" stroke-linejoin="round" marker-end="url(#headm)"/>
-<text x="851.0" y="272" font-size="11.5" fill="#a3b2c2" text-anchor="middle">commentary: Camera: step N is done…</text>
+<text x="851.0" y="272" font-size="11.5" fill="#a3b2c2" text-anchor="middle">notes: step N done / wrong · state on speech</text>
 <path d="M164 186 L302 186" fill="none" stroke="#38bdf8" stroke-width="1.8" stroke-linejoin="round" marker-end="url(#head)"/>
 <text x="224.0" y="178" font-size="11.5" fill="#38bdf8" text-anchor="middle">mic audio</text>
 <path d="M304 228 L166 228" fill="none" stroke="#38bdf8" stroke-width="1.8" stroke-linejoin="round" marker-end="url(#head)"/>
@@ -102,8 +102,7 @@
 <text x="1426.0" y="239" font-size="12" fill="#7c8b9c" text-anchor="middle">GPT-Live</text>
 <rect x="1358" y="290" width="136" height="80" rx="10" fill="#ffffff0a" stroke="#3fbf9a" stroke-width="1.4"/>
 <text x="1426.0" y="318" font-size="15" fill="#f1f5f9" text-anchor="middle">backend model</text>
-<text x="1426.0" y="339" font-size="11.5" fill="#a3b2c2" text-anchor="middle">tools: check_now,</text>
-<text x="1426.0" y="355" font-size="11.5" fill="#a3b2c2" text-anchor="middle">end_call</text>
+<text x="1426.0" y="342" font-size="11.5" fill="#a3b2c2" text-anchor="middle">tool: end_call</text>
 <path d="M1392 248 L1392 287" fill="none" stroke="#3fbf9a" stroke-width="1.4" stroke-linejoin="round" marker-end="url(#headv)"/>
 <text x="1400" y="272.0" font-size="11.5" fill="#3fbf9a" text-anchor="start">delegation</text>
 <rect x="1358" y="560" width="136" height="80" rx="10" fill="#ffffff0a" stroke="#3fbf9a" stroke-width="1.4" stroke-dasharray="5 4"/>
@@ -112,8 +111,5 @@
 <text x="1426.0" y="625" font-size="11.5" fill="#a3b2c2" text-anchor="middle">(JUDGE=vlm)</text>
 <path d="M602 204.0 L1356 204.0" fill="none" stroke="#3fbf9a" stroke-width="1.8" stroke-linejoin="round" marker-start="url(#headv)" marker-end="url(#headv)"/>
 <text x="1291.0" y="195.0" font-size="12.5" fill="#3fbf9a" text-anchor="middle" letter-spacing="0.6">WebSocket</text>
-<path d="M1356 330 L1192 330 L1192 415" fill="none" stroke="#3fbf9a" stroke-width="1.3" stroke-linejoin="round" marker-end="url(#headv)"/>
-<text x="1291.0" y="307" font-size="11.5" fill="#3fbf9a" text-anchor="middle">check_now</text>
-<text x="1291.0" y="321" font-size="11.5" fill="#3fbf9a" text-anchor="middle">reads state</text>
 <path d="M706.0 540 L706.0 600 L1355 600" fill="none" stroke="#3fbf9a" stroke-width="1.3" stroke-linejoin="round" stroke-dasharray="5 4" marker-end="url(#headv)"/>
 </svg>

@@ -216,11 +216,11 @@ def build(t: dict) -> str:
     wire([(tx + tw + 2, ty + th / 2), (jcx, ty + th / 2), (jcx, PY - 4)],
          t["muted"], "headm", 1.2, dash=True)
 
-    # watch -> voice: one line of commentary per confirmed change
+    # watch -> voice: a note per confirmed change, the state as thinking when the wearer speaks
     xc = sx + sw - 40
     wire([(x_comment, PY - 2), (x_comment, Y_COMMENT), (xc, Y_COMMENT),
           (xc, sy + sh + 4)], t["muted"], "headm")
-    text((xc + x_comment) / 2, Y_COMMENT - 8, "commentary: Camera: step N is done…",
+    text((xc + x_comment) / 2, Y_COMMENT - 8, "notes: step N done / wrong · state on speech",
          11.5, t["muted"])
 
     # glasses <-> agent, over WebRTC
@@ -249,8 +249,7 @@ def build(t: dict) -> str:
     by, bh = Y_CHECK - 40, 80
     card(cx1, by, cw, bh, edge=t["cloud"])
     text(ccx, by + 28, "backend model", 15, t["text"])
-    text(ccx, by + 49, "tools: check_now,", 11.5, t["muted"])
-    text(ccx, by + 65, "end_call", 11.5, t["muted"])
+    text(ccx, by + 52, "tool: end_call", 11.5, t["muted"])
     xt = cx1 + 34
     wire([(xt, VY + VH + 2), (xt, by - 3)], t["cloud"], "headv", 1.4)
     text(xt + 8, (VY + VH + by) / 2 + 4, "delegation", 11.5, t["cloud"], "start")
@@ -265,9 +264,6 @@ def build(t: dict) -> str:
     gx_mid = (fr + CX0) / 2
     wire([(sx + sw + 2, Y_WS), (cx1 - 2, Y_WS)], t["cloud"], "headv", 1.8, start=True)
     text(gx_mid, Y_WS - 9, "WebSocket", 12.5, t["cloud"], extra=' letter-spacing="0.6"')
-    wire([(cx1 - 2, Y_CHECK), (x_check, Y_CHECK), (x_check, PY - 3)],
-         t["cloud"], "headv", 1.3)
-    label(gx_mid, Y_CHECK - 9, ["check_now", "reads state"], t["cloud"])
     wire([(jcx, PY + PH + 2), (jcx, Y_VISION), (cx1 - 3, Y_VISION)],
          t["cloud"], "headv", 1.3, dash=True)
 

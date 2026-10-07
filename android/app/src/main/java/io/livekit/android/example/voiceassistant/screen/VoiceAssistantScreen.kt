@@ -3,6 +3,7 @@ package io.livekit.android.example.voiceassistant.screen
 import android.widget.Toast
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -74,10 +75,13 @@ fun VoiceAssistantScreen(
  * chat box, control bar, screenshare and camera-flip are gone, and what is
  * left is what a wearer actually needs while talking:
  *
- *   top-left      who has the floor (you / listening / thinking / speaking),
- *                 then the build's steps with the current one highlighted
- *   top-right     the reference model the agent streams (see ModelView)
- *   bottom        the last three turns, what the model heard in green
+ *   top           who has the floor (you / listening / thinking / speaking)
+ *   left half     the build's steps, the current one highlighted and kept in view
+ *   right half    the conversation, newest at the bottom, what the model heard in green
+ *   top-right     the reference model, when the agent streams one (see ModelView);
+ *                 the flat guides do not, and it is transparent then
+ * Each half scrolls on its own when it is longer than the screen, driven by
+ * the content (the current step, the newest line): the glasses have no pointer.
  *
  * Mic and camera are always on. Toggling them was the starter's idea of a
  * feature; here it is a way to silently break the assistant. There is no
@@ -221,30 +225,32 @@ fun VoiceAssistant(
         // and the two copies could disagree. See Eyes.
         Eyes {
             Box(modifier = modifier) {
-                // Top to bottom: who has the floor, where the build stands,
-                // and whatever is left is caption space, which the newest
-                // turn fills from the bottom up (see Captions). The step list
-                // keeps to the left so it clears the model.
+                // Who has the floor on top; below it the steps on the left and
+                // the conversation on the right, each scrolling on its own.
                 Column(modifier = Modifier.fillMaxSize()) {
                     PhaseBanner(
                         phase = phase,
                         agent = agent,
                         modifier = Modifier.padding(top = 4.dp)
                     )
-                    BuildSteps(
-                        progress = buildProgress,
-                        modifier = Modifier
-                            .fillMaxWidth(0.56f)
-                            .padding(top = 12.dp)
-                    )
-                    Captions(
-                        messages = sessionMessages.messages,
-                        wearerIdentity = wearerIdentity,
+                    Row(
                         modifier = Modifier
                             .fillMaxWidth()
                             .weight(1f)
                             .padding(top = 12.dp, bottom = 4.dp)
-                    )
+                    ) {
+                        BuildSteps(
+                            progress = buildProgress,
+                            modifier = Modifier
+                                .weight(1f)
+                                .padding(end = 12.dp)
+                        )
+                        Captions(
+                            messages = sessionMessages.messages,
+                            wearerIdentity = wearerIdentity,
+                            modifier = Modifier.weight(1f)
+                        )
+                    }
                 }
 
                 // Top right: the finished build, rendered and streamed by the
