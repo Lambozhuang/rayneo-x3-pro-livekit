@@ -242,9 +242,8 @@ The current system; how it fits together is in "Architecture" above. Details and
   me check" and only then "yes, that's right". It cannot look; when the wearer speaks, the
   answer waits for a verdict on a frame from at most `LOOKBACK` (1 s) before they started
   (`append_thinking` if there is one already, else "let me look" and an `append_instructions`
-  note when it arrives; a correct one leaves the answer to the DONE note). A `check_now`
-  tool did the same on request through the backend model but was never called in a lab run
-  and is unregistered. The backend model (`OPENAI_BACKEND_MODEL`) only runs `end_call`.
+  note when it arrives; a correct one leaves the answer to the DONE note). The backend model
+  (`OPENAI_BACKEND_MODEL`) only runs `end_call`.
 - The gate (`gate.py`): whole green plate in view and at least `GATE_MIN_SIDE` of the frame
   width, no gross skin over it, frame-to-frame motion of the plate crop under
   `GATE_MOTION_MAX`, and that for `GATE_STILL` s. ~10 ms per frame, every frame. The CV judge

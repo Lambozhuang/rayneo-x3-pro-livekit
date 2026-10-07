@@ -11,13 +11,9 @@
 - [x] 状态机 + 回放：原分辨率 13/13 步 ±1 s、3/3 错、零误报；1080p 下第 5 步卡死连锁（eval/README.md）
 - [ ] 改任务：第 5 步白砖换色（同色不相邻），第 9 步事实去掉"同宽对齐"；重录一段，原分辨率 + 1080p 各回放一遍
 - [x] 判定器 / 门控 / 状态机搬进 agent（src/judge_cv.py、judge_vlm.py、gate.py、progress.py），watch.py 瘦成胶水；eval 跑的就是这份代码
-- [x] 上机第一天：门控、焦距拟合实机可用；CV 色心随自动曝光漂移，先切 VLM；VLM 一轮 13 步走完，单次 2.5 s、串行两次确认 6–7 s，commentary 被压在语音后
-- [x] 上机第二轮（VLM，宽松门控）：note 打断生效，判定 2.0 s 中位、放行 ~80 %；check_now 一次没被调用，"好了没"变成等下一条 note（5 s，最长 21 s）；wrong/not_placed 来回翻导致第 3 步纠正 9 s、说四遍
-- [x] 上机第三轮（到第 5 步）：开口塞旧状态 → Live 答得快但是手在板上那帧的结论（"看不见，调整角度"）；判定 2.2 s 中位，输入 token 多少对延迟几乎无影响（固定 ~1.9 s）
-- [ ] 上机第四轮：开口时按帧时间取"当下"的结论（开口前 1 s 内），没有就先垫一句再用指令回答；wrong 2/3 窗口；左右分栏 UI
-- [ ] 判定调用量：两路并发约 0.8 次/秒，六成是拿砖时反复判 not_placed；考虑 not_placed 连续时放慢或降一路
-- [ ] 肤色窗口在实验室光线下测不到手（skin 0.00–0.09），手帧只靠 motion 和 VLM 自己答 cannot_see
-- [ ] 青柠砖在通话流里偏黄，VLM 时而判 wrong 时而判 not_placed
+- [ ] 判定调用量：拿砖时一直在判 not_placed，考虑连续 not_placed 时放慢
+- [ ] 门控肤色窗口在实验室光线下测不到手
+- [ ] 青柠砖在通话流里偏黄，VLM 在 wrong / not_placed 之间摇摆
 - [ ] CV 判定器回到实机前：颜色改按色相分类或用底板做白平衡参考，fit_focal 挪出判定路径（实机 0.4–2.3 s 尖峰）
 - [x] 判定器 D：纯 CV（eval/cv_judge.py），29 问原始 29/29、1080p 28/29，回放两种画质都不卡；弱点是手压板边 / 悬在板上（eval/RESULTS.md）
 - [ ] 判定器 D 续：手在板上的帧要么门控拦（15 fps 静止一秒），要么用凸点格纹校验格子对不对；阈值在第二段录像上验一遍
@@ -27,7 +23,7 @@
 - [x] 任务格式：guides/truck/task.toml 一份两用（say + color/cells + where/checks + [colours]），eval/truck/layout.json 删掉
 - [ ] 录像回放 harness：按真实节奏（取帧 → 判定耗时 → 下一帧）回放，输出状态时间线，对人工标注算检出延迟、误跳、费用。
       看 GlassKit 的 eval CLI 能否直接用
-- [x] 接回 GPT-Live：commentary 只来自状态机事件，check_now 读状态不调模型；judge: / voice: 两层打点
+- [x] 接回 GPT-Live：相机提示只来自状态机事件；judge: / voice: 两层打点
 - [ ] 旧 3D 小房子的 guide、渲染参考图、`tmp/poc/eyes_eval.py` 在新任务跑通后清掉
 
 ## 眼镜
