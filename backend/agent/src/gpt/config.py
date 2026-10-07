@@ -79,7 +79,7 @@ class Settings:
             live_model=require_env("OPENAI_LIVE_MODEL"),
             voice=os.environ.get("OPENAI_VOICE", "marin"),
             backend_model=require_env("OPENAI_BACKEND_MODEL"),
-            backend_effort=os.environ.get("OPENAI_BACKEND_EFFORT", "low"),
+            backend_effort=os.environ.get("OPENAI_BACKEND_EFFORT", "none"),
             judge=judge,
             check_model=os.environ.get("OPENAI_CHECK_MODEL", ""),
             # gpt-6-sol with no reasoning was the stable VLM setting (eval/RESULTS.md)
