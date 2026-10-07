@@ -20,12 +20,20 @@ What reaches GPT-Live:
   hear "let me check" and only then "yes, that's right";
 - nothing per frame. Early versions put every verdict into the model's
   context and it narrated the camera from stale notes;
-- each time the wearer starts speaking, the camera's state as *thinking*
-  (silent context, append_thinking): the step the code is on, the last
-  verdict and how old it is, or why the camera has had no clear view. The
-  voice answers "is it right?" from that line. The model did not call
-  check_now (tools.py, now unregistered) once in a whole lab run; it waited
-  for the next note instead, 5 s and up to 21 s of silence.
+- when the wearer speaks, an answer about the plate as it is *now*, the way a
+  person across the table would look before replying. A verdict counts as now
+  if its frame was taken at most LOOKBACK s before the wearer started
+  speaking (the frame's time, not the verdict's: a VLM verdict arrives ~2 s
+  after its frame). If there is one, it goes in at once as *thinking* (silent
+  context, append_thinking) and the voice answers from it when the wearer
+  stops. If not, the thinking says the camera is looking, the voice says a
+  short "let me look", and the first such verdict to arrive goes in as an
+  instruction that answers. A correct verdict waits briefly for the DONE note
+  instead, which says it better. Without this the voice answered from the
+  last verdict, usually about a frame with the hand still on the brick, and
+  told the wearer it could not see what they had just placed (lab, 2026-10-07).
+  check_now (tools.py, unregistered) did the same on request and was never
+  called.
 
 Two timing layers in the log: `judge:` lines carry the judge's own latency per
 frame; `voice:` lines the delay from a camera note to the voice starting to
@@ -55,6 +63,10 @@ logger = logging.getLogger("rayneo-agent.watch")
 FRAME_TIMEOUT = 3.0  # no camera frame for this long: log once, keep waiting
 STATS_EVERY = 30.0   # seconds between `watch: N frames ...` summary lines
 GATE_DUMP_EVERY = 5.0  # seconds between two kept frames of the same gate reason
+LOOKBACK = 1.0       # a verdict on a frame taken this long before the wearer spoke still answers them
+ASK_TIMEOUT = 6.0    # no clear look this long after the wearer spoke: tell them why
+CONFIRM_WAIT = 2.5   # a correct look waits this long for the DONE note before saying "looks right"
+CLEAR = ("correct", "wrong", "not_placed")  # answers that say something about the brick
 
 
 def to_image(frame: rtc.VideoFrame) -> Image.Image:
@@ -79,7 +91,10 @@ class Watch:
         self._task: asyncio.Task | None = None
         self._inflight: set[asyncio.Task] = set()
         self._gate_dumped: dict[str, float] = {}  # reason -> when its frame was last kept
-        self.last: tuple[Verdict, int, float] | None = None  # last verdict, the step it was about, when
+        self.last: tuple[Verdict, int, float] | None = None  # last verdict, its step, when its frame was taken
+        self._new_look = asyncio.Event()  # set whenever a verdict comes in
+        self._ask: asyncio.Task | None = None  # answering the wearer's latest words
+        self._noted_at = 0.0  # when the last camera note went out
         self._last_gate: Decision | None = None
         self._gate_since = time.monotonic()  # when the gate's current reason started
         self._last_fired = 0.0
@@ -98,16 +113,75 @@ class Watch:
             self._task = None
         for t in self._inflight:
             t.cancel()
+        if self._ask is not None:
+            self._ask.cancel()
 
     # ------------------------------------------------------------------ for the voice
 
     def _on_user_state(self, ev) -> None:
-        if ev.new_state == "speaking":
-            self._think()
+        if ev.new_state == "speaking" and not self.tracker.finished:
+            if self._ask is not None:
+                self._ask.cancel()
+            self._ask = asyncio.create_task(self._answer(time.monotonic()), name="ask")
 
-    def _think(self) -> None:
-        """The camera's state as silent context, for the voice to answer from; nothing is said because of it."""
-        text = self._state_text()
+    def _fresh(self, since: float, step: int) -> tuple[Verdict, int, float] | None:
+        """The current verdict if its frame was taken at or after `since` and it says something about the brick."""
+        if self.last is not None and self.last[1] == step and self.last[2] >= since and self.last[0].answer in CLEAR:
+            return self.last
+        return None
+
+    async def _answer(self, t0: float) -> None:
+        """The wearer started speaking at t0: get them an answer about the plate as it is now."""
+        since, step = t0 - LOOKBACK, self.tracker.step
+        look = self._fresh(since, step)
+        if look is not None:
+            logger.info("ask: answered at once from a frame %.1fs before speech", t0 - look[2])
+            self._think(self._state_text(look))
+            return
+        self._think(self._state_text(looking=True))
+        deadline = t0 + ASK_TIMEOUT
+        while True:
+            if self.tracker.step != step or self._noted_at > t0:
+                logger.info("ask: a camera note answered, %.0f ms after speech", (time.monotonic() - t0) * 1000)
+                return
+            look = self._fresh(since, step)
+            if look is not None:
+                break
+            left = deadline - time.monotonic()
+            if left <= 0:
+                logger.info("ask: no clear look %.0fs after speech", ASK_TIMEOUT)
+                self._reply(self._state_text())
+                return
+            self._new_look.clear()
+            try:
+                await asyncio.wait_for(self._new_look.wait(), left)
+            except asyncio.TimeoutError:
+                pass
+        if look[0].answer == "correct":
+            # one correct is half a DONE; the next verdict usually completes it, and the DONE note says it all
+            end = time.monotonic() + CONFIRM_WAIT
+            while self.tracker.step == step and time.monotonic() < end:
+                await asyncio.sleep(0.05)
+            if self.tracker.step != step:
+                logger.info("ask: the DONE note answered, %.0f ms after speech", (time.monotonic() - t0) * 1000)
+                return
+        logger.info("ask: answered %.0f ms after speech from a frame %.1fs after it",
+                    (time.monotonic() - t0) * 1000, look[2] - t0)
+        self._reply(self._state_text(look))
+
+    def _reply(self, state: str) -> None:
+        """The camera's answer to what the wearer just said, as an instruction: it ends the voice's "let me look"."""
+        text = (f"Camera, just looked, for what the wearer just said: {state[len('Camera now: '):]} "
+                "If they asked how it looks or said they are done, tell them this now in a few words, once they "
+                "have finished speaking; if they talked about something else, do not bring it up.")
+        logger.info("watch: reply: %s", text)
+        try:
+            self._session.current_agent.duplex_session.append_instructions(text)
+        except (RuntimeError, AttributeError):
+            pass
+
+    def _think(self, text: str) -> None:
+        """Silent context for the voice to answer from; nothing is said because of it."""
         logger.info("watch: thinking: %s", text)
         try:
             self._session.current_agent.duplex_session.append_thinking(text)
@@ -120,7 +194,9 @@ class Watch:
         logger.info("check_now: %s", text)
         return text
 
-    def _state_text(self) -> str:
+    def _state_text(self, look: tuple[Verdict, int, float] | None = None, looking: bool = False) -> str:
+        """Where the build stands and what the camera saw: `look` if given, else the last verdict if recent, else
+        why the camera has had no clear view. `looking`: only that the camera is looking now, nothing older."""
         build, tr = self._build, self.tracker
         total = len(build.guide.steps)
         if tr.finished:
@@ -128,17 +204,21 @@ class Watch:
         n = tr.step
         head = f"Camera now: steps 1 to {n - 1} are done; " if n > 1 else "Camera now: nothing is done yet; "
         head += f"the wearer is on step {n} ({build.guide.steps[n - 1].name})."
+        if looking:
+            return head + " The camera is looking at the plate right now; its answer comes in a moment."
         now = time.monotonic()
-        if self.last is not None and self.last[1] == n and now - self.last[2] < 10:
-            v, _, at = self.last
-            age = f"{now - at:.0f} seconds ago"
+        if look is None and self.last is not None and self.last[1] == n and now - self.last[2] < 10:
+            look = self.last
+        if look is not None:
+            v, _, at = look
+            age = f"{max(0.0, now - at):.0f} seconds ago"
             if v.answer == "correct":
-                return head + f" The last clear look, {age}, showed the step {n} brick in place; it is being confirmed, do not announce it as done yet."
+                return head + f" The look {age} showed the step {n} brick in place; it is being confirmed, do not announce it as done yet."
             if v.answer == "wrong":
-                return head + f" The last clear look, {age}, showed step {n} placed wrongly: {v.reason}."
+                return head + f" The look {age} showed step {n} placed wrongly: {v.reason}."
             if v.answer == "not_placed":
-                return head + f" The last clear look, {age}, showed the step {n} brick not on the plate yet."
-            return head + f" The last look, {age}, could not see the place of step {n}."
+                return head + f" The look {age} showed the step {n} brick not on the plate yet."
+            return head + f" The look {age} could not see the place of step {n}, most likely a hand over it."
         g = self._last_gate
         why = g.why if g is not None else "no frame"
         since = now - self._gate_since
@@ -163,6 +243,7 @@ class Watch:
         while True:
             try:
                 frame = await self._tap.next_frame(FRAME_TIMEOUT)
+                taken = time.monotonic()  # the frame's time, ~ when it was captured plus the network
             except asyncio.TimeoutError:
                 if not self._camera_quiet:
                     logger.warning("watch: no camera frame for %.0fs", FRAME_TIMEOUT)
@@ -182,11 +263,11 @@ class Watch:
                     or len(self._inflight) >= self._max_inflight):
                 continue
             self._last_fired = now
-            t = asyncio.create_task(self._judge_one(img, self.tracker.step, d), name="judge")
+            t = asyncio.create_task(self._judge_one(img, self.tracker.step, d, taken), name="judge")
             self._inflight.add(t)
             t.add_done_callback(self._inflight.discard)
 
-    async def _judge_one(self, img: Image.Image, step: int, d: Decision) -> None:
+    async def _judge_one(self, img: Image.Image, step: int, d: Decision, taken: float) -> None:
         """One frame to the judge; its verdict into the tracker if the step is still the same."""
         try:
             v: Verdict = await self._judge.ajudge(img, step)
@@ -204,7 +285,10 @@ class Watch:
         if step != self.tracker.step:
             logger.info("judge: verdict about step %d arrived after the step moved on, dropped", step)
             return
-        self.last = (v, step, time.monotonic())
+        # calls overlap: a slow verdict on an older frame must not replace a newer one
+        if self.last is None or self.last[1] != step or taken >= self.last[2]:
+            self.last = (v, step, taken)
+            self._new_look.set()
         ev = self.tracker.feed(v.answer, v.reason)
         if ev is not None:
             await self._on_event(ev)
@@ -261,6 +345,7 @@ class Watch:
         text = ("This replaces every earlier camera note. If you are speaking, stop and say this instead. "
                 "Do not wait for the wearer to speak first; after that, pause and listen.\n" + text)
         logger.info("watch: commentary: %s", text)
+        self._noted_at = time.monotonic()
         t0 = time.monotonic()
         speaking = self._session.agent_state == "speaking"
         try:

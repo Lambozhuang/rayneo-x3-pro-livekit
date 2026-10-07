@@ -54,9 +54,10 @@ backend model only ends the call"
 
 1. **Voice path.** Audio from the room goes to `gpt-live-1` over a WebSocket and its speech
    comes back as the agent's audio track. Its instructions carry the persona and every
-   step's `say`. Each time the wearer starts speaking, the camera path's state goes in as
-   silent context ("Camera now: ..."), which it answers "is it right?" from. Its one tool,
-   `end_call`, goes through a backend model.
+   step's `say`. When the wearer speaks, it gets the plate as it is then: a verdict on a frame
+   from at most a second before they started goes in at once as silent context ("Camera
+   now: ..."); otherwise it says "let me look" and the next verdict comes in as a note that
+   answers. Its one tool, `end_call`, goes through a backend model.
 2. **Camera path.** Every frame is kept by `FrameTap`; none reaches GPT-Live. The gate lets
    a frame through only when the whole green plate is in view, no hand is over it and the
    picture has been still for about a second. The judge then answers one question about
@@ -238,8 +239,10 @@ The current system; how it fits together is in "Architecture" above. Details and
   `append_instructions`, text starting "Camera, just now:"), which it says in its own words,
   interrupting itself if it was mid-sentence; a commentary (`generate_reply`) would wait for
   the current sentence, and holding notes until the voice was quiet made the wearer hear "let
-  me check" and only then "yes, that's right". It cannot look; when the wearer starts speaking
-  the watch's state goes in as thinking (`append_thinking`, "Camera now: ..."). A `check_now`
+  me check" and only then "yes, that's right". It cannot look; when the wearer speaks, the
+  answer waits for a verdict on a frame from at most `LOOKBACK` (1 s) before they started
+  (`append_thinking` if there is one already, else "let me look" and an `append_instructions`
+  note when it arrives; a correct one leaves the answer to the DONE note). A `check_now`
   tool did the same on request through the backend model but was never called in a lab run
   and is unregistered. The backend model (`OPENAI_BACKEND_MODEL`) only runs `end_call`.
 - The gate (`gate.py`): whole green plate in view and at least `GATE_MIN_SIDE` of the frame
