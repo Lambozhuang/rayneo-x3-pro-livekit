@@ -200,7 +200,7 @@
     "say": "Not quite yet. The second red disc is sitting too far right, under the white brick at the right end; move it left so its top touches the blue and lime bricks, and leave bare green plate directly under the white 1x4.",
     "end_call": false
    },
-   "ok_step": false
+   "ok_step": true
   },
   {
    "case": "L",
@@ -470,7 +470,7 @@
     "say": "The rear disc looks like it may sit too far left and possibly on the bottom of the body rather than under the blue and lime bricks. Please move it so it touches the body under the right part of the blue brick and the left part of the lime brick, with three empty columns before the front disc.",
     "end_call": false
    },
-   "ok_step": false
+   "ok_step": true
   },
   {
    "case": "L",

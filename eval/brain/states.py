@@ -26,7 +26,7 @@ STATE = {
     "H": done(4),
     "I": done(7),
     "J": done(9) + [("red", (12, 9, 15, 12), True)],           # right disc too far right, under the white 1x4 end
-    "K": done(10),
+    "K": done(10),   # the plan's wheel gap (three columns); the photo has four, so K's truth differs here
     "L": done(13),
     "N": done(13),
     "O": done(10),

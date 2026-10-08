@@ -3,7 +3,7 @@
     glasses --audio--> SFU --> this process --ws--> gpt-live-1 (knows every step's wording)
             --video-->     --> FrameTap (frames kept for the brain, none to the voice)
     gpt-live-1 --delegation (id + the wearer's words)--> brain: next frame + the call so far
-                                                         --> one vision call --> {seen, say, step, end_call}
+                                                         --> one vision call --> a reply, maybe confirm_step_correct
             <--commentary on that delegation-- brain (the voice says it in its own words)
             <--audio-- SFU <-- this process <-- gpt-live-1
             <--step list (participant attributes)-- this process (the step is the brain's)

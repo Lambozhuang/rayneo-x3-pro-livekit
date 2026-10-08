@@ -189,7 +189,7 @@
     "step": 11,
     "end_call": false
    },
-   "ok_step": true
+   "ok_step": false
   },
   {
    "case": "L",
@@ -444,7 +444,7 @@
     "step": 11,
     "end_call": false
    },
-   "ok_step": true
+   "ok_step": false
   },
   {
    "case": "L",

@@ -57,20 +57,20 @@ a new step as thinking, and the step list to the glasses; the task file feeds bo
    (no VAD on the session). Its instructions are the persona and every step's `say`
    (`gpt/prompts.py`): what needs no eyes (the next step, an earlier one, what a brick looks
    like) it answers itself. Whatever depends on what is in front of the wearer ("is this
-   right?", "where does it go?", "what is this?") and goodbye it delegates. Client
+   right?", "where does it go?", "what is this?") it delegates; a goodbye it answers itself and
+   the wearer hangs up on the glasses. Client
    delegation: the plugin hands the agent an id and the wearer's words, no backend model runs.
 2. **Brain** (`gpt/brain.py`), one stateless vision call per delegation, to OpenAI or
    Anthropic (`BRAIN_PROVIDER`, `BRAIN_MODEL`, `BRAIN_EFFORT`). Instructions: the role, why a
    wrong confirmation hurts, the whole task file, how to read the photo, how to reply, four
-   examples (fixed, so the prompt cache hits). Tools: `confirm_step_correct(step)` and
-   `end_call()`, their rules in their own descriptions. Input: the camera frame's bottom square
+   examples (fixed, so the prompt cache hits). One tool, `confirm_step_correct(step)`, its
+   rules in its own description; there is no hang-up tool, a misjudged goodbye cut calls off. Input: the camera frame's bottom square
    (the glasses look down at the table; the top of the portrait frame is wall) at
    `BRAIN_SIDE` (1080), then the call's timeline, the current step and the wearer's words.
    The reply, plain facts, goes back as commentary on that delegation id ("Camera: ..."), which
    the voice says in its own words. Only a confirm call moves the build: published to the
    glasses, told to the voice in the same commentary and as one line of thinking; no call,
-   nothing moves (not done, not sure, or not asked). `end_call` closes the room after the
-   goodbye. A newer delegation cancels an older one still running; a call over
+   nothing moves (not done, not sure, or not asked). A newer delegation cancels an older one still running; a call over
    `BRAIN_TIMEOUT` (12 s) answers "could not see that, say it again". No image stays in the
    timeline; what a look saw stays as its reply. Offline tests of models, image and prompt:
    `eval/brain/RESULTS.md`.

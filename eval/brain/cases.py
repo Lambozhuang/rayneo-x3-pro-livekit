@@ -12,7 +12,9 @@ CASES = [
     ("H", "140-s4-correct",     4, "I swapped it. Is it right now?",           5, "right; give step 5"),
     ("I", "180-s8-not_placed",  8, "Is it okay?",                              8, "white 1x4 at the right end not placed yet"),
     ("J", "218-s10-wrong",     10, "Like this?",                               10, "not right: rear disc too far right, must sit under blue/lime"),
-    ("K", "231-s10-correct",   10, "Okay, how about now?",                     11, "right; give step 11"),
+    # K: the right wheel was built with four empty columns to the left wheel, the plan says three (the old judge
+    # passed it; the wearer confirmed by eye on 2026-10-08): a right answer keeps step 10 and says so
+    ("K", "231-s10-correct",   10, "Okay, how about now?",                     10, "not right: four empty columns between the wheels, should be three"),
     ("L", "270-s13-correct",   13, "Done, is that the last one?",              14, "right; build finished"),
     # general questions, step must not change
     ("M", "012-s1-correct",     2, "What am I holding in my right hand?",     2, "a purple brick (2x4)"),

@@ -222,7 +222,7 @@
     "calls": [],
     "step": 10
    },
-   "ok_step": false
+   "ok_step": true
   },
   {
    "case": "L",
@@ -504,7 +504,7 @@
     "calls": [],
     "step": 10
    },
-   "ok_step": false
+   "ok_step": true
   },
   {
    "case": "L",
@@ -783,7 +783,7 @@
     "calls": [],
     "step": 10
    },
-   "ok_step": false
+   "ok_step": true
   },
   {
    "case": "L",

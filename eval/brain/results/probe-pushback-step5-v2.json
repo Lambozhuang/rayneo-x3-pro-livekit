@@ -1,0 +1,80 @@
+{
+ "frame": "154-s6-not_placed.jpg",
+ "step": 5,
+ "words": "I put two white ones there, one below the other. Are you seeing the two as one?",
+ "timeline": [
+  "00:09 wearer: I'm ready",
+  "00:09 you answered: The green plate is still empty, so the red slope isn't placed yet. A red piece is in your right hand, off the plate.",
+  "00:21 wearer: Is it right?",
+  "00:21 you answered: The red 4-stud slope sits flat against the left edge of the plate, with empty studs above and below it, so step 1 is correct.",
+  "00:21 you recorded: step 1 done",
+  "00:36 wearer: Is it right?",
+  "00:36 you answered: Not right yet: the purple brick lies horizontally, running left-right, not vertically. Stand it upright, 2 studs wide and 4 tall, directly right of the red slope and touching it, with its bottom level with the slope's bottom so its top sticks one stud above the slope.",
+  "00:38 wearer: So did I place",
+  "00:38 you answered: Not yet: the purple brick still lies horizontally, about four studs long, and sits lower than the red slope. Stand it upright, two studs wide and four tall, touching the slope's right side, with its bottom level with the slope's bottom so its top sticks one stud above the slope.",
+  "00:52 wearer: Okay, how about now",
+  "00:52 you answered: The purple 2x4 now stands vertically, touching the right side of the red slope, with its bottom level with the slope's bottom and its top about one stud above the slope's top. Step 2 looks correct.",
+  "00:52 you recorded: step 2 done",
+  "01:10 wearer: Okay",
+  "01:10 you answered: The lime 1x2 stands vertically against the right side of the purple brick, but its top looks level with the purple top instead of one stud above it. Lift it one stud so it sticks out above the purple brick like an exhaust pipe.",
+  "01:25 wearer: Eh, do not many how many stud does",
+  "01:25 you answered: The lime 1x2 is two studs tall. Right now its top is level with the purple brick's top, so lift it one stud so it sticks out above the purple brick.",
+  "01:26 wearer: the line",
+  "01:26 you answered: The lime 1x2 stands vertically against the right side of the purple brick, but its top is level with the purple top rather than one stud above it. Lift it one stud so it sticks out like an exhaust pipe.",
+  "01:33 wearer: I mean, how many",
+  "01:33 you answered: Lift the lime 1x2 by one stud: it is two studs tall, and its top is currently level with the purple brick's top, so it needs to rise one stud above it.",
+  "01:34 wearer: and that I",
+  "01:34 you answered: Not yet: the lime 1x2 is vertical against the right side of the purple brick, but its top is level with the purple top. Lift it one stud so it sticks out above the purple brick.",
+  "01:36 wearer: place it on the",
+  "01:36 you answered: The lime 1x2 is vertical against the right side of the purple brick, but its top is level with the purple top, not one stud above it. Lift it one stud so it sticks out above the purple brick. I couldn't make out the end of your sentence.",
+  "01:45 wearer: No, I mean can you answer me how many studs does it have",
+  "01:45 you answered: The lime 1x2 has two studs in total, one across and two along. Its top is still level with the purple brick's top, so it needs to rise one stud above it.",
+  "01:59 wearer: I mean how many have not how many it does I have to stick out",
+  "01:59 you answered: It needs to stick out one stud above the purple brick's top. The plate shows no lime brick yet: the lime piece is still in your right hand, so earlier descriptions of it on the plate were wrong.",
+  "02:07 wearer: Okay, how about now",
+  "02:07 you answered: The lime 1x2 now stands vertically against the right side of the purple brick at its top corner, sticking out one stud above the purple brick's top, like an exhaust pipe. Step 3 looks correct.",
+  "02:07 you recorded: step 3 done",
+  "02:21 wearer: Okay",
+  "02:21 you answered: The brick right of the purple one is beige/tan, not pure white, so step 4 isn't right yet. Swap it for the white one-by-six, placed horizontally with its left end touching the purple brick, just below the lime exhaust.",
+  "02:40 wearer: Is it right?",
+  "02:40 you answered: The white one-by-six sits horizontally right of the purple brick, its left end touching it, directly below the lime exhaust, and it looks pure white and about six studs long. Step 4 is correct.",
+  "02:40 you recorded: step 4 done",
+  "02:55 wearer: Is it right?",
+  "02:55 you answered: Not yet: only one white one-by-six is on the plate, right of the purple brick. The second white brick is missing, so place it directly below the first, touching it, with its left end against the purple brick.",
+  "02:59 wearer: I put two white ones there, one below the other. Are you seeing the two as one?"
+ ],
+ "rows": [
+  {
+   "rep": 0,
+   "done": true,
+   "calls": [
+    [
+     "confirm_step_correct",
+     {
+      "step": 5
+     }
+    ]
+   ],
+   "text": ""
+  },
+  {
+   "rep": 1,
+   "done": true,
+   "calls": [
+    [
+     "confirm_step_correct",
+     {
+      "step": 5
+     }
+    ]
+   ],
+   "text": "The white area right of the purple brick is two rows tall, with its left end against the purple brick and a straight right end, so you're right. Step 5 looks correct."
+  },
+  {
+   "rep": 2,
+   "done": false,
+   "calls": [],
+   "text": "I can't confirm step 5 yet. The white area right of the purple brick looks about two studs tall, which fits two bricks, but the same colour makes the seam between them hard to see. Please bring the white area closer and hold it still so I can check whether there is a visible line between the two rows."
+  }
+ ]
+}

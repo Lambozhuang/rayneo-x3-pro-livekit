@@ -4,6 +4,7 @@ Usage: run.py <provider> <model env var> <side> <repeats> <out.json> [effort] [r
 Earlier variants (JSON output, wording v2, reference drawing) survive only as their result files."""
 import asyncio, json, os, sys, time, types
 ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
+CALLER = os.getcwd()  # the out path on the command line is the caller's
 os.chdir(ROOT)
 sys.path.insert(0, "backend/agent/src"); sys.path.insert(0, "eval/brain")
 from dotenv import load_dotenv
@@ -77,6 +78,6 @@ async def main():
                 rows.append(dict(case=cid, rep=r, error=f"{type(e).__name__}: {e}"[:300]))
             print(cid, r, rows[-1].get("secs"), rows[-1].get("ok_step"), rows[-1].get("error", ""), flush=True)
     json.dump(dict(provider=provider, model=model_id, side=side, effort=effort, image=image, rows=rows),
-              open(out_path, "w"), indent=1)
+              open(os.path.join(CALLER, out_path), "w"), indent=1)
 
 asyncio.run(main())

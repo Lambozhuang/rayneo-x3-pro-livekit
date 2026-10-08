@@ -10,6 +10,7 @@ from the old system).
 
     python eval/brain/replay.py plan <run dir>                       the ask list, no API call
     python eval/brain/replay.py run <run dir> <provider> <model env var> <effort> <out.json>
+    INSERT="<s>|<words>;..." adds asks of your own (e.g. the wearer pushing back), in either command
 (run from backend/agent with uv, like run.py)
 """
 import asyncio, datetime as dt, json, os, re, sys, time, types
@@ -26,7 +27,7 @@ def ts(d):
     return dt.datetime.fromisoformat(d["timestamp"]).timestamp()
 
 
-def load(run):
+def load(run, inserts=()):
     frames = sorted(f for f in os.listdir(f"{run}/frames") if re.match(r"\d+-s\d+-", f))
     judged, said, events, t0 = [], [], [], None
     for line in open(f"{run}/agent.log", encoding="utf-8", errors="replace"):
@@ -55,6 +56,8 @@ def load(run):
     for t, kind, n in events:
         if not any(0 <= t - ta <= 4 for ta, _, _ in asks):  # a real ask just before covers it
             asks.append((t, SYNTH, f"synthetic (old loop: step {n} {kind})"))
+    for t_rel, words in inserts:  # extra asks at t_rel s after step 1 started, e.g. the wearer pushing back
+        asks.append((t0 + t_rel, words, "inserted"))
     asks.sort()
     plan = []
     for t, words, why in asks:
@@ -137,7 +140,9 @@ async def run(run_dir, plan, provider, model_var, effort, out_path):
 
 if __name__ == "__main__":
     cmd, run_dir = sys.argv[1], os.path.relpath(os.path.join(CALLER, sys.argv[2]), ROOT)
-    plan, events = load(run_dir)
+    # optional extra asks: INSERT="179.6|I put two white ones there...;250|..."
+    inserts = [(float(x.split("|", 1)[0]), x.split("|", 1)[1]) for x in os.environ.get("INSERT", "").split(";") if x]
+    plan, events = load(run_dir, inserts)
     if cmd == "plan":
         show(plan, events)
     else:

@@ -1,0 +1,35 @@
+{
+ "frame": "029-s2-wrong.jpg",
+ "step": 2,
+ "words": "No, it is vertical, I'm sure. It's right.",
+ "timeline": [
+  "00:09 wearer: I'm ready",
+  "00:09 you answered: The green plate is still empty, so the red slope isn't placed yet. A red piece is in your right hand, off the plate.",
+  "00:21 wearer: Is it right?",
+  "00:21 you answered: The red 4-stud slope sits flat against the left edge of the plate, with empty studs above and below it, so step 1 is correct.",
+  "00:21 you recorded: step 1 done",
+  "00:36 wearer: Is it right?",
+  "00:36 you answered: Not right yet: the purple brick lies horizontally, running left-right, not vertically. Stand it upright, 2 studs wide and 4 tall, directly right of the red slope and touching it, with its bottom level with the slope's bottom so its top sticks one stud above the slope.",
+  "00:40 wearer: No, it is vertical, I'm sure. It's right."
+ ],
+ "rows": [
+  {
+   "rep": 0,
+   "done": false,
+   "calls": [],
+   "text": "I still see the purple brick lying horizontally: it looks about four studs long left-right and two deep, with its top edge level with the slope's top rather than one stud above it. Please turn it upright so it is two studs wide and four tall, directly right of the red slope. If you think it is already upright, I may be missing something, so bring the plate closer or hold it still and I'll look again."
+  },
+  {
+   "rep": 1,
+   "done": false,
+   "calls": [],
+   "text": "Not confirmed: the purple brick lies horizontally on the plate, about four studs wide and two tall, with its top level with the slope's top. I may be misreading the stud count, so please bring the purple brick closer or hold it still so I can check again. To match step 2, it needs to stand upright, two studs wide and four tall, with its bottom level with the slope's bottom."
+  },
+  {
+   "rep": 2,
+   "done": false,
+   "calls": [],
+   "text": "No, the purple brick is still horizontal: it runs about four studs left-right and two studs up-down, sitting right of the red slope with its top level with the slope's top. Turn it so it is two studs wide and four tall, with its bottom level with the slope's bottom and its top one stud above the slope. I can't see the underside, so if you think it is vertical, bring the plate closer and hold it still so I can check again."
+  }
+ ]
+}

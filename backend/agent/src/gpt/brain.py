@@ -7,19 +7,20 @@ takes the next camera frame (taken after the ask), and makes one stateless
 vision call, to OpenAI's Responses API or Anthropic's Messages API
 (BRAIN_PROVIDER):
 
-    tools         confirm_step_correct(step), end_call()
+    tool          confirm_step_correct(step)
     instructions  rules + the whole task file                 fixed, so the prompt cache hits
     input         the timeline of the call (the wearer's words, what the brain answered and did)
                   + the current step + the wearer's words + the frame's bottom square
 
-and gets back a reply in plain facts plus any tool calls. Nothing goes back to
-the model: the calls are executed here and the reply goes to GPT-Live as
+and gets back a reply in plain facts, maybe with the tool call. Nothing goes
+back to the model: the call is executed here and the reply goes to GPT-Live as
 commentary on that delegation id ("Camera: ..."), which says it in its own
 words. Only a confirm_step_correct call moves the build (published to the glasses,
 told to GPT-Live in the same commentary and as one silent thinking line); no
 call, nothing moves, whether the step is not done, unsure or not asked about.
-end_call closes the room after the goodbye. The timeline only grows at the end,
-and no image is kept in it: what a look saw survives as its reply.
+There is no hang-up tool: a model misjudging a goodbye cut calls off, and the
+wearer ends the call on the glasses (double tap). The timeline only grows at
+the end, and no image is kept in it: what a look saw survives as its reply.
 
 The newest delegation wins: a call still running when the next arrives is
 cancelled. A call that fails or takes longer than BRAIN_TIMEOUT answers "I could
@@ -45,7 +46,7 @@ logger = logging.getLogger("rayneo-agent.brain")
 
 FRAME_WAIT = 1.0
 
-# (name, description, JSON schema of the arguments); the same two for both providers
+# (name, description, JSON schema of the arguments); the same for both providers
 TOOLS = [
     ("confirm_step_correct",
      "Confirms that the current step is built correctly. Use it when the photo clearly shows the current step's brick "
@@ -56,11 +57,6 @@ TOOLS = [
      "of the current step given in the input.",
      {"type": "object", "properties": {"step": {"type": "integer", "description": "the current step's number"}},
       "required": ["step"], "additionalProperties": False}),
-    ("end_call",
-     "Ends the call: the voice says goodbye and the session closes, which the wearer cannot undo. Use it only when the "
-     "wearer's own words in this turn say goodbye or ask to stop. A finished build is not a reason to end the call; "
-     "the wearer may still want to ask something.",
-     {"type": "object", "properties": {}, "additionalProperties": False}),
 ]
 
 
@@ -182,7 +178,6 @@ class Brain:
         self._timeline: list[str] = []
         self._task: asyncio.Task | None = None
         self._asks = 0
-        self._closing = False
 
     # ------------------------------------------------------------------ the timeline
 
@@ -215,7 +210,7 @@ class Brain:
             self._commentary("You could not see that just now. Ask the wearer to hold the plate in view and say it again.",
                              delegation_id)
             return
-        build, total = self._build, len(self._build.guide.steps)
+        build = self._build
         current = build.step + 1
         self.note("you answered", out["text"])
         parts = [f"Camera: {out['text']}"] if out["text"] else []
@@ -226,16 +221,10 @@ class Brain:
             parts.append(f"Step {current} is recorded as done; that was the last step, the build is finished."
                          if build.finished else f"Step {current} is recorded as done; now give step {current + 1}.")
             self._think(self._step_line())
-        if out["end_call"]:
-            parts.append("The wearer wants to stop: say goodbye.")
         self._commentary(" ".join(parts) or "Camera: nothing to add.", delegation_id)
-        if out["end_call"] and not self._closing:
-            self._closing = True
-            logger.info("end_call: run=%s at step %d/%d", build.run, build.step + 1, total)
-            asyncio.create_task(_close_after_goodbye(self._session), name="close_after_goodbye")
 
     async def _ask(self, words: str, n: int) -> dict:
-        """One look: {text, calls, done, end_call}; done = a confirm_step_correct call naming the current step."""
+        """One look: {text, calls, done}; done = a confirm_step_correct call naming the current step."""
         t0 = time.perf_counter()
         frame = await self._tap.next_frame(FRAME_WAIT)
         photo = await asyncio.to_thread(_jpeg, frame, self._side)
@@ -262,7 +251,7 @@ class Brain:
                     [f"{c}({a})" for c, a in calls], reply)
         if self._tap.dumping:
             self._tap.dump(photo, f"ask{n}-s{build.step + 1}{'-done' if done else ''}")
-        return {"text": reply, "calls": calls, "done": done, "end_call": any(c == "end_call" for c, _ in calls)}
+        return {"text": reply, "calls": calls, "done": done}
 
     # ------------------------------------------------------------------ to the voice
 
@@ -280,20 +269,3 @@ class Brain:
     def _commentary(self, text: str, delegation_id: str) -> None:
         logger.info("brain: commentary %s: %s", delegation_id, text)
         self._session.current_agent.duplex_session.append_commentary(text, delegation_id=delegation_id)
-
-
-async def _close_after_goodbye(session, start_within: float = 8.0, cap: float = 20.0) -> None:
-    """Wait for whatever the voice is saying now to end, then for the goodbye to start and end, and close the
-    room; the glasses return to their connect screen."""
-    t0 = time.monotonic()
-
-    async def until(state_is_speaking: bool, limit: float) -> None:
-        while (session.agent_state == "speaking") != state_is_speaking and time.monotonic() - t0 < limit:
-            await asyncio.sleep(0.05)
-
-    await until(False, start_within)
-    await until(True, start_within)
-    await until(False, cap)
-    await asyncio.sleep(0.5)  # the tail of the audio reaching the glasses
-    logger.info("end_call: closing the room after %.1fs", time.monotonic() - t0)
-    await get_job_context().delete_room()
