@@ -1,0 +1,645 @@
+{
+ "provider": "anthropic",
+ "model": "claude-haiku-5-5",
+ "effort": "medium",
+ "run": "tmp\\lab\\20261007d",
+ "rows": [
+  {
+   "t": 9.2,
+   "words": "I'm ready",
+   "why": "said",
+   "frame": "005-s1-not_placed.jpg",
+   "frame_t": 11.0,
+   "gap": 1.8,
+   "step_before": 1,
+   "step_after": 1,
+   "secs": 2.9,
+   "usage": {
+    "in": 6133,
+    "out": 193,
+    "cached": 4447
+   },
+   "calls": [],
+   "commentary": [
+    "Camera: The green plate is still empty, so the red slope isn't placed yet. A red piece is in your right hand, off the plate."
+   ],
+   "timeline_lines": 2
+  },
+  {
+   "t": 21.9,
+   "words": "Is it right?",
+   "why": "synthetic (old loop: step 1 done)",
+   "frame": "014-s2-not_placed.jpg",
+   "frame_t": 22.2,
+   "gap": 0.3,
+   "step_before": 1,
+   "step_after": 2,
+   "secs": 4.24,
+   "usage": {
+    "in": 6194,
+    "out": 497,
+    "cached": 4447
+   },
+   "calls": [
+    [
+     "confirm_step_correct",
+     {
+      "step": 1
+     }
+    ]
+   ],
+   "commentary": [
+    "Camera: The red 4-stud slope sits flat against the left edge of the plate, with empty studs above and below it, so step 1 is correct. Step 1 is recorded as done; now give step 2."
+   ],
+   "timeline_lines": 5
+  },
+  {
+   "t": 36.2,
+   "words": "Is it right?",
+   "why": "synthetic (old loop: step 2 wrong)",
+   "frame": "029-s2-wrong.jpg",
+   "frame_t": 36.3,
+   "gap": 0.1,
+   "step_before": 2,
+   "step_after": 2,
+   "secs": 3.49,
+   "usage": {
+    "in": 6281,
+    "out": 591,
+    "cached": 4447
+   },
+   "calls": [],
+   "commentary": [
+    "Camera: Not right yet: the purple brick lies horizontally, running left-right, not vertically. Stand it upright, 2 studs wide and 4 tall, directly right of the red slope and touching it, with its bottom level with the slope's bottom so its top sticks one stud above the slope."
+   ],
+   "timeline_lines": 7
+  },
+  {
+   "t": 38.7,
+   "words": "So did I place",
+   "why": "said",
+   "frame": "031-s2-wrong.jpg",
+   "frame_t": 39.0,
+   "gap": 0.3,
+   "step_before": 2,
+   "step_after": 2,
+   "secs": 3.4,
+   "usage": {
+    "in": 6392,
+    "out": 561,
+    "cached": 4447
+   },
+   "calls": [],
+   "commentary": [
+    "Camera: Not yet: the purple brick still lies horizontally, about four studs long, and sits lower than the red slope. Stand it upright, two studs wide and four tall, touching the slope's right side, with its bottom level with the slope's bottom so its top sticks one stud above the slope."
+   ],
+   "timeline_lines": 9
+  },
+  {
+   "t": 52.8,
+   "words": "Okay, how about now",
+   "why": "said",
+   "frame": "044-s3-not_placed.jpg",
+   "frame_t": 53.6,
+   "gap": 0.7,
+   "step_before": 2,
+   "step_after": 3,
+   "secs": 3.01,
+   "usage": {
+    "in": 6509,
+    "out": 468,
+    "cached": 4447
+   },
+   "calls": [
+    [
+     "confirm_step_correct",
+     {
+      "step": 2
+     }
+    ]
+   ],
+   "commentary": [
+    "Camera: The purple 2x4 now stands vertically, touching the right side of the red slope, with its bottom level with the slope's bottom and its top about one stud above the slope's top. Step 2 looks correct. Step 2 is recorded as done; now give step 3."
+   ],
+   "timeline_lines": 12
+  },
+  {
+   "t": 70.3,
+   "words": "Okay",
+   "why": "said",
+   "frame": "060-s3-wrong.jpg",
+   "frame_t": 71.8,
+   "gap": 1.4,
+   "step_before": 3,
+   "step_after": 3,
+   "secs": 4.25,
+   "usage": {
+    "in": 6608,
+    "out": 459,
+    "cached": 4447
+   },
+   "calls": [],
+   "commentary": [
+    "Camera: The lime 1x2 stands vertically against the right side of the purple brick, but its top looks level with the purple top instead of one stud above it. Lift it one stud so it sticks out above the purple brick like an exhaust pipe."
+   ],
+   "timeline_lines": 14
+  },
+  {
+   "t": 85.7,
+   "words": "Eh, do not many how many stud does",
+   "why": "said",
+   "frame": "072-s3-wrong.jpg",
+   "frame_t": 85.9,
+   "gap": 0.2,
+   "step_before": 3,
+   "step_after": 3,
+   "secs": 2.64,
+   "usage": {
+    "in": 6720,
+    "out": 369,
+    "cached": 4447
+   },
+   "calls": [],
+   "commentary": [
+    "Camera: The lime 1x2 is two studs tall. Right now its top is level with the purple brick's top, so lift it one stud so it sticks out above the purple brick."
+   ],
+   "timeline_lines": 16
+  },
+  {
+   "t": 86.9,
+   "words": "the line",
+   "why": "said",
+   "frame": "073-s3-not_placed.jpg",
+   "frame_t": 87.6,
+   "gap": 0.7,
+   "step_before": 3,
+   "step_after": 3,
+   "secs": 2.09,
+   "usage": {
+    "in": 6781,
+    "out": 285,
+    "cached": 4447
+   },
+   "calls": [],
+   "commentary": [
+    "Camera: The lime 1x2 stands vertically against the right side of the purple brick, but its top is level with the purple top rather than one stud above it. Lift it one stud so it sticks out like an exhaust pipe."
+   ],
+   "timeline_lines": 18
+  },
+  {
+   "t": 93.3,
+   "words": "I mean, how many",
+   "why": "said",
+   "frame": "079-s3-not_placed.jpg",
+   "frame_t": 94.9,
+   "gap": 1.6,
+   "step_before": 3,
+   "step_after": 3,
+   "secs": 1.7,
+   "usage": {
+    "in": 6875,
+    "out": 203,
+    "cached": 4447
+   },
+   "calls": [],
+   "commentary": [
+    "Camera: Lift the lime 1x2 by one stud: it is two studs tall, and its top is currently level with the purple brick's top, so it needs to rise one stud above it."
+   ],
+   "timeline_lines": 20
+  },
+  {
+   "t": 94.9,
+   "words": "and that I",
+   "why": "said",
+   "frame": "080-s3-not_placed.jpg",
+   "frame_t": 95.5,
+   "gap": 0.6,
+   "step_before": 3,
+   "step_after": 3,
+   "secs": 2.47,
+   "usage": {
+    "in": 6946,
+    "out": 284,
+    "cached": 4447
+   },
+   "calls": [],
+   "commentary": [
+    "Camera: Not yet: the lime 1x2 is vertical against the right side of the purple brick, but its top is level with the purple top. Lift it one stud so it sticks out above the purple brick."
+   ],
+   "timeline_lines": 22
+  },
+  {
+   "t": 96.5,
+   "words": "place it on the",
+   "why": "said",
+   "frame": "083-s3-wrong.jpg",
+   "frame_t": 97.1,
+   "gap": 0.6,
+   "step_before": 3,
+   "step_after": 3,
+   "secs": 2.33,
+   "usage": {
+    "in": 7028,
+    "out": 371,
+    "cached": 4447
+   },
+   "calls": [],
+   "commentary": [
+    "Camera: The lime 1x2 is vertical against the right side of the purple brick, but its top is level with the purple top, not one stud above it. Lift it one stud so it sticks out above the purple brick. I couldn't make out the end of your sentence."
+   ],
+   "timeline_lines": 24
+  },
+  {
+   "t": 105.7,
+   "words": "No, I mean can you answer me how many studs does it have",
+   "why": "said",
+   "frame": "090-s3-wrong.jpg",
+   "frame_t": 106.0,
+   "gap": 0.2,
+   "step_before": 3,
+   "step_after": 3,
+   "secs": 2.2,
+   "usage": {
+    "in": 7152,
+    "out": 285,
+    "cached": 4447
+   },
+   "calls": [],
+   "commentary": [
+    "Camera: The lime 1x2 has two studs in total, one across and two along. Its top is still level with the purple brick's top, so it needs to rise one stud above it."
+   ],
+   "timeline_lines": 26
+  },
+  {
+   "t": 119.1,
+   "words": "I mean how many have not how many it does I have to stick out",
+   "why": "said",
+   "frame": "104-s3-not_placed.jpg",
+   "frame_t": 119.7,
+   "gap": 0.6,
+   "step_before": 3,
+   "step_after": 3,
+   "secs": 7.49,
+   "usage": {
+    "in": 7236,
+    "out": 385,
+    "cached": 4447
+   },
+   "calls": [],
+   "commentary": [
+    "Camera: It needs to stick out one stud above the purple brick's top. The plate shows no lime brick yet: the lime piece is still in your right hand, so earlier descriptions of it on the plate were wrong."
+   ],
+   "timeline_lines": 28
+  },
+  {
+   "t": 127.2,
+   "words": "Okay, how about now",
+   "why": "said",
+   "frame": "113-s3-wrong.jpg",
+   "frame_t": 127.6,
+   "gap": 0.4,
+   "step_before": 3,
+   "step_after": 4,
+   "secs": 4.11,
+   "usage": {
+    "in": 7315,
+    "out": 635,
+    "cached": 4447
+   },
+   "calls": [
+    [
+     "confirm_step_correct",
+     {
+      "step": 3
+     }
+    ]
+   ],
+   "commentary": [
+    "Camera: The lime 1x2 now stands vertically against the right side of the purple brick at its top corner, sticking out one stud above the purple brick's top, like an exhaust pipe. Step 3 looks correct. Step 3 is recorded as done; now give step 4."
+   ],
+   "timeline_lines": 31
+  },
+  {
+   "t": 141.0,
+   "words": "Okay",
+   "why": "said",
+   "frame": "125-s4-wrong.jpg",
+   "frame_t": 141.8,
+   "gap": 0.7,
+   "step_before": 4,
+   "step_after": 4,
+   "secs": 2.93,
+   "usage": {
+    "in": 7407,
+    "out": 402,
+    "cached": 4447
+   },
+   "calls": [],
+   "commentary": [
+    "Camera: The brick right of the purple one is beige/tan, not pure white, so step 4 isn't right yet. Swap it for the white one-by-six, placed horizontally with its left end touching the purple brick, just below the lime exhaust."
+   ],
+   "timeline_lines": 33
+  },
+  {
+   "t": 160.8,
+   "words": "Is it right?",
+   "why": "synthetic (old loop: step 4 done)",
+   "frame": "142-s5-not_placed.jpg",
+   "frame_t": 160.8,
+   "gap": 0.0,
+   "step_before": 4,
+   "step_after": 5,
+   "secs": 3.71,
+   "usage": {
+    "in": 7506,
+    "out": 638,
+    "cached": 4447
+   },
+   "calls": [
+    [
+     "confirm_step_correct",
+     {
+      "step": 4
+     }
+    ]
+   ],
+   "commentary": [
+    "Camera: The white one-by-six sits horizontally right of the purple brick, its left end touching it, directly below the lime exhaust, and it looks pure white and about six studs long. Step 4 is correct. Step 4 is recorded as done; now give step 5."
+   ],
+   "timeline_lines": 36
+  },
+  {
+   "t": 175.6,
+   "words": "Is it right?",
+   "why": "synthetic (old loop: step 5 done)",
+   "frame": "154-s6-not_placed.jpg",
+   "frame_t": 175.7,
+   "gap": 0.2,
+   "step_before": 5,
+   "step_after": 5,
+   "secs": 2.21,
+   "usage": {
+    "in": 7603,
+    "out": 291,
+    "cached": 4447
+   },
+   "calls": [],
+   "commentary": [
+    "Camera: Not yet: only one white one-by-six is on the plate, right of the purple brick. The second white brick is missing, so place it directly below the first, touching it, with its left end against the purple brick."
+   ],
+   "timeline_lines": 38
+  },
+  {
+   "t": 184.3,
+   "words": "Is it right?",
+   "why": "synthetic (old loop: step 6 done)",
+   "frame": "164-s7-not_placed.jpg",
+   "frame_t": 184.4,
+   "gap": 0.1,
+   "step_before": 5,
+   "step_after": 5,
+   "secs": 4.63,
+   "usage": {
+    "in": 7686,
+    "out": 588,
+    "cached": 4447
+   },
+   "calls": [],
+   "commentary": [
+    "Camera: Not yet: only one white one-by-six is on the plate, right of the purple brick. A blue one-by-four is already sitting directly below it, in the spot where the second white brick belongs, so the blue brick needs to come off first. Then the second white one-by-six goes directly below the first, touching the purple brick."
+   ],
+   "timeline_lines": 40
+  },
+  {
+   "t": 204.3,
+   "words": "Is it right?",
+   "why": "synthetic (old loop: step 7 done)",
+   "frame": "177-s8-not_placed.jpg",
+   "frame_t": 204.3,
+   "gap": 0.0,
+   "step_before": 5,
+   "step_after": 5,
+   "secs": 3.37,
+   "usage": {
+    "in": 7807,
+    "out": 506,
+    "cached": 4447
+   },
+   "calls": [],
+   "commentary": [
+    "Camera: Not yet: there is no second white one-by-six below the first. The row under the first white brick holds the blue one-by-four, with a lime piece at its right end. Remove the blue and lime pieces, then place a white one-by-six directly below the first white brick, its left end touching the purple brick."
+   ],
+   "timeline_lines": 42
+  },
+  {
+   "t": 205.3,
+   "words": "Yeah, I just did",
+   "why": "said",
+   "frame": "178-s8-not_placed.jpg",
+   "frame_t": 205.8,
+   "gap": 0.5,
+   "step_before": 5,
+   "step_after": 5,
+   "secs": 3.55,
+   "usage": {
+    "in": 7927,
+    "out": 422,
+    "cached": 4447
+   },
+   "calls": [],
+   "commentary": [
+    "Camera: Not yet: the row under the first white brick still shows the blue one-by-four and a lime piece at its right end, and no second white one-by-six is on the plate. Remove the blue and lime pieces, then place a white one-by-six directly below the first white brick, its left end touching the purple brick."
+   ],
+   "timeline_lines": 44
+  },
+  {
+   "t": 210.9,
+   "words": "It's already",
+   "why": "said",
+   "frame": "183-s8-not_placed.jpg",
+   "frame_t": 211.0,
+   "gap": 0.1,
+   "step_before": 5,
+   "step_after": 5,
+   "secs": 2.67,
+   "usage": {
+    "in": 8035,
+    "out": 366,
+    "cached": 4447
+   },
+   "calls": [],
+   "commentary": [
+    "Camera: The row directly below the first white brick still holds the blue one-by-four, with a lime piece at its right end, and no second white one-by-six is on the plate. Remove the blue and lime pieces, then place a white one-by-six directly below the first white brick, its left end touching the purple brick."
+   ],
+   "timeline_lines": 46
+  },
+  {
+   "t": 221.0,
+   "words": "Is it right?",
+   "why": "synthetic (old loop: step 8 done)",
+   "frame": "192-s9-not_placed.jpg",
+   "frame_t": 221.0,
+   "gap": 0.0,
+   "step_before": 5,
+   "step_after": 5,
+   "secs": 2.91,
+   "usage": {
+    "in": 8150,
+    "out": 348,
+    "cached": 4447
+   },
+   "calls": [],
+   "commentary": [
+    "Camera: Not yet: there is no second white one-by-six on the plate. The row directly below the first white brick still holds the blue one-by-four, with a lime piece at its right end. Remove those, then place a white one-by-six directly below the first white brick, its left end touching the purple brick."
+   ],
+   "timeline_lines": 48
+  },
+  {
+   "t": 235.2,
+   "words": "Is it right?",
+   "why": "synthetic (old loop: step 9 done)",
+   "frame": "206-s10-not_placed.jpg",
+   "frame_t": 235.3,
+   "gap": 0.1,
+   "step_before": 5,
+   "step_after": 5,
+   "secs": 2.17,
+   "usage": {
+    "in": 8260,
+    "out": 323,
+    "cached": 4447
+   },
+   "calls": [],
+   "commentary": [
+    "Camera: Not yet: the row directly below the first white brick still holds the blue one-by-four, with a lime piece at its right end, and no second white one-by-six is on the plate. Remove those, then place a white one-by-six directly below the first white brick, its left end touching the purple brick."
+   ],
+   "timeline_lines": 50
+  },
+  {
+   "t": 250.1,
+   "words": "Is it right?",
+   "why": "synthetic (old loop: step 10 wrong)",
+   "frame": "219-s10-wrong.jpg",
+   "frame_t": 250.2,
+   "gap": 0.1,
+   "step_before": 5,
+   "step_after": 5,
+   "secs": 2.67,
+   "usage": {
+    "in": 8370,
+    "out": 418,
+    "cached": 4447
+   },
+   "calls": [],
+   "commentary": [
+    "Camera: Not yet: there is no second white one-by-six on the plate. The row directly below the first white brick still holds the blue one-by-four, with a lime piece at its right end. Remove those, then place a white one-by-six directly below the first white brick, touching the purple brick."
+   ],
+   "timeline_lines": 52
+  },
+  {
+   "t": 253.1,
+   "words": "Like this",
+   "why": "said",
+   "frame": "222-s10-wrong.jpg",
+   "frame_t": 253.5,
+   "gap": 0.3,
+   "step_before": 5,
+   "step_after": 5,
+   "secs": 2.57,
+   "usage": {
+    "in": 8473,
+    "out": 424,
+    "cached": 4447
+   },
+   "calls": [],
+   "commentary": [
+    "Camera: Not right yet: the row directly below the first white brick still holds the blue one-by-four, with a lime piece at its right end, and no second white one-by-six is there. Remove those, then place a white one-by-six directly below the first white brick, its left end touching the purple brick."
+   ],
+   "timeline_lines": 54
+  },
+  {
+   "t": 265.2,
+   "words": "Okay",
+   "why": "said",
+   "frame": "232-s10-correct.jpg",
+   "frame_t": 265.8,
+   "gap": 0.5,
+   "step_before": 5,
+   "step_after": 5,
+   "secs": 2.36,
+   "usage": {
+    "in": 8579,
+    "out": 374,
+    "cached": 4447
+   },
+   "calls": [],
+   "commentary": [
+    "Camera: Not yet: there is no second white one-by-six on the plate. The blue one-by-four still sits directly below the first white brick, with a lime piece at its right end. Remove those, then place a white one-by-six directly below the first white brick, its left end touching the purple brick."
+   ],
+   "timeline_lines": 56
+  },
+  {
+   "t": 282.1,
+   "words": "Is it right?",
+   "why": "synthetic (old loop: step 11 done)",
+   "frame": "250-s12-not_placed.jpg",
+   "frame_t": 282.4,
+   "gap": 0.3,
+   "step_before": 5,
+   "step_after": 5,
+   "secs": 3.61,
+   "usage": {
+    "in": 8689,
+    "out": 472,
+    "cached": 4447
+   },
+   "calls": [],
+   "commentary": [
+    "Camera: Not yet: there is no second white one-by-six. The row directly below the first white brick still holds the blue one-by-four, with a lime piece and a white brick at its right end. Remove the blue brick, then place a white one-by-six directly below the first white brick, its left end touching the purple brick."
+   ],
+   "timeline_lines": 58
+  },
+  {
+   "t": 294.5,
+   "words": "Is it right?",
+   "why": "synthetic (old loop: step 12 done)",
+   "frame": "259-s13-not_placed.jpg",
+   "frame_t": 294.6,
+   "gap": 0.1,
+   "step_before": 5,
+   "step_after": 5,
+   "secs": 3.96,
+   "usage": {
+    "in": 8804,
+    "out": 459,
+    "cached": 4447
+   },
+   "calls": [],
+   "commentary": [
+    "Camera: Not yet: there is no second white one-by-six. The blue one-by-four still sits directly below the first white brick, with a lime piece at its right end. Remove those, then place a white one-by-six directly below the first white brick, its left end touching the purple brick."
+   ],
+   "timeline_lines": 60
+  },
+  {
+   "t": 309.1,
+   "words": "Is it right?",
+   "why": "synthetic (old loop: step 13 done)",
+   "frame": "271-s13-correct.jpg",
+   "frame_t": 308.6,
+   "gap": null,
+   "step_before": 5,
+   "step_after": 5,
+   "secs": 3.12,
+   "usage": {
+    "in": 8908,
+    "out": 453,
+    "cached": 4447
+   },
+   "calls": [],
+   "commentary": [
+    "Camera: Not yet: there is no second white one-by-six below the first. The blue one-by-four sits directly below the first white brick, with a lime piece at its right end. Remove those, then place a white one-by-six directly below the first white brick, touching the purple brick."
+   ],
+   "timeline_lines": 62
+  }
+ ]
+}
