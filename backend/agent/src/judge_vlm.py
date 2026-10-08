@@ -11,7 +11,7 @@ at 1080p (eval/RESULTS.md, "VLM 路线"). Learned there: coordinates and
 diagrams fail (the model echoes them), relational facts work, and fragile
 wording ("level with", "directly above") causes false wrongs.
 
-Selected with JUDGE=vlm; the model and its settings come from OPENAI_CHECK_*.
+Used by eval/ and by the shelved watch loop (gpt/watch.py), not by the agent.
 """
 
 from __future__ import annotations

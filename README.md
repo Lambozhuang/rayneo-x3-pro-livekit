@@ -1,8 +1,9 @@
 # RayNeo X3 Pro live AI assistant
 
 A voice assistant for RayNeo X3 Pro AR glasses that guides the wearer through a LEGO build,
-built on LiveKit and OpenAI's GPT-Live. GPT-Live talks; the agent's own code watches the
-camera and decides when a step is done or a brick is wrong. The project is a test bed for
+built on LiveKit and OpenAI's GPT-Live. GPT-Live talks; when an answer needs eyes it hands
+the question to the agent, which looks at the newest camera frame with a vision model and
+keeps track of the step. The project is a test bed for
 how the network between the glasses and the server changes that experience. A Gemini Live
 path is kept but not in use.
 
@@ -21,7 +22,7 @@ and the PNGs (`make_agent_diagram.py` for the figure below).</sub>
 
 The two halves meet in a LiveKit room. The glasses publish microphone and camera tracks
 into it; the agent joins the same room, streams the audio to GPT-Live over a WebSocket,
-keeps the camera frames for its own code, and publishes GPT-Live's speech back as its own
+keeps the camera frames for the vision model, and publishes GPT-Live's speech back as its own
 audio track. The glasses hold no model credentials. The Wi-Fi hop between the glasses and
 the server is the experiment's only variable: loss and jitter are injected there.
 
@@ -40,51 +41,43 @@ ports reachable at the address it advertises):
 ### Inside the agent
 
 GPT-Live hears the wearer and speaks; it knows every step's wording but never sees a frame.
-The camera goes to the agent's code, which judges the current step and tells the voice what
-changed. One task file feeds both.
+What needs eyes it hands over to the agent's brain, which answers from the newest frame and
+holds the step. One task file feeds both.
 
 <picture>
   <source media="(prefers-color-scheme: dark)" srcset="docs/agent-dark.png">
   <img alt="Inside the agent: audio to a GPT-Live session whose persona holds every step's wording;
-video to FrameTap, gate, judge (a vision model in use, plain CV as the code default), tracker and
-watch, which publishes the step list to the glasses and hands GPT-Live a note per change and the
-state when the wearer speaks; the task file feeds the voice and both judges; the backend model
-only ends the call"
+video to FrameTap; the session delegates to the brain with an id and the wearer's words, the brain
+takes the next frame and the call so far to a vision model and answers with commentary on that id,
+a new step as thinking, and the step list to the glasses; the task file feeds both"
        src="docs/agent-light.png">
 </picture>
 
 1. **Voice.** `gpt-live-1` is audio only and full duplex, and owns turn-taking and barge-in
    (no VAD on the session). Its instructions are the persona and every step's `say`
-   (`gpt/prompts.py`). Two kinds of text reach it from the camera path (`gpt/watch.py`):
-   - a **note** when a step is done or a brick is wrong ("Camera, just now: step 3 is done
-     ... give step 4: ..."), sent with `append_instructions`: the voice says it at once,
-     cutting into its own sentence if it has to;
-   - each time the wearer starts speaking, the **newest camera state**, sent once with
-     `append_thinking` ("Camera now: steps 1 to 2 are done; ... the last look showed ..."):
-     silent context it answers from. The verdict in it is about a frame 2-3 s old.
+   (`gpt/prompts.py`): what needs no eyes (the next step, an earlier one, what a brick looks
+   like) it answers itself. Whatever depends on what is in front of the wearer ("is this
+   right?", "where does it go?", "what is this?") and goodbye it delegates. Client
+   delegation: the plugin hands the agent an id and the wearer's words, no backend model runs.
+2. **Brain** (`gpt/brain.py`), one stateless vision call per delegation
+   (`OPENAI_BRAIN_MODEL`, ~2 s): instructions = rules and the whole task file (fixed, so the
+   prompt cache hits); input = the call's timeline (both speakers' words, what the brain saw
+   and said), the current step, the wearer's words, and the next camera frame, scaled to
+   `OPENAI_BRAIN_SIDE` (1024). It answers JSON `{seen, say, step, end_call}`. `say` goes back
+   as commentary on that delegation id and the voice says it in its own words; a new step is
+   published to the glasses and told to the voice as one line of thinking; `end_call` closes
+   the room after the goodbye. A newer delegation cancels an older one still running; a call
+   over 8 s answers "could not see that, say it again". No image stays in the timeline; what
+   a look saw stays as its `seen` line.
+3. **Task file** (`guides/truck/task.toml`): per step the wording the wearer hears (`say`),
+   where the brick goes and what a photo must show (`where`, `checks`), and the brick's cells
+   and colour tables for the CV judge.
 
-   Its one tool, `end_call`, runs through the backend model (`OPENAI_BACKEND_MODEL`).
-2. **Gate** (`gate.py`, every frame, ~10 ms): the whole green plate in view and big enough,
-   no gross skin over it, not moving, and still for a moment. The thresholds follow the
-   judge (`GATE_STILL` / `GATE_MIN_SIDE` / `GATE_MOTION_MAX`): vlm 0.3 s / 0.10 / 30, cv
-   1.0 s / 0.23 / 12.
-3. **Judge**, about the current step only: correct, wrong, not placed or cannot see, plus one
-   sentence.
-   - `JUDGE=vlm` (`judge_vlm.py`), the one in use: the plate crop and the step's
-     `where`/`checks` to `OPENAI_CHECK_MODEL`, ~2 s a call. Up to `GPT_WATCH_INFLIGHT` (2)
-     calls run at once, `GPT_WATCH_GAP` (0.5 s) apart, so a verdict comes about every second.
-   - `JUDGE=cv` (`judge_cv.py`), the code default, ~0.1 s and no model: plate corners,
-     homography to the stud grid, colour per cell against the layout. Its colour centres
-     drift with the call stream's auto exposure, so it does not hold up on the glasses yet.
-4. **State machine** (`progress.py`): `GPT_WATCH_CONFIRM` (2) correct in a row and the step is
-   done; `GPT_WATCH_WRONG_CONFIRM` (2) wrong among the last three and the brick is wrong, said
-   once, and again only after three "not placed" in a row. It never goes back on its own. A
-   verdict about a step that has moved on is dropped. A done step moves the build and is published to the glasses as participant
-   attributes.
-5. **Task file** (`guides/truck/task.toml`): per step the wording the wearer hears, the
-   brick's colour and cells (cv), the facts to check (vlm), and the colour tables. `eval/`
-   imports the same gate, judge and state machine and replays a recorded run through them
-   (`eval/RESULTS.md`).
+The brain looks only when asked; nothing announces a finished step on its own yet. The
+camera loop of `lego-harness-v1` (`gate.py`, `judge_vlm.py`, `judge_cv.py`, `progress.py`,
+`gpt/watch.py`: a gate, a four-way verdict per frame, a state machine, notes pushed to the
+voice) is kept but not run; `eval/` imports the gate, judges and state machine and replays a
+recorded run through them (`eval/RESULTS.md`).
 
 ## Layout
 
@@ -96,12 +89,10 @@ backend/
   api/src/auth.py       AUTH_MODE = dev | static | jwt
   agent/src/agent.py    entrypoint: AGENT_BACKEND=gemini|openai picks the implementation
   agent/src/guide.py    build guide loader and the state of one run (shared)
-  agent/src/frames.py   FrameTap: keeps camera frames for the code
-  agent/src/gate.py     which frames are worth judging
-  agent/src/judge_vlm.py the judge in use: one step's question to a vision model
-  agent/src/judge_cv.py  the CV judge: plate -> grid -> colour per cell, no model
-  agent/src/progress.py the state machine: verdicts -> step done / brick wrong
-  agent/src/gpt/        agent, config, prompts (persona with every step), watch (camera -> GPT-Live), tools (end_call)
+  agent/src/frames.py   FrameTap: keeps camera frames for the brain
+  agent/src/gpt/        agent, config, prompts (voice persona, brain instructions), brain (delegation -> frame -> answer)
+  agent/src/gate.py, judge_vlm.py, judge_cv.py, progress.py, gpt/watch.py
+                        the lego-harness-v1 camera loop, not run; eval/ uses the first four
   agent/src/gemini/     the Gemini Live path (not in use)
   agent/src/render.py   reference-model video stream (used by guides with a model.glb; the truck has none)
   agent/guides/         build guides, chosen with BUILD_GUIDE; guides/truck is the current task
@@ -133,13 +124,13 @@ docker compose down
 the ufw rules the glasses need if ufw is active.
 
 What the agent log shows: `experiment:` (every switch of the run), `step n/m start|done`,
-`user:` / `assistant:` (both transcripts), `judge:` (each verdict with its latency and
-tokens), `gate:` (changes of the gate's reason), `watch: thinking:` / `watch: commentary:`
-(what reached the voice), `voice:` (note to speech), `delegation:` (what the voice handed to
-the backend model), and `latency:`, the `reply_ms` the glasses measure from the wearer's
-last word to the agent's audio (`ReplyLatency.kt`), the number the experiment is about.
-`FRAME_DUMP_DIR=/app/frames` keeps every judged frame under `backend/frames/<call>/`, named
-by step and verdict (`FRAME_DUMP_MAX` caps the count); the container writes as root, so
+`user:` / `assistant:` (both transcripts), `delegation:` (what the voice handed over, with the
+wearer's words), `brain:` (each call with its latency, tokens and answer; `brain: thinking:` /
+`brain: commentary` what reached the voice), and `latency:`, the `reply_ms` the glasses
+measure from the wearer's last word to the agent's audio (`ReplyLatency.kt`), the number the
+experiment is about. `FRAME_DUMP_DIR=/app/frames` keeps every frame sent to the brain under
+`backend/frames/<call>/`, named `ask<n>-s<step>` (`FRAME_DUMP_MAX` caps the count); the
+container writes as root, so
 delete them with `docker run --rm -v "$PWD/frames:/f" backend-agent sh -c "rm -rf /f/2026*"`.
 
 Without Docker, against `docker run --rm -it --network host livekit/livekit-server --dev`:

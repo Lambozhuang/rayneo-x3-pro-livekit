@@ -27,6 +27,8 @@ KEEP = (
     ("gate:", DIM, "gate "),
     ("voice:", CYAN, "voice"),
     ("watch:", YELLOW, "watch"),
+    ("brain:", YELLOW, "brain"),
+    ("delegation:", CYAN, "deleg"),
     ("step ", YELLOW, "build"),
     ("build", YELLOW, "build"),
     ("end_call", YELLOW, "build"),

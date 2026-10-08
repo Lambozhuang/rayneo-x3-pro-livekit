@@ -4,11 +4,11 @@
 the framework never forwards video to the speech model, and keeps the frames
 for the code instead: `next_frame()` waits for the next one to arrive, which at
 the glasses' frame rate is a few tens of milliseconds, so whatever asks for a
-picture gets one taken after it asked, never an older one. The watch loop
-(gpt/watch.py) takes frame after frame from here.
+picture gets one taken after it asked, never an older one. The brain
+(gpt/brain.py) takes one per delegation.
 
-FRAME_DUMP_DIR keeps a copy of every frame that was actually judged, named
-after the step and the verdict, one subdirectory per call.
+FRAME_DUMP_DIR keeps a copy of every frame that was actually sent to a model,
+one subdirectory per call.
 """
 
 from __future__ import annotations
@@ -21,8 +21,14 @@ from concurrent.futures import ThreadPoolExecutor
 
 from livekit import rtc
 from livekit.agents.voice import AgentSession
+from PIL import Image
 
 logger = logging.getLogger("rayneo-agent.frames")
+
+
+def to_image(frame: rtc.VideoFrame) -> Image.Image:
+    f = frame if frame.type == rtc.VideoBufferType.RGB24 else frame.convert(rtc.VideoBufferType.RGB24)
+    return Image.frombytes("RGB", (f.width, f.height), bytes(f.data))
 
 
 class FrameTap:

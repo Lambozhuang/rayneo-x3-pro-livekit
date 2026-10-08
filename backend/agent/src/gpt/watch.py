@@ -1,5 +1,9 @@
 """The loop that looks and tells: camera -> gate -> judge -> state machine -> GPT-Live.
 
+Shelved: the GPT path runs on the brain (brain.py) since 2026-10-08; this loop,
+gate.py, judge_*.py and progress.py are kept as they were (tag lego-harness-v1),
+and eval/ still runs the last three.
+
 Every frame from the glasses comes through here (FrameTap). The gate (gate.py)
 passes a frame only when the whole plate is in view, no hand is over it and it
 has been still for a moment; the judge (judge_cv.py by default, judge_vlm.py
@@ -40,11 +44,10 @@ import io
 import logging
 import time
 
-from livekit import rtc
 from livekit.agents import AgentSession
 from PIL import Image
 
-from frames import FrameTap
+from frames import FrameTap, to_image
 from gate import Decision, Gate
 from guide import Build
 from judge_cv import Verdict
@@ -55,11 +58,6 @@ logger = logging.getLogger("rayneo-agent.watch")
 FRAME_TIMEOUT = 3.0  # no camera frame for this long: log once, keep waiting
 STATS_EVERY = 30.0   # seconds between `watch: N frames ...` summary lines
 GATE_DUMP_EVERY = 5.0  # seconds between two kept frames of the same gate reason
-
-
-def to_image(frame: rtc.VideoFrame) -> Image.Image:
-    f = frame if frame.type == rtc.VideoBufferType.RGB24 else frame.convert(rtc.VideoBufferType.RGB24)
-    return Image.frombytes("RGB", (f.width, f.height), bytes(f.data))
 
 
 class Watch:

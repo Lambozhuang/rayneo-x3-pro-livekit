@@ -36,13 +36,13 @@ THEMES = {
 
 # geometry ----------------------------------------------------------------
 PAD = 32
-W, H = 1538, 686
+W, H = 1302, 686
 
 GX, GW = PAD, 130                 # glasses card
 FX = GX + GW + 124                # agent frame
 FTOP, FBOT = 100, 654
 IN = 20                           # frame inner padding
-CX0 = 1346                        # cloud column
+CX0 = 1110                        # cloud column
 CCW = 160
 CI = 12                           # cloud card inset
 
@@ -54,8 +54,8 @@ Y_WS = VY + VH / 2
 Y_COMMENT = 280
 
 # middle band
-TASK = (330, 294, 270, 90)
-Y_CHECK = 330
+TASK = (306, 294, 220, 90)
+X_DELEG, X_ANSWER = 556, 586      # voice <-> brain wires
 
 # camera row
 PY, PH = 418, 120
@@ -63,9 +63,8 @@ Y_PIPE = PY + PH / 2
 Y_STEPS = 570
 Y_VISION = 600
 
-# pipeline cards: (x, w, title, file lines (dim), note lines (muted))
-PIPE_W = [128, 100, 128, 128, 104]
-PIPE_GAP = [56, 52, 84, 130]
+# camera row: FrameTap, brain
+TAP_W, BRAIN_X, BRAIN_W = 128, 520, 360
 
 
 def icon(name: str) -> str:
@@ -149,7 +148,7 @@ def build(t: dict) -> str:
     add(place("python", FX + IN + 10, 111, 20, f'fill="{t["python"]}"'))
     text(FX + IN + 30, 127, "Python agent, lab PC", 15, t["text"], "start")
     text(FX + IN, 152, "Voice path", 12, t["dim"], "start", ' letter-spacing="0.6"')
-    text(FX + IN, PY - 10, "Camera path (code; JUDGE picks the judge)", 12, t["dim"],
+    text(FX + IN, PY - 10, "Camera path", 12, t["dim"],
          "start", ' letter-spacing="0.6"')
 
     # GPT-Live session
@@ -158,45 +157,21 @@ def build(t: dict) -> str:
     text(sx + sw / 2, sy + 34, "GPT-Live session", 16, t["text"])
     text(sx + sw / 2, sy + 58, "persona = every step's wording (say)", 12, t["muted"])
 
-    # pipeline
-    boxes = []
-    x = FX + IN
-    for i, w in enumerate(PIPE_W):
-        boxes.append((x, w))
-        x += w + (PIPE_GAP[i] if i < len(PIPE_GAP) else 0)
-    content = [
-        ("FrameTap", [("frames.py", "f"), ("no frame reaches", "n"), ("GPT-Live", "n")]),
-        ("gate", [("gate.py", "f"), ("whole plate", "n"), ("no hand", "n"),
-                  ("still", "n")]),
-        ("judge", [("judge_cv.py", "f"), ("default, ~0.1 s", "n"),
-                   ("judge_vlm.py", "f"), ("JUDGE=vlm, ~2 s", "n")]),
-        ("tracker", [("progress.py", "f"), ("N agreeing", "n"),
-                     ("verdicts → event", "n")]),
-        ("watch", [("gpt/watch.py", "f")]),
-    ]
-    for (bx, bw), (title, lines) in zip(boxes, content):
-        card(bx, PY, bw, PH)
-        cx = bx + bw / 2
-        text(cx, PY + 30, title, 16, t["text"])
-        y = PY + 52
-        for j, (s, kind) in enumerate(lines):
-            if j and kind == "f":
-                y += 6
-            text(cx, y, s, 12 if kind == "f" else 11.5,
-                 t["dim"] if kind == "f" else t["muted"])
-            y += 16
-    gap_labels = [["frame"], ["pass"],
-                  ["correct", "wrong", "not_placed", "cannot_see"],
-                  ["step N done", "step N wrong: how"]]
-    for i, lines in enumerate(gap_labels):
-        x1 = boxes[i][0] + boxes[i][1] + 8
-        x2 = boxes[i + 1][0] - 8
-        wire([(x1, Y_PIPE), (x2, Y_PIPE)], t["muted"], "headm")
-        label((x1 + x2) / 2, Y_PIPE - 9, lines, t["muted"])
-
-    (jx, jw), (wx, ww) = boxes[2], boxes[4]
-    jcx = jx + jw / 2
-    x_comment, x_check = wx + 30, wx + ww - 24
+    # FrameTap and the brain
+    tx0 = FX + IN
+    card(tx0, PY, TAP_W, PH)
+    text(tx0 + TAP_W / 2, PY + 30, "FrameTap", 16, t["text"])
+    text(tx0 + TAP_W / 2, PY + 52, "frames.py", 12, t["dim"])
+    text(tx0 + TAP_W / 2, PY + 74, "no frame reaches", 11.5, t["muted"])
+    text(tx0 + TAP_W / 2, PY + 90, "GPT-Live", 11.5, t["muted"])
+    card(BRAIN_X, PY, BRAIN_W, PH)
+    bcx0 = BRAIN_X + BRAIN_W / 2
+    text(bcx0, PY + 30, "brain", 16, t["text"])
+    text(bcx0, PY + 52, "gpt/brain.py", 12, t["dim"])
+    text(bcx0, PY + 74, "per delegation: the next frame + the call so far", 11.5, t["muted"])
+    text(bcx0, PY + 90, "→ one vision call → seen, say, step, end_call", 11.5, t["muted"])
+    wire([(tx0 + TAP_W + 8, Y_PIPE), (BRAIN_X - 8, Y_PIPE)], t["muted"], "headm")
+    text((tx0 + TAP_W + BRAIN_X) / 2, Y_PIPE - 9, "next frame", 11.5, t["muted"])
 
     # task file
     tx, ty, tw, th = TASK
@@ -209,28 +184,27 @@ def build(t: dict) -> str:
     add(f'<path d="M{tx + tw - fold} {ty} V{ty + fold} H{tx + tw}" fill="none" '
         f'stroke="{t["edge"]}" stroke-width="1.4"/>')
     text(tx + 14, ty + 26, "guides/truck/task.toml", 13, t["text"], "start")
-    for j, s in enumerate(["say → voice", "color, cells, [colours] → cv judge",
-                           "where, checks → vlm judge"]):
-        text(tx + 14, ty + 47 + j * 16, s, 11.5, t["muted"], "start")
+    for j, s in enumerate(["say → voice", "all of it → brain"]):
+        text(tx + 14, ty + 50 + j * 18, s, 11.5, t["muted"], "start")
     wire([(400, ty - 2), (400, sy + sh + 4)], t["muted"], "headm", 1.2, dash=True)
-    wire([(tx + tw + 2, ty + th / 2), (jcx, ty + th / 2), (jcx, PY - 4)],
-         t["muted"], "headm", 1.2, dash=True)
+    wire([(tx + tw - 30, ty + th + 2), (tx + tw - 30, ty + th + 18), (BRAIN_X + 20, ty + th + 18),
+          (BRAIN_X + 20, PY - 4)], t["muted"], "headm", 1.2, dash=True)
 
-    # watch -> voice: a note per confirmed change, the state as thinking when the wearer speaks
-    xc = sx + sw - 40
-    wire([(x_comment, PY - 2), (x_comment, Y_COMMENT), (xc, Y_COMMENT),
-          (xc, sy + sh + 4)], t["muted"], "headm")
-    text((xc + x_comment) / 2, Y_COMMENT - 8, "notes: step N done / wrong · state on speech",
-         11.5, t["muted"])
+    # voice <-> brain
+    wire([(X_DELEG, sy + sh + 2), (X_DELEG, PY - 4)], t["muted"], "headm")
+    wire([(X_ANSWER, PY - 2), (X_ANSWER, sy + sh + 4)], t["muted"], "headm")
+    text(X_ANSWER + 14, 304, "↓ delegation: id + the wearer's words", 11.5, t["muted"], "start")
+    text(X_ANSWER + 14, 324, "↑ commentary on that id (the answer)", 11.5, t["muted"], "start")
+    text(X_ANSWER + 14, 344, "↑ thinking: the wearer is on step N", 11.5, t["muted"], "start")
 
     # glasses <-> agent, over WebRTC
     wire([(GX + GW + 2, Y_AUDIO), (sx - 4, Y_AUDIO)], t["accent"], "head", 1.8)
     text(bcx, Y_AUDIO - 8, "mic audio", 11.5, t["accent"])
     wire([(sx - 2, Y_SPEECH), (GX + GW + 4, Y_SPEECH)], t["accent"], "head", 1.8)
     text(bcx, Y_SPEECH - 8, "speech", 11.5, t["accent"])
-    wire([(GX + GW + 2, Y_PIPE), (boxes[0][0] - 4, Y_PIPE)], t["accent"], "head", 1.8)
+    wire([(GX + GW + 2, Y_PIPE), (tx0 - 4, Y_PIPE)], t["accent"], "head", 1.8)
     label(bcx, Y_PIPE - 9, ["camera video", "1080p 15 fps"], t["accent"])
-    wire([(wx + ww / 2, PY + PH + 2), (wx + ww / 2, Y_STEPS), (GX + GW + 4, Y_STEPS)],
+    wire([(BRAIN_X + 60, PY + PH + 2), (BRAIN_X + 60, Y_STEPS), (GX + GW + 4, Y_STEPS)],
          t["accent"], "head", 1.8)
     label(bcx, Y_STEPS - 9, ["step list", "(attributes)"], t["accent"])
 
@@ -246,26 +220,17 @@ def build(t: dict) -> str:
     text(ccx, VY + 60, "gpt-live-1", 16, t["text"])
     text(ccx, VY + 77, "GPT-Live", 12, t["dim"])
 
-    by, bh = Y_CHECK - 40, 80
-    card(cx1, by, cw, bh, edge=t["cloud"])
-    text(ccx, by + 28, "backend model", 15, t["text"])
-    text(ccx, by + 52, "tool: end_call", 11.5, t["muted"])
-    xt = cx1 + 34
-    wire([(xt, VY + VH + 2), (xt, by - 3)], t["cloud"], "headv", 1.4)
-    text(xt + 8, (VY + VH + by) / 2 + 4, "delegation", 11.5, t["cloud"], "start")
-
-    vy, vh = Y_VISION - 40, 80
-    card(cx1, vy, cw, vh, edge=t["cloud"], dash=True)
+    vy, vh = Y_PIPE - 40, 80
+    card(cx1, vy, cw, vh, edge=t["cloud"])
     text(ccx, vy + 28, "vision model", 15, t["text"])
-    text(ccx, vy + 49, "in use", 11.5, t["muted"])
-    text(ccx, vy + 65, "(JUDGE=vlm)", 11.5, t["muted"])
+    text(ccx, vy + 52, "OPENAI_BRAIN_MODEL", 11, t["muted"])
 
     # agent <-> cloud
     gx_mid = (fr + CX0) / 2
     wire([(sx + sw + 2, Y_WS), (cx1 - 2, Y_WS)], t["cloud"], "headv", 1.8, start=True)
-    text(gx_mid, Y_WS - 9, "WebSocket", 12.5, t["cloud"], extra=' letter-spacing="0.6"')
-    wire([(jcx, PY + PH + 2), (jcx, Y_VISION), (cx1 - 3, Y_VISION)],
-         t["cloud"], "headv", 1.3, dash=True)
+    text((sx + sw + cx1) / 2, Y_WS - 9, "WebSocket", 12.5, t["cloud"], extra=' letter-spacing="0.6"')
+    wire([(BRAIN_X + BRAIN_W + 2, Y_PIPE), (cx1 - 3, Y_PIPE)], t["cloud"], "headv", 1.4, start=True)
+    text((BRAIN_X + BRAIN_W + cx1) / 2, Y_PIPE - 9, "Responses, JSON", 11.5, t["cloud"])
 
     add("</svg>")
     return "\n".join(out)
