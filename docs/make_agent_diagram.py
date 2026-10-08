@@ -149,7 +149,7 @@ def build(t: dict) -> str:
     add(place("python", FX + IN + 10, 111, 20, f'fill="{t["python"]}"'))
     text(FX + IN + 30, 127, "Python agent, lab PC", 15, t["text"], "start")
     text(FX + IN, 152, "Voice path", 12, t["dim"], "start", ' letter-spacing="0.6"')
-    text(FX + IN, PY - 10, "Camera path (code, no model by default)", 12, t["dim"],
+    text(FX + IN, PY - 10, "Camera path (code; JUDGE picks the judge)", 12, t["dim"],
          "start", ' letter-spacing="0.6"')
 
     # GPT-Live session
@@ -167,7 +167,7 @@ def build(t: dict) -> str:
     content = [
         ("FrameTap", [("frames.py", "f"), ("no frame reaches", "n"), ("GPT-Live", "n")]),
         ("gate", [("gate.py", "f"), ("whole plate", "n"), ("no hand", "n"),
-                  ("still ~1 s", "n")]),
+                  ("still", "n")]),
         ("judge", [("judge_cv.py", "f"), ("default, ~0.1 s", "n"),
                    ("judge_vlm.py", "f"), ("JUDGE=vlm, ~2 s", "n")]),
         ("tracker", [("progress.py", "f"), ("N agreeing", "n"),
@@ -257,7 +257,7 @@ def build(t: dict) -> str:
     vy, vh = Y_VISION - 40, 80
     card(cx1, vy, cw, vh, edge=t["cloud"], dash=True)
     text(ccx, vy + 28, "vision model", 15, t["text"])
-    text(ccx, vy + 49, "fallback only", 11.5, t["muted"])
+    text(ccx, vy + 49, "in use", 11.5, t["muted"])
     text(ccx, vy + 65, "(JUDGE=vlm)", 11.5, t["muted"])
 
     # agent <-> cloud
