@@ -9,7 +9,7 @@ vision call, to OpenAI's Responses API or Anthropic's Messages API
 
     instructions  rules + the whole task file                 fixed, so the prompt cache hits
     input         the timeline of the call (both speakers, what the brain saw and said)
-                  + the current step + the wearer's words + the frame
+                  + the current step + the wearer's words + the frame's bottom square
 
 and gets back JSON {seen, say, step, end_call}. `say` goes back to GPT-Live as
 commentary on that delegation id (it says it in its own words); a step change
@@ -61,7 +61,14 @@ async def publish_build(build: Build) -> None:
 
 
 def _jpeg(frame, side: int) -> bytes:
+    """The bottom square of the frame (side = the frame's short side), scaled to `side`. The glasses look down at
+    the table: the upper part of the portrait frame is wall and the far desk, and dropping it nearly doubles the
+    pixels per stud at the same image size (15 -> 27 px on the truck plate). No plate detection, so whatever else
+    is in front of the wearer stays in the picture."""
     img = to_image(frame)
+    w, h = img.size
+    s = min(w, h)
+    img = img.crop(((w - s) // 2, h - s, (w - s) // 2 + s, h))
     img.thumbnail((side, side))
     buf = io.BytesIO()
     img.save(buf, "JPEG", quality=85)
@@ -114,7 +121,7 @@ class AnthropicModel:
         else:
             thinking = {"type": "disabled"}
         resp = await self._client.messages.create(
-            model=self._model, max_tokens=1024, thinking=thinking, output_config=config,
+            model=self._model, max_tokens=4096, thinking=thinking, output_config=config,
             system=[{"type": "text", "text": instructions, "cache_control": {"type": "ephemeral"}}],
             messages=[{"role": "user", "content": [
                 {"type": "text", "text": text},

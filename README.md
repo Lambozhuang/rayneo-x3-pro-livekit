@@ -62,7 +62,8 @@ a new step as thinking, and the step list to the glasses; the task file feeds bo
 2. **Brain** (`gpt/brain.py`), one stateless vision call per delegation, to OpenAI or
    Anthropic (`BRAIN_PROVIDER`, `BRAIN_MODEL`): instructions = rules and the whole task file (fixed, so the
    prompt cache hits); input = the call's timeline (both speakers' words, what the brain saw
-   and said), the current step, the wearer's words, and the next camera frame, scaled to
+   and said), the current step, the wearer's words, and the next camera frame: its bottom square (the
+   glasses look down at the table; the top of the portrait frame is wall), scaled to
    `BRAIN_SIDE` (1024). It answers JSON `{seen, say, step, end_call}`. `say` goes back
    as commentary on that delegation id and the voice says it in its own words; a new step is
    published to the glasses and told to the voice as one line of thinking; `end_call` closes
@@ -71,7 +72,9 @@ a new step as thinking, and the step list to the glasses; the task file feeds bo
    a look saw stays as its `seen` line.
 3. **Task file** (`guides/truck/task.toml`): per step the wording the wearer hears (`say`),
    where the brick goes and what a photo must show (`where`, `checks`), and the brick's cells
-   and colour tables for the CV judge.
+   and colour tables for the CV judge. One vocabulary throughout, also in both prompts: the
+   plate as a picture lying in front of the wearer, up = far edge, down = near edge, a brick
+   vertical or horizontal.
 
 The brain looks only when asked; nothing announces a finished step on its own yet. The
 camera loop of `lego-harness-v1` (`gate.py`, `judge_vlm.py`, `judge_cv.py`, `progress.py`,

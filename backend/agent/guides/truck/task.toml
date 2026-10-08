@@ -6,10 +6,12 @@
 # Grid: columns 1..16 left to right, rows 1..16 from the far edge to the edge
 # nearest the builder (the camera looks from the row-16 side). `cells` is the
 # brick's footprint [col0, row0, col1, row1], inclusive. Discs are round: their
-# four corner cells are not counted. `say` is what the wearer hears ("toward
-# you" is allowed there); `where` and `checks` are the camera-independent
-# wording for the VLM judge, and `color`/`cells` drive the CV judge; every
-# `color` must have a centre in every [colours.<camera>] table.
+# four corner cells are not counted. `say` is what the wearer hears, `where`
+# and `checks` what the brain checks the photo against; all three use one
+# vocabulary: the plate as a picture lying in front of the wearer, up = the far
+# edge, down = the near edge, left and right theirs, and a brick is vertical
+# (long side up-down) or horizontal (left-right). `color`/`cells` drive the CV
+# judge; every `color` must have a centre in every [colours.<camera>] table.
 
 title = "LEGO truck on a baseplate"
 plate = 16
@@ -47,12 +49,12 @@ part = "red 3x4 slope"
 name = "Red slope, left edge"
 color = "red"
 cells = [1, 6, 4, 8]
-say = "Take the red three-by-four slope and lay it flat against the left edge of the plate, long side running left to right, sloped face up. Leave about five empty rows beyond it and eight rows toward you."
-where = "the red 3x4 slope brick, sloped face up, against the left edge of the plate, with several rows of empty plate above it and below it"
+say = "Take the red three-by-four slope. Lay it horizontally against the left edge of the plate, slope side showing. Leave about five empty rows above it and eight below it."
+where = "the red 3x4 slope, horizontal (4 studs left-right, 3 up-down), against the left edge of the plate, with empty plate above and below it; seen from above, a slope looks like a flat red rectangle, which is expected: do not judge its slope"
 checks = [
-  "the brick touches the left edge of the plate",
+  "it touches the left edge of the plate",
   "it is red",
-  "there are empty studs both above it and below it (it touches neither the top nor the bottom edge of the plate)",
+  "there are empty studs both above and below it (it touches neither the top nor the bottom edge of the plate)",
 ]
 
 [[steps]]
@@ -60,25 +62,25 @@ part = "purple 2x4 brick"
 name = "Purple 2x4 cab, right of slope"
 color = "purple"
 cells = [5, 5, 6, 8]
-say = "Now the purple two-by-four. Lay it flat directly to the right of the red slope, touching it, long side running away from you. Its near end lines up with the red brick's near end, so it reaches one stud further away than the red brick."
-where = "the purple 2x4 brick lying flat with its long side running front to back (2 studs wide, 4 studs deep), directly to the right of the red slope and touching it; its bottom is level with the red brick's bottom and it reaches one stud further up than the red brick"
+say = "Now the purple two-by-four. Lay it vertically, directly right of the red slope and touching it. Its bottom lines up with the slope's bottom, so it sticks out one stud above the slope."
+where = "the purple 2x4, vertical (2 studs left-right, 4 up-down), directly right of the red slope and touching it; its bottom level with the slope's bottom, its top one stud above the slope's top"
 checks = [
-  "the purple brick touches the right side of the red slope",
-  "its long side runs front to back (it is deeper than it is wide), not left to right",
-  "it reaches one stud further up than the red brick",
+  "it touches the right side of the red slope",
+  "it is vertical: taller than it is wide",
+  "its top is one stud above the red slope's top",
 ]
 
 [[steps]]
 part = "lime green 1x2 brick"
-name = "Lime 1x2 exhaust, far right of cab"
+name = "Lime 1x2 exhaust, top right of cab"
 color = "lime"
 cells = [7, 4, 7, 5]
-say = "Take a small lime green one-by-two. Put it flat right next to the purple brick's far right corner, long side running away from you, so it sticks out one stud past the purple brick like an exhaust pipe."
-where = "the small lime-green 1x2 brick lying flat with its long side running front to back (1 wide, 2 deep), immediately to the right of the purple brick at its upper corner, reaching one stud further up than the purple brick like an exhaust pipe"
+say = "Take a small lime green one-by-two. Lay it vertically right of the purple brick at its top corner, sticking out one stud above the purple brick, like an exhaust pipe."
+where = "the lime 1x2, vertical (1 stud left-right, 2 up-down), touching the right side of the purple brick at its top, its top one stud above the purple brick's top"
 checks = [
-  "the lime brick touches the right side of the purple brick",
-  "its long side runs front to back, not left to right",
-  "it reaches one stud further up than the purple brick",
+  "it touches the right side of the purple brick",
+  "it is vertical, not horizontal",
+  "its top is one stud above the purple brick's top",
 ]
 
 [[steps]]
@@ -86,37 +88,37 @@ part = "white 1x6 brick"
 name = "White 1x6 top, right of cab"
 color = "white"
 cells = [7, 6, 12, 6]
-say = "Now a white one-by-six. Lay it flat to the right of the purple brick, running left to right, its left end touching the purple brick, just in front of the lime exhaust."
-where = "the first white 1x6 brick lying flat, directly to the right of the purple brick with its left end touching the purple brick, just under the lime exhaust (the exhaust sits on top of its left end)"
+say = "Now a white one-by-six. Lay it horizontally right of the purple brick, its left end touching the purple brick, just below the lime exhaust."
+where = "the first white 1x6, horizontal, right of the purple brick with its left end touching it, directly below the lime exhaust"
 checks = [
-  "the brick is pure white, not beige or cream",
+  "it is pure white, not beige or cream",
   "it is horizontal, 6 studs long",
   "its left end touches the purple brick",
 ]
 
 [[steps]]
 part = "white 1x6 brick"
-name = "White 1x6 middle, in front of first"
+name = "White 1x6, below the first"
 color = "white"
 cells = [7, 7, 12, 7]
-say = "Another white one-by-six. Put it flat directly in front of the first white one, toward you, touching it, so the white part is two rows deep with a straight right end."
-where = "another white 1x6 brick lying flat directly in front of the first white brick (toward the builder), so that the white area to the right of the purple brick becomes two rows of studs deep, a 2x6 white block whose left end touches the purple brick and whose right end is straight"
+say = "Another white one-by-six. Lay it horizontally directly below the first white one, touching it, so the white part is two rows tall with a straight right end."
+where = "a second white 1x6, horizontal, directly below the first white brick and touching it: the white area right of the purple brick becomes a 2x6 block, its left end touching the purple brick, its right end straight"
 checks = [
-  "the white area to the right of the purple brick has two rows of studs from front to back, not one",
-  "the white area's left end touches the purple brick",
-  "the white area's right end is straight: both rows end at the same place",
+  "the white area right of the purple brick is two rows tall, not one",
+  "its left end touches the purple brick",
+  "its right end is straight: both rows end at the same place",
 ]
 
 [[steps]]
 part = "blue 1x4 brick"
-name = "Blue 1x4 in front of white, left"
+name = "Blue 1x4 below white, left"
 color = "blue"
 cells = [7, 8, 10, 8]
-say = "Take the blue one-by-four. Lay it flat directly in front of the lower white brick, its left end touching the purple brick. It is shorter than the white bricks, so two studs stay empty at its right."
-where = "the blue 1x4 brick lying flat directly under the lower white brick, its left end touching the purple brick, its right end stopping two studs short of the white bricks' right end; its bottom is level with the bottom of the red and purple bricks"
+say = "Take the blue one-by-four. Lay it horizontally directly below the lower white brick, its left end touching the purple brick. It is shorter, so two studs stay empty at its right."
+where = "the blue 1x4, horizontal, directly below the lower white brick, its left end touching the purple brick, its right end two studs short of the white bricks' right end; its bottom level with the bottoms of the red and purple bricks"
 checks = [
-  "the blue brick's left end touches the purple brick",
-  "it sits directly under the lower white brick with no gap",
+  "its left end touches the purple brick",
+  "it is directly below the lower white brick, with no gap",
   "its right end is two studs short of the white bricks' right end",
 ]
 
@@ -125,51 +127,51 @@ part = "lime green 1x2 brick"
 name = "Lime 1x2 right of blue"
 color = "lime"
 cells = [11, 8, 12, 8]
-say = "Now the other lime green one-by-two. Put it flat to the right of the blue brick, touching it, running left to right, so that row ends level with the white bricks."
-where = "the lime-green 1x2 brick lying flat to the right of the blue brick and touching it, filling the row so that its right end lines up with the white bricks' right end"
+say = "Now the other lime green one-by-two. Lay it horizontally right of the blue brick, touching it, so that row ends level with the white bricks."
+where = "the lime 1x2, horizontal, right of the blue brick and touching it, its right end lined up with the white bricks' right end"
 checks = [
-  "the lime brick touches the right end of the blue brick",
-  "it is horizontal, in the same row as the blue brick",
-  "its right end lines up with the right end of the white bricks above",
+  "it touches the right end of the blue brick",
+  "it is horizontal, in the blue brick's row",
+  "its right end lines up with the white bricks' right end",
 ]
 
 [[steps]]
 part = "white 1x4 brick"
-name = "White 1x4 right end, front to back"
+name = "White 1x4 right end, vertical"
 color = "white"
 cells = [13, 5, 13, 8]
-say = "Take the white one-by-four. Lay it flat against the right end of the body, long side running away from you, touching the ends of the two white bricks and the lime one. It reaches one stud further away than the top white brick."
-where = "the white 1x4 brick lying flat with its long side running front to back (1 wide, 4 deep) against the right end of the body, touching the ends of the two white bricks and the lime brick; it reaches one stud further up than the top white brick and its bottom is level with the body's bottom"
+say = "Take the white one-by-four. Lay it vertically against the right end of the body, touching the ends of the two white bricks and the lime one. It sticks out one stud above the top white brick."
+where = "the white 1x4, vertical (1 stud left-right, 4 up-down), against the right end of the body, touching the right ends of both white bricks and the lime brick; its top one stud above the top white brick, its bottom level with the body's bottom"
 checks = [
-  "its long side runs front to back (it is deeper than it is wide), not left to right",
+  "it is vertical: taller than it is wide",
   "it touches the right ends of the white bricks and the lime brick",
-  "it reaches one stud further up than the top white brick",
+  "its top is one stud above the top white brick",
 ]
 
 [[steps]]
 part = "red 4x4 round disc"
-name = "Red disc front wheel, under slope"
+name = "Red disc left wheel, below slope"
 color = "red"
 cells = [1, 9, 4, 12]
-say = "Now a red round disc, four studs across. Put it directly in front of the red slope, touching it, against the left edge of the plate, like the front wheel."
-where = "the red round disc (4 studs across) directly under the red slope, touching its bottom edge, same width as the slope, against the left edge of the plate, like a front wheel"
+say = "Now a red round disc, four studs across. Put it directly below the red slope, touching it, against the left edge of the plate. That's the left wheel."
+where = "the red round disc (4 studs across) directly below the red slope, touching it, as wide as the slope and lined up with it, against the left edge of the plate: the left wheel"
 checks = [
-  "the disc touches the bottom edge of the red slope",
+  "it touches the bottom of the red slope",
   "it is as wide as the red slope and lined up with it",
   "it touches the left edge of the plate",
 ]
 
 [[steps]]
 part = "red 4x4 round disc"
-name = "Red disc rear wheel, under body"
+name = "Red disc right wheel, below body"
 color = "red"
 cells = [8, 9, 11, 12]
-say = "The second red disc is the rear wheel. Put it in front of the body, touching the blue and lime bricks, leaving three empty columns between it and the front wheel. The plate stays bare in front of the white brick at the right end."
-where = "the second red round disc under the right part of the body as the rear wheel: its top touches the body under the right part of the blue brick and the left part of the lime brick, three empty columns of studs separate it from the front disc, and bare green plate shows directly below the white 1x4 at the right end of the body"
+say = "The second red disc is the right wheel. Put it below the body, touching the blue and lime bricks, with three empty columns between it and the left wheel. The plate stays bare below the white brick at the right end."
+where = "the second red disc below the body, the right wheel: its top touches the right part of the blue brick and the left part of the lime brick, three empty columns of studs separate it from the left wheel, and bare plate shows directly below the white 1x4 at the right end"
 checks = [
-  "the disc's top touches the body under both the right part of the blue brick and the left part of the lime brick",
-  "between the front disc and this disc there are three empty columns of studs",
-  "directly below the white 1x4 at the right end of the body there is bare green plate, not the disc",
+  "its top touches both the right part of the blue brick and the left part of the lime brick",
+  "there are three empty columns of studs between the left wheel and this disc",
+  "directly below the white 1x4 at the right end there is bare plate, not the disc",
 ]
 
 [[steps]]
@@ -177,11 +179,11 @@ part = "tan 1x6 brick"
 name = "Tan 1x6 ground, left"
 color = "tan"
 cells = [1, 13, 6, 13]
-say = "Take the tan one-by-six, the beige one. Lay it flat directly in front of the front wheel, touching it, its left end at the left edge of the plate. This is the ground."
-where = "the tan (beige) 1x6 brick lying flat directly under the front disc, its left end at the left edge of the plate, like the ground line"
+say = "Take the tan one-by-six, the beige one. Lay it horizontally directly below the left wheel, touching it, its left end at the left edge of the plate. This is the ground."
+where = "the tan (beige) 1x6, horizontal, directly below the left wheel, its left end at the left edge of the plate: the ground line"
 checks = [
-  "the brick is beige/tan, not white",
-  "it is horizontal and lies directly under the front disc",
+  "it is beige/tan, not white",
+  "it is horizontal, directly below the left wheel",
   "its left end is at the left edge of the plate",
 ]
 
@@ -190,12 +192,12 @@ part = "white 1x6 brick"
 name = "White 1x6 ground, middle"
 color = "white"
 cells = [7, 13, 12, 13]
-say = "Now a white one-by-six on the ground. Put it in the same row as the tan brick, touching its right end, running under the rear wheel."
-where = "the white 1x6 brick lying flat in the same row as the tan brick, continuing it to the right and touching it, running under the rear disc"
+say = "Now a white one-by-six. Lay it horizontally in the same row as the tan brick, touching its right end; it runs below the right wheel."
+where = "the white 1x6, horizontal, in the tan brick's row, touching its right end, running below the right wheel"
 checks = [
-  "the brick is pure white",
-  "it is in the same row as the tan brick and touches its right end",
-  "it runs under the rear disc",
+  "it is pure white",
+  "it is in the tan brick's row and touches its right end",
+  "it runs below the right wheel",
 ]
 
 [[steps]]
@@ -203,10 +205,10 @@ part = "yellow 1x4 brick"
 name = "Yellow 1x4 ground, right"
 color = "yellow"
 cells = [13, 13, 16, 13]
-say = "Last one: the yellow one-by-four. Put it in the same row, touching the right end of the white ground brick, so the row runs all the way to the right edge of the plate."
-where = "the yellow 1x4 brick lying flat in the same row, continuing the white ground brick to the right and touching it, filling the row to the last stud column of the plate below the white 1x4 at the right end of the body"
+say = "Last one: the yellow one-by-four. Lay it in the same row, touching the right end of the white ground brick, so the row reaches the right edge of the plate."
+where = "the yellow 1x4, horizontal, in the ground row, touching the right end of the white ground brick, filling the row to the right edge of the plate, below the white 1x4 at the right end of the body"
 checks = [
-  "the brick is yellow",
-  "it is in the same row as the white ground brick and touches its right end",
-  "its right end is at the right edge of the plate: no empty studs to its right in that row (the brick may look flush with or slightly past the plate's edge)",
+  "it is yellow",
+  "it is in the white ground brick's row and touches its right end",
+  "its right end is at the right edge of the plate, no empty studs to its right in that row (it may look flush with or slightly past the edge)",
 ]
