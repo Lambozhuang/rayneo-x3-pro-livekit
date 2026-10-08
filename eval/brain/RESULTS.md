@@ -7,7 +7,8 @@ current step). Nothing about Live's wording or a whole session is tested here.
 
 ## Material
 
-`frames/`: 12 frames from the last full lab run (2026-10-07, call stream 1080x1920 portrait), labelled by eye.
+`frames/`: 12 frames from the last full lab run (2026-10-07, call stream 1080x1920 portrait), labelled by eye;
+local only (`eval/**/frames/` is not in the repo), copied from that run's frame dump.
 `cases.py`: 15 cases on them, A-L "is it right?" at a step (6 correct: A C F H K L; 4 placed wrongly: B E G J;
 2 not placed: D I), M-O general questions written for the test (what is in my right hand; how many red pieces;
 are the wheels the same size). The truth is the step after the answer (moved on or not) and the gist of a right
