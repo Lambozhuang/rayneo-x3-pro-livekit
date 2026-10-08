@@ -208,11 +208,11 @@ def build(t: dict) -> str:
          t["accent"], "head", 1.8)
     label(bcx, Y_STEPS - 9, ["step list", "(attributes)"], t["accent"])
 
-    # OpenAI cloud ---------------------------------------------------------
+    # model APIs -----------------------------------------------------------
     add(f'<rect x="{CX0}" y="{FTOP}" width="{CCW}" height="{FBOT - FTOP}" rx="16" '
         f'fill="none" stroke="{t["cloud"]}" stroke-opacity="0.55" stroke-width="1.4"/>')
     ccx = CX0 + CCW / 2
-    text(ccx, 127, "OpenAI cloud", 13.5, t["cloud"], extra=' letter-spacing="0.6"')
+    text(ccx, 127, "model APIs", 13.5, t["cloud"], extra=' letter-spacing="0.6"')
     cx1, cw = CX0 + CI, CCW - 2 * CI
 
     card(cx1, VY, cw, VH, edge=t["cloud"])
@@ -223,14 +223,15 @@ def build(t: dict) -> str:
     vy, vh = Y_PIPE - 40, 80
     card(cx1, vy, cw, vh, edge=t["cloud"])
     text(ccx, vy + 28, "vision model", 15, t["text"])
-    text(ccx, vy + 52, "OPENAI_BRAIN_MODEL", 11, t["muted"])
+    text(ccx, vy + 50, "BRAIN_MODEL", 11, t["muted"])
+    text(ccx, vy + 66, "OpenAI / Anthropic", 11, t["muted"])
 
     # agent <-> cloud
     gx_mid = (fr + CX0) / 2
     wire([(sx + sw + 2, Y_WS), (cx1 - 2, Y_WS)], t["cloud"], "headv", 1.8, start=True)
     text((sx + sw + cx1) / 2, Y_WS - 9, "WebSocket", 12.5, t["cloud"], extra=' letter-spacing="0.6"')
     wire([(BRAIN_X + BRAIN_W + 2, Y_PIPE), (cx1 - 3, Y_PIPE)], t["cloud"], "headv", 1.4, start=True)
-    text((BRAIN_X + BRAIN_W + cx1) / 2, Y_PIPE - 9, "Responses, JSON", 11.5, t["cloud"])
+    text((BRAIN_X + BRAIN_W + cx1) / 2, Y_PIPE - 9, "one call, JSON", 11.5, t["cloud"])
 
     add("</svg>")
     return "\n".join(out)

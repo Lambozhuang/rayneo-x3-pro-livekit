@@ -4,7 +4,8 @@ GPT-Live cannot see. When the wearer says something that needs eyes ("is this
 right?", "where does it go?", "what is this?"), it delegates; the plugin emits
 `delegation_created` with an id and the wearer's words so far. The brain then
 takes the next camera frame (taken after the ask), and makes one stateless
-vision call:
+vision call, to OpenAI's Responses API or Anthropic's Messages API
+(BRAIN_PROVIDER):
 
     instructions  rules + the whole task file                 fixed, so the prompt cache hits
     input         the timeline of the call (both speakers, what the brain saw and said)
@@ -31,8 +32,6 @@ import logging
 import time
 
 from livekit.agents import AgentSession, get_job_context
-from openai import AsyncOpenAI
-from PIL import Image
 
 from frames import FrameTap, to_image
 from gpt.prompts import brain_instructions
@@ -69,16 +68,80 @@ def _jpeg(frame, side: int) -> bytes:
     return buf.getvalue()
 
 
+class OpenAIModel:
+    """Responses API; the prompt cache is automatic (prompt_cache_key keeps one call's requests together)."""
+
+    def __init__(self, model: str, effort: str, detail: str) -> None:
+        from openai import AsyncOpenAI
+
+        self._client = AsyncOpenAI()
+        self._model, self._effort, self._detail = model, effort, detail
+
+    async def ask(self, instructions: str, text: str, photo: bytes, key: str) -> tuple[str, dict]:
+        kw = {"reasoning": {"effort": self._effort}} if self._effort else {}
+        resp = await self._client.responses.create(
+            model=self._model, instructions=instructions,
+            input=[{"role": "user", "content": [
+                {"type": "input_text", "text": text},
+                {"type": "input_image", "image_url": "data:image/jpeg;base64," + base64.b64encode(photo).decode(),
+                 "detail": self._detail},
+            ]}],
+            text={"format": {"type": "json_schema", "name": "answer", "schema": SCHEMA, "strict": True}},
+            prompt_cache_key=key, **kw,
+        )
+        u = resp.usage
+        return resp.output_text, {
+            "in": u.input_tokens if u else 0, "out": u.output_tokens if u else 0,
+            "cached": u.input_tokens_details.cached_tokens if u and u.input_tokens_details else 0,
+        }
+
+
+class AnthropicModel:
+    """Messages API; the instructions carry an explicit cache breakpoint (nothing is cached otherwise).
+    Effort none = thinking disabled; any other value = adaptive thinking at that effort."""
+
+    def __init__(self, model: str, effort: str) -> None:
+        from anthropic import AsyncAnthropic
+
+        self._client = AsyncAnthropic()
+        self._model, self._effort = model, effort
+
+    async def ask(self, instructions: str, text: str, photo: bytes, key: str) -> tuple[str, dict]:
+        config: dict = {"format": {"type": "json_schema", "schema": SCHEMA}}
+        if self._effort and self._effort != "none":
+            thinking = {"type": "adaptive"}
+            config["effort"] = self._effort
+        else:
+            thinking = {"type": "disabled"}
+        resp = await self._client.messages.create(
+            model=self._model, max_tokens=1024, thinking=thinking, output_config=config,
+            system=[{"type": "text", "text": instructions, "cache_control": {"type": "ephemeral"}}],
+            messages=[{"role": "user", "content": [
+                {"type": "text", "text": text},
+                {"type": "image", "source": {"type": "base64", "media_type": "image/jpeg",
+                                             "data": base64.b64encode(photo).decode()}},
+            ]}],
+        )
+        u = resp.usage
+        return next(b.text for b in resp.content if b.type == "text"), {
+            "in": u.input_tokens + (u.cache_read_input_tokens or 0) + (u.cache_creation_input_tokens or 0),
+            "out": u.output_tokens, "cached": u.cache_read_input_tokens or 0,
+        }
+
+
+def make_model(provider: str, model: str, effort: str, detail: str):
+    """The brain's model client: BRAIN_PROVIDER openai or anthropic."""
+    if provider == "anthropic":
+        return AnthropicModel(model, effort)
+    return OpenAIModel(model, effort, detail)
+
+
 class Brain:
-    def __init__(self, session: AgentSession, build: Build, tap: FrameTap, client: AsyncOpenAI,
-                 model: str, effort: str, detail: str, side: int, language: str) -> None:
+    def __init__(self, session: AgentSession, build: Build, tap: FrameTap, model, side: int, language: str) -> None:
         self._session = session
         self._build = build
         self._tap = tap
-        self._client = client
         self._model = model
-        self._effort = effort
-        self._detail = detail
         self._side = side
         self._instructions = brain_instructions(build.guide, language)
         self._t0 = time.monotonic()
@@ -143,23 +206,11 @@ class Brain:
                  if not build.finished else f"All {total} steps are done.")
         text = ("The call so far (mm:ss since it started):\n" + ("\n".join(self._timeline) or "(nothing yet)")
                 + f"\n\n{where}\nThe wearer just said: \"{words}\"\nThe photo was taken just now.")
-        kw = {"reasoning": {"effort": self._effort}} if self._effort else {}
-        resp = await self._client.responses.create(
-            model=self._model, instructions=self._instructions,
-            input=[{"role": "user", "content": [
-                {"type": "input_text", "text": text},
-                {"type": "input_image", "image_url": "data:image/jpeg;base64," + base64.b64encode(photo).decode(),
-                 "detail": self._detail},
-            ]}],
-            text={"format": {"type": "json_schema", "name": "answer", "schema": SCHEMA, "strict": True}},
-            prompt_cache_key=build.run, **kw,
-        )
-        out = json.loads(resp.output_text)
-        u = resp.usage
-        cached = u.input_tokens_details.cached_tokens if u and u.input_tokens_details else 0
+        raw, u = await self._model.ask(self._instructions, text, photo, build.run)
+        out = json.loads(raw)
         logger.info("brain: #%d %.0f ms in=%d (cached %d) out=%d step %d->%d end=%s seen: %s | say: %s",
-                    n, (time.perf_counter() - t0) * 1000, u.input_tokens if u else 0, cached,
-                    u.output_tokens if u else 0, build.step + 1, out["step"], out["end_call"], out["seen"], out["say"])
+                    n, (time.perf_counter() - t0) * 1000, u["in"], u["cached"], u["out"],
+                    build.step + 1, out["step"], out["end_call"], out["seen"], out["say"])
         if self._tap.dumping:
             self._tap.dump(photo, f"ask{n}-s{build.step + 1}")
         return out

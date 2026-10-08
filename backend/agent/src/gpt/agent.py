@@ -32,8 +32,8 @@ from livekit.agents.llm import ChatMessage
 from livekit.agents.metrics import RealtimeModelMetrics
 
 from frames import FrameTap
-from gpt.brain import Brain, publish_build
-from gpt.config import Settings, build_live_model, language, openai_client, require_env
+from gpt.brain import Brain, make_model, publish_build
+from gpt.config import Settings, build_live_model, language, require_env
 from gpt.prompts import voice_persona
 from guide import Build, load_guide
 from render import ModelState, ModelStream, stream_enabled
@@ -57,8 +57,8 @@ async def rayneo_assistant(ctx: JobContext) -> None:
     if stream is not None:
         ctx.add_shutdown_callback(stream.stop)
     session = AgentSession(video_sampler=tap, llm=build_live_model(settings))
-    brain = Brain(session, build, tap, openai_client(), settings.brain_model, settings.brain_effort,
-                  settings.brain_detail, settings.brain_side, lang)
+    model = make_model(settings.brain_provider, settings.brain_model, settings.brain_effort, settings.brain_detail)
+    brain = Brain(session, build, tap, model, settings.brain_side, lang)
 
     # Two bills. The voice model is priced by the second and reports cumulative
     # session time about once a minute (usage:); the brain by the token, on its

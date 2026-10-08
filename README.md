@@ -59,11 +59,11 @@ a new step as thinking, and the step list to the glasses; the task file feeds bo
    like) it answers itself. Whatever depends on what is in front of the wearer ("is this
    right?", "where does it go?", "what is this?") and goodbye it delegates. Client
    delegation: the plugin hands the agent an id and the wearer's words, no backend model runs.
-2. **Brain** (`gpt/brain.py`), one stateless vision call per delegation
-   (`OPENAI_BRAIN_MODEL`, ~2 s): instructions = rules and the whole task file (fixed, so the
+2. **Brain** (`gpt/brain.py`), one stateless vision call per delegation, to OpenAI or
+   Anthropic (`BRAIN_PROVIDER`, `BRAIN_MODEL`): instructions = rules and the whole task file (fixed, so the
    prompt cache hits); input = the call's timeline (both speakers' words, what the brain saw
    and said), the current step, the wearer's words, and the next camera frame, scaled to
-   `OPENAI_BRAIN_SIDE` (1024). It answers JSON `{seen, say, step, end_call}`. `say` goes back
+   `BRAIN_SIDE` (1024). It answers JSON `{seen, say, step, end_call}`. `say` goes back
    as commentary on that delegation id and the voice says it in its own words; a new step is
    published to the glasses and told to the voice as one line of thinking; `end_call` closes
    the room after the goodbye. A newer delegation cancels an older one still running; a call
@@ -118,7 +118,8 @@ docker compose logs -f --no-log-prefix agent | python3 ../deploy/watch.py   # co
 docker compose down
 ```
 
-`setup.sh` fills in the LiveKit keys; put `OPENAI_API_KEY` and the model ids into
+`setup.sh` fills in the LiveKit keys; put `OPENAI_API_KEY` (and `ANTHROPIC_API_KEY` for an
+Anthropic brain) and the model ids into
 `backend/.env` (see `.env.example`). `LIVEKIT_URL` stays on loopback for the agent;
 `LIVEKIT_PUBLIC_URL` (`ws://<lan-ip>:7880`) is what `/getToken` hands the glasses. It prints
 the ufw rules the glasses need if ufw is active.
