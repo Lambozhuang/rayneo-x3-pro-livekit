@@ -1,0 +1,548 @@
+{
+ "provider": "anthropic",
+ "model": "claude-haiku-5-5",
+ "side": 1024,
+ "prompt": "v2",
+ "rows": [
+  {
+   "case": "A",
+   "rep": 0,
+   "secs": 3.2,
+   "u": {
+    "in": 4594,
+    "out": 159,
+    "cached": 0
+   },
+   "out": {
+    "seen": "The photo shows a red brick placed on the green baseplate near its left edge, but it appears to sit at the lower-left area and touch or nearly touch the left edge, with what looks like the brick lying flat on the plate.",
+    "checks": "yn?",
+    "step": 1,
+    "say": "Not quite: the red brick is not in the right spot yet. It has to have several empty rows of plate above it and below it, so move it up off the bottom edge and keep it touching the left edge.",
+    "end_call": false
+   },
+   "ok_step": false
+  },
+  {
+   "case": "B",
+   "rep": 0,
+   "secs": 1.91,
+   "u": {
+    "in": 4646,
+    "out": 138,
+    "cached": 3544
+   },
+   "out": {
+    "seen": "The photo shows the red slope on the left edge of the plate with a purple brick directly to its right, appearing to lie flat with its long side running left to right, not front to back.",
+    "checks": "yny",
+    "step": 2,
+    "say": "Not quite: the purple brick is lying the wrong way. Turn it so its long side runs away from you, front to back, and make sure it reaches one stud further up than the red brick.",
+    "end_call": false
+   },
+   "ok_step": true
+  },
+  {
+   "case": "C",
+   "rep": 0,
+   "secs": 1.91,
+   "u": {
+    "in": 4647,
+    "out": 147,
+    "cached": 3544
+   },
+   "out": {
+    "seen": "The purple brick sits right of the red slope, touching it, but its long side appears to run left to right toward the plate's edge-facing side rather than front to back, and its top is level with the red brick rather than one stud further up.",
+    "checks": "yny",
+    "step": 2,
+    "say": "Not quite yet. Turn the purple brick so its long side runs away from you, and slide it up so it reaches one stud further up than the red brick.",
+    "end_call": false
+   },
+   "ok_step": false
+  },
+  {
+   "case": "D",
+   "rep": 0,
+   "secs": 1.28,
+   "u": {
+    "in": 4628,
+    "out": 159,
+    "cached": 3544
+   },
+   "out": {
+    "seen": "The photo shows the red slope and purple brick placed on the plate, but no lime brick is on the plate yet; the wearer is holding a white brick in hand.",
+    "checks": "nn?",
+    "step": 3,
+    "say": "Not done yet: there's no lime brick on the plate next to the purple brick. Take a lime green one-by-two, lay it flat to the right of the purple brick's far corner, long side running away from you, so it sticks one stud past the purple brick.",
+    "end_call": false
+   },
+   "ok_step": true
+  },
+  {
+   "case": "E",
+   "rep": 0,
+   "secs": 2.44,
+   "u": {
+    "in": 4630,
+    "out": 179,
+    "cached": 3544
+   },
+   "out": {
+    "seen": "The photo shows the red slope and purple brick on the plate, and a yellow-green brick sitting at the right of the purple brick, but it is flat and aligned horizontally, not lying front to back, and it does not reach a stud further up.",
+    "checks": "yn n",
+    "step": 3,
+    "say": "Not quite. The lime brick is not running front to back; it lies left to right beside the purple brick. Turn it so its long side runs away from you, and slide it up so it sticks one stud past the purple brick like an exhaust pipe.",
+    "end_call": false
+   },
+   "ok_step": true
+  },
+  {
+   "case": "F",
+   "rep": 0,
+   "secs": 1.35,
+   "u": {
+    "in": 4630,
+    "out": 169,
+    "cached": 3544
+   },
+   "out": {
+    "seen": "The photo shows a small lime brick sitting lengthwise at the upper end of the purple brick, but it is set on the plate beside the purple brick's top corner rather than on the right side, and it appears to be lying across the upper edge rather than front to back.",
+    "checks": "nyn",
+    "step": 3,
+    "say": "Not quite yet. Move the lime brick so it touches the right side of the purple brick, with its long side running toward you, and so it reaches one stud further up than the purple brick.",
+    "end_call": false
+   },
+   "ok_step": false
+  },
+  {
+   "case": "G",
+   "rep": 0,
+   "secs": 3.3,
+   "u": {
+    "in": 4586,
+    "out": 156,
+    "cached": 3544
+   },
+   "out": {
+    "seen": "The photo shows a cream/beige-looking 1x6 brick lying flat to the right of the purple brick, with a lime piece above its left end, not a pure white brick.",
+    "checks": "nn?",
+    "step": 4,
+    "say": "That brick looks beige, not white, so it is not the right piece. Swap it for the pure white one-by-six and lay it flat to the right of the purple brick, its left end touching the purple brick, just under the lime exhaust.",
+    "end_call": false
+   },
+   "ok_step": true
+  },
+  {
+   "case": "H",
+   "rep": 0,
+   "secs": 1.41,
+   "u": {
+    "in": 4593,
+    "out": 155,
+    "cached": 3544
+   },
+   "out": {
+    "seen": "The photo shows a white 1x6 brick lying flat on the plate directly right of the purple brick, with a lime exhaust brick on top of its left end, and the red slope and purple brick are in place.",
+    "checks": "yyy",
+    "step": 5,
+    "say": "That's right now, nice swap. Next, take another white one-by-six and put it flat directly in front of the first white one, toward you, touching it, so the white part is two rows deep with a straight right end.",
+    "end_call": false
+   },
+   "ok_step": true
+  },
+  {
+   "case": "I",
+   "rep": 0,
+   "secs": 2.04,
+   "u": {
+    "in": 4647,
+    "out": 157,
+    "cached": 3544
+   },
+   "out": {
+    "seen": "The photo shows the plate with the red slope, purple brick, lime exhaust and two white bricks in place, but no white 1x4 has been placed against the right end yet; a loose white brick is in the wearer's right hand.",
+    "checks": "nn?",
+    "step": 8,
+    "say": "Not yet: the white one-by-four is not on the plate yet. Hold it long side running away from you, flat against the right end of the body, touching the two white bricks and the lime one.",
+    "end_call": false
+   },
+   "ok_step": true
+  },
+  {
+   "case": "J",
+   "rep": 0,
+   "secs": 1.44,
+   "u": {
+    "in": 4671,
+    "out": 174,
+    "cached": 3544
+   },
+   "out": {
+    "seen": "The photo shows the front red disc under the red slope and a second red disc at the right, under the body, but the rear disc looks to sit beneath the blue and lime bricks and the spacing to the front disc appears wider than three columns.",
+    "checks": "y?n",
+    "step": 10,
+    "say": "Not quite: the rear disc sits too far right and the gap to the front wheel looks wider than three columns. Slide it left so its top touches the blue and lime bricks, with exactly three empty columns between it and the front wheel.",
+    "end_call": false
+   },
+   "ok_step": true
+  },
+  {
+   "case": "K",
+   "rep": 0,
+   "secs": 2.2,
+   "u": {
+    "in": 4675,
+    "out": 200,
+    "cached": 3544
+   },
+   "out": {
+    "seen": "The photo shows the plate with the red slope, purple cab, lime exhaust, white bricks, blue brick, lime brick and the front red disc, plus a second red disc placed near the lower-right of the body, but it appears to sit beneath the white 1x4 area and the spacing to the front disc is unclear.",
+    "checks": "nyn",
+    "step": 10,
+    "say": "Not quite yet. The second red disc is sitting too far right, under the white brick at the right end; move it left so its top touches the blue and lime bricks, and leave bare green plate directly under the white 1x4.",
+    "end_call": false
+   },
+   "ok_step": false
+  },
+  {
+   "case": "L",
+   "rep": 0,
+   "secs": 1.27,
+   "u": {
+    "in": 4630,
+    "out": 119,
+    "cached": 3544
+   },
+   "out": {
+    "seen": "The photo shows the baseplate with the tan, white and yellow ground row running along the bottom, the yellow brick touching the white one and ending at the plate's right edge, with no empty studs to its right in that row.",
+    "checks": "yyy",
+    "step": 14,
+    "say": "Yes, that was the last one, and it's right. The truck is finished.",
+    "end_call": false
+   },
+   "ok_step": true
+  },
+  {
+   "case": "M",
+   "rep": 0,
+   "secs": 1.29,
+   "u": {
+    "in": 4650,
+    "out": 136,
+    "cached": 3544
+   },
+   "out": {
+    "seen": "The photo shows the wearer's right hand holding a purple brick above the plate, and the red slope sits at the left edge of the green plate, but the purple brick is not yet placed on the plate.",
+    "checks": "???",
+    "step": 2,
+    "say": "You're holding the purple two-by-four. Lay it flat directly to the right of the red slope, touching it, with its long side running away from you.",
+    "end_call": false
+   },
+   "ok_step": true
+  },
+  {
+   "case": "N",
+   "rep": 0,
+   "secs": 1.39,
+   "u": {
+    "in": 4414,
+    "out": 128,
+    "cached": 3544
+   },
+   "out": {
+    "seen": "The photo shows the finished truck on the green plate, with the red slope and two red disc wheels on it; there are also loose red bricks on the desk beside the plate.",
+    "checks": "",
+    "step": 14,
+    "say": "On the plate there are three red pieces: the red slope and the two red wheels. Loose red bricks are also lying on the desk, but they are not on the plate.",
+    "end_call": false
+   },
+   "ok_step": true
+  },
+  {
+   "case": "O",
+   "rep": 0,
+   "secs": 2.06,
+   "u": {
+    "in": 4581,
+    "out": 130,
+    "cached": 3544
+   },
+   "out": {
+    "seen": "The photo shows the two red discs on the plate, and they look the same size, both about four studs across.",
+    "checks": "nnn",
+    "step": 11,
+    "say": "Yes, both red discs are the same size, four studs across. Step 11 is not done yet: the tan brick isn't on the plate, so lay it flat directly under the front wheel with its left end at the left edge of the plate.",
+    "end_call": false
+   },
+   "ok_step": true
+  },
+  {
+   "case": "A",
+   "rep": 1,
+   "secs": 1.48,
+   "u": {
+    "in": 4594,
+    "out": 168,
+    "cached": 3544
+   },
+   "out": {
+    "seen": "The photo shows a red brick placed on the green baseplate near its left edge, but it appears to sit at the upper-left area with little empty plate above it, and it looks like a rectangular brick rather than clearly a sloped 3x4 piece.",
+    "checks": "y?n",
+    "step": 1,
+    "say": "Not quite yet. The red piece looks like it sits too close to the top of the plate; move it down so there are several empty rows above it and below it, keeping it against the left edge with the slope face up.",
+    "end_call": false
+   },
+   "ok_step": false
+  },
+  {
+   "case": "B",
+   "rep": 1,
+   "secs": 1.87,
+   "u": {
+    "in": 4646,
+    "out": 176,
+    "cached": 3544
+   },
+   "out": {
+    "seen": "The photo shows the red slope on the left edge of the plate with a purple brick directly to its right, but the purple brick appears to be only one stud deep, lying flat as a 2x2-ish or 1x2 piece rather than a long front-to-back 2x4.",
+    "checks": "yn?",
+    "step": 2,
+    "say": "Not quite yet. The purple brick is not long front to back; it looks short, so swap it for the purple 2x4 and lay its long side running away from you, reaching one stud further up than the red slope.",
+    "end_call": false
+   },
+   "ok_step": true
+  },
+  {
+   "case": "C",
+   "rep": 1,
+   "secs": 1.47,
+   "u": {
+    "in": 4647,
+    "out": 156,
+    "cached": 3544
+   },
+   "out": {
+    "seen": "The photo shows the purple brick placed right of the red slope on the plate, but it appears to be lying with its long side running left to right and it looks level with the red brick rather than reaching further up.",
+    "checks": "yny",
+    "step": 2,
+    "say": "Not quite: the purple brick needs its long side running away from you, and it should reach one stud further up than the red brick. Turn it so it runs front to back, with its near end lined up with the red brick's near end.",
+    "end_call": false
+   },
+   "ok_step": false
+  },
+  {
+   "case": "D",
+   "rep": 1,
+   "secs": 1.32,
+   "u": {
+    "in": 4628,
+    "out": 167,
+    "cached": 3544
+   },
+   "out": {
+    "seen": "The photo shows the red slope and purple 2x4 on the plate, but no lime brick has been placed beside the purple brick yet; the wearer is holding a white brick in their right hand.",
+    "checks": "nn?",
+    "step": 3,
+    "say": "Not yet: there is no lime 1x2 next to the purple brick on the plate yet. Lay the small lime-green one-by-two flat against the purple brick's right side, long side running away from you, so it sticks one stud past the purple brick.",
+    "end_call": false
+   },
+   "ok_step": true
+  },
+  {
+   "case": "E",
+   "rep": 1,
+   "secs": 2.16,
+   "u": {
+    "in": 4630,
+    "out": 183,
+    "cached": 3544
+   },
+   "out": {
+    "seen": "The photo shows a yellow-green 1x2 brick placed to the right of the purple brick on the plate, but it looks like it lies flat in a horizontal orientation (long side left to right) rather than front to back, and it does not appear to stick out past the purple brick.",
+    "checks": "yn?",
+    "step": 3,
+    "say": "Not quite. The lime brick needs its long side running away from you, and it should stick one stud further up than the purple brick, like an exhaust pipe. Turn it so it runs front to back, and slide it up to that position.",
+    "end_call": false
+   },
+   "ok_step": true
+  },
+  {
+   "case": "F",
+   "rep": 1,
+   "secs": 1.47,
+   "u": {
+    "in": 4630,
+    "out": 170,
+    "cached": 3544
+   },
+   "out": {
+    "seen": "The photo shows the lime 1x2 lying on the plate at the top right of the purple brick, but it is placed sideways (long side left to right) and sits to the right of the purple brick's upper section rather than running front to back.",
+    "checks": "yn?",
+    "step": 3,
+    "say": "Not quite: the lime brick is lying sideways, so turn it so its long side runs away from you, then slide it against the purple brick's far right corner so it sticks one stud further up like an exhaust pipe.",
+    "end_call": false
+   },
+   "ok_step": false
+  },
+  {
+   "case": "G",
+   "rep": 1,
+   "secs": 1.49,
+   "u": {
+    "in": 4586,
+    "out": 155,
+    "cached": 3544
+   },
+   "out": {
+    "seen": "The photo shows a tan/beige 1x6 brick lying to the right of the purple brick, with a small lime exhaust brick on top of its left end, not a pure white brick.",
+    "checks": "nn?",
+    "step": 4,
+    "say": "That brick looks tan or beige, not white, so it's not quite right. Swap it for a pure white one-by-six, laid flat to the right of the purple brick with its left end touching it, just under the lime exhaust.",
+    "end_call": false
+   },
+   "ok_step": true
+  },
+  {
+   "case": "H",
+   "rep": 1,
+   "secs": 1.21,
+   "u": {
+    "in": 4593,
+    "out": 127,
+    "cached": 3544
+   },
+   "out": {
+    "seen": "The photo shows a white 1x6 brick on the plate directly right of the purple brick, with a lime exhaust sitting on its left end, which matches the instructions.",
+    "checks": "yyy",
+    "step": 5,
+    "say": "Yes, that's right now. Next, take another white one-by-six and lay it flat directly in front of the first white one, toward you, touching it.",
+    "end_call": false
+   },
+   "ok_step": true
+  },
+  {
+   "case": "I",
+   "rep": 1,
+   "secs": 2.18,
+   "u": {
+    "in": 4647,
+    "out": 166,
+    "cached": 3544
+   },
+   "out": {
+    "seen": "The plate shows the red slope, purple brick, lime exhaust, and two white bricks on the right, but no white 1x4 has been placed against the right end of the body yet; a loose white brick is held in the wearer's hand off the plate.",
+    "checks": "??n",
+    "step": 8,
+    "say": "Not yet: the white one-by-four isn't on the plate. Lay it flat against the right end of the body, long side running away from you, touching the white and lime bricks, then show me again.",
+    "end_call": false
+   },
+   "ok_step": true
+  },
+  {
+   "case": "J",
+   "rep": 1,
+   "secs": 1.65,
+   "u": {
+    "in": 4671,
+    "out": 189,
+    "cached": 3544
+   },
+   "out": {
+    "seen": "The photo shows the rear red disc sitting right of the front disc with a gap, but it appears to sit under the middle-right area near the blue and lime bricks, and the spacing and alignment are hard to judge closely from this angle.",
+    "checks": "?n?",
+    "step": 10,
+    "say": "Not quite yet: the rear wheel should sit under the right part of the blue brick and the left part of the lime brick, with three empty columns between it and the front wheel, and bare plate under the white 1x4 at the right end. Please show a closer, top-down view of the plate.",
+    "end_call": false
+   },
+   "ok_step": true
+  },
+  {
+   "case": "K",
+   "rep": 1,
+   "secs": 1.86,
+   "u": {
+    "in": 4675,
+    "out": 223,
+    "cached": 3544
+   },
+   "out": {
+    "seen": "The photo shows the green baseplate at the lower left with the red slope, purple brick, lime exhaust, white bricks, blue brick and lime brick arranged, and two red discs placed low on the left and in the lower-middle area, but the plate is partly cut off and the lower-right part of the body with the white 1x4 is not clearly visible.",
+    "checks": "??n",
+    "step": 10,
+    "say": "The rear disc looks like it may sit too far left and possibly on the bottom of the body rather than under the blue and lime bricks. Please move it so it touches the body under the right part of the blue brick and the left part of the lime brick, with three empty columns before the front disc.",
+    "end_call": false
+   },
+   "ok_step": false
+  },
+  {
+   "case": "L",
+   "rep": 1,
+   "secs": 1.33,
+   "u": {
+    "in": 4630,
+    "out": 155,
+    "cached": 3544
+   },
+   "out": {
+    "seen": "The photo shows the yellow 1x4 brick lying in the bottom row, continuing the white ground brick, but the row appears to stop short of the plate's right edge with a gap of studs visible beside the yellow brick.",
+    "checks": "y?n",
+    "step": 13,
+    "say": "Not quite: the yellow brick does not reach the right edge yet. Slide it to the right so its right end lines up with the edge of the plate, then tell me when it is done.",
+    "end_call": false
+   },
+   "ok_step": false
+  },
+  {
+   "case": "M",
+   "rep": 1,
+   "secs": 1.24,
+   "u": {
+    "in": 4650,
+    "out": 129,
+    "cached": 3544
+   },
+   "out": {
+    "seen": "The photo shows the wearer's right hand, on the right side of the frame, holding a small purple brick, with the red slope already placed on the left edge of the plate.",
+    "checks": "nn?",
+    "step": 2,
+    "say": "You're holding the purple two-by-four in your right hand. Lay it flat directly to the right of the red slope, touching it, with its long side running away from you.",
+    "end_call": false
+   },
+   "ok_step": true
+  },
+  {
+   "case": "N",
+   "rep": 1,
+   "secs": 1.17,
+   "u": {
+    "in": 4414,
+    "out": 115,
+    "cached": 3544
+   },
+   "out": {
+    "seen": "The photo shows the finished truck on the green plate, with the red slope and two red wheels on the plate, and loose red bricks off the plate on the desk.",
+    "checks": "",
+    "step": 14,
+    "say": "There are three red pieces on the plate: the slope on the left and the two round wheels. Nicely done, the truck is finished.",
+    "end_call": false
+   },
+   "ok_step": true
+  },
+  {
+   "case": "O",
+   "rep": 1,
+   "secs": 2.29,
+   "u": {
+    "in": 4581,
+    "out": 150,
+    "cached": 3544
+   },
+   "out": {
+    "seen": "The photo shows the two red wheels on the plate; the front wheel under the red slope looks the same size as the rear wheel, both about four studs across.",
+    "checks": "nn?",
+    "step": 11,
+    "say": "Yes, both red discs are the same size, four studs across. The tan brick is not on the plate yet, so the ground is still open: lay the beige one-by-six flat directly under the front wheel, left end at the left edge of the plate.",
+    "end_call": false
+   },
+   "ok_step": true
+  }
+ ]
+}

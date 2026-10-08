@@ -60,16 +60,20 @@ a new step as thinking, and the step list to the glasses; the task file feeds bo
    right?", "where does it go?", "what is this?") and goodbye it delegates. Client
    delegation: the plugin hands the agent an id and the wearer's words, no backend model runs.
 2. **Brain** (`gpt/brain.py`), one stateless vision call per delegation, to OpenAI or
-   Anthropic (`BRAIN_PROVIDER`, `BRAIN_MODEL`): instructions = rules and the whole task file (fixed, so the
-   prompt cache hits); input = the call's timeline (both speakers' words, what the brain saw
-   and said), the current step, the wearer's words, and the next camera frame: its bottom square (the
-   glasses look down at the table; the top of the portrait frame is wall), scaled to
-   `BRAIN_SIDE` (1024). It answers JSON `{seen, say, step, end_call}`. `say` goes back
-   as commentary on that delegation id and the voice says it in its own words; a new step is
-   published to the glasses and told to the voice as one line of thinking; `end_call` closes
-   the room after the goodbye. A newer delegation cancels an older one still running; a call
-   over 8 s answers "could not see that, say it again". No image stays in the timeline; what
-   a look saw stays as its `seen` line.
+   Anthropic (`BRAIN_PROVIDER`, `BRAIN_MODEL`, `BRAIN_EFFORT`). Instructions: the role, why a
+   wrong confirmation hurts, the whole task file, how to read the photo, how to reply, four
+   examples (fixed, so the prompt cache hits). Tools: `confirm_step_correct(step)` and
+   `end_call()`, their rules in their own descriptions. Input: the camera frame's bottom square
+   (the glasses look down at the table; the top of the portrait frame is wall) at
+   `BRAIN_SIDE` (1080), then the call's timeline, the current step and the wearer's words.
+   The reply, plain facts, goes back as commentary on that delegation id ("Camera: ..."), which
+   the voice says in its own words. Only a confirm call moves the build: published to the
+   glasses, told to the voice in the same commentary and as one line of thinking; no call,
+   nothing moves (not done, not sure, or not asked). `end_call` closes the room after the
+   goodbye. A newer delegation cancels an older one still running; a call over
+   `BRAIN_TIMEOUT` (12 s) answers "could not see that, say it again". No image stays in the
+   timeline; what a look saw stays as its reply. Offline tests of models, image and prompt:
+   `eval/brain/RESULTS.md`.
 3. **Task file** (`guides/truck/task.toml`): per step the wording the wearer hears (`say`),
    where the brick goes and what a photo must show (`where`, `checks`), and the brick's cells
    and colour tables for the CV judge. One vocabulary throughout, also in both prompts: the
@@ -106,7 +110,7 @@ deploy/
   glasses.ps1           launch/stop the app on the glasses over adb
   watch.py              coloured live view of the agent log
   record.ps1            record a build with the glasses' stock camera app over adb
-eval/                   offline judge / gate / replay evaluation on recorded runs
+eval/                   offline evaluation on recorded runs: brain/ (the brain's looks), judge / gate / replay of the old loop
 ```
 
 ## Running the backend

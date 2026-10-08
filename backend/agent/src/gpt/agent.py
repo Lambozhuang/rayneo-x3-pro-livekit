@@ -58,7 +58,7 @@ async def rayneo_assistant(ctx: JobContext) -> None:
         ctx.add_shutdown_callback(stream.stop)
     session = AgentSession(video_sampler=tap, llm=build_live_model(settings))
     model = make_model(settings.brain_provider, settings.brain_model, settings.brain_effort, settings.brain_detail)
-    brain = Brain(session, build, tap, model, settings.brain_side, lang)
+    brain = Brain(session, build, tap, model, settings.brain_side, lang, settings.brain_timeout)
 
     # Two bills. The voice model is priced by the second and reports cumulative
     # session time about once a minute (usage:); the brain by the token, on its

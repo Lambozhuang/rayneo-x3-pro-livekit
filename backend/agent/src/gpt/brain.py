@@ -7,18 +7,22 @@ takes the next camera frame (taken after the ask), and makes one stateless
 vision call, to OpenAI's Responses API or Anthropic's Messages API
 (BRAIN_PROVIDER):
 
+    tools         confirm_step_correct(step), end_call()
     instructions  rules + the whole task file                 fixed, so the prompt cache hits
-    input         the timeline of the call (both speakers, what the brain saw and said)
+    input         the timeline of the call (the wearer's words, what the brain answered and did)
                   + the current step + the wearer's words + the frame's bottom square
 
-and gets back JSON {seen, say, step, end_call}. `say` goes back to GPT-Live as
-commentary on that delegation id (it says it in its own words); a step change
-is published to the glasses and told to GPT-Live as one silent thinking line;
-end_call closes the room after the goodbye. The timeline only grows at the
-end, and no image is kept in it: what a look saw survives as its `seen` line.
+and gets back a reply in plain facts plus any tool calls. Nothing goes back to
+the model: the calls are executed here and the reply goes to GPT-Live as
+commentary on that delegation id ("Camera: ..."), which says it in its own
+words. Only a confirm_step_correct call moves the build (published to the glasses,
+told to GPT-Live in the same commentary and as one silent thinking line); no
+call, nothing moves, whether the step is not done, unsure or not asked about.
+end_call closes the room after the goodbye. The timeline only grows at the end,
+and no image is kept in it: what a look saw survives as its reply.
 
 The newest delegation wins: a call still running when the next arrives is
-cancelled. A call that fails or takes longer than TIMEOUT answers "I could
+cancelled. A call that fails or takes longer than BRAIN_TIMEOUT answers "I could
 not see that, ask again".
 """
 
@@ -39,20 +43,25 @@ from guide import Build
 
 logger = logging.getLogger("rayneo-agent.brain")
 
-TIMEOUT = 8.0  # the whole answer: frame + model call
 FRAME_WAIT = 1.0
 
-SCHEMA = {
-    "type": "object",
-    "properties": {
-        "seen": {"type": "string"},
-        "say": {"type": "string"},
-        "step": {"type": "integer"},
-        "end_call": {"type": "boolean"},
-    },
-    "required": ["seen", "say", "step", "end_call"],
-    "additionalProperties": False,
-}
+# (name, description, JSON schema of the arguments); the same two for both providers
+TOOLS = [
+    ("confirm_step_correct",
+     "Confirms that the current step is built correctly. Use it when the photo clearly shows the current step's brick "
+     "in place and every one of that step's facts holds. When you call it, the build moves on: the step list on the "
+     "glasses advances and the voice tells the wearer the step is right, so your reply should say the same. Leave it "
+     "out when any fact fails, when part of the step is hidden or too small to judge, when the wearer only says they "
+     "are done without the photo showing it, and when the question is not about the current step. step is the number "
+     "of the current step given in the input.",
+     {"type": "object", "properties": {"step": {"type": "integer", "description": "the current step's number"}},
+      "required": ["step"], "additionalProperties": False}),
+    ("end_call",
+     "Ends the call: the voice says goodbye and the session closes, which the wearer cannot undo. Use it only when the "
+     "wearer's own words in this turn say goodbye or ask to stop. A finished build is not a reason to end the call; "
+     "the wearer may still want to ask something.",
+     {"type": "object", "properties": {}, "additionalProperties": False}),
+]
 
 
 async def publish_build(build: Build) -> None:
@@ -84,20 +93,21 @@ class OpenAIModel:
         self._client = AsyncOpenAI()
         self._model, self._effort, self._detail = model, effort, detail
 
-    async def ask(self, instructions: str, text: str, photo: bytes, key: str) -> tuple[str, dict]:
+    async def ask(self, instructions: str, text: str, photo: bytes, key: str) -> tuple[str, list, dict]:
         kw = {"reasoning": {"effort": self._effort}} if self._effort else {}
         resp = await self._client.responses.create(
             model=self._model, instructions=instructions,
             input=[{"role": "user", "content": [
-                {"type": "input_text", "text": text},
                 {"type": "input_image", "image_url": "data:image/jpeg;base64," + base64.b64encode(photo).decode(),
                  "detail": self._detail},
+                {"type": "input_text", "text": text},
             ]}],
-            text={"format": {"type": "json_schema", "name": "answer", "schema": SCHEMA, "strict": True}},
+            tools=[{"type": "function", "name": n, "description": d, "parameters": p, "strict": True} for n, d, p in TOOLS],
             prompt_cache_key=key, **kw,
         )
+        calls = [(o.name, json.loads(o.arguments or "{}")) for o in resp.output if o.type == "function_call"]
         u = resp.usage
-        return resp.output_text, {
+        return resp.output_text, calls, {
             "in": u.input_tokens if u else 0, "out": u.output_tokens if u else 0,
             "cached": u.input_tokens_details.cached_tokens if u and u.input_tokens_details else 0,
         }
@@ -112,25 +122,40 @@ class AnthropicModel:
 
         self._client = AsyncAnthropic()
         self._model, self._effort = model, effort
+        # "no thinking": disabled on most models; Sonnet 5.5 rejects that and takes between_tools (no up-front
+        # thinking), which the API's error names; switched once, on the first such error
+        self._off = {"type": "disabled"}
 
-    async def ask(self, instructions: str, text: str, photo: bytes, key: str) -> tuple[str, dict]:
-        config: dict = {"format": {"type": "json_schema", "schema": SCHEMA}}
+    async def ask(self, instructions: str, text: str, photo: bytes, key: str) -> tuple[str, list, dict]:
+        from anthropic import BadRequestError
+
+        try:
+            return await self._ask(instructions, text, photo)
+        except BadRequestError as e:
+            if self._off["type"] != "disabled" or "between_tools" not in str(e):
+                raise
+            logger.info("brain: %s takes no disabled thinking, using between_tools", self._model)
+            self._off = {"type": "between_tools"}
+            return await self._ask(instructions, text, photo)
+
+    async def _ask(self, instructions: str, text: str, photo: bytes) -> tuple[str, list, dict]:
+        kw: dict = {"thinking": self._off}
         if self._effort and self._effort != "none":
-            thinking = {"type": "adaptive"}
-            config["effort"] = self._effort
-        else:
-            thinking = {"type": "disabled"}
+            kw = {"thinking": {"type": "adaptive"}, "output_config": {"effort": self._effort}}
         resp = await self._client.messages.create(
-            model=self._model, max_tokens=4096, thinking=thinking, output_config=config,
+            model=self._model, max_tokens=4096, **kw,
+            tools=[{"name": n, "description": d, "input_schema": p, "strict": True} for n, d, p in TOOLS],
             system=[{"type": "text", "text": instructions, "cache_control": {"type": "ephemeral"}}],
             messages=[{"role": "user", "content": [
-                {"type": "text", "text": text},
                 {"type": "image", "source": {"type": "base64", "media_type": "image/jpeg",
                                              "data": base64.b64encode(photo).decode()}},
+                {"type": "text", "text": text},
             ]}],
         )
         u = resp.usage
-        return next(b.text for b in resp.content if b.type == "text"), {
+        text_out = " ".join(b.text for b in resp.content if b.type == "text").strip()
+        calls = [(b.name, b.input or {}) for b in resp.content if b.type == "tool_use"]
+        return text_out, calls, {
             "in": u.input_tokens + (u.cache_read_input_tokens or 0) + (u.cache_creation_input_tokens or 0),
             "out": u.output_tokens, "cached": u.cache_read_input_tokens or 0,
         }
@@ -144,7 +169,9 @@ def make_model(provider: str, model: str, effort: str, detail: str):
 
 
 class Brain:
-    def __init__(self, session: AgentSession, build: Build, tap: FrameTap, model, side: int, language: str) -> None:
+    def __init__(self, session: AgentSession, build: Build, tap: FrameTap, model, side: int, language: str,
+                 timeout: float = 12.0) -> None:
+        self._timeout = timeout
         self._session = session
         self._build = build
         self._tap = tap
@@ -180,7 +207,7 @@ class Brain:
 
     async def _answer(self, delegation_id: str, words: str, n: int) -> None:
         try:
-            out = await asyncio.wait_for(self._ask(words, n), TIMEOUT)
+            out = await asyncio.wait_for(self._ask(words, n), self._timeout)
         except asyncio.CancelledError:
             raise
         except Exception as e:
@@ -189,38 +216,53 @@ class Brain:
                              delegation_id)
             return
         build, total = self._build, len(self._build.guide.steps)
-        step = max(1, min(int(out["step"]), total + 1))
-        self.note("you saw", out["seen"])
-        self.note("you said", out["say"])
-        if step != build.step + 1:
-            build.set_step(step - 1)
+        current = build.step + 1
+        self.note("you answered", out["text"])
+        parts = [f"Camera: {out['text']}"] if out["text"] else []
+        if out["done"]:
+            self.note("you recorded", f"step {current} done")
+            build.set_step(current)  # index of the next step = the number of steps done
             await publish_build(build)
-            self.note("step", f"now step {step}" if step <= total else "the build is finished")
+            parts.append(f"Step {current} is recorded as done; that was the last step, the build is finished."
+                         if build.finished else f"Step {current} is recorded as done; now give step {current + 1}.")
             self._think(self._step_line())
-        self._commentary(out["say"], delegation_id)
+        if out["end_call"]:
+            parts.append("The wearer wants to stop: say goodbye.")
+        self._commentary(" ".join(parts) or "Camera: nothing to add.", delegation_id)
         if out["end_call"] and not self._closing:
             self._closing = True
             logger.info("end_call: run=%s at step %d/%d", build.run, build.step + 1, total)
             asyncio.create_task(_close_after_goodbye(self._session), name="close_after_goodbye")
 
     async def _ask(self, words: str, n: int) -> dict:
+        """One look: {text, calls, done, end_call}; done = a confirm_step_correct call naming the current step."""
         t0 = time.perf_counter()
         frame = await self._tap.next_frame(FRAME_WAIT)
         photo = await asyncio.to_thread(_jpeg, frame, self._side)
         build = self._build
         total = len(build.guide.steps)
-        where = (f"The wearer is on step {build.step + 1} of {total} ({build.guide.steps[build.step].name})."
-                 if not build.finished else f"All {total} steps are done.")
-        text = ("The call so far (mm:ss since it started):\n" + ("\n".join(self._timeline) or "(nothing yet)")
-                + f"\n\n{where}\nThe wearer just said: \"{words}\"\nThe photo was taken just now.")
-        raw, u = await self._model.ask(self._instructions, text, photo, build.run)
-        out = json.loads(raw)
-        logger.info("brain: #%d %.0f ms in=%d (cached %d) out=%d step %d->%d end=%s seen: %s | say: %s",
-                    n, (time.perf_counter() - t0) * 1000, u["in"], u["cached"], u["out"],
-                    build.step + 1, out["step"], out["end_call"], out["seen"], out["say"])
+        where = (f"Step {build.step + 1} of {total} ({build.guide.steps[build.step].name})"
+                 if not build.finished else f"none: all {total} steps are done")
+        timeline = "\n".join(self._timeline) or "(nothing yet)"
+        # the photo goes first (Anthropic: images before text work best), then the conversation, then the ask
+        text = (f"The photo above was taken just now.\n<conversation>\n{timeline}\n</conversation>\n"
+                f"<current_step>{where}</current_step>\n<wearer_said>{words}</wearer_said>")
+        reply, calls, u = await self._model.ask(self._instructions, text, photo, build.run)
+        done = False
+        for name, args in calls:
+            if name != "confirm_step_correct":
+                continue
+            if not build.finished and args.get("step") == build.step + 1:
+                done = True
+            else:
+                logger.warning("brain: #%d confirm_step_correct(%s) ignored, the current step is %d", n, args.get("step"),
+                               build.step + 1)
+        logger.info("brain: #%d %.0f ms in=%d (cached %d) out=%d step %d calls=%s reply: %s",
+                    n, (time.perf_counter() - t0) * 1000, u["in"], u["cached"], u["out"], build.step + 1,
+                    [f"{c}({a})" for c, a in calls], reply)
         if self._tap.dumping:
-            self._tap.dump(photo, f"ask{n}-s{build.step + 1}")
-        return out
+            self._tap.dump(photo, f"ask{n}-s{build.step + 1}{'-done' if done else ''}")
+        return {"text": reply, "calls": calls, "done": done, "end_call": any(c == "end_call" for c, _ in calls)}
 
     # ------------------------------------------------------------------ to the voice
 

@@ -37,12 +37,13 @@ class Settings:
     voice: str
     # The brain (brain.py): who serves the vision model that answers what GPT-Live delegates (openai or
     # anthropic), the model, its reasoning effort (none = no reasoning), the image detail (openai only), and
-    # the longest side in px the camera frame is scaled to.
+    # the longest side in px the camera frame is scaled to, and how long an answer may take.
     brain_provider: str
     brain_model: str
     brain_effort: str
     brain_detail: str
     brain_side: int
+    brain_timeout: float  # seconds for frame + model call before the wearer is asked to repeat
 
     @classmethod
     def from_env(cls) -> Settings:
@@ -53,7 +54,8 @@ class Settings:
             brain_model=require_env("BRAIN_MODEL"),
             brain_effort=os.environ.get("BRAIN_EFFORT", "none"),
             brain_detail=os.environ.get("BRAIN_DETAIL", "high"),
-            brain_side=int(os.environ.get("BRAIN_SIDE", "1024")),
+            brain_side=int(os.environ.get("BRAIN_SIDE", "1080")),
+            brain_timeout=float(os.environ.get("BRAIN_TIMEOUT", "12")),
         )
         require_env("OPENAI_API_KEY")  # the SDKs and the plugin read their keys themselves
         if s.brain_provider not in ("openai", "anthropic"):
