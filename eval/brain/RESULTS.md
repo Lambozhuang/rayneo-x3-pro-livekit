@@ -91,7 +91,8 @@ each ask gets the first judged frame after it). Haiku medium. Results in `result
 |---|---|---|---|
 | replay-haiku-medium (2 runs, same outcome) | v3 | stuck at step 5 from 175 s: two white 1x6 side by side read as one, every later ask "no second white brick", the wearer's "I just did" ignored | 2.9 / 7.5 s |
 | replay-haiku-medium-pushback | v3 + "when the wearer disagrees" (with end_call) | after the inserted "are you seeing the two as one?" it negotiated, confirmed step 5 two asks later and caught up one step per ask to step 9; stopped at step 10, rightly (the wheel gap really was wrong); one spurious end_call with an empty reply | 4.2 / 9.1 s |
-| replay-v5-pushback | same rule, no end_call (repo now) | far more "can't confirm, bring it closer": step 4 doubted twice (white or cream? five or six studs?), confirmed only at 235 s, then step 7 doubted to the end | 5.2 / 10.3 s |
+| replay-v5-pushback | same rule, no end_call | far more "can't confirm, bring it closer": step 4 doubted twice (white or cream? five or six studs?), confirmed only at 235 s, then step 7 doubted to the end | 5.2 / 10.3 s |
+| replay-v6-low-pushback | guide-shaped prompt (repo now), Haiku low | steps 1-4 right (step 2 and 3 errors and step 4's tan brick caught, fixes confirmed); stuck at step 5 again (one white row seen); after the pushback two asks of "can't confirm, the seam isn't visible, move closer and straight overhead", then back to "only one white row" on later frames; step 5 confirmed only on the last frame; no wrong confirm | 3.2 / 6.5 s |
 
 A replay cannot reward "bring it closer": the recorded wearer never does, the next frame is no closer, and the
 brain falls behind while the wearer builds on; later bricks then confuse its check of the current one ("step 4
