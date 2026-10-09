@@ -48,7 +48,8 @@ sonnet-v3b). Results per call, with the model's text, in `results/<run>.json`.
 | sonnet-v3b | Sonnet 5.5, v3, between_tools | 2.2 / 3.2 / 7.3 | 14/15 | 21/21 | 9/9 | 44/45 | 1 | 0 |
 | sonnet-v3c | Sonnet 5.5, v3 + plain examples + strict tools, between_tools | 2.7 / 4.5 / 6.5 | 13/15 | 18/21 | 9/9 | 40/45 | 3 | 0 |
 | sonnet-v3c-low | ... reasoning low | 2.0 / 3.0 / 5.0 | 8/15 | 21/21 | 9/9 | 38/45 | 0 | 0 |
-| haiku-v5-medium | Haiku medium, v3 + 'when the wearer disagrees' rule, no end_call (repo now) | 3.6 / 6.3 / 15.2 | 15/15 | 21/21 | 9/9 | 45/45 | 0 | 0 |
+| haiku-v5-medium | Haiku medium, v3 + 'when the wearer disagrees' rule, no end_call | 3.6 / 6.3 / 15.2 | 15/15 | 21/21 | 9/9 | 45/45 | 0 | 0 |
+| haiku-v6-medium | Haiku medium, prompt laid out after the guide: role, task data, numbered instructions with reasons, examples (repo now) | 3.6 / 7.2 / 13.7 | 15/15 | 20/21 | 9/9 | 44/45 | 1 | 0 |
 
 ## What we learned
 

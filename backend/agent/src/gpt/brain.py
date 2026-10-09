@@ -51,7 +51,8 @@ TOOLS = [
     ("confirm_step_correct",
      "Confirms that the current step is built correctly. Use it when the photo clearly shows the current step's brick "
      "in place and every one of that step's facts holds. When you call it, the build moves on: the step list on the "
-     "glasses advances and the voice tells the wearer the step is right, so your reply should say the same. Leave it "
+     "glasses advances and the voice tells the wearer the step is right, so your reply should say the same, and a "
+     "step confirmed when it is not right leaves the wearer building on a mistake. Leave it "
      "out when any fact fails, when part of the step is hidden or too small to judge, when the wearer only says they "
      "are done without the photo showing it, and when the question is not about the current step. step is the number "
      "of the current step given in the input.",

@@ -50,7 +50,7 @@ name = "Red slope, left edge"
 color = "red"
 cells = [1, 6, 4, 8]
 say = "Take the red three-by-four slope. Lay it horizontally against the left edge of the plate, slope side showing. Leave about five empty rows above it and eight below it."
-where = "the red 3x4 slope, horizontal (4 studs left-right, 3 up-down), against the left edge of the plate, with empty plate above and below it; seen from above, a slope looks like a flat red rectangle, which is expected: do not judge its slope"
+where = "the red 3x4 slope, horizontal (4 studs left-right, 3 up-down), against the left edge of the plate, with empty plate above and below it"
 checks = [
   "it touches the left edge of the plate",
   "it is red",
