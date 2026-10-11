@@ -46,10 +46,6 @@ logger = logging.getLogger("rayneo-agent.brain")
 
 FRAME_WAIT = 1.0  # s for the next camera frame; the glasses send ~15 a second
 
-
-class NoFrame(Exception):
-    """No camera frame arrived within FRAME_WAIT: the video is not coming, which no closer look fixes."""
-
 # (name, description, JSON schema of the arguments); the same for both providers
 TOOLS = [
     ("confirm_step_correct",
@@ -222,11 +218,6 @@ class Brain:
             out = await asyncio.wait_for(self._ask(words, n), self._timeout)
         except asyncio.CancelledError:
             raise
-        except NoFrame:
-            logger.warning("brain: #%d no camera frame within %.0f s (%d frames this call)", n, FRAME_WAIT, self._tap.count)
-            self._commentary("The camera is not sending any picture right now. Tell the wearer, and ask them to end the "
-                             "call and start it again.", delegation_id, n, t_asked)
-            return
         except Exception as e:
             logger.warning("brain: #%d failed (%s: %s), asking the wearer to repeat", n, type(e).__name__, str(e)[:200])
             self._commentary("You could not see that just now. Ask the wearer to hold the plate in view and say it again.",
@@ -248,10 +239,7 @@ class Brain:
     async def _ask(self, words: str, n: int) -> dict:
         """One look: {text, calls, done}; done = a confirm_step_correct call naming the current step."""
         t0 = time.perf_counter()
-        try:
-            frame = await self._tap.next_frame(FRAME_WAIT)
-        except asyncio.TimeoutError:
-            raise NoFrame from None
+        frame = await self._tap.next_frame(FRAME_WAIT)
         t_frame = time.perf_counter()
         seq = self._tap.count  # the frame's number in this call
         photo = await asyncio.to_thread(_jpeg, frame, self._side)
