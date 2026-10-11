@@ -1,4 +1,4 @@
-"""Replay one look of a recorded call through the brain's own Anthropic client, exactly as sent (the run's brain.txt,
+"""Replay one look of a recorded call through the brain's own model clients (Anthropic, or openai:VAR:effort), exactly as sent (the run's brain.txt,
 turns, notice, words, photo), under several model configs, keeping the thinking text.
 
     replay_look.py <run dir> <look n> <repeats> <MODEL_ENV_VAR:effort> [...]   -> <run dir>/replay-look<n>.json/.html
