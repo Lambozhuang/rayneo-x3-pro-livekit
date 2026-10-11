@@ -3,7 +3,7 @@
 GPT-Live cannot see. When the wearer says something that needs eyes ("is this
 right?", "where does it go?", "what is this?"), it delegates; the plugin emits
 `delegation_created` with an id and the wearer's words so far. The brain then
-takes the next camera frame (taken after the ask), and makes one stateless
+takes the newest camera frame (the glasses send ~15 a second), and makes one stateless
 vision call, to OpenAI's Responses API or Anthropic's Messages API
 (BRAIN_PROVIDER):
 
@@ -23,8 +23,8 @@ wearer ends the call on the glasses (double tap). The timeline only grows at
 the end, and no image is kept in it: what a look saw survives as its reply.
 
 The newest delegation wins: a call still running when the next arrives is
-cancelled. A call that fails or takes longer than BRAIN_TIMEOUT answers "I could
-not see that, ask again".
+cancelled. A call that fails or takes longer than BRAIN_TIMEOUT answers "the helper could
+not answer, say it again"; with no camera frame yet the model is asked without a photo.
 """
 
 from __future__ import annotations
@@ -44,7 +44,6 @@ from guide import Build
 
 logger = logging.getLogger("rayneo-agent.brain")
 
-FRAME_WAIT = 1.0  # s for the next camera frame; the glasses send ~15 a second
 
 # (name, description, JSON schema of the arguments); the same for both providers
 TOOLS = [
@@ -90,13 +89,13 @@ class OpenAIModel:
         self._client = AsyncOpenAI()
         self._model, self._effort, self._detail = model, effort, detail
 
-    async def ask(self, instructions: str, text: str, photo: bytes, key: str) -> tuple[str, list, dict]:
+    async def ask(self, instructions: str, text: str, photo: bytes | None, key: str) -> tuple[str, list, dict]:
         kw = {"reasoning": {"effort": self._effort}} if self._effort else {}
         resp = await self._client.responses.create(
             model=self._model, instructions=instructions,
-            input=[{"role": "user", "content": [
+            input=[{"role": "user", "content": ([
                 {"type": "input_image", "image_url": "data:image/jpeg;base64," + base64.b64encode(photo).decode(),
-                 "detail": self._detail},
+                 "detail": self._detail}] if photo else []) + [
                 {"type": "input_text", "text": text},
             ]}],
             tools=[{"type": "function", "name": n, "description": d, "parameters": p, "strict": True} for n, d, p in TOOLS],
@@ -127,7 +126,7 @@ class AnthropicModel:
         # thinking), which the API's error names; switched once, on the first such error
         self._off = {"type": "disabled"}
 
-    async def ask(self, instructions: str, text: str, photo: bytes, key: str) -> tuple[str, list, dict]:
+    async def ask(self, instructions: str, text: str, photo: bytes | None, key: str) -> tuple[str, list, dict]:
         from anthropic import BadRequestError
 
         try:
@@ -139,7 +138,7 @@ class AnthropicModel:
             self._off = {"type": "between_tools"}
             return await self._ask(instructions, text, photo)
 
-    async def _ask(self, instructions: str, text: str, photo: bytes) -> tuple[str, list, dict]:
+    async def _ask(self, instructions: str, text: str, photo: bytes | None) -> tuple[str, list, dict]:
         kw: dict = {"thinking": self._off}
         if self._effort and self._effort != "none":
             kw = {"thinking": {"type": "adaptive"}, "output_config": {"effort": self._effort}}
@@ -147,9 +146,9 @@ class AnthropicModel:
             model=self._model, max_tokens=4096, **kw,
             tools=[{"name": n, "description": d, "input_schema": p, "strict": True} for n, d, p in TOOLS],
             system=[{"type": "text", "text": instructions, "cache_control": {"type": "ephemeral"}}],
-            messages=[{"role": "user", "content": [
+            messages=[{"role": "user", "content": ([
                 {"type": "image", "source": {"type": "base64", "media_type": "image/jpeg",
-                                             "data": base64.b64encode(photo).decode()}},
+                                             "data": base64.b64encode(photo).decode()}}] if photo else []) + [
                 {"type": "text", "text": text},
             ]}],
         )
@@ -220,7 +219,7 @@ class Brain:
             raise
         except Exception as e:
             logger.warning("brain: #%d failed (%s: %s), asking the wearer to repeat", n, type(e).__name__, str(e)[:200])
-            self._commentary("You could not see that just now. Ask the wearer to hold the plate in view and say it again.",
+            self._commentary("The helper could not answer this time. Ask the wearer to say it again.",
                              delegation_id, n, t_asked)
             return
         build = self._build
@@ -239,22 +238,26 @@ class Brain:
     async def _ask(self, words: str, n: int) -> dict:
         """One look: {text, calls, done}; done = a confirm_step_correct call naming the current step."""
         t0 = time.perf_counter()
-        frame = await self._tap.next_frame(FRAME_WAIT)
-        t_frame = time.perf_counter()
-        seq = self._tap.count  # the frame's number in this call
-        photo = await asyncio.to_thread(_jpeg, frame, self._side)
+        frame, seq = self._tap.latest, self._tap.count  # the newest frame (~15 a second) and its number in this call
+        age_ms = (time.monotonic() - self._tap.latest_at) * 1000 if frame is not None else None
+        photo = await asyncio.to_thread(_jpeg, frame, self._side) if frame is not None else None
         build = self._build
         total = len(build.guide.steps)
         where = (f"Step {build.step + 1} of {total} ({build.guide.steps[build.step].name})"
                  if not build.finished else f"none: all {total} steps are done")
         timeline = "\n".join(self._timeline) or "(nothing yet)"
         # the photo goes first (Anthropic: images before text work best), then the conversation, then the ask
-        text = (f"The photo above was taken just now.\n<conversation>\n{timeline}\n</conversation>\n"
+        lead = "The photo above was taken just now." if photo else "No photo came with this request: the camera has sent no picture."
+        text = (f"{lead}\n<conversation>\n{timeline}\n</conversation>\n"
                 f"<current_step>{where}</current_step>\n<wearer_said>{words}</wearer_said>")
         t_sent = time.perf_counter()
-        logger.info("brain: #%d frame %d (%dx%d) arrived %.0f ms after the ask; request sent %.0f ms after the ask: "
-                    "jpeg %d KB, %d timeline lines, step %d", n, seq, frame.width, frame.height, (t_frame - t0) * 1000,
-                    (t_sent - t0) * 1000, len(photo) // 1024, len(self._timeline), build.step + 1)
+        if frame is not None:
+            logger.info("brain: #%d frame %d (%dx%d, %.0f ms old); request sent %.0f ms after the ask: jpeg %d KB, "
+                        "%d timeline lines, step %d", n, seq, frame.width, frame.height, age_ms, (t_sent - t0) * 1000,
+                        len(photo) // 1024, len(self._timeline), build.step + 1)
+        else:
+            logger.warning("brain: #%d no camera frame this call; request sent without a photo, step %d", n,
+                           build.step + 1)
         reply, calls, u = await self._model.ask(self._instructions, text, photo, build.run)
         t_back = time.perf_counter()
         done = False
@@ -266,7 +269,8 @@ class Brain:
             else:
                 logger.warning("brain: #%d confirm_step_correct(%s) ignored, the current step is %d", n, args.get("step"),
                                build.step + 1)
-        saved = self._tap.dump(photo, f"ask{n}-s{build.step + 1}{'-done' if done else ''}") if self._tap.dumping else None
+        saved = (self._tap.dump(photo, f"ask{n}-s{build.step + 1}{'-done' if done else ''}")
+                 if photo and self._tap.dumping else None)
         logger.info("brain: #%d reply after %.0f ms (model %.0f ms): in=%d (cached %d, written %d) out=%d (thinking %s) "
                     "stop=%s calls=%s frame=%s reply: %s",
                     n, (t_back - t0) * 1000, (t_back - t_sent) * 1000, u["in"], u["cached"], u.get("written", 0),

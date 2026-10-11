@@ -71,7 +71,7 @@ a new step as thinking, and the step list to the glasses; the task file feeds bo
    the voice says in its own words. Only a confirm call moves the build: published to the
    glasses, told to the voice in the same commentary and as one line of thinking; no call,
    nothing moves (not done, not sure, or not asked). A newer delegation cancels an older one still running; a call over
-   `BRAIN_TIMEOUT` (12 s) answers "could not see that, say it again". No image stays in the
+   `BRAIN_TIMEOUT` (12 s) answers "the helper could not answer, say it again". No image stays in the
    timeline; what a look saw stays as its reply. Offline tests of models, image and prompt:
    `eval/brain/RESULTS.md`.
 3. **Task file** (`guides/truck/task.toml`): per step the wording the wearer hears (`say`),

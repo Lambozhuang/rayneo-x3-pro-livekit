@@ -2,10 +2,9 @@
 
 `FrameTap` is an AgentSession `video_sampler` that always answers "drop", so
 the framework never forwards video to the speech model, and keeps the frames
-for the code instead: `next_frame()` waits for the next one to arrive, which at
-the glasses' frame rate is a few tens of milliseconds, so whatever asks for a
-picture gets one taken after it asked, never an older one. The brain
-(gpt/brain.py) takes one per delegation.
+for the code instead: `latest` is the newest one (at the glasses' ~15 a second,
+at most a few tens of milliseconds old), which the brain (gpt/brain.py) takes
+per delegation; `next_frame()` waits for the next one, for the old watch loop.
 
 FRAME_DUMP_DIR keeps a copy of every frame that was actually sent to a model,
 one subdirectory per call.
@@ -34,6 +33,8 @@ def to_image(frame: rtc.VideoFrame) -> Image.Image:
 class FrameTap:
     def __init__(self, dump_dir: str | None = None, dump_max: int = 60) -> None:
         self.count = 0  # frames seen, for the log: zero means the video path is broken
+        self.latest: rtc.VideoFrame | None = None  # the newest frame and when it came (time.monotonic())
+        self.latest_at = 0.0
         self._waiters: list[asyncio.Future[rtc.VideoFrame]] = []
         self._dump_dir: str | None = None
         self._dump_max = dump_max
@@ -47,6 +48,7 @@ class FrameTap:
 
     def __call__(self, frame: rtc.VideoFrame, session: AgentSession) -> bool:
         self.count += 1
+        self.latest, self.latest_at = frame, time.monotonic()
         if self.count == 1:
             logger.info("camera: first frame %dx%d", frame.width, frame.height)
         for fut in self._waiters:
