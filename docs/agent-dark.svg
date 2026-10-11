@@ -36,7 +36,7 @@
 <text x="306" y="408" font-size="12" fill="#7c8b9c" text-anchor="start" letter-spacing="0.6">Camera path</text>
 <rect x="306" y="162" width="294" height="84" rx="10" fill="#ffffff0a" stroke="#ffffff29" stroke-width="1.4"/>
 <text x="453.0" y="196" font-size="16" fill="#f1f5f9" text-anchor="middle">GPT-Live session</text>
-<text x="453.0" y="220" font-size="12" fill="#a3b2c2" text-anchor="middle">persona + every step (find, say)</text>
+<text x="453.0" y="220" font-size="12" fill="#a3b2c2" text-anchor="middle">persona + every step's instructions</text>
 <rect x="306" y="418" width="128" height="120" rx="10" fill="#ffffff0a" stroke="#ffffff29" stroke-width="1.4"/>
 <text x="370.0" y="448" font-size="16" fill="#f1f5f9" text-anchor="middle">FrameTap</text>
 <text x="370.0" y="470" font-size="12" fill="#7c8b9c" text-anchor="middle">frames.py</text>
@@ -52,7 +52,7 @@
 <path d="M316 294 H512 L526 308 V374 Q526 384 516 384 H316 Q306 384 306 374 V304 Q306 294 316 294 Z" fill="#ffffff0a" stroke="#ffffff29" stroke-width="1.4"/>
 <path d="M512 294 V308 H526" fill="none" stroke="#ffffff29" stroke-width="1.4"/>
 <text x="320" y="320" font-size="13" fill="#f1f5f9" text-anchor="start">guides/&lt;task&gt;/task.toml</text>
-<text x="320" y="344" font-size="11.5" fill="#a3b2c2" text-anchor="start">find, say → voice</text>
+<text x="320" y="344" font-size="11.5" fill="#a3b2c2" text-anchor="start">what the wearer hears → voice</text>
 <text x="320" y="362" font-size="11.5" fill="#a3b2c2" text-anchor="start">all of it → brain</text>
 <path d="M400 292 L400 250" fill="none" stroke="#a3b2c2" stroke-width="1.2" stroke-linejoin="round" stroke-dasharray="5 4" marker-end="url(#headm)"/>
 <path d="M496 386 L496 402 L540 402 L540 414" fill="none" stroke="#a3b2c2" stroke-width="1.2" stroke-linejoin="round" stroke-dasharray="5 4" marker-end="url(#headm)"/>

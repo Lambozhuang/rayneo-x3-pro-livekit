@@ -155,7 +155,7 @@ def build(t: dict) -> str:
     sx, sy, sw, sh = SESS
     card(sx, sy, sw, sh)
     text(sx + sw / 2, sy + 34, "GPT-Live session", 16, t["text"])
-    text(sx + sw / 2, sy + 58, "persona + every step (find, say)", 12, t["muted"])
+    text(sx + sw / 2, sy + 58, "persona + every step's instructions", 12, t["muted"])
 
     # FrameTap and the brain
     tx0 = FX + IN
@@ -184,7 +184,7 @@ def build(t: dict) -> str:
     add(f'<path d="M{tx + tw - fold} {ty} V{ty + fold} H{tx + tw}" fill="none" '
         f'stroke="{t["edge"]}" stroke-width="1.4"/>')
     text(tx + 14, ty + 26, "guides/&lt;task&gt;/task.toml", 13, t["text"], "start")
-    for j, s in enumerate(["find, say → voice", "all of it → brain"]):
+    for j, s in enumerate(["what the wearer hears → voice", "all of it → brain"]):
         text(tx + 14, ty + 50 + j * 18, s, 11.5, t["muted"], "start")
     wire([(400, ty - 2), (400, sy + sh + 4)], t["muted"], "headm", 1.2, dash=True)
     wire([(tx + tw - 30, ty + th + 2), (tx + tw - 30, ty + th + 18), (BRAIN_X + 20, ty + th + 18),

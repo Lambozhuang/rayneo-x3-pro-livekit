@@ -69,9 +69,7 @@ thinking, and the step list to the glasses; the task file feeds both"
    client-delegation example. Instructions: the role (the eyes; it never speaks to the wearer,
    the voice says its reply), the whole task file (a step with a find line comes in two parts,
    and its facts apply once the brick is on the plate), how to reply, five examples from a
-   made-up build (shared by every task; fixed, so the prompt cache hits). `brain-v2` runs
-   Sonnet 5.5 at effort low: on a look that needs a gap counted, a replay got it right 10/10,
-   Haiku 5.5 low 3/10. One tool, `confirm_step_correct(step)`, its rules in its own
+   made-up build (shared by every task; fixed, so the prompt cache hits). One tool, `confirm_step_correct(step)`, its rules in its own
    description; there is no hang-up tool, a misjudged goodbye cut calls off. Turns: the call's
    chat history, the wearer as user and the voice as assistant. The last turn: the camera
    frame's bottom square (the glasses look down at the table; the top of the portrait frame is
