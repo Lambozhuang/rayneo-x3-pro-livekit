@@ -61,18 +61,21 @@ a new step as thinking, and the step list to the glasses; the task file feeds bo
    the wearer hangs up on the glasses. Client
    delegation: the plugin hands the agent an id and the wearer's words, no backend model runs.
 2. **Brain** (`gpt/brain.py`), one stateless vision call per delegation, to OpenAI or
-   Anthropic (`BRAIN_PROVIDER`, `BRAIN_MODEL`, `BRAIN_EFFORT`). Instructions: the role, why a
-   wrong confirmation hurts, the whole task file, how to read the photo, how to reply, four
-   examples (fixed, so the prompt cache hits). One tool, `confirm_step_correct(step)`, its
-   rules in its own description; there is no hang-up tool, a misjudged goodbye cut calls off. Input: the camera frame's bottom square
-   (the glasses look down at the table; the top of the portrait frame is wall) at
-   `BRAIN_SIDE` (1080), then the call's timeline, the current step and the wearer's words.
+   Anthropic (`BRAIN_PROVIDER`, `BRAIN_MODEL`, `BRAIN_EFFORT`), built like LiveKit's
+   client-delegation example. Instructions: the role (the eyes; it never speaks to the wearer,
+   the voice says its reply), the whole task file, how to reply, five examples (fixed, so the
+   prompt cache hits). One tool, `confirm_step_correct(step)`, its rules in its own
+   description; there is no hang-up tool, a misjudged goodbye cut calls off. Turns: the call's
+   chat history, the wearer as user and the voice as assistant. The last turn: the camera
+   frame's bottom square (the glasses look down at the table; the top of the portrait frame is
+   wall) at `BRAIN_SIDE` (1080), the current step, the wearer's latest words.
    The reply, plain facts, goes back as commentary on that delegation id ("Camera: ..."), which
    the voice says in its own words. Only a confirm call moves the build: published to the
    glasses, told to the voice in the same commentary and as one line of thinking; no call,
    nothing moves (not done, not sure, or not asked). A newer delegation cancels an older one still running; a call over
-   `BRAIN_TIMEOUT` (12 s) answers "the helper could not answer, say it again". No image stays in the
-   timeline; what a look saw stays as its reply. Offline tests of models, image and prompt:
+   `BRAIN_TIMEOUT` (12 s) answers "the helper could not answer, say it again". Only the newest photo
+   goes, and the brain's earlier replies are not sent back to it: what a look saw survives as
+   what the voice said of it. Offline tests of models, image and prompt:
    `eval/brain/RESULTS.md`.
 3. **Task file** (`guides/truck/task.toml`): per step the wording the wearer hears (`say`),
    where the brick goes and what a photo must show (`where`, `checks`), and the brick's cells

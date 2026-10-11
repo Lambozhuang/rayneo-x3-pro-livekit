@@ -94,14 +94,13 @@ async def rayneo_assistant(ctx: JobContext) -> None:
 
     ctx.add_shutdown_callback(_log_usage)
 
-    # Both sides as text, into the log and the brain's timeline; a turn is
-    # closed when the audio goes quiet, so these lines trail the speech.
+    # Both sides as text, into the log and the record (the brain reads the same turns from the session's
+    # history); a turn is closed when the audio goes quiet, so these lines trail the speech.
     @session.on("conversation_item_added")
     def _log_turn(ev: ConversationItemAddedEvent) -> None:
         if isinstance(ev.item, ChatMessage):
             logger.info("%s: %s", ev.item.role, ev.item.text_content)
             if ev.item.role in ("user", "assistant"):
-                brain.note("wearer" if ev.item.role == "user" else "voice", ev.item.text_content or "")
                 m = ev.item.metrics or {}
                 record.event("said", who="wearer" if ev.item.role == "user" else "voice", text=ev.item.text_content,
                              interrupted=ev.item.interrupted,

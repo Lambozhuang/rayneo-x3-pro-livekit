@@ -123,6 +123,16 @@ def timeline(events: list[dict], looks: dict[int, dict], end: float) -> str:
     return '<div class="tl">' + "".join(svg) + "</div>"
 
 
+def sent_input(sent: dict) -> str:
+    """The messages after the system prompt, one turn per paragraph (records before the turns format: one text)."""
+    if "input" in sent:
+        return sent["input"]
+    turn = lambda role, text: role + ": " + text.replace("\n", "\n    ")  # noqa: E731
+    last = ["[photo]" if sent.get("photo") or sent.get("frame") is not None else "[no photo]", sent["notice"],
+            sent["words"]]
+    return "\n\n".join([turn(r, t) for r, t in sent.get("turns", [])] + [turn("user", "\n".join(last))])
+
+
 def card(n: int, look: dict, thinking: list[str]) -> str:
     d, sent, back = look.get("delegation", {}), look.get("look_sent"), look.get("look_back")
     o = outcome(look)
@@ -133,11 +143,10 @@ def card(n: int, look: dict, thinking: list[str]) -> str:
     head = {"done": '<span class="ok">step confirmed</span>', "not": "no confirm",
             "failed": '<span class="bad">failed</span>', "dropped": '<span class="dim">dropped</span>'}[o]
     out.append(f'<b>#{n}</b> {mmss(d.get("t"))} <span class="tag">{esc(d.get("id"))}</span> &nbsp; {head}<br>')
-    if d.get("words"):
-        out.append(f'<span class="wearer">wearer: {esc(d["words"])}</span><br>')
-    else:
-        out.append(f'<span class="warn">no words came with it</span>; asked with: '
-                   f'<span class="wearer">{esc(d.get("asked_with")) or "(none)"}</span><br>')
+    asked = (sent or {}).get("words", d.get("asked_with"))
+    out.append(f'<span class="wearer">wearer: {esc(asked or d.get("words")) or "(none)"}</span>'
+               + ("" if d.get("words") else ' <span class="warn">(no words came with the hand-over: the wearer\'s '
+                                            'last lines in the history)</span>') + "<br>")
     if sent:
         frame = (f'frame {sent["frame"]} ({sent["frame_size"]}, {sent["frame_age_ms"]} ms old), {sent["photo_kb"]} KB'
                  if sent.get("frame") is not None else '<span class="bad">no photo: no camera frame yet</span>')
@@ -169,7 +178,7 @@ def card(n: int, look: dict, thinking: list[str]) -> str:
     elif s:
         out.append(f'<span class="warn">voice {esc(s["why"])}</span><br>')
     if sent:
-        out.append(f'<details><summary>input as sent</summary><pre>{esc(sent["input"])}</pre></details>')
+        out.append(f'<details><summary>input as sent</summary><pre>{esc(sent_input(sent))}</pre></details>')
     out.append('</div><div class="clear"></div></div>')
     return "".join(out)
 

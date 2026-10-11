@@ -2,15 +2,15 @@
 
 GPT-Live cannot see. When the wearer says something that needs eyes ("is this
 right?", "where does it go?", "what is this?"), it delegates; the plugin emits
-`delegation_created` with an id and the wearer's words so far. The brain then
-takes the newest camera frame (the glasses send ~15 a second), and makes one stateless
-vision call, to OpenAI's Responses API or Anthropic's Messages API
-(BRAIN_PROVIDER):
+`delegation_created` with an id and, sometimes, the wearer's words not yet in the
+history. The brain then takes the newest camera frame (the glasses send ~15 a second),
+and makes one stateless vision call, to OpenAI's Responses API or Anthropic's
+Messages API (BRAIN_PROVIDER), built like LiveKit's client-delegation example:
 
     tool          confirm_step_correct(step)
     instructions  rules + the whole task file                 fixed, so the prompt cache hits
-    input         the timeline of the call (the wearer's words, what the brain answered and did)
-                  + the current step + the wearer's words + the frame's bottom square
+    turns         the call's chat history: the wearer as user, the voice as assistant
+    last turn     the frame's bottom square, the current step, the wearer's latest words
 
 and gets back a reply in plain facts, maybe with the tool call. Nothing goes
 back to the model: the call is executed here and the reply goes to GPT-Live as
@@ -19,8 +19,9 @@ words. Only a confirm_step_correct call moves the build (published to the glasse
 told to GPT-Live in the same commentary and as one silent thinking line); no
 call, nothing moves, whether the step is not done, unsure or not asked about.
 There is no hang-up tool: a model misjudging a goodbye cut calls off, and the
-wearer ends the call on the glasses (double tap). The timeline only grows at
-the end, and no image is kept in it: what a look saw survives as its reply.
+wearer ends the call on the glasses (double tap). Only the newest photo goes;
+what an earlier look saw survives only as what the voice said of it, and the
+brain's own earlier replies are not sent back to it.
 
 The newest delegation wins: a call still running when the next arrives is
 cancelled. A call that fails or takes longer than BRAIN_TIMEOUT answers "the helper could
@@ -92,14 +93,15 @@ class OpenAIModel:
         self._client = AsyncOpenAI()
         self._model, self._effort, self._detail = model, effort, detail
 
-    async def ask(self, instructions: str, text: str, photo: bytes | None, key: str) -> tuple[str, list, dict]:
+    async def ask(self, instructions: str, turns: list[tuple[str, str]], notice: str, words: str, photo: bytes | None,
+                  key: str) -> tuple[str, list, dict]:
         kw = {"reasoning": {"effort": self._effort}} if self._effort else {}
         resp = await self._client.responses.create(
             model=self._model, instructions=instructions,
-            input=[{"role": "user", "content": ([
+            input=[{"role": r, "content": t} for r, t in turns] + [{"role": "user", "content": ([
                 {"type": "input_image", "image_url": "data:image/jpeg;base64," + base64.b64encode(photo).decode(),
                  "detail": self._detail}] if photo else []) + [
-                {"type": "input_text", "text": text},
+                {"type": "input_text", "text": notice}, {"type": "input_text", "text": words},
             ]}],
             tools=[{"type": "function", "name": n, "description": d, "parameters": p, "strict": True} for n, d, p in TOOLS],
             prompt_cache_key=key, **kw,
@@ -129,30 +131,33 @@ class AnthropicModel:
         # thinking), which the API's error names; switched once, on the first such error
         self._off = {"type": "disabled"}
 
-    async def ask(self, instructions: str, text: str, photo: bytes | None, key: str) -> tuple[str, list, dict]:
+    async def ask(self, instructions: str, turns: list[tuple[str, str]], notice: str, words: str, photo: bytes | None,
+                  key: str) -> tuple[str, list, dict]:
         from anthropic import BadRequestError
 
         try:
-            return await self._ask(instructions, text, photo)
+            return await self._ask(instructions, turns, notice, words, photo)
         except BadRequestError as e:
             if self._off["type"] != "disabled" or "between_tools" not in str(e):
                 raise
             logger.info("brain: %s takes no disabled thinking, using between_tools", self._model)
             self._off = {"type": "between_tools"}
-            return await self._ask(instructions, text, photo)
+            return await self._ask(instructions, turns, notice, words, photo)
 
-    async def _ask(self, instructions: str, text: str, photo: bytes | None) -> tuple[str, list, dict]:
+    async def _ask(self, instructions: str, turns: list[tuple[str, str]], notice: str, words: str,
+                   photo: bytes | None) -> tuple[str, list, dict]:
         kw: dict = {"thinking": self._off}
         if self._effort and self._effort != "none":
             kw = {"thinking": {"type": "adaptive"}, "output_config": {"effort": self._effort}}
+        # the notice and the wearer's words in blocks of their own (Anthropic's Haiku 5.5 guide)
         resp = await self._client.messages.create(
             model=self._model, max_tokens=4096, **kw,
             tools=[{"name": n, "description": d, "input_schema": p, "strict": True} for n, d, p in TOOLS],
             system=[{"type": "text", "text": instructions, "cache_control": {"type": "ephemeral"}}],
-            messages=[{"role": "user", "content": ([
+            messages=[{"role": r, "content": t} for r, t in turns] + [{"role": "user", "content": ([
                 {"type": "image", "source": {"type": "base64", "media_type": "image/jpeg",
                                              "data": base64.b64encode(photo).decode()}}] if photo else []) + [
-                {"type": "text", "text": text},
+                {"type": "text", "text": notice}, {"type": "text", "text": words},
             ]}],
         )
         u = resp.usage
@@ -166,6 +171,28 @@ class AnthropicModel:
             "thinking": getattr(details, "thinking_tokens", None) if details is not None else None,
             "stop": resp.stop_reason,
         }
+
+
+def conversation(history, words: str) -> tuple[list[tuple[str, str]], str]:
+    """The call so far as the model's turns, and the wearer's latest words. As in LiveKit's client-delegation example
+    the chat history goes over as it is, the wearer's lines as user turns and the voice's as assistant turns; for
+    Anthropic the turns alternate (lines of one side in a row are joined) and start with the wearer (the voice's
+    greeting is dropped). The wearer's last lines move out to the ask, so the photo can go before them."""
+    turns: list[list[str]] = []
+    for item in history.items:
+        if item.type != "message" or item.role not in ("user", "assistant"):
+            continue
+        text = " ".join((item.text_content or "").split())
+        if not text:
+            continue
+        if turns and turns[-1][0] == item.role:
+            turns[-1][1] += "\n" + text
+        else:
+            turns.append([item.role, text])
+    while turns and turns[0][0] == "assistant":
+        turns.pop(0)
+    last = turns.pop()[1] if turns and turns[-1][0] == "user" else ""
+    return [(r, t) for r, t in turns], "\n".join(w for w in (last, words) if w)
 
 
 def make_model(provider: str, model: str, effort: str, detail: str):
@@ -186,8 +213,6 @@ class Brain:
         self._model = model
         self._side = side
         self._instructions = brain_instructions(build.guide, language)
-        self._t0 = time.monotonic()
-        self._timeline: list[str] = []
         self._task: asyncio.Task | None = None
         self._task_n = 0
         self._asks = 0
@@ -196,28 +221,14 @@ class Brain:
     def instructions(self) -> str:
         return self._instructions
 
-    # ------------------------------------------------------------------ the timeline
-
-    def note(self, who: str, text: str) -> None:
-        """One line of the call's timeline: who said or did what, at mm:ss since the call started."""
-        text = " ".join(text.split())
-        if not text:
-            return
-        t = int(time.monotonic() - self._t0)
-        self._timeline.append(f"{t // 60:02d}:{t % 60:02d} {who}: {text}")
-
     # ------------------------------------------------------------------ delegations
 
     def on_delegation(self, d) -> None:
         """GPT-Live handed something over; answer it, dropping any older one still running."""
         self._asks += 1
-        words = d.pending_transcript.strip()
+        words = d.pending_transcript.strip()  # the turn not yet in the history; often empty
         logger.info("delegation: %s #%d wearer: %s", d.id, self._asks, words or "(no words came with it)")
-        came = words
-        if not words:  # the voice delegated before its transcript of the turn: the wearer's last line instead
-            words = next((line.split(" wearer: ", 1)[1] for line in reversed(self._timeline) if " wearer: " in line), "")
-            logger.info("brain: #%d asks with the wearer's last line: %s", self._asks, words or "(none yet)")
-        self._record.event("delegation", n=self._asks, id=d.id, words=came, asked_with=words)
+        self._record.event("delegation", n=self._asks, id=d.id, words=words)
         if self._task is not None and not self._task.done():
             logger.info("brain: newer delegation, the one before is dropped")
             self._record.event("look_dropped", n=self._task_n, by=self._asks)
@@ -238,10 +249,8 @@ class Brain:
             return
         build = self._build
         current = build.step + 1
-        self.note("you answered", out["text"])
         parts = [f"Camera: {out['text']}"] if out["text"] else []
         if out["done"]:
-            self.note("you recorded", f"step {current} done")
             build.set_step(current)  # index of the next step = the number of steps done
             self._record.event("step", done=current, now=None if build.finished else current + 1)
             await publish_build(build)
@@ -258,28 +267,29 @@ class Brain:
         photo = await asyncio.to_thread(_jpeg, frame, self._side) if frame is not None else None
         build = self._build
         total = len(build.guide.steps)
-        where = (f"Step {build.step + 1} of {total} ({build.guide.steps[build.step].name})"
+        where = (f"Step {build.step + 1} of {total} ({build.guide.steps[build.step].name}); {build.step} done"
                  if not build.finished else f"none: all {total} steps are done")
-        timeline = "\n".join(self._timeline) or "(nothing yet)"
-        # the photo goes first (Anthropic: images before text work best), then the conversation, then the ask
+        turns, words = conversation(self._session.history, words)
+        # the last user turn: the photo first (Anthropic: images before text work best), then where the build is,
+        # then the wearer's words
         lead = "The photo above was taken just now." if photo else "No photo came with this request: the camera has sent no picture."
-        text = (f"{lead}\n<conversation>\n{timeline}\n</conversation>\n"
-                f"<current_step>{where}</current_step>\n<wearer_said>{words}</wearer_said>")
+        notice = f"{lead}\n<current_step>{where}</current_step>"
+        words = words or "(the wearer's words have not come through yet)"
         t_sent = time.perf_counter()
         saved = self._record.photo(photo, f"ask{n}-s{build.step + 1}") if photo else None
         if frame is not None:
             logger.info("brain: #%d frame %d (%dx%d, %.0f ms old); request sent %.0f ms after the ask: jpeg %d KB, "
-                        "%d timeline lines, step %d", n, seq, frame.width, frame.height, age_ms, (t_sent - t0) * 1000,
-                        len(photo) // 1024, len(self._timeline), build.step + 1)
+                        "%d earlier turns, step %d; wearer: %s", n, seq, frame.width, frame.height, age_ms,
+                        (t_sent - t0) * 1000, len(photo) // 1024, len(turns), build.step + 1, words)
         else:
-            logger.warning("brain: #%d no camera frame this call; request sent without a photo, step %d", n,
-                           build.step + 1)
+            logger.warning("brain: #%d no camera frame this call; request sent without a photo, step %d; wearer: %s", n,
+                           build.step + 1, words)
         self._record.event("look_sent", n=n, step=build.step + 1, frame=seq if frame is not None else None,
                            frame_size=f"{frame.width}x{frame.height}" if frame is not None else None,
                            frame_age_ms=round(age_ms) if age_ms is not None else None,
                            photo=saved, photo_kb=len(photo) // 1024 if photo else None,
-                           prep_ms=round((t_sent - t0) * 1000), input=text)
-        reply, calls, u = await self._model.ask(self._instructions, text, photo, build.run)
+                           prep_ms=round((t_sent - t0) * 1000), turns=turns, notice=notice, words=words)
+        reply, calls, u = await self._model.ask(self._instructions, turns, notice, words, photo, build.run)
         t_back = time.perf_counter()
         done, ignored = False, None
         for name, args in calls:
