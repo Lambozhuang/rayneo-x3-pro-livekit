@@ -62,7 +62,7 @@ The wearer is building "{title}": flat LEGO bricks on a green {plate}x{plate} ba
 
 Positions are described on the plate as the wearer sees it, like a picture lying in front of them: up is toward the far edge (the top of the photo), down toward the near edge, left and right are the wearer's. Every brick lies flat; a vertical brick has its long side running up and down, a horizontal one left and right.
 
-Each step lists what the wearer is told (find: which brick to pick up, where the step has it; told: where it goes), where the brick goes, and the facts a photo of the finished step shows.
+Each step lists what the wearer is told (find: which brick to pick up, where the step has it; told: where it goes), where the brick goes, and the facts a photo of the finished step shows. The voice gives a step with a find line in two parts: first which brick to find, then, once the wearer has it, where it goes. The wearer may show you the brick in their hand before placing it, or just place it; the step's facts apply once the brick is on the plate.
 <steps>
 {steps}
 </steps>
