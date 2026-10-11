@@ -3,7 +3,7 @@
 # Grid: columns 1..16 left to right, rows 1..16 from the far edge to the edge nearest the builder. `cells` is the
 # brick's footprint [col0, row0, col1, row1], inclusive: the layout as drawn. Where the build sits on the
 # plate is loose (step 1 says roughly where, so the rest fits); how the five bricks sit against each other is exact.
-# Every step is two parts for the wearer: `find` (which brick to pick up) and, once they have it, `say` (where it
+# Every step is two parts for the wearer: `find` (which brick to pick up) and, once they have it, `place` (where it
 # goes). `where` and `checks` are what the brain checks a photo against. One vocabulary throughout: the plate as a
 # picture lying in front of the wearer, up = the far edge, down = the near edge, left and right theirs, a brick
 # vertical (long side up-down) or horizontal (left-right).
@@ -18,7 +18,7 @@ name = "Dark grey 2x6, base"
 color = "dgrey"
 cells = [4, 13, 9, 14]
 find = "Find the dark grey two-by-six: a long dark grey brick, two studs wide and six studs long."
-say = "Lay it horizontally in the lower half of the plate, a little left of centre, leaving plenty of room above it and some on its right."
+place = "Lay it horizontally in the lower half of the plate, a little left of centre, leaving plenty of room above it and some on its right."
 where = "the dark grey 2x6, horizontal (6 studs left-right, 2 up-down), in the lower half of the plate, a little left of centre; the crane needs about seven rows above it and four columns right of it"
 checks = [
   "it is horizontal and dark grey",
@@ -32,7 +32,7 @@ name = "Tan 1x6, mast"
 color = "tan"
 cells = [6, 7, 6, 12]
 find = "Find the tan one-by-six: a thin tan brick, six studs long."
-say = "Stand it vertically on top of the dark grey one, touching it, on its third stud from the left."
+place = "Stand it vertically on top of the dark grey one, touching it, on its third stud from the left."
 where = "the tan 1x6, vertical, touching the top of the dark grey brick, in the dark grey brick's third column from the left"
 checks = [
   "it is vertical and tan",
@@ -46,7 +46,7 @@ name = "White 1x6, jib"
 color = "white"
 cells = [6, 6, 11, 6]
 find = "Find a white one-by-six: a thin white brick, six studs long."
-say = "Lay it horizontally on top of the tan one, touching its top end, with their left ends lined up, so it reaches out to the right."
+place = "Lay it horizontally on top of the tan one, touching its top end, with their left ends lined up, so it reaches out to the right."
 where = "the white 1x6, horizontal, touching the top end of the tan brick, its left end lined up with the tan brick, reaching five columns to the right of it"
 checks = [
   "it is horizontal and white",
@@ -60,7 +60,7 @@ name = "Yellow 1x4, cable"
 color = "yellow"
 cells = [11, 7, 11, 10]
 find = "Find the yellow one-by-four: a thin yellow brick, four studs long."
-say = "Hang it vertically below the right end of the white brick, touching it."
+place = "Hang it vertically below the right end of the white brick, touching it."
 where = "the yellow 1x4, vertical, touching the bottom of the white brick at its right end, lined up with the white brick's right end"
 checks = [
   "it is vertical and yellow",
@@ -74,7 +74,7 @@ name = "Red 2x4, load"
 color = "red"
 cells = [10, 11, 13, 12]
 find = "Find a red two-by-four: a red brick, two studs wide and four studs long."
-say = "Lay it horizontally below the yellow one, touching its bottom end, with one stud sticking out left of the yellow and two on the right."
+place = "Lay it horizontally below the yellow one, touching its bottom end, with one stud sticking out left of the yellow and two on the right."
 where = "the red 2x4, horizontal, touching the bottom end of the yellow brick; the yellow brick meets its second column from the left"
 checks = [
   "it is horizontal and red",

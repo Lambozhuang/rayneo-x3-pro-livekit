@@ -9,14 +9,14 @@ title = "Two bricks on a baseplate"
 [[steps]]
 part = "blue 1x4 brick"
 name = "Blue 1x4 flat, middle"
-say = "Take the blue one-by-four brick and press it flat onto the baseplate, horizontal, somewhere around the middle."
+place = "Take the blue one-by-four brick and press it flat onto the baseplate, horizontal, somewhere around the middle."
 
 [[steps]]
 part = "white 1x6 brick"
 name = "White 1x6 below, two rows apart"
-say = "Now the white one-by-six. Put it below the blue brick, also horizontal, with two empty rows of studs between them, and line up its left end with the left end of the blue brick."
+place = "Now the white one-by-six. Put it below the blue brick, also horizontal, with two empty rows of studs between them, and line up its left end with the left end of the blue brick."
 
 [[steps]]
 part = "blue 1x4 brick"
 name = "Blue 1x4 upright, making an L"
-say = "Last step: take the blue brick off again and put it back vertical, touching the right end of the white brick and pointing up, so the two bricks make an L."
+place = "Last step: take the blue brick off again and put it back vertical, touching the right end of the white brick and pointing up, so the two bricks make an L."

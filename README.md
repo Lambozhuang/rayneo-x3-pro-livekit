@@ -58,7 +58,7 @@ thinking, and the step list to the glasses; the task file feeds both"
 1. **Voice.** `gpt-live-1` is audio only and full duplex, and owns turn-taking and barge-in
    (no VAD on the session). Its instructions are the persona and every step's wording
    (`gpt/prompts.py`), in two parts where the task has them: which brick to find (`find`), then,
-   once the wearer has it, where it goes (`say`). What needs no eyes (the next step, an earlier one, what a brick looks
+   once the wearer has it, where it goes (`place`). What needs no eyes (the next step, an earlier one, what a brick looks
    like) it answers itself. Whatever depends on what is in front of the wearer ("is this
    right?", "where does it go?", "what is this?") it delegates; a goodbye it answers itself and
    the wearer hangs up on the glasses. It opens the call by naming the build. Client
@@ -83,7 +83,7 @@ thinking, and the step list to the glasses; the task file feeds both"
    what the voice said of it. Offline tests of models, image and prompt:
    `eval/brain/RESULTS.md`.
 3. **Task file** (`guides/<task>/task.toml`; the 13 numbered five-brick tasks of
-   `tasks/sheet.html`, picked on the glasses; `truck` is the old 13-step task): per step the wording the wearer hears (`find`, `say`), where the brick goes and what a
+   `tasks/sheet.html`, picked on the glasses; `truck` is the old 13-step task): per step the wording the wearer hears (`find`, `place`), where the brick goes and what a
    photo must show (`where`, `checks`), and the brick's cells (and, for the truck, colour tables
    for the CV judge). Where the build sits on the plate is loose; how its bricks sit against
    each other is exact. One vocabulary throughout, also in both prompts: the

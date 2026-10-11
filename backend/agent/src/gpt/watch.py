@@ -244,7 +244,7 @@ class Watch:
             else:
                 nxt = build.guide.steps[build.step]
                 self._say(f"Camera, just now: step {ev.step} is done. Tell the wearer it is right in a few words, "
-                          f"then give step {ev.step + 1}: {nxt.say}")
+                          f"then give step {ev.step + 1}: {nxt.place}")
         elif ev.kind == Kind.WRONG:
             logger.info("step %d wrong: %s", ev.step, ev.text)
             self._say(f"Camera, just now: step {ev.step} is placed wrongly: {ev.text}. "

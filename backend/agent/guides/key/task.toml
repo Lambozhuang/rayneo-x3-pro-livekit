@@ -3,7 +3,7 @@
 # Grid: columns 1..16 left to right, rows 1..16 from the far edge to the edge nearest the builder. `cells` is the
 # brick's footprint [col0, row0, col1, row1], inclusive: the layout as drawn; a round plate covers its 4x4 square but not the corner cells. Where the build sits on the
 # plate is loose (step 1 says roughly where, so the rest fits); how the five bricks sit against each other is exact.
-# Every step is two parts for the wearer: `find` (which brick to pick up) and, once they have it, `say` (where it
+# Every step is two parts for the wearer: `find` (which brick to pick up) and, once they have it, `place` (where it
 # goes). `where` and `checks` are what the brain checks a photo against. One vocabulary throughout: the plate as a
 # picture lying in front of the wearer, up = the far edge, down = the near edge, left and right theirs, a brick
 # vertical (long side up-down) or horizontal (left-right).
@@ -18,7 +18,7 @@ name = "Tan 2x6, shaft"
 color = "tan"
 cells = [7, 7, 12, 8]
 find = "Find the tan two-by-six: a long tan brick, two studs wide and six studs long."
-say = "Lay it horizontally roughly in the middle of the plate, a little right of centre, leaving room on its left and below it."
+place = "Lay it horizontally roughly in the middle of the plate, a little right of centre, leaving room on its left and below it."
 where = "the tan 2x6, horizontal (6 studs left-right, 2 up-down), roughly in the middle of the plate, a little right of centre; the key needs four columns left of it and four rows below it"
 checks = [
   "it is horizontal and tan",
@@ -32,7 +32,7 @@ name = "Blue round, bow"
 color = "blue"
 cells = [3, 6, 6, 9]
 find = "Find the blue round plate: a flat round blue piece, four studs across."
-say = "Lay it against the left end of the tan brick, touching it, centred on it, so it reaches one row above and one below the tan brick."
+place = "Lay it against the left end of the tan brick, touching it, centred on it, so it reaches one row above and one below the tan brick."
 where = "the blue 4x4 round plate, touching the left end of the tan brick, centred on it, reaching one row above and one row below the tan brick"
 checks = [
   "it is the blue round plate",
@@ -46,7 +46,7 @@ name = "Red 2x4, tooth"
 color = "red"
 cells = [11, 9, 12, 12]
 find = "Find a red two-by-four: a red brick, two studs wide and four studs long."
-say = "Stand it vertically under the tan brick, touching it, with its right side lined up with the tan brick's right end."
+place = "Stand it vertically under the tan brick, touching it, with its right side lined up with the tan brick's right end."
 where = "the red 2x4, vertical, touching the bottom of the tan brick, its right side lined up with the tan brick's right end"
 checks = [
   "it is vertical and red",
@@ -60,7 +60,7 @@ name = "Purple 2x4, tooth"
 color = "purple"
 cells = [8, 9, 9, 12]
 find = "Find the purple two-by-four: a purple brick, two studs wide and four studs long."
-say = "Stand it vertically under the tan brick, touching it, with one empty column between it and the red one."
+place = "Stand it vertically under the tan brick, touching it, with one empty column between it and the red one."
 where = "the purple 2x4, vertical, touching the bottom of the tan brick, one empty column between it and the red brick, its ends level with the red brick's"
 checks = [
   "it is vertical and purple",
@@ -74,7 +74,7 @@ name = "Pink 2x4, under the bow"
 color = "pink"
 cells = [3, 10, 6, 11]
 find = "Find the pink two-by-four: a pink brick, two studs wide and four studs long."
-say = "Lay it horizontally under the blue round plate, touching it, lined up with it."
+place = "Lay it horizontally under the blue round plate, touching it, lined up with it."
 where = "the pink 2x4, horizontal, touching the bottom of the blue round plate, in the same columns"
 checks = [
   "it is horizontal and pink",

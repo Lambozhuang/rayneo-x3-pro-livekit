@@ -43,13 +43,13 @@ LOOK_MAX_AGE = 20.0
 @dataclass(frozen=True)
 class Step:
     part: str
-    say: str  # the instruction, as the wearer hears it (may say "nearer to you")
+    place: str  # where the brick goes, as the wearer hears it
     name: str  # one line for the list on the glasses; defaults to `part`
-    find: str = ""  # which brick to pick up and how to tell it, said before `say`; empty = the step has no find part
+    find: str = ""  # which brick to pick up, as the wearer hears it, before `place`; empty = the step has no find part
     node: str | None = None  # node name in model.glb; defaults to the "stepNN" prefix
     # What a photo must show for the step to count, in terms of the bricks
     # placed before (never of the camera: the wearer turns the assembly in
-    # their hands). Defaults to `say`, which is wrong whenever `say` gives a
+    # their hands). Defaults to `place`, which is wrong whenever `place` gives a
     # direction relative to the wearer.
     check: str = ""
     # Flat-layout tasks (guides/truck): the brick's colour name and footprint on the
@@ -85,9 +85,9 @@ def load_guide(path: str) -> Guide:
         data = tomllib.load(f)
     steps = tuple(
         Step(
-            part=s["part"], say=s["say"], find=s.get("find", ""), name=s.get("name", s["part"]),
+            part=s["part"], place=s["place"], find=s.get("find", ""), name=s.get("name", s["part"]),
             node=s.get("node", f"step{i:02d}"),
-            check=s.get("check", s["say"]), color=s.get("color", ""),
+            check=s.get("check", s["place"]), color=s.get("color", ""),
             cells=tuple(s["cells"]) if "cells" in s else None, where=s.get("where", ""), checks=tuple(s.get("checks", ())),
         )
         for i, s in enumerate(data["steps"], 1)
@@ -154,7 +154,7 @@ class Build:
         if self.finished:
             return "The build is finished. There are no more steps."
         s = self.guide.steps[self.step]
-        return f"{self.status()} Part: {s.part}. Tell the wearer: {s.say}"
+        return f"{self.status()} Part: {s.part}. Tell the wearer: {s.place}"
 
     def saw_frame(self) -> None:
         """The look tool got its frame to the model."""

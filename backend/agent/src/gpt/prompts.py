@@ -1,7 +1,7 @@
 """Instructions for the GPT path, both from the one task file.
 
 The voice (GPT-Live) gets the persona and every step's wording (`find`, which
-brick to pick up, where the task has it, and `say`, where it goes), so it can
+brick to pick up, where the task has it, and `place`, where it goes), so it can
 answer what needs no eyes by itself; it delegates the rest. The brain
 (brain.py) gets the whole task, `where` and `checks` included, and answers
 from the photo. The voice's instructions cannot change once the session has
@@ -62,7 +62,7 @@ The wearer is building "{title}": flat LEGO bricks on a green {plate}x{plate} ba
 
 Positions are described on the plate as the wearer sees it, like a picture lying in front of them: up is toward the far edge (the top of the photo), down toward the near edge, left and right are the wearer's. Every brick lies flat; a vertical brick has its long side running up and down, a horizontal one left and right.
 
-Each step lists what the wearer is told (find: which brick to pick up, where the step has it; told: where it goes), where the brick goes, and the facts a photo of the finished step shows. The voice gives a step with a find line in two parts: first which brick to find, then, once the wearer has it, where it goes. The wearer may show you the brick in their hand before placing it, or just place it; the step's facts apply once the brick is on the plate.
+Each step lists what the wearer is told to find and where they are told to place it, where the brick goes, and the facts a photo of the finished step shows. The voice gives a step with a told-to-find line in two parts: first which brick to find, then, once the wearer has it, where to place it. The wearer may show you the brick in their hand before placing it, or just place it; the step's facts apply once the brick is on the plate.
 <steps>
 {steps}
 </steps>
@@ -106,7 +106,7 @@ With this reply you call confirm_step_correct with step 3.
 
 
 def voice_persona(guide: Guide, language: str) -> str:
-    steps = "\n".join(f"  {i}. find: {s.find}\n     place: {s.say}" if s.find else f"  {i}. {s.say}"
+    steps = "\n".join(f"  {i}. find: {s.find}\n     place: {s.place}" if s.find else f"  {i}. {s.place}"
                       for i, s in enumerate(guide.steps, 1))
     if any(s.find for s in guide.steps):
         steps += ("\n\nEach step has two parts: first tell the wearer which brick to find; when they say they have it, "
@@ -117,8 +117,8 @@ def voice_persona(guide: Guide, language: str) -> str:
 def brain_instructions(guide: Guide, language: str) -> str:
     lines = []
     for i, s in enumerate(guide.steps, 1):
-        lines.append(f"{i}. {s.name}" + (f"\n   find: {s.find}" if s.find else "")
-                     + f"\n   told: {s.say}\n   where: {s.where}")
+        lines.append(f"{i}. {s.name}" + (f"\n   told to find: {s.find}" if s.find else "")
+                     + f"\n   told to place: {s.place}\n   where: {s.where}")
         if s.checks:
             lines.append("   facts: " + "; ".join(s.checks))
     return BRAIN.format(title=guide.title, plate=guide.plate, steps="\n".join(lines), language=language)
