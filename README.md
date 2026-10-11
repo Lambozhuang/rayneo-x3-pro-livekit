@@ -78,8 +78,8 @@ a new step as thinking, and the step list to the glasses; the task file feeds bo
    goes, and the brain's earlier replies are not sent back to it: what a look saw survives as
    what the voice said of it. Offline tests of models, image and prompt:
    `eval/brain/RESULTS.md`.
-3. **Task file** (`guides/ladder/task.toml`, five bricks; `guides/truck` is the old 13-step
-   task): per step the wording the wearer hears (`find`, `say`), where the brick goes and what a
+3. **Task file** (`guides/<task>/task.toml`: `ladder` and `letter-e`, five bricks each; `truck`
+   is the old 13-step task): per step the wording the wearer hears (`find`, `say`), where the brick goes and what a
    photo must show (`where`, `checks`), and the brick's cells (and, for the truck, colour tables
    for the CV judge). Where the build sits on the plate is loose; how its bricks sit against
    each other is exact. One vocabulary throughout, also in both prompts: the
@@ -109,7 +109,7 @@ backend/
                         the lego-harness-v1 camera loop, not run; eval/ uses the first four
   agent/src/gemini/     the Gemini Live path (not in use)
   agent/src/render.py   reference-model video stream (used by guides with a model.glb; the truck has none)
-  agent/guides/         build guides, chosen with BUILD_GUIDE; guides/ladder is the current task
+  agent/guides/         build guides, chosen with BUILD_GUIDE; guides/letter-e is the current task
 android/                Kotlin + Compose app for the glasses
 deploy/
   setup.sh              first-time setup on a Linux host: key pair, livekit.yaml, .env
