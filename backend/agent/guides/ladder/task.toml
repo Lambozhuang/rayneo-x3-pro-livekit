@@ -1,85 +1,41 @@
-# The ladder: five bricks laid flat on a 16x16 green baseplate, one layer: two tan/white 1x6 rails and three 1x4
-# rungs between them. From tasks/sheet.html (the 5-step shortlist), task 1.
+# A ladder: a tan and a white 1x6 for the rails, three 1x4 rungs between them. From tasks/sheet.html, task 1.
 #
-# Grid: columns 1..16 left to right, rows 1..16 from the far edge to the edge nearest the builder. `cells` is the
-# brick's footprint [col0, row0, col1, row1], inclusive: the layout as drawn. Where the ladder sits on the plate
-# is loose (roughly the middle, so step 1 is not counted in studs); how the five bricks sit against each other is
-# exact. Every step is two parts for the wearer: `find` (which brick
-# to pick up and how to tell it) and, once they have it, `place` (where it goes). `where` and `checks` are what the
-# brain checks a photo against. One vocabulary throughout: the plate as a picture lying in front of the wearer,
-# up = the far edge, down = the near edge, left and right theirs, a brick vertical (long side up-down) or
-# horizontal (left-right).
+# Each step: `name` for the step list on the glasses; `brick`, which brick; `place`, where it goes, against the bricks
+# before it (step 1 only roughly on the plate). Both models get `brick` and `place`. `cells` is the brick's footprint
+# as drawn on the sheet, [col0, row0, col1, row1] inclusive, columns 1..16 left to right, rows 1..16 from the far
+# edge; it goes to no model. Directions: the plate as a picture lying in front of the wearer, up = the far
+# edge; vertical = the long side runs up and down.
 
 title = "LEGO ladder on a baseplate"
 plate = 16
 number = 1
 
 [[steps]]
-part = "tan 1x6 brick"
 name = "Tan 1x6, left side"
-color = "tan"
+brick = "tan 1x6"
+place = "vertical, roughly in the middle of the plate, a little left of centre"
 cells = [5, 5, 5, 10]
-find = "Find the tan one-by-six: a long, thin beige brick, one stud wide and six studs long."
-place = "Lay it vertically, roughly in the middle of the plate and a little to the left, leaving room on its right for the ladder."
-where = "the tan 1x6, vertical (1 stud left-right, 6 up-down), roughly in the middle of the plate, a little left of centre; its exact distance from the edges does not matter"
-checks = [
-  "it is vertical",
-  "it is tan (beige), not white",
-  "it lies roughly in the middle of the plate, with empty plate on every side and room on its right for the rest of the ladder",
-]
 
 [[steps]]
-part = "white 1x6 brick"
 name = "White 1x6, right side"
-color = "white"
+brick = "white 1x6"
+place = "vertical, right of the tan brick, level with it, four empty columns between them"
 cells = [10, 5, 10, 10]
-find = "Find a white one-by-six: long and thin like the tan one, but white."
-place = "Lay it vertically to the right of the tan one, level with it, with four empty studs between the two."
-where = "the white 1x6, vertical, right of the tan brick, its top and bottom ends level with the tan brick's, with four empty columns between the two, so a one-by-four fits exactly in the gap"
-checks = [
-  "it is vertical and white",
-  "its top and bottom ends are level with the tan brick's ends",
-  "there are exactly four empty columns between it and the tan brick",
-]
 
 [[steps]]
-part = "yellow 1x4 brick"
 name = "Yellow 1x4, top rung"
-color = "yellow"
+brick = "yellow 1x4"
+place = "horizontal, between the tan and white bricks in their top row, touching both"
 cells = [6, 5, 9, 5]
-find = "Find the yellow one-by-four: a thin yellow brick, four studs long."
-place = "Lay it horizontally in the gap between the two long bricks, at their top ends, touching both."
-where = "the yellow 1x4, horizontal, filling the gap between the tan and white bricks in their top row"
-checks = [
-  "it is horizontal",
-  "it touches the tan brick on its left and the white brick on its right",
-  "it is level with the top ends of both long bricks",
-]
 
 [[steps]]
-part = "blue 1x4 brick"
 name = "Blue 1x4, middle rung"
-color = "blue"
+brick = "blue 1x4"
+place = "horizontal, between the tan and white bricks, touching both, one empty row between it and the yellow brick"
 cells = [6, 7, 9, 7]
-find = "Find the blue one-by-four: a thin blue brick, four studs long."
-place = "Lay it horizontally between the long bricks, one empty row below the yellow one, touching both long bricks."
-where = "the blue 1x4, horizontal, in the gap between the tan and white bricks, with one empty row between it and the yellow brick"
-checks = [
-  "it is horizontal",
-  "it touches the tan brick on its left and the white brick on its right",
-  "there is exactly one empty row between it and the yellow brick",
-]
 
 [[steps]]
-part = "light aqua 1x4 brick"
 name = "Aqua 1x4, bottom rung"
-color = "aqua"
+brick = "light aqua 1x4"
+place = "horizontal, between the tan and white bricks, touching both, one empty row between it and the blue brick"
 cells = [6, 9, 9, 9]
-find = "Find the light aqua one-by-four: a thin light aqua brick, four studs long."
-place = "Lay it horizontally between the long bricks, one empty row below the blue one, touching both. One row stays empty below it."
-where = "the light aqua 1x4, horizontal, in the gap between the tan and white bricks, with one empty row between it and the blue brick and one empty row below it, above the long bricks' bottom ends"
-checks = [
-  "it is horizontal and light aqua, not white",
-  "it touches the tan brick on its left and the white brick on its right",
-  "there is exactly one empty row between it and the blue brick, and one empty row below it inside the long bricks",
-]

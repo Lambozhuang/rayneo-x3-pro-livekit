@@ -1,6 +1,6 @@
 """The GPT path: GPT-Live speaks, the brain looks when it is asked to.
 
-    glasses --audio--> SFU --> this process --ws--> gpt-live-1 (knows every step's wording)
+    glasses --audio--> SFU --> this process --ws--> gpt-live-1 (knows every step)
             --video-->     --> FrameTap (frames kept for the brain, none to the voice)
     gpt-live-1 --delegation (id + the wearer's words)--> brain: next frame + the call so far
                                                          --> one vision call --> a reply, maybe confirm_step_correct

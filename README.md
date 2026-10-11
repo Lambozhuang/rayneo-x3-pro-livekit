@@ -56,9 +56,9 @@ thinking, and the step list to the glasses; the task file feeds both"
 </picture>
 
 1. **Voice.** `gpt-live-1` is audio only and full duplex, and owns turn-taking and barge-in
-   (no VAD on the session). Its instructions are the persona and every step's wording
-   (`gpt/prompts.py`), in two parts where the task has them: which brick to find (`find`), then,
-   once the wearer has it, where it goes (`place`). What needs no eyes (the next step, an earlier one, what a brick looks
+   (no VAD on the session). Its instructions are the persona and every step's brick and where
+   it goes (`gpt/prompts.py`); it gives a step in two parts: which brick to find, then, once the
+   wearer has it, where it goes. What needs no eyes (the next step, an earlier one, what a brick looks
    like) it answers itself. Whatever depends on what is in front of the wearer ("is this
    right?", "where does it go?", "what is this?") it delegates; a goodbye it answers itself and
    the wearer hangs up on the glasses. It opens the call by naming the build. Client
@@ -67,8 +67,8 @@ thinking, and the step list to the glasses; the task file feeds both"
 2. **Brain** (`gpt/brain.py`), one stateless vision call per delegation, to OpenAI or
    Anthropic (`BRAIN_PROVIDER`, `BRAIN_MODEL`, `BRAIN_EFFORT`), built like LiveKit's
    client-delegation example. Instructions: the role (the eyes; it never speaks to the wearer,
-   the voice says its reply), the whole task file (a step with a find line comes in two parts,
-   and its facts apply once the brick is on the plate), how to reply, five examples from a
+   the voice says its reply), every step's brick and where it goes (a step is right when the
+   photo shows that brick there), how to reply, five examples from a
    made-up build (shared by every task; fixed, so the prompt cache hits). One tool, `confirm_step_correct(step)`, its rules in its own
    description; there is no hang-up tool, a misjudged goodbye cut calls off. Turns: the call's
    chat history, the wearer as user and the voice as assistant. The last turn: the camera
@@ -83,10 +83,9 @@ thinking, and the step list to the glasses; the task file feeds both"
    what the voice said of it. Offline tests of models, image and prompt:
    `eval/brain/RESULTS.md`.
 3. **Task file** (`guides/<task>/task.toml`; the 13 numbered five-brick tasks of
-   `tasks/sheet.html`, picked on the glasses; `truck` is the old 13-step task): per step the wording the wearer hears (`find`, `place`), where the brick goes and what a
-   photo must show (`where`, `checks`), and the brick's cells (and, for the truck, colour tables
-   for the CV judge). Where the build sits on the plate is loose; how its bricks sit against
-   each other is exact. One vocabulary throughout, also in both prompts: the
+   `tasks/sheet.html`, picked on the glasses): per step a name for the list on the glasses, the
+   brick, where it goes against the bricks before it (step 1 only roughly on the plate), and the
+   brick's cells as drawn, which go to no model. One vocabulary throughout, also in both prompts: the
    plate as a picture lying in front of the wearer, up = far edge, down = near edge, a brick
    vertical or horizontal.
 

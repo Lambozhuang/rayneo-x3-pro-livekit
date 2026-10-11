@@ -1,82 +1,41 @@
-# A mushroom: a dark red 2x6 and a blue 2x4 for the cap, a white 2x4 stem, a tan 1x6 and a light aqua 1x4 for the ground. From tasks/sheet.html (the 5-step shortlist), task 5.
+# A mushroom: a dark red 2x6 and a blue 2x4 for the cap, a white 2x4 stem, a tan 1x6 and a light aqua 1x4 for the ground. From tasks/sheet.html, task 5.
 #
-# Grid: columns 1..16 left to right, rows 1..16 from the far edge to the edge nearest the builder. `cells` is the
-# brick's footprint [col0, row0, col1, row1], inclusive: the layout as drawn. Where the build sits on the
-# plate is loose (step 1 says roughly where, so the rest fits); how the five bricks sit against each other is exact.
-# Every step is two parts for the wearer: `find` (which brick to pick up) and, once they have it, `place` (where it
-# goes). `where` and `checks` are what the brain checks a photo against. One vocabulary throughout: the plate as a
-# picture lying in front of the wearer, up = the far edge, down = the near edge, left and right theirs, a brick
-# vertical (long side up-down) or horizontal (left-right).
+# Each step: `name` for the step list on the glasses; `brick`, which brick; `place`, where it goes, against the bricks
+# before it (step 1 only roughly on the plate). Both models get `brick` and `place`. `cells` is the brick's footprint
+# as drawn on the sheet, [col0, row0, col1, row1] inclusive, columns 1..16 left to right, rows 1..16 from the far
+# edge; it goes to no model. Directions: the plate as a picture lying in front of the wearer, up = the far
+# edge; vertical = the long side runs up and down.
 
 title = "LEGO mushroom on a baseplate"
 plate = 16
 number = 5
 
 [[steps]]
-part = "dark red 2x6 brick"
 name = "Dark red 2x6, cap"
-color = "dred"
+brick = "dark red 2x6"
+place = "horizontal, roughly in the middle of the plate, a little above centre"
 cells = [5, 6, 10, 7]
-find = "Find the dark red two-by-six: a long dark red brick, two studs wide and six studs long."
-place = "Lay it horizontally roughly in the middle of the plate, a little above centre."
-where = "the dark red 2x6, horizontal (6 studs left-right, 2 up-down), roughly in the middle of the plate, a little above centre; its exact distance from the edges does not matter"
-checks = [
-  "it is horizontal and dark red",
-  "it lies roughly in the middle of the plate, with empty plate on every side and room below it for the stem",
-]
 
 [[steps]]
-part = "blue 2x4 brick"
 name = "Blue 2x4, top of cap"
-color = "blue"
+brick = "blue 2x4"
+place = "horizontal, above the dark red brick, touching it, one dark red column free at each end"
 cells = [6, 4, 9, 5]
-find = "Find a blue two-by-four: a blue brick, two studs wide and four studs long."
-place = "Lay it horizontally on top of the dark red one, touching it, centred, so one stud of the dark red brick stays free at each end."
-where = "the blue 2x4, horizontal, touching the top of the dark red brick, centred on it, one dark red column free at each end"
-checks = [
-  "it is horizontal and blue",
-  "it touches the top of the dark red brick",
-  "it is centred on the dark red brick, one dark red column free at each end",
-]
 
 [[steps]]
-part = "white 2x4 brick"
 name = "White 2x4, stem"
-color = "white"
+brick = "white 2x4"
+place = "vertical, below the dark red brick, touching it, two dark red columns free on each side"
 cells = [7, 8, 8, 11]
-find = "Find the white two-by-four: a white brick, two studs wide and four studs long."
-place = "Stand it vertically under the middle of the dark red brick, touching it, with two studs of the dark red brick free on each side."
-where = "the white 2x4, vertical, touching the bottom of the dark red brick, centred under it, two dark red columns free on each side"
-checks = [
-  "it is vertical and white",
-  "it touches the bottom of the dark red brick",
-  "it is centred under the dark red brick, two dark red columns free on each side",
-]
 
 [[steps]]
-part = "tan 1x6 brick"
 name = "Tan 1x6, ground left"
-color = "tan"
+brick = "tan 1x6"
+place = "horizontal, touching the bottom end of the white brick, its right end lined up with the white brick's right side"
 cells = [3, 12, 8, 12]
-find = "Find the tan one-by-six: a thin tan brick, six studs long."
-place = "Lay it horizontally under the white brick, touching its bottom end, with its right end lined up with the white brick's right side, so it sticks out to the left."
-where = "the tan 1x6, horizontal, touching the bottom end of the white brick, its right end lined up with the white brick's right side, sticking out four columns to the left of the stem"
-checks = [
-  "it is horizontal and tan",
-  "it touches the bottom end of the white brick",
-  "its right end lines up with the right side of the white brick",
-]
 
 [[steps]]
-part = "light aqua 1x4 brick"
 name = "Aqua 1x4, ground right"
-color = "aqua"
+brick = "light aqua 1x4"
+place = "horizontal, touching the right end of the tan brick, in the same row"
 cells = [9, 12, 12, 12]
-find = "Find the light aqua one-by-four: a thin light aqua brick, four studs long."
-place = "Lay it horizontally right of the tan one, touching its right end, in the same row."
-where = "the light aqua 1x4, horizontal, touching the right end of the tan brick, in the same row"
-checks = [
-  "it is horizontal and light aqua, not white",
-  "it touches the right end of the tan brick",
-  "it is in the same row as the tan brick",
-]

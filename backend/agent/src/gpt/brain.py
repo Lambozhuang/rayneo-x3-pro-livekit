@@ -53,10 +53,10 @@ logger = logging.getLogger("rayneo-agent.brain")
 TOOLS = [
     ("confirm_step_correct",
      "Confirms that the current step is built correctly. Use it when the photo clearly shows the current step's brick "
-     "in place and every one of that step's facts holds. When you call it, the build moves on: the step list on the "
+     "where the step says it goes. When you call it, the build moves on: the step list on the "
      "glasses advances and the voice tells the wearer the step is right, so your reply should say the same, and a "
      "step confirmed when it is not right leaves the wearer building on a mistake. Leave it "
-     "out when any fact fails, when part of the step is hidden or too small to judge, when the wearer only says they "
+     "out when the brick is not where the step says, when part of it is hidden or too small to judge, when the wearer only says they "
      "are done without the photo showing it, and when the question is not about the current step. step is the number "
      "of the current step given in the input.",
      {"type": "object", "properties": {"step": {"type": "integer", "description": "the current step's number"}},
@@ -267,7 +267,7 @@ class Brain:
         photo = await asyncio.to_thread(_jpeg, frame, self._side) if frame is not None else None
         build = self._build
         total = len(build.guide.steps)
-        where = (f"Step {build.step + 1} of {total} ({build.guide.steps[build.step].name}); {build.step} done"
+        where = (f"Step {build.step + 1} of {total} ({build.guide.steps[build.step].brick}); {build.step} done"
                  if not build.finished else f"none: all {total} steps are done")
         turns, words = conversation(self._session.history, words)
         # the last user turn: the photo first (Anthropic: images before text work best), then where the build is,
@@ -317,7 +317,7 @@ class Brain:
         if build.finished:
             return "The helper says: the build is finished, all steps are done."
         s = build.guide.steps[build.step]
-        return f"The helper says: the wearer is now on step {build.step + 1} ({s.name})."
+        return f"The helper says: the wearer is now on step {build.step + 1} ({s.brick})."
 
     def _think(self, text: str) -> None:
         logger.info("brain: thinking: %s", text)

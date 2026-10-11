@@ -3,9 +3,8 @@
 A guide is a directory under ../guides with a `task.toml` (a title and an
 ordered list of steps) and, optionally, a `model.glb` of the finished build
 that the agent streams to the glasses as a rotating reference (render.py); a
-bare .toml file is a guide without a model. Each step names the part to pick
-up, what to tell the wearer, a one-line name for the list on the glasses, and
-which node of the model it is, so that brick can be highlighted. This process
+bare .toml file is a guide without a model. Each step has a name for the list
+on the glasses, the brick and where it goes. This process
 holds the position in that list; the model knows the names (they are in its
 prompt, so it and the wearer can both say "step two") but sees a step's
 instructions only through the tools in tools.py, one step at a time. Progress therefore cannot drift with the
@@ -42,25 +41,12 @@ LOOK_MAX_AGE = 20.0
 
 @dataclass(frozen=True)
 class Step:
-    part: str
-    place: str  # where the brick goes, as the wearer hears it
-    name: str  # one line for the list on the glasses; defaults to `part`
-    find: str = ""  # which brick to pick up, as the wearer hears it, before `place`; empty = the step has no find part
-    node: str | None = None  # node name in model.glb; defaults to the "stepNN" prefix
-    # What a photo must show for the step to count, in terms of the bricks
-    # placed before (never of the camera: the wearer turns the assembly in
-    # their hands). Defaults to `place`, which is wrong whenever `place` gives a
-    # direction relative to the wearer.
-    check: str = ""
-    # Flat-layout tasks (guides/truck): the brick's colour name and footprint on the
-    # baseplate, [col0, row0, col1, row1] inclusive, columns left to right and rows
-    # from the far edge toward the builder; what the CV judge compares against.
-    color: str = ""
+    name: str  # one line for the list on the glasses
+    brick: str  # which brick, e.g. "purple 2x4"
+    place: str  # where it goes, against the bricks before it; both models get `brick` and `place`
+    # The brick's footprint as drawn on the sheet, [col0, row0, col1, row1] inclusive, columns left to right and rows
+    # from the far edge; for drawings, never sent to a model.
     cells: tuple[int, int, int, int] | None = None
-    # Camera-independent wording for the VLM judge: what the step adds and where,
-    # and the facts a photo must show.
-    where: str = ""
-    checks: tuple[str, ...] = ()
 
 
 @dataclass(frozen=True)
@@ -84,13 +70,8 @@ def load_guide(path: str) -> Guide:
     with toml.open("rb") as f:
         data = tomllib.load(f)
     steps = tuple(
-        Step(
-            part=s["part"], place=s["place"], find=s.get("find", ""), name=s.get("name", s["part"]),
-            node=s.get("node", f"step{i:02d}"),
-            check=s.get("check", s["place"]), color=s.get("color", ""),
-            cells=tuple(s["cells"]) if "cells" in s else None, where=s.get("where", ""), checks=tuple(s.get("checks", ())),
-        )
-        for i, s in enumerate(data["steps"], 1)
+        Step(name=s["name"], brick=s["brick"], place=s["place"], cells=tuple(s["cells"]) if "cells" in s else None)
+        for s in data["steps"]
     )
     if not steps:
         raise ValueError(f"{toml}: guide has no steps")
@@ -154,7 +135,7 @@ class Build:
         if self.finished:
             return "The build is finished. There are no more steps."
         s = self.guide.steps[self.step]
-        return f"{self.status()} Part: {s.part}. Tell the wearer: {s.place}"
+        return f"{self.status()} The {s.brick}: {s.place}."
 
     def saw_frame(self) -> None:
         """The look tool got its frame to the model."""
@@ -248,12 +229,12 @@ class Build:
 
     def _log_step_start(self) -> None:
         s = self.guide.steps[self.step]
-        logger.info("step %d/%d start: %s", self.step + 1, len(self.guide.steps), s.part)
+        logger.info("step %d/%d start: %s", self.step + 1, len(self.guide.steps), s.name)
         self.highlight(self.step)
 
     def node_for(self, index: int) -> str | None:
-        """The model node of step `index` (0-based), by the step's `node` prefix."""
-        prefix = self.guide.steps[index].node or ""
+        """The model node of step `index` (0-based): the GLB names one node per brick stepNN_..."""
+        prefix = f"step{index + 1:02d}"
         return next((n for n in self.model_nodes if n.startswith(prefix)), None)
 
     def highlight(self, index: int | None) -> None:
@@ -265,7 +246,7 @@ class Build:
         node = None if index is None else self.node_for(index)
         if index is not None and node is None:
             logger.warning(
-                "model: no node for step %d (%r) in %s", index + 1, self.guide.steps[index].node, self.model_nodes
+                "model: no node for step %d in %s", index + 1, self.model_nodes
             )
         self.model.highlight = node
         self.model.upto = None if index is None else frozenset(

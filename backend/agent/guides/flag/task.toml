@@ -1,83 +1,41 @@
-# A flag: a white and a tan 1x6 for the pole, a red and a blue 2x4 for the flag, a dark grey 2x6 for the base. From tasks/sheet.html (the 5-step shortlist), task 2.
+# A flag: a white and a tan 1x6 for the pole, a red and a blue 2x4 for the flag, a dark grey 2x6 for the base. From tasks/sheet.html, task 2.
 #
-# Grid: columns 1..16 left to right, rows 1..16 from the far edge to the edge nearest the builder. `cells` is the
-# brick's footprint [col0, row0, col1, row1], inclusive: the layout as drawn. Where the build sits on the
-# plate is loose (step 1 says roughly where, so the rest fits); how the five bricks sit against each other is exact.
-# Every step is two parts for the wearer: `find` (which brick to pick up) and, once they have it, `place` (where it
-# goes). `where` and `checks` are what the brain checks a photo against. One vocabulary throughout: the plate as a
-# picture lying in front of the wearer, up = the far edge, down = the near edge, left and right theirs, a brick
-# vertical (long side up-down) or horizontal (left-right).
+# Each step: `name` for the step list on the glasses; `brick`, which brick; `place`, where it goes, against the bricks
+# before it (step 1 only roughly on the plate). Both models get `brick` and `place`. `cells` is the brick's footprint
+# as drawn on the sheet, [col0, row0, col1, row1] inclusive, columns 1..16 left to right, rows 1..16 from the far
+# edge; it goes to no model. Directions: the plate as a picture lying in front of the wearer, up = the far
+# edge; vertical = the long side runs up and down.
 
 title = "LEGO flag on a baseplate"
 plate = 16
 number = 2
 
 [[steps]]
-part = "white 1x6 brick"
 name = "White 1x6, top of pole"
-color = "white"
+brick = "white 1x6"
+place = "vertical, near the top left of the plate, at most two empty rows above it and at least three empty columns on its left"
 cells = [5, 3, 5, 8]
-find = "Find a white one-by-six: a thin white brick, six studs long."
-place = "Lay it vertically near the top left of the plate, with at most two empty rows above it and at least three empty columns to its left."
-where = "the white 1x6, vertical (1 stud left-right, 6 up-down), near the top of the plate, a few columns in from the left edge; the flag needs eight rows below it for the rest of the pole and the base, and three columns left of it for the base"
-checks = [
-  "it is vertical and white",
-  "there are at most two empty rows above it",
-  "there are at least three empty columns to its left",
-]
 
 [[steps]]
-part = "tan 1x6 brick"
 name = "Tan 1x6, bottom of pole"
-color = "tan"
+brick = "tan 1x6"
+place = "vertical, below the white brick, touching its bottom end, in the same column"
 cells = [5, 9, 5, 14]
-find = "Find the tan one-by-six: a thin tan brick, six studs long."
-place = "Lay it vertically directly below the white one, touching its bottom end, in the same column."
-where = "the tan 1x6, vertical, directly below the white brick, touching its bottom end, in the same column, so the two make one long pole"
-checks = [
-  "it is vertical and tan",
-  "it touches the bottom end of the white brick",
-  "it is in the same column as the white brick, not shifted left or right",
-]
 
 [[steps]]
-part = "red 2x4 brick"
 name = "Red 2x4, top of flag"
-color = "red"
+brick = "red 2x4"
+place = "horizontal, touching the right side of the white brick, its top edge level with the white brick's top end"
 cells = [6, 3, 9, 4]
-find = "Find a red two-by-four: a red brick, two studs wide and four studs long."
-place = "Lay it horizontally against the right side of the white brick, with their top edges lined up."
-where = "the red 2x4, horizontal, touching the right side of the white brick, its top edge lined up with the white brick's top end"
-checks = [
-  "it is horizontal and red",
-  "it touches the right side of the white brick",
-  "its top edge lines up with the top end of the white brick",
-]
 
 [[steps]]
-part = "blue 2x4 brick"
 name = "Blue 2x4, bottom of flag"
-color = "blue"
+brick = "blue 2x4"
+place = "horizontal, below the red brick, touching it, in the same columns"
 cells = [6, 5, 9, 6]
-find = "Find a blue two-by-four: a blue brick, two studs wide and four studs long."
-place = "Lay it horizontally directly below the red one, touching it, against the white brick."
-where = "the blue 2x4, horizontal, directly below the red brick, touching it, its ends lined up with the red brick's, its left end touching the white brick"
-checks = [
-  "it is horizontal and blue",
-  "it lies directly below the red brick, touching it, with their ends lined up",
-  "its left end touches the right side of the white brick",
-]
 
 [[steps]]
-part = "dark grey 2x6 brick"
 name = "Dark grey 2x6, base"
-color = "dgrey"
+brick = "dark grey 2x6"
+place = "horizontal, touching the bottom end of the tan brick, three of its columns left of the tan brick and two right"
 cells = [2, 15, 7, 16]
-find = "Find the dark grey two-by-six: a long dark grey brick, two studs wide and six studs long."
-place = "Lay it horizontally under the tan brick, touching its bottom end, with three of its studs sticking out on the left and two on the right."
-where = "the dark grey 2x6, horizontal, directly below the tan brick, touching its bottom end; the tan brick stands on its fourth column from the left, so three columns stick out left of the pole and two right"
-checks = [
-  "it is horizontal and dark grey",
-  "it touches the bottom end of the tan brick",
-  "three of its columns stick out left of the tan brick and two right",
-]

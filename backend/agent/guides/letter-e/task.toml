@@ -1,85 +1,41 @@
-# The letter E: five bricks laid flat on a 16x16 green baseplate, one layer: a dark grey 2x6 spine, a blue and a tan
-# 2x6 bar on its top and bottom ends, and a white and a light aqua 1x4 for the middle bar. From tasks/sheet.html
-# (the 5-step shortlist), task 13.
+# The letter E: a dark grey 2x6 spine, a blue and a tan 2x6 for the top and bottom bars, a white and a light aqua 1x4 for the middle bar. From tasks/sheet.html, task 13.
 #
-# Grid: columns 1..16 left to right, rows 1..16 from the far edge to the edge nearest the builder. `cells` is the
-# brick's footprint [col0, row0, col1, row1], inclusive: the layout as drawn. Where the E sits on the plate is loose
-# (roughly the middle, so step 1 is not counted in studs); how the five bricks sit against each other is exact.
-# Every step is two parts for the wearer: `find` (which brick to pick up) and, once they have it, `place` (where it
-# goes). `where` and `checks` are what the brain checks a photo against. One vocabulary throughout: the plate as a
-# picture lying in front of the wearer, up = the far edge, down = the near edge, left and right theirs, a brick
-# vertical (long side up-down) or horizontal (left-right).
+# Each step: `name` for the step list on the glasses; `brick`, which brick; `place`, where it goes, against the bricks
+# before it (step 1 only roughly on the plate). Both models get `brick` and `place`. `cells` is the brick's footprint
+# as drawn on the sheet, [col0, row0, col1, row1] inclusive, columns 1..16 left to right, rows 1..16 from the far
+# edge; it goes to no model. Directions: the plate as a picture lying in front of the wearer, up = the far
+# edge; vertical = the long side runs up and down.
 
 title = "LEGO letter E on a baseplate"
 plate = 16
 number = 13
 
 [[steps]]
-part = "dark grey 2x6 brick"
 name = "Dark grey 2x6, spine"
-color = "dgrey"
+brick = "dark grey 2x6"
+place = "vertical, roughly in the middle of the plate, a little left of centre"
 cells = [5, 5, 6, 10]
-find = "Find the dark grey two-by-six: a long dark grey brick, two studs wide and six studs long."
-place = "Lay it vertically, roughly in the middle of the plate and a little to the left, leaving room above it, below it and on its right."
-where = "the dark grey 2x6, vertical (2 studs left-right, 6 up-down), roughly in the middle of the plate, a little left of centre; its exact distance from the edges does not matter"
-checks = [
-  "it is vertical",
-  "it is dark grey",
-  "it lies roughly in the middle of the plate, with empty plate on every side and room above, below and on its right for the rest of the letter",
-]
 
 [[steps]]
-part = "blue 2x6 brick"
 name = "Blue 2x6, top bar"
-color = "blue"
+brick = "blue 2x6"
+place = "horizontal, above the dark grey brick, touching its top end, its left end lined up with the dark grey brick's left side"
 cells = [5, 3, 10, 4]
-find = "Find the blue two-by-six: a long blue brick, two studs wide and six studs long."
-place = "Lay it horizontally on top of the dark grey one, touching its top end, with their left ends lined up."
-where = "the blue 2x6, horizontal, directly above the dark grey brick, touching its top end, its left end lined up with the dark grey brick's left side, so it reaches four studs further right than the dark grey brick"
-checks = [
-  "it is horizontal and blue",
-  "it touches the top end of the dark grey brick",
-  "its left end lines up with the left side of the dark grey brick",
-]
 
 [[steps]]
-part = "white 1x4 brick"
 name = "White 1x4, middle bar"
-color = "white"
+brick = "white 1x4"
+place = "horizontal, touching the right side of the dark grey brick, two empty rows between it and the blue brick"
 cells = [7, 7, 10, 7]
-find = "Find a white one-by-four: a thin white brick, four studs long."
-place = "Lay it horizontally against the right side of the dark grey brick, with two empty rows between it and the blue one."
-where = "the white 1x4, horizontal, touching the right side of the dark grey brick, with two empty rows between it and the blue brick; its right end lines up with the blue brick's right end"
-checks = [
-  "it is horizontal and white",
-  "its left end touches the right side of the dark grey brick",
-  "there are two empty rows between it and the blue brick",
-]
 
 [[steps]]
-part = "light aqua 1x4 brick"
 name = "Aqua 1x4, below white"
-color = "aqua"
+brick = "light aqua 1x4"
+place = "horizontal, below the white brick, touching it, in the same columns"
 cells = [7, 8, 10, 8]
-find = "Find the light aqua one-by-four: a thin light aqua brick, four studs long."
-place = "Lay it horizontally directly below the white one, touching it, with their ends lined up."
-where = "the light aqua 1x4, horizontal, directly below the white brick, touching it, its ends lined up with the white brick's, its left end touching the dark grey brick"
-checks = [
-  "it is horizontal and light aqua, not white",
-  "it lies directly below the white brick, touching it, with their ends lined up",
-  "its left end touches the right side of the dark grey brick",
-]
 
 [[steps]]
-part = "tan 2x6 brick"
 name = "Tan 2x6, bottom bar"
-color = "tan"
+brick = "tan 2x6"
+place = "horizontal, below the dark grey brick, touching its bottom end, its left end lined up with the dark grey brick's left side"
 cells = [5, 11, 10, 12]
-find = "Find the tan two-by-six: a long tan brick, two studs wide and six studs long."
-place = "Lay it horizontally below the dark grey one, touching its bottom end, with their left ends lined up."
-where = "the tan 2x6, horizontal, directly below the dark grey brick, touching its bottom end, its left end lined up with the dark grey brick's left side, so its right end lines up with the blue brick's"
-checks = [
-  "it is horizontal and tan",
-  "it touches the bottom end of the dark grey brick",
-  "its left end lines up with the left side of the dark grey brick",
-]

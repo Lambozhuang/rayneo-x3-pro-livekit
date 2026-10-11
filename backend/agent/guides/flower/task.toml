@@ -1,82 +1,41 @@
-# A flower: a dark brown 2x4 stem, a red 4x4 round blossom, a dark green and a dark teal 2x4 for the leaves, a tan 2x6 for the ground. From tasks/sheet.html (the 5-step shortlist), task 9.
+# A flower: a dark brown 2x4 stem, a red 4x4 round blossom, a dark green and a dark teal 2x4 for the leaves, a tan 2x6 for the ground. From tasks/sheet.html, task 9.
 #
-# Grid: columns 1..16 left to right, rows 1..16 from the far edge to the edge nearest the builder. `cells` is the
-# brick's footprint [col0, row0, col1, row1], inclusive: the layout as drawn; a round plate covers its 4x4 square but not the corner cells. Where the build sits on the
-# plate is loose (step 1 says roughly where, so the rest fits); how the five bricks sit against each other is exact.
-# Every step is two parts for the wearer: `find` (which brick to pick up) and, once they have it, `place` (where it
-# goes). `where` and `checks` are what the brain checks a photo against. One vocabulary throughout: the plate as a
-# picture lying in front of the wearer, up = the far edge, down = the near edge, left and right theirs, a brick
-# vertical (long side up-down) or horizontal (left-right).
+# Each step: `name` for the step list on the glasses; `brick`, which brick; `place`, where it goes, against the bricks
+# before it (step 1 only roughly on the plate). Both models get `brick` and `place`. `cells` is the brick's footprint
+# as drawn on the sheet, [col0, row0, col1, row1] inclusive, columns 1..16 left to right, rows 1..16 from the far
+# edge; a round plate covers its 4x4 square but not the corners; it goes to no model. Directions: the plate as a picture lying in front of the wearer, up = the far
+# edge; vertical = the long side runs up and down.
 
 title = "LEGO flower on a baseplate"
 plate = 16
 number = 9
 
 [[steps]]
-part = "dark brown 2x4 brick"
 name = "Brown 2x4, stem"
-color = "brown"
+brick = "dark brown 2x4"
+place = "vertical, roughly in the middle of the plate"
 cells = [8, 7, 9, 10]
-find = "Find the dark brown two-by-four: a dark brown brick, two studs wide and four studs long."
-place = "Stand it vertically in the middle of the plate."
-where = "the dark brown 2x4, vertical (2 studs left-right, 4 up-down), roughly in the middle of the plate; the flower needs four rows above it and four columns on each side"
-checks = [
-  "it is vertical and dark brown",
-  "it lies roughly in the middle of the plate, with empty plate on every side",
-]
 
 [[steps]]
-part = "red 4x4 round plate"
 name = "Red round, blossom"
-color = "red"
+brick = "red 4x4 round plate"
+place = "above the dark brown brick, touching it, centred on it"
 cells = [7, 3, 10, 6]
-find = "Find a red round plate: a flat round red piece, four studs across."
-place = "Lay it on top of the brown brick, touching it, centred over it."
-where = "the red 4x4 round plate, touching the top of the brown brick, centred over it"
-checks = [
-  "it is a red round plate",
-  "it touches the top of the brown brick",
-  "it is centred over the brown brick",
-]
 
 [[steps]]
-part = "dark green 2x4 brick"
 name = "Dark green 2x4, left leaf"
-color = "dgreen"
+brick = "dark green 2x4"
+place = "horizontal, touching the left side of the dark brown brick, its top edge level with the dark brown brick's top end"
 cells = [4, 7, 7, 8]
-find = "Find the dark green two-by-four: a dark green brick, two studs wide and four studs long."
-place = "Lay it horizontally against the left side of the brown brick, touching it, with their top edges lined up."
-where = "the dark green 2x4, horizontal, touching the left side of the brown brick, its top edge lined up with the brown brick's top end"
-checks = [
-  "it is horizontal and dark green",
-  "it touches the left side of the brown brick",
-  "its top edge lines up with the top end of the brown brick",
-]
 
 [[steps]]
-part = "dark teal 2x4 brick"
 name = "Teal 2x4, right leaf"
-color = "teal"
+brick = "dark teal 2x4"
+place = "horizontal, touching the right side of the dark brown brick, its bottom edge level with the dark brown brick's bottom end"
 cells = [10, 9, 13, 10]
-find = "Find the dark teal two-by-four: a dark teal brick, two studs wide and four studs long."
-place = "Lay it horizontally against the right side of the brown brick, touching it, with their bottom edges lined up."
-where = "the dark teal 2x4, horizontal, touching the right side of the brown brick, its bottom edge lined up with the brown brick's bottom end"
-checks = [
-  "it is horizontal and dark teal",
-  "it touches the right side of the brown brick",
-  "its bottom edge lines up with the bottom end of the brown brick",
-]
 
 [[steps]]
-part = "tan 2x6 brick"
 name = "Tan 2x6, ground"
-color = "tan"
+brick = "tan 2x6"
+place = "horizontal, below the dark brown brick, touching it, two columns sticking out on each side"
 cells = [6, 11, 11, 12]
-find = "Find the tan two-by-six: a long tan brick, two studs wide and six studs long."
-place = "Lay it horizontally under the brown brick, touching it, centred, with two studs sticking out on each side."
-where = "the tan 2x6, horizontal, touching the bottom of the brown brick, centred under it, two columns sticking out on each side"
-checks = [
-  "it is horizontal and tan",
-  "it touches the bottom end of the brown brick",
-  "it is centred under the brown brick, two columns sticking out on each side",
-]
