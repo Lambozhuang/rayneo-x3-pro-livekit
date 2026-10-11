@@ -101,12 +101,35 @@ camera washes out light colours also seems to make the brain doubt white bricks 
 (median output 760 tokens in the last replay against ~400 before). Single looks did not show either effect
 (haiku-v5-medium 45/45).
 
-## To try on the glasses
+## A live look replayed (2026-10-11)
 
-Configs worth comparing live (all in `.env`, no rebuild): `BRAIN_PROVIDER=anthropic` with
-`BRAIN_MODEL=claude-haiku-5-5` and `BRAIN_EFFORT=medium` (most accurate), `low`, `none`; and
-`claude-sonnet-5-5` with `low`. The offline numbers say nothing about how long a wait feels or how Live words
-the reply.
+Ladder task, step 2 (two 1x6 rails, four empty columns between them, ends level): live, Haiku 5.5 low called the
+gap three, then five, then three, and the call stuck. Look #4 of that call (the first gap count, the wearer
+saying "No, it is even. Check again") replayed exactly as sent (the record's brain.txt, turns, notice, words and
+photo; `replay_look.py`), five times per config, two rounds for the Anthropic ones. The step was right, so the
+right answer confirms it.
+
+| config | right | seconds |
+|---|---|---|
+| Sonnet 5.5, effort low | 10/10 | 3.3-5.8 |
+| gpt-6-luna, effort low | 4/5 | 3.7-6.1 |
+| Haiku 5.5, effort medium | 6/10 | 4.9-7.9 |
+| Haiku 5.5, effort low | 3/10 | 4.1-8.0 |
+| gpt-6-sol, effort low | 1/5 | 4.1-9.0 |
+
+Every model's thinking measures instead of counting: pixel positions of the two bricks divided by a guessed stud
+pitch. Haiku took the pitch over the whole plate, too big for the far half under perspective, and came out one
+short; sol guessed it too small and came out one over. Same prompt for all, so this one is the model, not the
+prompt. One photo only, and Sonnet opened every reply with "You're right": whether it also agrees when the wearer
+is wrong is untested. The OpenAI models call the tool with no text when they confirm. The thinking text needs
+`display: "summarized"` on Claude 5.x (the default omits it). The call's record is local
+(`tmp/runs/20261011-192730-glasses-3e37a9a2`).
+
+## On the glasses
+
+`brain-v2` runs Sonnet 5.5 at effort low (letter E, 5/5: one miss, a 2x4 taken for the 2x6 with no thinking;
+median 2.1 s per look). Other configs are one `.env` change away (`BRAIN_MODEL`, `BRAIN_EFFORT`, no rebuild).
+The offline numbers say nothing about how long a wait feels or how Live words the reply.
 
 ## Rerun
 
@@ -115,5 +138,6 @@ From `backend/agent` (keys from `backend/.env`; the model id comes from the name
     uv run python ../../eval/brain/run.py anthropic BRAIN_MODEL 1080 3 ../../eval/brain/results/<run>.json medium
     uv run python ../../eval/brain/run.py anthropic BRAIN_MODEL 1080 3 <out>.json none drawing   # perfect view
     uv run python ../../eval/brain/report_tools.py    # HTML of the tool-era runs -> tmp/brain-report/
+    HAIKU=claude-haiku-5-5 SONNET=claude-sonnet-5-5 uv run python ../../eval/brain/replay_look.py         <run dir> <look n> 5 HAIKU:low SONNET:low openai:LUNA:low   # one recorded look, as sent -> <run>/replay-look<n>.html
 
 `run.py` runs the repo's brain code as it is; the JSON-era runs used earlier versions of it (git history).

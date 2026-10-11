@@ -155,7 +155,7 @@ def build(t: dict) -> str:
     sx, sy, sw, sh = SESS
     card(sx, sy, sw, sh)
     text(sx + sw / 2, sy + 34, "GPT-Live session", 16, t["text"])
-    text(sx + sw / 2, sy + 58, "persona = every step's wording (say)", 12, t["muted"])
+    text(sx + sw / 2, sy + 58, "persona + every step (find, say)", 12, t["muted"])
 
     # FrameTap and the brain
     tx0 = FX + IN
@@ -168,10 +168,10 @@ def build(t: dict) -> str:
     bcx0 = BRAIN_X + BRAIN_W / 2
     text(bcx0, PY + 30, "brain", 16, t["text"])
     text(bcx0, PY + 52, "gpt/brain.py", 12, t["dim"])
-    text(bcx0, PY + 74, "per delegation: the next frame + the call so far", 11.5, t["muted"])
-    text(bcx0, PY + 90, "→ one vision call → seen, say, step, end_call", 11.5, t["muted"])
+    text(bcx0, PY + 74, "per delegation: the newest frame + the call's turns", 11.5, t["muted"])
+    text(bcx0, PY + 90, "→ one vision call → a reply, maybe a confirmed step", 11.5, t["muted"])
     wire([(tx0 + TAP_W + 8, Y_PIPE), (BRAIN_X - 8, Y_PIPE)], t["muted"], "headm")
-    text((tx0 + TAP_W + BRAIN_X) / 2, Y_PIPE - 9, "next frame", 11.5, t["muted"])
+    text((tx0 + TAP_W + BRAIN_X) / 2, Y_PIPE - 9, "newest frame", 11.5, t["muted"])
 
     # task file
     tx, ty, tw, th = TASK
@@ -183,8 +183,8 @@ def build(t: dict) -> str:
         f'stroke-width="1.4"/>')
     add(f'<path d="M{tx + tw - fold} {ty} V{ty + fold} H{tx + tw}" fill="none" '
         f'stroke="{t["edge"]}" stroke-width="1.4"/>')
-    text(tx + 14, ty + 26, "guides/truck/task.toml", 13, t["text"], "start")
-    for j, s in enumerate(["say → voice", "all of it → brain"]):
+    text(tx + 14, ty + 26, "guides/&lt;task&gt;/task.toml", 13, t["text"], "start")
+    for j, s in enumerate(["find, say → voice", "all of it → brain"]):
         text(tx + 14, ty + 50 + j * 18, s, 11.5, t["muted"], "start")
     wire([(400, ty - 2), (400, sy + sh + 4)], t["muted"], "headm", 1.2, dash=True)
     wire([(tx + tw - 30, ty + th + 2), (tx + tw - 30, ty + th + 18), (BRAIN_X + 20, ty + th + 18),
@@ -193,7 +193,7 @@ def build(t: dict) -> str:
     # voice <-> brain
     wire([(X_DELEG, sy + sh + 2), (X_DELEG, PY - 4)], t["muted"], "headm")
     wire([(X_ANSWER, PY - 2), (X_ANSWER, sy + sh + 4)], t["muted"], "headm")
-    text(X_ANSWER + 14, 304, "↓ delegation: id + the wearer's words", 11.5, t["muted"], "start")
+    text(X_ANSWER + 14, 304, "↓ delegation: an id (+ words, sometimes)", 11.5, t["muted"], "start")
     text(X_ANSWER + 14, 324, "↑ commentary on that id (the answer)", 11.5, t["muted"], "start")
     text(X_ANSWER + 14, 344, "↑ thinking: the wearer is on step N", 11.5, t["muted"], "start")
 
@@ -231,7 +231,7 @@ def build(t: dict) -> str:
     wire([(sx + sw + 2, Y_WS), (cx1 - 2, Y_WS)], t["cloud"], "headv", 1.8, start=True)
     text((sx + sw + cx1) / 2, Y_WS - 9, "WebSocket", 12.5, t["cloud"], extra=' letter-spacing="0.6"')
     wire([(BRAIN_X + BRAIN_W + 2, Y_PIPE), (cx1 - 3, Y_PIPE)], t["cloud"], "headv", 1.4, start=True)
-    text((BRAIN_X + BRAIN_W + cx1) / 2, Y_PIPE - 9, "one call, JSON", 11.5, t["cloud"])
+    text((BRAIN_X + BRAIN_W + cx1) / 2, Y_PIPE - 9, "one call per look", 11.5, t["cloud"])
 
     add("</svg>")
     return "\n".join(out)

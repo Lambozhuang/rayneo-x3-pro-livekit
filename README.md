@@ -32,8 +32,10 @@ ports reachable at the address it advertises):
 - **livekit-server** verifies join tokens and forwards media.
 - **api**: the glasses `POST /getToken` with a credential; `auth.py` turns it into a user
   id or a 401, `server.py` signs a ten-minute JWT with that identity and a `room_config`
-  naming the agent. `AUTH_MODE`: `dev` accepts everyone (private LAN), `static` wants one
-  shared bearer token, `jwt` verifies a token from an account system.
+  naming the agent, with the build the glasses picked (`?task=`) as the agent's dispatch
+  metadata. `GET /tasks` lists the builds on offer. `AUTH_MODE`: `dev` accepts everyone
+  (private LAN), `static` wants one shared bearer token, `jwt` verifies a token from an
+  account system.
 - **agent** registers under `AGENT_NAME`, joins only rooms whose token names it, and alone
   holds the model API keys. `AGENT_BACKEND=openai` runs the system below (`agent/src/gpt/`);
   `gemini` runs the old Gemini Live path (`agent/src/gemini/`). Model ids come from `.env`.
@@ -47,9 +49,9 @@ holds the step. One task file feeds both.
 <picture>
   <source media="(prefers-color-scheme: dark)" srcset="docs/agent-dark.png">
   <img alt="Inside the agent: audio to a GPT-Live session whose persona holds every step's wording;
-video to FrameTap; the session delegates to the brain with an id and the wearer's words, the brain
-takes the next frame and the call so far to a vision model and answers with commentary on that id,
-a new step as thinking, and the step list to the glasses; the task file feeds both"
+video to FrameTap; the session delegates to the brain with an id, the brain takes the newest frame
+and the call's turns to a vision model and answers with commentary on that id, a new step as
+thinking, and the step list to the glasses; the task file feeds both"
        src="docs/agent-light.png">
 </picture>
 
@@ -59,13 +61,17 @@ a new step as thinking, and the step list to the glasses; the task file feeds bo
    once the wearer has it, where it goes (`say`). What needs no eyes (the next step, an earlier one, what a brick looks
    like) it answers itself. Whatever depends on what is in front of the wearer ("is this
    right?", "where does it go?", "what is this?") it delegates; a goodbye it answers itself and
-   the wearer hangs up on the glasses. Client
-   delegation: the plugin hands the agent an id and the wearer's words, no backend model runs.
+   the wearer hangs up on the glasses. It opens the call by naming the build. Client
+   delegation: the plugin hands the agent an id (and the wearer's words when they are not in
+   the history yet, often not), no backend model runs.
 2. **Brain** (`gpt/brain.py`), one stateless vision call per delegation, to OpenAI or
    Anthropic (`BRAIN_PROVIDER`, `BRAIN_MODEL`, `BRAIN_EFFORT`), built like LiveKit's
    client-delegation example. Instructions: the role (the eyes; it never speaks to the wearer,
-   the voice says its reply), the whole task file, how to reply, five examples from a made-up build
-   (shared by every task; fixed, so the prompt cache hits). One tool, `confirm_step_correct(step)`, its rules in its own
+   the voice says its reply), the whole task file (a step with a find line comes in two parts,
+   and its facts apply once the brick is on the plate), how to reply, five examples from a
+   made-up build (shared by every task; fixed, so the prompt cache hits). `brain-v2` runs
+   Sonnet 5.5 at effort low: on a look that needs a gap counted, a replay got it right 10/10,
+   Haiku 5.5 low 3/10. One tool, `confirm_step_correct(step)`, its rules in its own
    description; there is no hang-up tool, a misjudged goodbye cut calls off. Turns: the call's
    chat history, the wearer as user and the voice as assistant. The last turn: the camera
    frame's bottom square (the glasses look down at the table; the top of the portrait frame is
@@ -78,8 +84,8 @@ a new step as thinking, and the step list to the glasses; the task file feeds bo
    goes, and the brain's earlier replies are not sent back to it: what a look saw survives as
    what the voice said of it. Offline tests of models, image and prompt:
    `eval/brain/RESULTS.md`.
-3. **Task file** (`guides/<task>/task.toml`: `ladder` and `letter-e`, five bricks each; `truck`
-   is the old 13-step task): per step the wording the wearer hears (`find`, `say`), where the brick goes and what a
+3. **Task file** (`guides/<task>/task.toml`; the 13 numbered five-brick tasks of
+   `tasks/sheet.html`, picked on the glasses; `truck` is the old 13-step task): per step the wording the wearer hears (`find`, `say`), where the brick goes and what a
    photo must show (`where`, `checks`), and the brick's cells (and, for the truck, colour tables
    for the CV judge). Where the build sits on the plate is loose; how its bricks sit against
    each other is exact. One vocabulary throughout, also in both prompts: the
@@ -109,8 +115,9 @@ backend/
                         the lego-harness-v1 camera loop, not run; eval/ uses the first four
   agent/src/gemini/     the Gemini Live path (not in use)
   agent/src/render.py   reference-model video stream (used by guides with a model.glb; the truck has none)
-  agent/guides/         build guides, chosen with BUILD_GUIDE; guides/letter-e is the current task
-android/                Kotlin + Compose app for the glasses
+  agent/guides/         build guides: the numbered tasks the glasses pick from; BUILD_GUIDE when none is picked
+android/                Kotlin + Compose app for the glasses (build picker, call screen)
+tasks/                  the five-brick task sheet (sheet.html) and the bricks it uses (bricks.jpg)
 deploy/
   setup.sh              first-time setup on a Linux host: key pair, livekit.yaml, .env
   livekit.lab.yaml      livekit-server config for a private LAN
