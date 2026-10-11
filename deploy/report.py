@@ -225,6 +225,8 @@ def report(d: str) -> str:
     total_ms = [lk["look_back"]["total_ms"] for lk in looks.values() if "look_back" in lk]
     wait_ms = [lk["voice_started"]["after_delegation_ms"] for lk in looks.values() if "voice_started" in lk]
     end_ev = next((e for e in events if e["kind"] == "end"), {})
+    billed = next((e.get("seconds") for e in events if e["kind"] == "live" and e.get("type") == "session.closed"),
+                  end_ev.get("voice_s"))
     name = os.path.basename(os.path.normpath(d))
 
     out = [f"<!doctype html><meta charset='utf-8'><title>{esc(name)}</title><style>{CSS}</style>",
@@ -235,10 +237,11 @@ def report(d: str) -> str:
                                                    if outcomes.count(o))),
           ("brain model / total (min / median / max)", f"{stats(model_ms)} &nbsp; / &nbsp; {stats(total_ms)}"),
           ("hand-over to voice speaking", stats(wait_ms)),
-          ("voice seconds, camera frames", f"{end_ev.get('voice_s', '-')}, {end_ev.get('camera_frames', '-')}")]
+          ("GPT-Live billed", f"{billed} s" if billed is not None else "-"),
+          ("camera frames", end_ev.get("camera_frames", "-"))]
     kv += [(k, v) for k, v in (call.get("settings") or {}).items()]
     out += [f"<tr><td>{esc(k)}</td><td>{v if k.startswith(('looks', 'brain', 'hand')) else esc(v)}</td></tr>" for k, v in kv]
-    out.append("</table><p><a href='brain.txt'>brain instructions</a> &middot; <a href='voice.txt'>voice persona</a>"
+    out.append("</table><p><a href='brain.txt'>brain instructions</a> &middot; <a href='brain-tools.json'>brain tools</a> &middot; <a href='voice.txt'>voice persona</a>"
                " &middot; <a href='events.jsonl'>events.jsonl</a></p>")
 
     bad = problems(events, looks)
@@ -263,7 +266,8 @@ def report(d: str) -> str:
         elif k == "step":
             what = (f"step {e['done']} done, " if e.get("done") else "") + (f"now step {e['now']}" if e.get("now") else "build finished")
             out.append(f'<div class="row">{t}<span class="ok">{what}</span></div>')
-        elif k in ("wearer", "quality", "camera", "closed", "end") or (k == "live" and e.get("type") == "error"):
+        elif k in ("wearer", "quality", "camera", "closed", "end") or (
+                k == "live" and e.get("type") in ("error", "session.started", "session.closed")):
             body = {key: v for key, v in e.items() if key not in ("t", "kind")}
             out.append(f'<div class="row">{t}<span class="dim">{k}: {esc(json.dumps(body, ensure_ascii=False))}</span></div>')
     return "".join(out)

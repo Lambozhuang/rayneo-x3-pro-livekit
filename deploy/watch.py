@@ -30,6 +30,7 @@ KEEP = (
     ("live:", DIM, "live "),
     ("delegation:", CYAN, "deleg"),
     ("link:", YELLOW, "link "),
+    ("gpt-live:", CYAN, "bill "),
     ("step ", YELLOW, "build"),
     ("build", YELLOW, "build"),
     ("end_call", YELLOW, "build"),

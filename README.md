@@ -142,12 +142,14 @@ after the ask, when the request went out, when the reply came back with tokens: 
 thinking, the tool call, the saved frame's file name, the reply; `brain: thinking:` /
 `brain: commentary` what reached the voice), `voice:` (when the voice started saying the answer:
 ms after the commentary and after the delegation), `camera:` (first frame, or none 10 s in) and
-`link:` (the glasses joining and leaving, with the SFU's reason, and the SFU's quality score).
+`link:` (the glasses joining and leaving, with the SFU's reason, and the SFU's quality score) and
+`gpt-live:` (the voice session's start and close with the seconds billed; GPT-Live bills by the
+session second).
 
 Every call also leaves a record in `backend/runs/<UTC start>-<room>/` (`runlog.py`): `events.jsonl`
 (the same story with every field: who speaks when, both transcripts, each hand-over, each look's
 photo, whole input, reply, tool call, tokens and timings, step changes, link events), the photos
-sent to the brain (`ask<n>-s<step>.jpg`), and both prompts as sent (`brain.txt`, `voice.txt`).
+sent to the brain (`ask<n>-s<step>.jpg`), and both prompts as sent (`brain.txt` with `brain-tools.json`, `voice.txt`).
 `python3 deploy/report.py backend/runs/<call>` writes `report.html` beside it: settings and commit,
 steps done, brain and wait times, what went wrong, a timeline, and one card per hand-over. Build
 with `GIT_COMMIT=$(git describe --always --dirty) docker compose up -d --build` so the record

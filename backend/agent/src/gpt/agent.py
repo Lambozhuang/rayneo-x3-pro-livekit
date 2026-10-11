@@ -16,6 +16,7 @@ wired but unused by the flat-layout guides.
 """
 
 import asyncio
+import json
 import logging
 import os
 from dataclasses import asdict
@@ -34,7 +35,7 @@ from livekit.agents.llm import ChatMessage
 from livekit.agents.metrics import RealtimeModelMetrics
 
 from frames import FrameTap
-from gpt.brain import Brain, make_model, publish_build
+from gpt.brain import TOOLS, Brain, make_model, publish_build
 from gpt.config import Settings, build_live_model, language, require_env
 from gpt.prompts import voice_persona
 from guide import Build, load_guide
@@ -68,6 +69,8 @@ async def rayneo_assistant(ctx: JobContext) -> None:
     brain = Brain(session, build, tap, model, settings.brain_side, lang, settings.brain_timeout, record)
     persona = voice_persona(guide, lang)
     record.text("brain.txt", brain.instructions)
+    record.text("brain-tools.json", json.dumps([{"name": n, "description": d, "input_schema": p} for n, d, p in TOOLS],
+                                               indent=2))
     record.text("voice.txt", persona)
 
     # Two bills. The voice model is priced by the second and reports cumulative
@@ -144,7 +147,16 @@ async def rayneo_assistant(ctx: JobContext) -> None:
 
     def _log_live_event(event: dict) -> None:
         etype = event.get("type", "")
-        if etype == "session.delegation.created":
+        # GPT-Live bills by the session second: from session.started to session.closed, whose usage is the total
+        if etype == "session.started":
+            sid = (event.get("session") or {}).get("id")
+            logger.info("gpt-live: session started %s (billed from here)", sid or "")
+            record.event("live", type="session.started", id=sid)
+        elif etype == "session.closed":
+            secs = (event.get("usage") or {}).get("seconds")
+            logger.info("gpt-live: session closed (%s), %s s billed", event.get("reason"), secs)
+            record.event("live", type="session.closed", reason=event.get("reason"), seconds=secs)
+        elif etype == "session.delegation.created":
             d = event.get("delegation") or {}
             logger.info("live: event delegation.created id=%s target=%s offset_ms=%s", d.get("id"), d.get("target"),
                         event.get("offset_ms"))
@@ -158,6 +170,9 @@ async def rayneo_assistant(ctx: JobContext) -> None:
             record.event("live", type="error", error=event.get("error"))
 
     duplex.on("openai_server_event_received", _log_live_event)
+    if getattr(duplex, "_session_id", None):  # started before the hook above was in place
+        logger.info("gpt-live: session started %s (billed from here; before this line)", duplex._session_id)
+        record.event("live", type="session.started", id=duplex._session_id, before_hook=True)
 
     async def _camera_watch() -> None:
         await asyncio.sleep(10)
