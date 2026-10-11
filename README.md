@@ -54,8 +54,9 @@ a new step as thinking, and the step list to the glasses; the task file feeds bo
 </picture>
 
 1. **Voice.** `gpt-live-1` is audio only and full duplex, and owns turn-taking and barge-in
-   (no VAD on the session). Its instructions are the persona and every step's `say`
-   (`gpt/prompts.py`): what needs no eyes (the next step, an earlier one, what a brick looks
+   (no VAD on the session). Its instructions are the persona and every step's wording
+   (`gpt/prompts.py`), in two parts where the task has them: which brick to find (`find`), then,
+   once the wearer has it, where it goes (`say`). What needs no eyes (the next step, an earlier one, what a brick looks
    like) it answers itself. Whatever depends on what is in front of the wearer ("is this
    right?", "where does it go?", "what is this?") it delegates; a goodbye it answers itself and
    the wearer hangs up on the glasses. Client
@@ -63,8 +64,8 @@ a new step as thinking, and the step list to the glasses; the task file feeds bo
 2. **Brain** (`gpt/brain.py`), one stateless vision call per delegation, to OpenAI or
    Anthropic (`BRAIN_PROVIDER`, `BRAIN_MODEL`, `BRAIN_EFFORT`), built like LiveKit's
    client-delegation example. Instructions: the role (the eyes; it never speaks to the wearer,
-   the voice says its reply), the whole task file, how to reply, five examples (fixed, so the
-   prompt cache hits). One tool, `confirm_step_correct(step)`, its rules in its own
+   the voice says its reply), the whole task file, how to reply, five examples from a made-up build
+   (shared by every task; fixed, so the prompt cache hits). One tool, `confirm_step_correct(step)`, its rules in its own
    description; there is no hang-up tool, a misjudged goodbye cut calls off. Turns: the call's
    chat history, the wearer as user and the voice as assistant. The last turn: the camera
    frame's bottom square (the glasses look down at the table; the top of the portrait frame is
@@ -77,9 +78,11 @@ a new step as thinking, and the step list to the glasses; the task file feeds bo
    goes, and the brain's earlier replies are not sent back to it: what a look saw survives as
    what the voice said of it. Offline tests of models, image and prompt:
    `eval/brain/RESULTS.md`.
-3. **Task file** (`guides/truck/task.toml`): per step the wording the wearer hears (`say`),
-   where the brick goes and what a photo must show (`where`, `checks`), and the brick's cells
-   and colour tables for the CV judge. One vocabulary throughout, also in both prompts: the
+3. **Task file** (`guides/ladder/task.toml`, five bricks; `guides/truck` is the old 13-step
+   task): per step the wording the wearer hears (`find`, `say`), where the brick goes and what a
+   photo must show (`where`, `checks`), and the brick's cells (and, for the truck, colour tables
+   for the CV judge). Where the build sits on the plate is loose; how its bricks sit against
+   each other is exact. One vocabulary throughout, also in both prompts: the
    plate as a picture lying in front of the wearer, up = far edge, down = near edge, a brick
    vertical or horizontal.
 
@@ -106,7 +109,7 @@ backend/
                         the lego-harness-v1 camera loop, not run; eval/ uses the first four
   agent/src/gemini/     the Gemini Live path (not in use)
   agent/src/render.py   reference-model video stream (used by guides with a model.glb; the truck has none)
-  agent/guides/         build guides, chosen with BUILD_GUIDE; guides/truck is the current task
+  agent/guides/         build guides, chosen with BUILD_GUIDE; guides/ladder is the current task
 android/                Kotlin + Compose app for the glasses
 deploy/
   setup.sh              first-time setup on a Linux host: key pair, livekit.yaml, .env

@@ -1,11 +1,13 @@
 """Instructions for the GPT path, both from the one task file.
 
-The voice (GPT-Live) gets the persona and every step's wording (`say`), so it
-can answer what needs no eyes by itself; it delegates the rest. The brain
+The voice (GPT-Live) gets the persona and every step's wording (`find`, which
+brick to pick up, where the task has it, and `say`, where it goes), so it can
+answer what needs no eyes by itself; it delegates the rest. The brain
 (brain.py) gets the whole task, `where` and `checks` included, and answers
 from the photo. The voice's instructions cannot change once the session has
 started; the brain's are sent with every call and stay the same, for the
-prompt cache.
+prompt cache. The brain's examples come from a made-up build, so they serve
+every task.
 """
 
 from guide import Guide
@@ -60,7 +62,7 @@ The wearer is building "{title}": flat LEGO bricks on a green {plate}x{plate} ba
 
 Positions are described on the plate as the wearer sees it, like a picture lying in front of them: up is toward the far edge (the top of the photo), down toward the near edge, left and right are the wearer's. Every brick lies flat; a vertical brick has its long side running up and down, a horizontal one left and right.
 
-Each step lists what the wearer is told, where the brick goes, and the facts a photo of the finished step shows.
+Each step lists what the wearer is told (find: which brick to pick up, where the step has it; told: where it goes), where the brick goes, and the facts a photo of the finished step shows.
 <steps>
 {steps}
 </steps>
@@ -78,40 +80,45 @@ For each request:
 </instructions>
 
 <examples>
-Each example shows a situation and your reply to it, word for word. Only the first one goes with a tool call; the others call no tool.
+These examples come from another build; its bricks and steps are not this one's. Each shows a situation and your reply to it, word for word. Only the first one goes with a tool call; the others call no tool.
 <example>
-<situation>Current step 6 (Blue 1x4 below white, left). The wearer says: "Done, is that right?" The photo shows the blue 1x4 directly below the lower white brick, its left end against the purple brick, two studs free at its right.</situation>
-<reply>Yes, the blue one-by-four sits directly below the lower white brick, touching the purple brick, with two studs free on its right.</reply>
-With this reply you call confirm_step_correct with step 6.
+<situation>Current step 3 (Orange 1x4 below the black one). The wearer says: "Done, is that right?" The photo shows the orange 1x4 lying horizontally directly below the black brick, its left end lined up with the black brick's left end.</situation>
+<reply>Yes, the orange one-by-four lies directly below the black brick, lined up with its left end.</reply>
+With this reply you call confirm_step_correct with step 3.
 </example>
 <example>
-<situation>Current step 7 (Lime 1x2 right of blue). The wearer says: "How about this?" The photo shows the lime 1x2 standing vertically below the right end of the blue brick.</situation>
-<reply>Not right yet: the lime brick is vertical and sticks out below the body; it belongs horizontally in the blue brick's row, touching its right end.</reply>
+<situation>Current step 2 (Black 2x4 right of the red one). The wearer says: "How about this?" The photo shows the black 2x4 standing vertically right of the red brick.</situation>
+<reply>Not right yet: the black brick is vertical; it goes horizontally, touching the red brick's right side.</reply>
 </example>
 <example>
-<situation>Current step 12 (White 1x6 ground, middle). The wearer says: "Okay?" The photo shows a white brick in the ground row next to the tan one, but the wearer's hand covers its right end.</situation>
-<reply>The white brick is in the ground row next to the tan one, but a hand covers its right end, so I can't tell whether it runs below the right wheel.</reply>
+<situation>Current step 4 (Grey 1x4 below the orange one). The wearer says: "Okay?" The photo shows a grey brick below the orange one, but the wearer's hand covers its right end.</situation>
+<reply>The grey brick is below the orange one, but a hand covers its right end, so I can't tell whether it lines up with the orange one.</reply>
 </example>
 <example>
-<situation>Current step 11 (Tan 1x6 ground, left). The wearer says: "Which one is the tan brick?" The photo shows loose bricks on the table beside the plate.</situation>
-<reply>The tan brick is the beige one-by-six lying on the table left of the plate, next to a red disc.</reply>
+<situation>Current step 1 (Red 2x2). The wearer says: "Is this the right one?" The photo shows a red 2x2 held between the wearer's fingers above the plate.</situation>
+<reply>Yes, the brick in your fingers is the red two-by-two.</reply>
 </example>
 <example>
-<situation>Current step 3 (Lime 1x2 exhaust, top right of cab). The wearer says: "Is this the right one?" The photo shows a lime 1x2 held between the wearer's fingers above the plate.</situation>
-<reply>Yes, the brick in your fingers is the lime one-by-two this step needs.</reply>
+<situation>Current step 3 (Orange 1x4 below the black one). The wearer says: "This one?" The photo shows a yellow 1x4 in the wearer's hand, and an orange 1x4 on the table left of the plate.</situation>
+<reply>No, that one is yellow. The orange one-by-four is on the table left of the plate.</reply>
 </example>
 </examples>"""
 
 
 def voice_persona(guide: Guide, language: str) -> str:
-    steps = "\n".join(f"  {i}. {s.say}" for i, s in enumerate(guide.steps, 1))
+    steps = "\n".join(f"  {i}. find: {s.find}\n     place: {s.say}" if s.find else f"  {i}. {s.say}"
+                      for i, s in enumerate(guide.steps, 1))
+    if any(s.find for s in guide.steps):
+        steps += ("\n\nEach step has two parts: first tell the wearer which brick to find; when they say they have it, "
+                  "tell them where it goes.")
     return VOICE_PERSONA.format(title=guide.title, count=len(guide.steps), steps=steps, language=language)
 
 
 def brain_instructions(guide: Guide, language: str) -> str:
     lines = []
     for i, s in enumerate(guide.steps, 1):
-        lines.append(f"{i}. {s.name}\n   told: {s.say}\n   where: {s.where}")
+        lines.append(f"{i}. {s.name}" + (f"\n   find: {s.find}" if s.find else "")
+                     + f"\n   told: {s.say}\n   where: {s.where}")
         if s.checks:
             lines.append("   facts: " + "; ".join(s.checks))
     return BRAIN.format(title=guide.title, plate=guide.plate, steps="\n".join(lines), language=language)

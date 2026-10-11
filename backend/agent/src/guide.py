@@ -45,6 +45,7 @@ class Step:
     part: str
     say: str  # the instruction, as the wearer hears it (may say "nearer to you")
     name: str  # one line for the list on the glasses; defaults to `part`
+    find: str = ""  # which brick to pick up and how to tell it, said before `say`; empty = the step has no find part
     node: str | None = None  # node name in model.glb; defaults to the "stepNN" prefix
     # What a photo must show for the step to count, in terms of the bricks
     # placed before (never of the camera: the wearer turns the assembly in
@@ -84,7 +85,8 @@ def load_guide(path: str) -> Guide:
         data = tomllib.load(f)
     steps = tuple(
         Step(
-            part=s["part"], say=s["say"], name=s.get("name", s["part"]), node=s.get("node", f"step{i:02d}"),
+            part=s["part"], say=s["say"], find=s.get("find", ""), name=s.get("name", s["part"]),
+            node=s.get("node", f"step{i:02d}"),
             check=s.get("check", s["say"]), color=s.get("color", ""),
             cells=tuple(s["cells"]) if "cells" in s else None, where=s.get("where", ""), checks=tuple(s.get("checks", ())),
         )
