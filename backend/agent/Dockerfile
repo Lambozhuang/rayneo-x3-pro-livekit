@@ -12,6 +12,9 @@ COPY pyproject.toml uv.lock ./
 RUN uv sync --frozen --no-dev
 COPY src ./src
 COPY guides ./guides
+# for the call records (runlog.py); last, so a new commit rebuilds only this layer
+ARG GIT_COMMIT=
+ENV GIT_COMMIT=$GIT_COMMIT
 
 # Health check port of the agent framework; nothing else is exposed, and
 # compose does not publish even this one.

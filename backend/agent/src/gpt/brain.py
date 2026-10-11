@@ -25,6 +25,8 @@ the end, and no image is kept in it: what a look saw survives as its reply.
 The newest delegation wins: a call still running when the next arrives is
 cancelled. A call that fails or takes longer than BRAIN_TIMEOUT answers "the helper could
 not answer, say it again"; with no camera frame yet the model is asked without a photo.
+Every step of a look goes into the call's record (runlog.py): the photo and the whole
+input as sent, the reply, the timings.
 """
 
 from __future__ import annotations
@@ -41,6 +43,7 @@ from livekit.agents import AgentSession, get_job_context
 from frames import FrameTap, to_image
 from gpt.prompts import brain_instructions
 from guide import Build
+from runlog import RunLog
 
 logger = logging.getLogger("rayneo-agent.brain")
 
@@ -174,8 +177,9 @@ def make_model(provider: str, model: str, effort: str, detail: str):
 
 class Brain:
     def __init__(self, session: AgentSession, build: Build, tap: FrameTap, model, side: int, language: str,
-                 timeout: float = 12.0) -> None:
+                 timeout: float = 12.0, record: RunLog | None = None) -> None:
         self._timeout = timeout
+        self._record = record or RunLog(None, "")
         self._session = session
         self._build = build
         self._tap = tap
@@ -185,7 +189,12 @@ class Brain:
         self._t0 = time.monotonic()
         self._timeline: list[str] = []
         self._task: asyncio.Task | None = None
+        self._task_n = 0
         self._asks = 0
+
+    @property
+    def instructions(self) -> str:
+        return self._instructions
 
     # ------------------------------------------------------------------ the timeline
 
@@ -204,12 +213,16 @@ class Brain:
         self._asks += 1
         words = d.pending_transcript.strip()
         logger.info("delegation: %s #%d wearer: %s", d.id, self._asks, words or "(no words came with it)")
+        came = words
         if not words:  # the voice delegated before its transcript of the turn: the wearer's last line instead
             words = next((line.split(" wearer: ", 1)[1] for line in reversed(self._timeline) if " wearer: " in line), "")
             logger.info("brain: #%d asks with the wearer's last line: %s", self._asks, words or "(none yet)")
+        self._record.event("delegation", n=self._asks, id=d.id, words=came, asked_with=words)
         if self._task is not None and not self._task.done():
             logger.info("brain: newer delegation, the one before is dropped")
+            self._record.event("look_dropped", n=self._task_n, by=self._asks)
             self._task.cancel()
+        self._task_n = self._asks
         self._task = asyncio.create_task(self._answer(d.id, words, self._asks, time.monotonic()), name="brain")
 
     async def _answer(self, delegation_id: str, words: str, n: int, t_asked: float | None = None) -> None:
@@ -219,6 +232,7 @@ class Brain:
             raise
         except Exception as e:
             logger.warning("brain: #%d failed (%s: %s), asking the wearer to repeat", n, type(e).__name__, str(e)[:200])
+            self._record.event("look_failed", n=n, error=f"{type(e).__name__}: {e}"[:500])
             self._commentary("The helper could not answer this time. Ask the wearer to say it again.",
                              delegation_id, n, t_asked)
             return
@@ -229,6 +243,7 @@ class Brain:
         if out["done"]:
             self.note("you recorded", f"step {current} done")
             build.set_step(current)  # index of the next step = the number of steps done
+            self._record.event("step", done=current, now=None if build.finished else current + 1)
             await publish_build(build)
             parts.append(f"Step {current} is recorded as done; that was the last step, the build is finished."
                          if build.finished else f"Step {current} is recorded as done; now give step {current + 1}.")
@@ -251,6 +266,7 @@ class Brain:
         text = (f"{lead}\n<conversation>\n{timeline}\n</conversation>\n"
                 f"<current_step>{where}</current_step>\n<wearer_said>{words}</wearer_said>")
         t_sent = time.perf_counter()
+        saved = self._record.photo(photo, f"ask{n}-s{build.step + 1}") if photo else None
         if frame is not None:
             logger.info("brain: #%d frame %d (%dx%d, %.0f ms old); request sent %.0f ms after the ask: jpeg %d KB, "
                         "%d timeline lines, step %d", n, seq, frame.width, frame.height, age_ms, (t_sent - t0) * 1000,
@@ -258,23 +274,30 @@ class Brain:
         else:
             logger.warning("brain: #%d no camera frame this call; request sent without a photo, step %d", n,
                            build.step + 1)
+        self._record.event("look_sent", n=n, step=build.step + 1, frame=seq if frame is not None else None,
+                           frame_size=f"{frame.width}x{frame.height}" if frame is not None else None,
+                           frame_age_ms=round(age_ms) if age_ms is not None else None,
+                           photo=saved, photo_kb=len(photo) // 1024 if photo else None,
+                           prep_ms=round((t_sent - t0) * 1000), input=text)
         reply, calls, u = await self._model.ask(self._instructions, text, photo, build.run)
         t_back = time.perf_counter()
-        done = False
+        done, ignored = False, None
         for name, args in calls:
             if name != "confirm_step_correct":
                 continue
             if not build.finished and args.get("step") == build.step + 1:
                 done = True
             else:
+                ignored = args.get("step")
                 logger.warning("brain: #%d confirm_step_correct(%s) ignored, the current step is %d", n, args.get("step"),
                                build.step + 1)
-        saved = (self._tap.dump(photo, f"ask{n}-s{build.step + 1}{'-done' if done else ''}")
-                 if photo and self._tap.dumping else None)
         logger.info("brain: #%d reply after %.0f ms (model %.0f ms): in=%d (cached %d, written %d) out=%d (thinking %s) "
                     "stop=%s calls=%s frame=%s reply: %s",
                     n, (t_back - t0) * 1000, (t_back - t_sent) * 1000, u["in"], u["cached"], u.get("written", 0),
                     u["out"], u.get("thinking"), u.get("stop"), [f"{c}({a})" for c, a in calls], saved or "-", reply)
+        self._record.event("look_back", n=n, model_ms=round((t_back - t_sent) * 1000),
+                           total_ms=round((t_back - t0) * 1000), reply=reply, calls=[[c, a] for c, a in calls],
+                           done=done, ignored_confirm=ignored, usage=u)
         return {"text": reply, "calls": calls, "done": done}
 
     # ------------------------------------------------------------------ to the voice
@@ -288,11 +311,13 @@ class Brain:
 
     def _think(self, text: str) -> None:
         logger.info("brain: thinking: %s", text)
+        self._record.event("thinking", text=text)
         self._session.current_agent.duplex_session.append_thinking(text)
 
     def _commentary(self, text: str, delegation_id: str, n: int = 0, t_asked: float | None = None) -> None:
         logger.info("brain: commentary %s: %s", delegation_id, text)
         speaking = self._session.agent_state == "speaking"
+        self._record.event("commentary", n=n, id=delegation_id, text=text, voice_speaking=speaking)
         self._session.current_agent.duplex_session.append_commentary(text, delegation_id=delegation_id)
         if t_asked is not None:
             asyncio.create_task(self._time_voice(n, t_asked, time.monotonic(), speaking), name="time_voice")
@@ -306,14 +331,18 @@ class Brain:
             while session.agent_state == "speaking":
                 if time.monotonic() - t_sent > limit:
                     logger.info("voice: #%d still on its earlier speech %.0fs after the commentary", n, limit)
+                    self._record.event("voice_silent", n=n, why=f"still on its earlier speech {limit:.0f} s after")
                     return
                 await asyncio.sleep(0.02)
         while session.agent_state != "speaking":
             if time.monotonic() - t_sent > limit:
                 logger.info("voice: #%d not speaking %.0fs after the commentary", n, limit)
+                self._record.event("voice_silent", n=n, why=f"not speaking {limit:.0f} s after")
                 return
             await asyncio.sleep(0.02)
         now = time.monotonic()
         logger.info("voice: #%d started %.0f ms after the commentary, %.0f ms after the delegation%s", n,
                     (now - t_sent) * 1000, (now - t_asked) * 1000,
                     " (it was speaking when the answer arrived)" if speaking else "")
+        self._record.event("voice_started", n=n, after_commentary_ms=round((now - t_sent) * 1000),
+                           after_delegation_ms=round((now - t_asked) * 1000), was_speaking=speaking)

@@ -6,8 +6,9 @@ for the code instead: `latest` is the newest one (at the glasses' ~15 a second,
 at most a few tens of milliseconds old), which the brain (gpt/brain.py) takes
 per delegation; `next_frame()` waits for the next one, for the old watch loop.
 
-FRAME_DUMP_DIR keeps a copy of every frame that was actually sent to a model,
-one subdirectory per call.
+`dump()` keeps a copy of a frame that was sent to a model, one subdirectory per
+call, for the old watch loop; the brain keeps its photos in the call's record
+(runlog.py) instead.
 """
 
 from __future__ import annotations
@@ -31,7 +32,8 @@ def to_image(frame: rtc.VideoFrame) -> Image.Image:
 
 
 class FrameTap:
-    def __init__(self, dump_dir: str | None = None, dump_max: int = 60) -> None:
+    def __init__(self, dump_dir: str | None = None, dump_max: int = 60, on_first=None) -> None:
+        self._on_first = on_first  # called with the first frame, e.g. to put it in the call's record
         self.count = 0  # frames seen, for the log: zero means the video path is broken
         self.latest: rtc.VideoFrame | None = None  # the newest frame and when it came (time.monotonic())
         self.latest_at = 0.0
@@ -51,6 +53,8 @@ class FrameTap:
         self.latest, self.latest_at = frame, time.monotonic()
         if self.count == 1:
             logger.info("camera: first frame %dx%d", frame.width, frame.height)
+            if self._on_first is not None:
+                self._on_first(frame)
         for fut in self._waiters:
             if not fut.done():
                 fut.set_result(frame)

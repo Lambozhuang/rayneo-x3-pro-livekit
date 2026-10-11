@@ -97,6 +97,7 @@ backend/
   agent/src/agent.py    entrypoint: AGENT_BACKEND=gemini|openai picks the implementation
   agent/src/guide.py    build guide loader and the state of one run (shared)
   agent/src/frames.py   FrameTap: keeps camera frames for the brain
+  agent/src/runlog.py   one record per call under RUN_DIR (backend/runs)
   agent/src/gpt/        agent, config, prompts (voice persona, brain instructions), brain (delegation -> frame -> answer)
   agent/src/gate.py, judge_vlm.py, judge_cv.py, progress.py, gpt/watch.py
                         the lego-harness-v1 camera loop, not run; eval/ uses the first four
@@ -109,6 +110,7 @@ deploy/
   livekit.lab.yaml      livekit-server config for a private LAN
   glasses.ps1           launch/stop the app on the glasses over adb
   watch.py              coloured live view of the agent log
+  report.py             a call's record as one HTML page
   record.ps1            record a build with the glasses' stock camera app over adb
 eval/                   offline evaluation on recorded runs: brain/ (the brain's looks), judge / gate / replay of the old loop
 ```
@@ -120,7 +122,7 @@ On a Linux host with Docker:
 ```shell
 deploy/setup.sh lab                 # once: key pair, livekit.yaml and backend/.env
 cd backend
-docker compose up -d --build        # livekit-server :7880, api on API_PORT, agent
+GIT_COMMIT=$(git describe --always --dirty) docker compose up -d --build   # livekit-server :7880, api on API_PORT, agent
 docker compose logs -f --no-log-prefix agent | python3 ../deploy/watch.py   # coloured conversation
 docker compose down
 ```
@@ -139,10 +141,18 @@ voice handed over, with the wearer's words), `brain:` per ask (the frame it took
 after the ask, when the request went out, when the reply came back with tokens: cached, written,
 thinking, the tool call, the saved frame's file name, the reply; `brain: thinking:` /
 `brain: commentary` what reached the voice), `voice:` (when the voice started saying the answer:
-ms after the commentary and after the delegation), and `camera:` (first frame, or none 10 s in). `FRAME_DUMP_DIR=/app/frames` keeps every frame sent to the brain under
-`backend/frames/<call>/`, named `ask<n>-s<step>` (`FRAME_DUMP_MAX` caps the count); the
-container writes as root, so
-delete them with `docker run --rm -v "$PWD/frames:/f" backend-agent sh -c "rm -rf /f/2026*"`.
+ms after the commentary and after the delegation), `camera:` (first frame, or none 10 s in) and
+`link:` (the glasses joining and leaving, with the SFU's reason, and the SFU's quality score).
+
+Every call also leaves a record in `backend/runs/<UTC start>-<room>/` (`runlog.py`): `events.jsonl`
+(the same story with every field: who speaks when, both transcripts, each hand-over, each look's
+photo, whole input, reply, tool call, tokens and timings, step changes, link events), the photos
+sent to the brain (`ask<n>-s<step>.jpg`), and both prompts as sent (`brain.txt`, `voice.txt`).
+`python3 deploy/report.py backend/runs/<call>` writes `report.html` beside it: settings and commit,
+steps done, brain and wait times, what went wrong, a timeline, and one card per hand-over. Build
+with `GIT_COMMIT=$(git describe --always --dirty) docker compose up -d --build` so the record
+names its commit. The container writes as root; delete records with
+`docker run --rm -v "$PWD/runs:/r" backend-agent sh -c "rm -rf /r/2026*"`.
 
 Without Docker, against `docker run --rm -it --network host livekit/livekit-server --dev`:
 

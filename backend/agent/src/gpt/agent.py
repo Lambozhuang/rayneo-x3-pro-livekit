@@ -18,6 +18,7 @@ wired but unused by the flat-layout guides.
 import asyncio
 import logging
 import os
+from dataclasses import asdict
 
 from livekit import agents, rtc
 from livekit.agents import (
@@ -38,6 +39,7 @@ from gpt.config import Settings, build_live_model, language, require_env
 from gpt.prompts import voice_persona
 from guide import Build, load_guide
 from render import ModelState, ModelStream, stream_enabled
+from runlog import RunLog
 
 logger = logging.getLogger("rayneo-agent")
 
@@ -52,14 +54,21 @@ async def rayneo_assistant(ctx: JobContext) -> None:
     lang = language()
     guide = load_guide(require_env("BUILD_GUIDE"))
     logger.info(settings.experiment_line(guide.name))
-    tap = FrameTap(os.environ.get("FRAME_DUMP_DIR"), int(os.environ.get("FRAME_DUMP_MAX", "60")))
+    # The call's record (runlog.py): what happened, in order, with every field; deploy/report.py reads it.
+    record = RunLog(os.environ.get("RUN_DIR"), ctx.room.name)
+    record.event("call", room=ctx.room.name, guide=guide.name, language=lang, commit=os.environ.get("GIT_COMMIT") or None,
+                 settings=asdict(settings), steps=[s.name for s in guide.steps])
+    tap = FrameTap(on_first=lambda f: record.event("camera", first_frame=f"{f.width}x{f.height}"))
     build = Build(guide=guide, run=ctx.room.name)
     stream = ModelStream(guide.model, ModelState()) if guide.model and stream_enabled() else None
     if stream is not None:
         ctx.add_shutdown_callback(stream.stop)
     session = AgentSession(video_sampler=tap, llm=build_live_model(settings))
     model = make_model(settings.brain_provider, settings.brain_model, settings.brain_effort, settings.brain_detail)
-    brain = Brain(session, build, tap, model, settings.brain_side, lang, settings.brain_timeout)
+    brain = Brain(session, build, tap, model, settings.brain_side, lang, settings.brain_timeout, record)
+    persona = voice_persona(guide, lang)
+    record.text("brain.txt", brain.instructions)
+    record.text("voice.txt", persona)
 
     # Two bills. The voice model is priced by the second and reports cumulative
     # session time about once a minute (usage:); the brain by the token, on its
@@ -70,8 +79,15 @@ async def rayneo_assistant(ctx: JobContext) -> None:
         if isinstance(m, RealtimeModelMetrics) and m.session_duration:
             logger.info("usage: voice +%.0fs", m.session_duration)
 
+    @session.on("close")
+    def _log_close(ev) -> None:
+        record.event("closed", reason=str(getattr(ev.reason, "value", ev.reason)), error=str(ev.error) if ev.error else None)
+
     async def _log_usage() -> None:
         logger.info("usage: %s camera_frames=%d", session.usage, tap.count)
+        record.event("end", voice_s=sum(getattr(u, "session_duration", 0) for u in session.usage.model_usage),
+                     camera_frames=tap.count)
+        record.close()
 
     ctx.add_shutdown_callback(_log_usage)
 
@@ -83,6 +99,11 @@ async def rayneo_assistant(ctx: JobContext) -> None:
             logger.info("%s: %s", ev.item.role, ev.item.text_content)
             if ev.item.role in ("user", "assistant"):
                 brain.note("wearer" if ev.item.role == "user" else "voice", ev.item.text_content or "")
+                m = ev.item.metrics or {}
+                record.event("said", who="wearer" if ev.item.role == "user" else "voice", text=ev.item.text_content,
+                             interrupted=ev.item.interrupted,
+                             started=record.t(m["started_speaking_at"]) if m.get("started_speaking_at") else None,
+                             stopped=record.t(m["stopped_speaking_at"]) if m.get("stopped_speaking_at") else None)
 
     @ctx.room.on("track_subscribed")
     def _want_full_video(
@@ -98,7 +119,7 @@ async def rayneo_assistant(ctx: JobContext) -> None:
             )
 
     await session.start(
-        agent=Agent(instructions=voice_persona(guide, lang)),
+        agent=Agent(instructions=persona),
         room=ctx.room,
         # GPT-Live's transcript already trails its audio; the framework's
         # pacing of text to playout only added to that on the glasses.
@@ -114,10 +135,12 @@ async def rayneo_assistant(ctx: JobContext) -> None:
     @session.on("user_state_changed")
     def _log_wearer(ev) -> None:
         logger.info("live: wearer %s -> %s", ev.old_state, ev.new_state)
+        record.event("state", who="wearer", old=ev.old_state, new=ev.new_state)
 
     @session.on("agent_state_changed")
     def _log_voice(ev) -> None:
         logger.info("live: voice %s -> %s", ev.old_state, ev.new_state)
+        record.event("state", who="voice", old=ev.old_state, new=ev.new_state)
 
     def _log_live_event(event: dict) -> None:
         etype = event.get("type", "")
@@ -125,10 +148,14 @@ async def rayneo_assistant(ctx: JobContext) -> None:
             d = event.get("delegation") or {}
             logger.info("live: event delegation.created id=%s target=%s offset_ms=%s", d.get("id"), d.get("target"),
                         event.get("offset_ms"))
+            record.event("live", type="delegation.created", id=d.get("id"), target=d.get("target"),
+                         offset_ms=event.get("offset_ms"))
         elif etype in ("session.commentary.appended", "session.thinking.appended", "session.instructions.appended"):
             logger.info("live: event %s", etype.split(".", 1)[1])
+            record.event("live", type=etype.split(".", 1)[1])
         elif etype == "error":
             logger.warning("live: event error %s", event.get("error"))
+            record.event("live", type="error", error=event.get("error"))
 
     duplex.on("openai_server_event_received", _log_live_event)
 
@@ -136,15 +163,37 @@ async def rayneo_assistant(ctx: JobContext) -> None:
         await asyncio.sleep(10)
         if tap.count == 0:
             logger.warning("camera: no frame 10 s into the call; the glasses are not sending video")
+            record.event("camera", none_after_s=10)
 
     asyncio.create_task(_camera_watch(), name="camera_watch")
 
     wearer = await ctx.wait_for_participant()
     logger.info("session for user=%s room=%s", wearer.identity, ctx.room.name)
+    record.event("wearer", joined=wearer.identity)
+
+    # The glasses' link as the SFU sees it: who comes and goes (with the SFU's reason) and its coarse quality score.
+    @ctx.room.on("participant_connected")
+    def _log_join(p: rtc.RemoteParticipant) -> None:
+        logger.info("link: %s joined", p.identity)
+        record.event("wearer", joined=p.identity)
+
+    @ctx.room.on("participant_disconnected")
+    def _log_leave(p: rtc.RemoteParticipant) -> None:
+        reason = rtc.DisconnectReason.Name(p.disconnect_reason) if p.disconnect_reason is not None else None
+        logger.info("link: %s left (%s)", p.identity, reason or "no reason given")
+        record.event("wearer", left=p.identity, reason=reason)
+
+    @ctx.room.on("connection_quality_changed")
+    def _log_quality(p: rtc.Participant, quality: rtc.ConnectionQuality) -> None:
+        if isinstance(p, rtc.RemoteParticipant):
+            name = quality.name.removeprefix("QUALITY_").lower()
+            logger.info("link: %s quality %s", p.identity, name)
+            record.event("quality", who=p.identity, quality=name)
     if stream is not None:
         await stream.start(ctx.room.local_participant)
         build.model, build.model_nodes = stream.state, tuple(stream.nodes)
     build.start()
+    record.event("step", done=None, now=1)
     await publish_build(build)
 
     # generate_reply on GPT-Live is commentary: a request the model may decline.
