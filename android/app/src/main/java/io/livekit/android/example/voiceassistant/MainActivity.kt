@@ -111,7 +111,8 @@ class MainActivity : ComponentActivity() {
      * The temple touchpad is, to Android, a touchscreen. RayNeo's docs
      * (Touch Events & Event Response) say so: both temples emit TP
      * `MotionEvent`s, one-dimensional, "X changing, Y fixed", and never a
-     * `KeyEvent`. Their SDK feeds the raw events to a `TouchDispatcher` that
+     * `KeyEvent` (on our pair Y does change: touches end anywhere from y=51 to
+     * y=348, so a swipe across the temple is told apart too). Their SDK feeds the raw events to a `TouchDispatcher` that
      * turns them into Click / DoubleClick / LongClick / SlideForward /
      * SlideBackward; that SDK is an AAR built on ViewBinding and
      * `BaseMirrorActivity`, which a Compose app cannot sit on, so the same
@@ -120,9 +121,10 @@ class MainActivity : ComponentActivity() {
      *
      *   tap           connect screen: start the call with the picked build. In the call: nothing (yet).
      *   double tap    in the call: end it. Connect screen: leave the app.
-     *   swipe         connect screen: move the build pick (+x next, -x previous). In the call: logged only
+     *   swipe         connect screen: move the build pick (+x or down: next, -x or up: previous). In the call: logged only
      *
-     * A swipe is a travel of more than [SWIPE_PX] along X between down and up;
+     * A swipe is a travel of more than [SWIPE_PX] along X, or [SWIPE_PX_Y] along Y, between down and up,
+     * along whichever axis it travelled further;
      * anything shorter that lifts within [TAP_MS] is a tap, and a second tap
      * inside [DOUBLE_MS] upgrades the pair to a double tap. The wearer cannot
      * see their finger, so *where* a touch lands is meaningless; nothing on the
@@ -131,20 +133,22 @@ class MainActivity : ComponentActivity() {
     override fun dispatchTouchEvent(ev: MotionEvent): Boolean {
         when (ev.actionMasked) {
             MotionEvent.ACTION_DOWN -> {
-                downX = ev.x; downTime = ev.eventTime
+                downX = ev.x; downY = ev.y; downTime = ev.eventTime
             }
             MotionEvent.ACTION_UP -> {
                 val dx = ev.x - downX
+                val dy = ev.y - downY
                 val dt = ev.eventTime - downTime
                 val gesture = when {
-                    abs(dx) > SWIPE_PX -> if (dx > 0) "swipe +x" else "swipe -x"
+                    abs(dx) > SWIPE_PX && abs(dx) >= abs(dy) -> if (dx > 0) "swipe +x" else "swipe -x"
+                    abs(dy) > SWIPE_PX_Y -> if (dy > 0) "swipe +y" else "swipe -y"
                     dt < TAP_MS -> "tap"
                     else -> "hold"
                 }
-                Log.i(TAG, "gesture: $gesture dx=${dx.toInt()} dt=${dt}ms at x=${ev.x.toInt()} y=${ev.y.toInt()}")
+                Log.i(TAG, "gesture: $gesture dx=${dx.toInt()} dy=${dy.toInt()} dt=${dt}ms at x=${ev.x.toInt()} y=${ev.y.toInt()}")
                 if (gesture == "tap") onTap(ev.eventTime)
                 if (gesture.startsWith("swipe") && navController?.currentDestination?.hasRoute(ConnectRoute::class) == true) {
-                    Tasks.move(this, if (dx > 0) 1 else -1)
+                    Tasks.move(this, if (gesture.endsWith("+x") || gesture.endsWith("+y")) 1 else -1)
                 }
             }
         }
@@ -152,6 +156,7 @@ class MainActivity : ComponentActivity() {
     }
 
     private var downX = 0f
+    private var downY = 0f
     private var downTime = 0L
     private var lastTapTime = 0L
     private val handler = Handler(Looper.getMainLooper())
@@ -196,6 +201,7 @@ class MainActivity : ComponentActivity() {
     companion object {
         private const val TAG = "rayneo-input"
         private const val SWIPE_PX = 150f
+        private const val SWIPE_PX_Y = 80f  // the strip is narrow across; taps drift ~50 px in y
         private const val TAP_MS = 400L
         private const val DOUBLE_MS = 350L
         private val SELECT_KEYS = setOf(
