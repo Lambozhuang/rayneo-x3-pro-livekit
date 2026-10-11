@@ -15,6 +15,7 @@ path (gemini/) is untouched; the reference-model stream (render.py) stays
 wired but unused by the flat-layout guides.
 """
 
+import asyncio
 import logging
 import os
 
@@ -111,7 +112,38 @@ async def rayneo_assistant(ctx: JobContext) -> None:
             video_input=True, text_output=room_io.TextOutputOptions(sync_transcription=False)
         ),
     )
-    session.current_agent.duplex_session.on("delegation_created", brain.on_delegation)
+    duplex = session.current_agent.duplex_session
+    duplex.on("delegation_created", brain.on_delegation)
+
+    # The call's timeline in the log: who is speaking when, and what GPT-Live itself reports about handing over
+    # (its raw events, so a delegation the plugin did not pass on would still show).
+    @session.on("user_state_changed")
+    def _log_wearer(ev) -> None:
+        logger.info("live: wearer %s -> %s", ev.old_state, ev.new_state)
+
+    @session.on("agent_state_changed")
+    def _log_voice(ev) -> None:
+        logger.info("live: voice %s -> %s", ev.old_state, ev.new_state)
+
+    def _log_live_event(event: dict) -> None:
+        etype = event.get("type", "")
+        if etype == "session.delegation.created":
+            d = event.get("delegation") or {}
+            logger.info("live: event delegation.created id=%s target=%s offset_ms=%s", d.get("id"), d.get("target"),
+                        event.get("offset_ms"))
+        elif etype in ("session.commentary.appended", "session.thinking.appended", "session.instructions.appended"):
+            logger.info("live: event %s", etype.split(".", 1)[1])
+        elif etype == "error":
+            logger.warning("live: event error %s", event.get("error"))
+
+    duplex.on("openai_server_event_received", _log_live_event)
+
+    async def _camera_watch() -> None:
+        await asyncio.sleep(10)
+        if tap.count == 0:
+            logger.warning("camera: no frame 10 s into the call; the glasses are not sending video")
+
+    asyncio.create_task(_camera_watch(), name="camera_watch")
 
     wearer = await ctx.wait_for_participant()
     logger.info("session for user=%s room=%s", wearer.identity, ctx.room.name)

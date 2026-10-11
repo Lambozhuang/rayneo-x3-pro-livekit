@@ -132,13 +132,16 @@ Anthropic brain) and the model ids into
 the ufw rules the glasses need if ufw is active.
 
 What the agent log shows: `experiment:` (every switch of the run), `step n/m start|done`,
-`user:` / `assistant:` (both transcripts), `delegation:` (what the voice handed over, with the
-wearer's words), `brain:` (each call with its latency, tokens and answer; `brain: thinking:` /
+`user:` / `assistant:` (both transcripts, printed when a turn ends), `live:` (the call's
+timeline: the wearer and the voice going speaking / listening, and GPT-Live's own events:
+`delegation.created`, the commentary or thinking it took in, errors), `delegation:` (what the
+voice handed over, with the wearer's words), `brain:` per ask (the frame it took and how long
+after the ask, when the request went out, when the reply came back with tokens: cached, written,
+thinking, the tool call, the saved frame's file name, the reply; `brain: thinking:` /
 `brain: commentary` what reached the voice), `voice:` (when the voice started saying the answer:
-ms after the commentary and after the delegation, the wearer's wait for an answer that needed eyes), and
-`latency:`, the `reply_ms` the glasses
-measure from the wearer's last word to the agent's audio (`ReplyLatency.kt`), the number the
-experiment is about. `FRAME_DUMP_DIR=/app/frames` keeps every frame sent to the brain under
+ms after the commentary and after the delegation), `camera:` (first frame, or none 10 s in), and
+`latency:`, the `reply_ms` the glasses measure from the wearer's last word to the agent's audio
+(`ReplyLatency.kt`; that is the voice's first sound, often "let me look"). `FRAME_DUMP_DIR=/app/frames` keeps every frame sent to the brain under
 `backend/frames/<call>/`, named `ask<n>-s<step>` (`FRAME_DUMP_MAX` caps the count); the
 container writes as root, so
 delete them with `docker run --rm -v "$PWD/frames:/f" backend-agent sh -c "rm -rf /f/2026*"`.

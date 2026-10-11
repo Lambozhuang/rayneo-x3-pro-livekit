@@ -28,6 +28,7 @@ KEEP = (
     ("voice:", CYAN, "voice"),
     ("watch:", YELLOW, "watch"),
     ("brain:", YELLOW, "brain"),
+    ("live:", DIM, "live "),
     ("delegation:", CYAN, "deleg"),
     ("step ", YELLOW, "build"),
     ("build", YELLOW, "build"),

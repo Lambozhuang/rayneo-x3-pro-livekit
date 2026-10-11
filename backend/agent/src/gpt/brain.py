@@ -44,7 +44,11 @@ from guide import Build
 
 logger = logging.getLogger("rayneo-agent.brain")
 
-FRAME_WAIT = 1.0
+FRAME_WAIT = 1.0  # s for the next camera frame; the glasses send ~15 a second
+
+
+class NoFrame(Exception):
+    """No camera frame arrived within FRAME_WAIT: the video is not coming, which no closer look fixes."""
 
 # (name, description, JSON schema of the arguments); the same for both providers
 TOOLS = [
@@ -104,9 +108,13 @@ class OpenAIModel:
         )
         calls = [(o.name, json.loads(o.arguments or "{}")) for o in resp.output if o.type == "function_call"]
         u = resp.usage
+        out_details = getattr(u, "output_tokens_details", None) if u else None
         return resp.output_text, calls, {
             "in": u.input_tokens if u else 0, "out": u.output_tokens if u else 0,
             "cached": u.input_tokens_details.cached_tokens if u and u.input_tokens_details else 0,
+            "written": 0,  # OpenAI caches by itself and reports no writes
+            "thinking": getattr(out_details, "reasoning_tokens", None) if out_details is not None else None,
+            "stop": resp.status,
         }
 
 
@@ -152,9 +160,13 @@ class AnthropicModel:
         u = resp.usage
         text_out = " ".join(b.text for b in resp.content if b.type == "text").strip()
         calls = [(b.name, b.input or {}) for b in resp.content if b.type == "tool_use"]
+        details = getattr(u, "output_tokens_details", None)
         return text_out, calls, {
             "in": u.input_tokens + (u.cache_read_input_tokens or 0) + (u.cache_creation_input_tokens or 0),
             "out": u.output_tokens, "cached": u.cache_read_input_tokens or 0,
+            "written": u.cache_creation_input_tokens or 0,
+            "thinking": getattr(details, "thinking_tokens", None) if details is not None else None,
+            "stop": resp.stop_reason,
         }
 
 
@@ -195,20 +207,28 @@ class Brain:
     def on_delegation(self, d) -> None:
         """GPT-Live handed something over; answer it, dropping any older one still running."""
         self._asks += 1
-        logger.info("delegation: %s #%d wearer: %s", d.id, self._asks, d.pending_transcript)
+        words = d.pending_transcript.strip()
+        logger.info("delegation: %s #%d wearer: %s", d.id, self._asks, words or "(no words came with it)")
+        if not words:  # the voice delegated before its transcript of the turn: the wearer's last line instead
+            words = next((line.split(" wearer: ", 1)[1] for line in reversed(self._timeline) if " wearer: " in line), "")
+            logger.info("brain: #%d asks with the wearer's last line: %s", self._asks, words or "(none yet)")
         if self._task is not None and not self._task.done():
             logger.info("brain: newer delegation, the one before is dropped")
             self._task.cancel()
-        self._task = asyncio.create_task(self._answer(d.id, d.pending_transcript, self._asks, time.monotonic()),
-                                         name="brain")
+        self._task = asyncio.create_task(self._answer(d.id, words, self._asks, time.monotonic()), name="brain")
 
     async def _answer(self, delegation_id: str, words: str, n: int, t_asked: float | None = None) -> None:
         try:
             out = await asyncio.wait_for(self._ask(words, n), self._timeout)
         except asyncio.CancelledError:
             raise
+        except NoFrame:
+            logger.warning("brain: #%d no camera frame within %.0f s (%d frames this call)", n, FRAME_WAIT, self._tap.count)
+            self._commentary("The camera is not sending any picture right now. Tell the wearer, and ask them to end the "
+                             "call and start it again.", delegation_id, n, t_asked)
+            return
         except Exception as e:
-            logger.warning("brain: #%d failed (%s), asking the wearer to repeat", n, type(e).__name__)
+            logger.warning("brain: #%d failed (%s: %s), asking the wearer to repeat", n, type(e).__name__, str(e)[:200])
             self._commentary("You could not see that just now. Ask the wearer to hold the plate in view and say it again.",
                              delegation_id, n, t_asked)
             return
@@ -228,7 +248,12 @@ class Brain:
     async def _ask(self, words: str, n: int) -> dict:
         """One look: {text, calls, done}; done = a confirm_step_correct call naming the current step."""
         t0 = time.perf_counter()
-        frame = await self._tap.next_frame(FRAME_WAIT)
+        try:
+            frame = await self._tap.next_frame(FRAME_WAIT)
+        except asyncio.TimeoutError:
+            raise NoFrame from None
+        t_frame = time.perf_counter()
+        seq = self._tap.count  # the frame's number in this call
         photo = await asyncio.to_thread(_jpeg, frame, self._side)
         build = self._build
         total = len(build.guide.steps)
@@ -238,7 +263,12 @@ class Brain:
         # the photo goes first (Anthropic: images before text work best), then the conversation, then the ask
         text = (f"The photo above was taken just now.\n<conversation>\n{timeline}\n</conversation>\n"
                 f"<current_step>{where}</current_step>\n<wearer_said>{words}</wearer_said>")
+        t_sent = time.perf_counter()
+        logger.info("brain: #%d frame %d (%dx%d) arrived %.0f ms after the ask; request sent %.0f ms after the ask: "
+                    "jpeg %d KB, %d timeline lines, step %d", n, seq, frame.width, frame.height, (t_frame - t0) * 1000,
+                    (t_sent - t0) * 1000, len(photo) // 1024, len(self._timeline), build.step + 1)
         reply, calls, u = await self._model.ask(self._instructions, text, photo, build.run)
+        t_back = time.perf_counter()
         done = False
         for name, args in calls:
             if name != "confirm_step_correct":
@@ -248,11 +278,11 @@ class Brain:
             else:
                 logger.warning("brain: #%d confirm_step_correct(%s) ignored, the current step is %d", n, args.get("step"),
                                build.step + 1)
-        logger.info("brain: #%d %.0f ms in=%d (cached %d) out=%d step %d calls=%s reply: %s",
-                    n, (time.perf_counter() - t0) * 1000, u["in"], u["cached"], u["out"], build.step + 1,
-                    [f"{c}({a})" for c, a in calls], reply)
-        if self._tap.dumping:
-            self._tap.dump(photo, f"ask{n}-s{build.step + 1}{'-done' if done else ''}")
+        saved = self._tap.dump(photo, f"ask{n}-s{build.step + 1}{'-done' if done else ''}") if self._tap.dumping else None
+        logger.info("brain: #%d reply after %.0f ms (model %.0f ms): in=%d (cached %d, written %d) out=%d (thinking %s) "
+                    "stop=%s calls=%s frame=%s reply: %s",
+                    n, (t_back - t0) * 1000, (t_back - t_sent) * 1000, u["in"], u["cached"], u.get("written", 0),
+                    u["out"], u.get("thinking"), u.get("stop"), [f"{c}({a})" for c, a in calls], saved or "-", reply)
         return {"text": reply, "calls": calls, "done": done}
 
     # ------------------------------------------------------------------ to the voice

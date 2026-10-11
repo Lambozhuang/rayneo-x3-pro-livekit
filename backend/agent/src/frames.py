@@ -70,13 +70,14 @@ class FrameTap:
         """Whether dump() would keep another frame (so callers skip the JPEG encode otherwise)."""
         return self._dump_dir is not None and self._dumped < self._dump_max
 
-    def dump(self, jpeg: bytes, name: str) -> None:
-        """Keep a copy of an encoded frame, if FRAME_DUMP_DIR is set."""
+    def dump(self, jpeg: bytes, name: str) -> str | None:
+        """Keep a copy of an encoded frame, if FRAME_DUMP_DIR is set; returns the file's name."""
         if self._dump_dir is None or self._writer is None or self._dumped >= self._dump_max:
-            return
+            return None
         self._dumped += 1
-        path = os.path.join(self._dump_dir, f"{self._dumped:03d}-{name}.jpg")
-        self._writer.submit(self._write, path, jpeg)
+        file = f"{self._dumped:03d}-{name}.jpg"
+        self._writer.submit(self._write, os.path.join(self._dump_dir, file), jpeg)
+        return file
 
     @staticmethod
     def _write(path: str, data: bytes) -> None:
