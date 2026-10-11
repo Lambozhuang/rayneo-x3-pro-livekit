@@ -68,8 +68,7 @@ thinking, and the step list to the glasses; the task file feeds both"
    Anthropic (`BRAIN_PROVIDER`, `BRAIN_MODEL`, `BRAIN_EFFORT`), built like LiveKit's
    client-delegation example. Instructions: the role (the eyes; it never speaks to the wearer,
    the voice says its reply), every step's brick and where it goes (a step is right when the
-   photo shows that brick there), how to reply; no examples (fixed, so the prompt cache
-   hits). One tool, `confirm_step_correct(step)`, its rules in its own
+   photo shows that brick there), how to reply (fixed, so the prompt cache hits). One tool, `confirm_step_correct(step)`, its rules in its own
    description; there is no hang-up tool, a misjudged goodbye cut calls off. Turns: the call's
    chat history, the wearer as user and the voice as assistant. The last turn: the camera
    frame's bottom square (the glasses look down at the table; the top of the portrait frame is

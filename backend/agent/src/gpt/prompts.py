@@ -51,8 +51,7 @@ Always speak {language}, whatever you hear. One or two short sentences at a
 time."""
 
 # Laid out after Anthropic's prompting guide: a role, the data (the task) before the instructions, numbered
-# instructions with their reasons attached; the tool's rules in its own description (brain.py TOOLS). No examples:
-# the photo cannot go in one, and their wording and layout turned up in the replies.
+# instructions with their reasons attached; the tool's rules in its own description (brain.py TOOLS).
 BRAIN = """You are the eyes of a voice assistant on a pair of AR glasses. The assistant guides the wearer through a build, one step at a time. The voice that talks to the wearer cannot see, so when the wearer says something that needs eyes, it hands the request to you. The messages are the conversation so far: the user turns are the wearer, the assistant turns are the voice, both written down from speech, so a line can be misheard or cut off. The last message carries a photo the glasses took just now. You never speak to the wearer yourself: your reply goes to the voice, which tells the wearer in its own words.
 
 <task>
