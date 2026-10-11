@@ -98,7 +98,7 @@ recorded run through them (`eval/RESULTS.md`).
 backend/
   docker-compose.yml    livekit-server + api + agent, host networking
   .env.example          copy to .env and fill in; one file for all three
-  api/src/server.py     POST /getToken, LiveKit's standard token endpoint
+  api/src/server.py     POST /getToken (LiveKit's standard token endpoint), GET /tasks (the build picker's list)
   api/src/auth.py       AUTH_MODE = dev | static | jwt
   agent/src/agent.py    entrypoint: AGENT_BACKEND=gemini|openai picks the implementation
   agent/src/guide.py    build guide loader and the state of one run (shared)
@@ -184,8 +184,12 @@ adb install -r app/build/outputs/apk/debug/app-debug.apk
 
 The debug variant is required: it carries the network security config that allows
 cleartext `http://` and `ws://` to a LAN IP. The app stores the token endpoint and
-credential; `glasses.ps1` passes them as intent extras, and the connect screen has the same
-two fields. On the temple touchpad a tap starts the call and a double tap ends it.
+credential, which `glasses.ps1` passes as intent extras. It opens on the build picker: the
+numbered tasks from the api's `GET /tasks` (every `guides/<name>/task.toml` with a `number`).
+On the temple touchpad a swipe moves the pick, a tap starts the call with it
+(`/getToken?task=<name>`; the api puts it into the agent's dispatch metadata and the agent
+loads that task, `BUILD_GUIDE` without a pick), and a double tap ends the call or leaves the
+app. `glasses.ps1 -Task <name>` preselects one.
 
 During a call the top line shows who has the floor. Below it the left half lists the
 build's steps with the current one highlighted and kept in view (`BuildSteps.kt`); the right

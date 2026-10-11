@@ -10,7 +10,7 @@ import android.view.MotionEvent
 import android.view.WindowManager
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
-import androidx.compose.runtime.LaunchedEffect
+import androidx.lifecycle.lifecycleScope
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavDestination.Companion.hasRoute
 import androidx.navigation.NavHostController
@@ -26,6 +26,7 @@ import io.livekit.android.example.voiceassistant.ui.theme.LiveKitVoiceAssistantE
 import io.livekit.android.example.voiceassistant.viewmodel.VoiceAssistantViewModel
 import io.livekit.android.util.LoggingLevel
 import kotlin.math.abs
+import kotlinx.coroutines.launch
 
 class MainActivity : ComponentActivity() {
 
@@ -39,8 +40,9 @@ class MainActivity : ComponentActivity() {
         LiveKit.loggingLevel = LoggingLevel.DEBUG
 
         // Lets `adb shell am start ... -e token_endpoint <url>` retarget the app
-        // without a rebuild. See TokenEndpoint.
+        // without a rebuild (TokenEndpoint), and `-e task <name>` preselect a build (Tasks).
         TokenEndpoint.applyIntent(this, intent)
+        Tasks.applyIntent(this, intent)
 
         // The glasses' screen-off timeout is 30 s and cannot be raised by an
         // app. When it fires, SystemUI puts a clock overlay over everything,
@@ -51,15 +53,8 @@ class MainActivity : ComponentActivity() {
         // activity is showing. It costs display power only while in the app.
         window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
 
-        // Glasses have no pointer. Once the backend address is known, the only
-        // thing a wearer can want from launching this app is to be in the call,
-        // so go straight there; the connect screen is for the first run, and
-        // for where the call returns to when it ends. `-e autostart false`
-        // keeps the connect screen for debugging it.
-        val autoStart = savedInstanceState == null &&
-            TokenEndpoint.get(this) != TokenEndpoint.DEFAULT &&
-            intent?.getStringExtra("autostart") != "false"
-
+        // The app opens on the connect screen, which is the build picker: swipe
+        // to choose, tap to start. The call returns there when it ends.
         setContent {
             val navController = rememberNavController().also { this.navController = it }
             LiveKitVoiceAssistantExampleTheme {
@@ -73,13 +68,7 @@ class MainActivity : ComponentActivity() {
                 // mirror-symmetric. Per-eye margins belong to Eyes, which
                 // applies them to each panel evenly.
                 NavHost(navController, startDestination = ConnectRoute) {
-                    composable<ConnectRoute> {
-                        ConnectScreen(navigateToVoiceAssistant = { voiceAssistantRoute ->
-                            runOnUiThread {
-                                navController.navigate(voiceAssistantRoute)
-                            }
-                        })
-                    }
+                    composable<ConnectRoute> { ConnectScreen() }
 
                     composable<VoiceAssistantRoute> {
                         val viewModel = viewModel<VoiceAssistantViewModel>()
@@ -91,9 +80,6 @@ class MainActivity : ComponentActivity() {
                         )
                     }
                 }
-                if (autoStart) {
-                    LaunchedEffect(Unit) { navController.navigate(savedRoute()) }
-                }
             }
         }
     }
@@ -103,21 +89,22 @@ class MainActivity : ComponentActivity() {
      * instance lands here instead of onCreate -- but only because the manifest
      * says singleTop. With the default launch mode Android just brings the
      * task forward and drops the intent, even for the task's root activity.
-     * The wearer launching again means the same thing as launching fresh: be
-     * in the call. Take any new endpoint, then start from the connect screen.
+     * Launching again means the same as launching fresh: take any new endpoint
+     * and build pick, and (on the connect screen) fetch the list again.
      */
     override fun onNewIntent(intent: Intent) {
         super.onNewIntent(intent)
-        Log.i(TAG, "new intent, on connect screen=${navController?.currentDestination?.hasRoute(ConnectRoute::class)}")
+        val onConnect = navController?.currentDestination?.hasRoute(ConnectRoute::class) == true
+        Log.i(TAG, "new intent, on connect screen=$onConnect")
         TokenEndpoint.applyIntent(this, intent)
-        if (intent.getStringExtra("autostart") == "false") return
-        val nav = navController ?: return
-        if (nav.currentDestination?.hasRoute(ConnectRoute::class) == true) nav.navigate(savedRoute())
+        Tasks.applyIntent(this, intent)
+        if (onConnect) lifecycleScope.launch { Tasks.load(this@MainActivity, TokenEndpoint.get(this@MainActivity)) }
     }
 
     private fun savedRoute() = VoiceAssistantRoute(
         tokenEndpoint = TokenEndpoint.get(this).trim(),
         credential = TokenEndpoint.getCredential(this).trim(),
+        task = Tasks.pick?.name ?: "",
     )
 
     /**
@@ -131,9 +118,9 @@ class MainActivity : ComponentActivity() {
      * reduction is done here in a few lines. The glasses' convention, also
      * from the docs: single tap confirms, double tap goes back / exits.
      *
-     *   tap           connect screen: start the call. In the call: nothing (yet).
+     *   tap           connect screen: start the call with the picked build. In the call: nothing (yet).
      *   double tap    in the call: end it. Connect screen: leave the app.
-     *   swipe         logged only, for now
+     *   swipe         connect screen: move the build pick (+x next, -x previous). In the call: logged only
      *
      * A swipe is a travel of more than [SWIPE_PX] along X between down and up;
      * anything shorter that lifts within [TAP_MS] is a tap, and a second tap
@@ -156,6 +143,9 @@ class MainActivity : ComponentActivity() {
                 }
                 Log.i(TAG, "gesture: $gesture dx=${dx.toInt()} dt=${dt}ms at x=${ev.x.toInt()} y=${ev.y.toInt()}")
                 if (gesture == "tap") onTap(ev.eventTime)
+                if (gesture.startsWith("swipe") && navController?.currentDestination?.hasRoute(ConnectRoute::class) == true) {
+                    Tasks.move(this, if (dx > 0) 1 else -1)
+                }
             }
         }
         return true

@@ -12,6 +12,7 @@
 
 title = "LEGO ladder on a baseplate"
 plate = 16
+number = 1
 
 [[steps]]
 part = "tan 1x6 brick"

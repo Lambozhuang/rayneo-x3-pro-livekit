@@ -7,13 +7,20 @@ The glasses POST /getToken with their credential, get back a short-lived JWT
 plus the server URL, and connect to livekit-server with that. The agent is
 never reachable from the client; it is dispatched into the room by name.
 https://docs.livekit.io/frontends/build/authentication/endpoint/
+
+GET /tasks lists the builds the glasses can pick (the numbered task files under
+GUIDES_DIR); /getToken?task=<name> puts the pick into the agent's dispatch
+metadata, and the agent loads that task for the call.
 """
 
 from __future__ import annotations
 
+import json
 import logging
 import os
+import tomllib
 import uuid
+from pathlib import Path
 from datetime import timedelta
 
 from aiohttp import web
@@ -32,6 +39,25 @@ def require_env(name: str) -> str:
     return value
 
 
+def tasks() -> list[dict]:
+    """The builds on offer: every task file under GUIDES_DIR with a `number`, in that order."""
+    out = []
+    for toml in Path(os.environ.get("GUIDES_DIR", "/guides")).glob("*/task.toml"):
+        try:
+            data = tomllib.loads(toml.read_text(encoding="utf-8"))
+        except (OSError, tomllib.TOMLDecodeError):
+            logger.warning("unreadable task file %s", toml)
+            continue
+        if "number" in data:
+            out.append({"name": toml.parent.name, "number": data["number"], "title": data.get("title", toml.parent.name),
+                        "steps": len(data.get("steps", []))})
+    return sorted(out, key=lambda t: t["number"])
+
+
+async def list_tasks(_: web.Request) -> web.Response:
+    return web.json_response({"tasks": tasks()})
+
+
 async def get_token(request: web.Request) -> web.Response:
     try:
         body = await request.json()
@@ -41,6 +67,9 @@ async def get_token(request: web.Request) -> web.Response:
         raise web.HTTPBadRequest()
 
     user = auth.authenticate(request, body)
+    task = request.query.get("task") or ""
+    if task and task not in {t["name"] for t in tasks()}:
+        raise web.HTTPBadRequest(text=f"no task {task!r}")
 
     # A fresh room per request, named after the user. Explicit dispatch below
     # means the agent only ever joins rooms whose token asked for it, so a
@@ -57,7 +86,8 @@ async def get_token(request: web.Request) -> web.Response:
         # in room_config is honoured; the agent is the backend's choice.
         .with_room_config(
             api.RoomConfiguration(
-                agents=[api.RoomAgentDispatch(agent_name=require_env("AGENT_NAME"))]
+                agents=[api.RoomAgentDispatch(agent_name=require_env("AGENT_NAME"),
+                                              metadata=json.dumps({"task": task}) if task else "")]
             )
         )
         # Only the initial connection checks expiry. Once connected, the server
@@ -73,7 +103,7 @@ async def get_token(request: web.Request) -> web.Response:
         token = token.with_attributes(body["participant_attributes"])
 
     url = require_env("LIVEKIT_PUBLIC_URL")
-    logger.info("issued token: user=%s room=%s url=%s", user, room, url)
+    logger.info("issued token: user=%s room=%s url=%s task=%s", user, room, url, task or "(the agent's default)")
     return web.json_response(
         {"server_url": url, "participant_token": token.to_jwt()}, status=201
     )
@@ -99,7 +129,7 @@ def main() -> None:
         )
 
     app = web.Application()
-    app.add_routes([web.post("/getToken", get_token), web.get("/health", health)])
+    app.add_routes([web.post("/getToken", get_token), web.get("/tasks", list_tasks), web.get("/health", health)])
     host = os.environ.get("API_HOST", "0.0.0.0")
     port = int(os.environ.get("API_PORT", "3000"))
     logger.info("token endpoint: http://%s:%s/getToken (AUTH_MODE=%s)", host, port, auth.mode())

@@ -32,6 +32,10 @@ services:
       # With host networking there is no port mapping: the api listens on
       # API_PORT from .env itself, on every interface.
       API_HOST: "0.0.0.0"
+      # GET /tasks lists the numbered task files here; the glasses pick one.
+      GUIDES_DIR: /guides
+    volumes:
+      - ./agent/guides:/guides:ro
     depends_on:
       - livekit
     restart: unless-stopped

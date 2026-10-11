@@ -1,0 +1,82 @@
+# A cat: a tan 2x6 body, a purple 2x4 head, a white 1x6 tail, a blue and a yellow 1x4 for the legs. From tasks/sheet.html (the 5-step shortlist), task 12.
+#
+# Grid: columns 1..16 left to right, rows 1..16 from the far edge to the edge nearest the builder. `cells` is the
+# brick's footprint [col0, row0, col1, row1], inclusive: the layout as drawn. Where the build sits on the
+# plate is loose (step 1 says roughly where, so the rest fits); how the five bricks sit against each other is exact.
+# Every step is two parts for the wearer: `find` (which brick to pick up) and, once they have it, `say` (where it
+# goes). `where` and `checks` are what the brain checks a photo against. One vocabulary throughout: the plate as a
+# picture lying in front of the wearer, up = the far edge, down = the near edge, left and right theirs, a brick
+# vertical (long side up-down) or horizontal (left-right).
+
+title = "LEGO cat on a baseplate"
+plate = 16
+number = 12
+
+[[steps]]
+part = "tan 2x6 brick"
+name = "Tan 2x6, body"
+color = "tan"
+cells = [5, 8, 10, 9]
+find = "Find the tan two-by-six: a long tan brick, two studs wide and six studs long."
+say = "Lay it horizontally roughly in the middle of the plate."
+where = "the tan 2x6, horizontal (6 studs left-right, 2 up-down), roughly in the middle of the plate; the cat needs five rows above it, four below and two columns on its right"
+checks = [
+  "it is horizontal and tan",
+  "it lies roughly in the middle of the plate, with empty plate on every side",
+]
+
+[[steps]]
+part = "purple 2x4 brick"
+name = "Purple 2x4, head"
+color = "purple"
+cells = [11, 6, 12, 9]
+find = "Find the purple two-by-four: a purple brick, two studs wide and four studs long."
+say = "Stand it vertically against the right end of the tan brick, touching it, with their bottom edges lined up, so it sticks up above the body."
+where = "the purple 2x4, vertical, touching the right end of the tan brick, its bottom end lined up with the tan brick's bottom edge, sticking up two rows above the tan brick"
+checks = [
+  "it is vertical and purple",
+  "it touches the right end of the tan brick",
+  "its bottom end lines up with the bottom edge of the tan brick",
+]
+
+[[steps]]
+part = "white 1x6 brick"
+name = "White 1x6, tail"
+color = "white"
+cells = [4, 3, 4, 8]
+find = "Find a white one-by-six: a thin white brick, six studs long."
+say = "Stand it vertically against the left end of the tan brick, with its bottom stud beside the tan brick's top row, so it rises above the body like a tail."
+where = "the white 1x6, vertical, touching the left end of the tan brick, its bottom end level with the tan brick's top row, rising five rows above the tan brick"
+checks = [
+  "it is vertical and white",
+  "it touches the left end of the tan brick",
+  "its bottom end is level with the top row of the tan brick, so only its lowest stud is beside the tan brick",
+]
+
+[[steps]]
+part = "blue 1x4 brick"
+name = "Blue 1x4, front leg"
+color = "blue"
+cells = [5, 10, 5, 13]
+find = "Find the blue one-by-four: a thin blue brick, four studs long."
+say = "Stand it vertically under the left end of the tan brick, touching it, lined up with the tan brick's left end."
+where = "the blue 1x4, vertical, touching the bottom of the tan brick at its left end, lined up with the tan brick's left end"
+checks = [
+  "it is vertical and blue",
+  "it touches the bottom of the tan brick",
+  "it lines up with the left end of the tan brick",
+]
+
+[[steps]]
+part = "yellow 1x4 brick"
+name = "Yellow 1x4, back leg"
+color = "yellow"
+cells = [10, 10, 10, 13]
+find = "Find the yellow one-by-four: a thin yellow brick, four studs long."
+say = "Stand it vertically under the right end of the tan brick, touching it, lined up with the tan brick's right end."
+where = "the yellow 1x4, vertical, touching the bottom of the tan brick at its right end, lined up with the tan brick's right end"
+checks = [
+  "it is vertical and yellow",
+  "it touches the bottom of the tan brick",
+  "it lines up with the right end of the tan brick",
+]

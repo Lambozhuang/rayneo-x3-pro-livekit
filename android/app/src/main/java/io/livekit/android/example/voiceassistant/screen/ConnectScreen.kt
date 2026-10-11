@@ -1,31 +1,32 @@
 package io.livekit.android.example.voiceassistant.screen
 
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.itemsIndexed
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material3.Button
-import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.saveable.rememberSaveable
-import androidx.compose.runtime.setValue
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.text.TextStyle
-import androidx.compose.ui.text.font.FontFamily
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import io.livekit.android.example.voiceassistant.Tasks
 import io.livekit.android.example.voiceassistant.TokenEndpoint
 import io.livekit.android.example.voiceassistant.ui.Eyes
 import io.livekit.android.example.voiceassistant.ui.theme.Blue500
@@ -34,95 +35,65 @@ import kotlinx.serialization.Serializable
 @Serializable
 object ConnectRoute
 
+/**
+ * Before a call: which build. The list comes from the backend (Tasks); a swipe
+ * on the temple moves the pick, a tap starts the call with it, a double tap
+ * leaves the app (MainActivity). Nothing here takes a touch: the wearer cannot
+ * see their finger. The backend address and credential come from the adb launch
+ * (`glasses.ps1`, TokenEndpoint); there is no keyboard to type them on glasses.
+ */
 @Composable
-fun ConnectScreen(
-    navigateToVoiceAssistant: (VoiceAssistantRoute) -> Unit
-) {
-    // Hoisted above Eyes on purpose: the content below is composed once per eye,
-    // so state declared inside it would exist twice and the two copies would
-    // disagree the moment either one changed. See Eyes.
+fun ConnectScreen() {
     val context = LocalContext.current
-    var endpoint by rememberSaveable { mutableStateOf(TokenEndpoint.get(context)) }
-    var credential by rememberSaveable { mutableStateOf(TokenEndpoint.getCredential(context)) }
+    val endpoint = TokenEndpoint.get(context)
+    LaunchedEffect(endpoint) { Tasks.load(context, endpoint) }
+    val tasks = Tasks.list
+    val selected = Tasks.selected
+    val problem = Tasks.problem
 
     Eyes {
-        // Everything here has to fit one 640x480 panel, less the safe-area
-        // margin Eyes applies — so roughly 592x432 dp to work with.
+        // One 640x480 panel less the safe-area margin: roughly 592x432 dp.
         Column(
             horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.Center,
+            verticalArrangement = Arrangement.Top,
             modifier = Modifier.fillMaxSize()
         ) {
-            Text(
-                text = "RayNeo X3 Pro assistant",
-                color = MaterialTheme.colorScheme.onBackground,
-                fontSize = 20.sp
-            )
-
-            Spacer(Modifier.size(20.dp))
-
-            // On screen only for the case where no cable is attached. Prefer
-            // `adb shell am start ... -e token_endpoint <url>` when one is: the
-            // IME is laid out across the full 1280 px surface, so it straddles
-            // both eyes and is genuinely hard to use. See TokenEndpoint.
-            OutlinedTextField(
-                value = endpoint,
-                onValueChange = { endpoint = it },
-                label = { Text("Token endpoint") },
-                singleLine = true,
-                textStyle = TextStyle(fontFamily = FontFamily.Monospace, fontSize = 13.sp),
-                modifier = Modifier.fillMaxWidth()
-            )
-
+            Text("Choose a build", color = MaterialTheme.colorScheme.onBackground, fontSize = 20.sp)
+            Spacer(Modifier.size(10.dp))
+            when {
+                problem != null -> Text(
+                    "$problem\ntap starts the backend's default build",
+                    color = Color(0xFFFF8A80), fontSize = 16.sp, lineHeight = 22.sp,
+                )
+                tasks.isEmpty() -> Text("loading…", color = Color(0xFF9E9E9E), fontSize = 16.sp)
+                else -> TaskList(tasks, selected, Modifier.weight(1f))
+            }
             Spacer(Modifier.size(8.dp))
+            Text("swipe: choose · tap: start · double tap: leave", color = Color(0xFF9E9E9E), fontSize = 14.sp)
+        }
+    }
+}
 
-            // Sent as `Authorization: Bearer ...`. Blank is right when the
-            // backend runs AUTH_MODE=dev. See TokenEndpoint.
-            OutlinedTextField(
-                value = credential,
-                onValueChange = { credential = it },
-                label = { Text("Credential (blank for dev)") },
-                singleLine = true,
-                textStyle = TextStyle(fontFamily = FontFamily.Monospace, fontSize = 13.sp),
-                modifier = Modifier.fillMaxWidth()
-            )
-
-            Spacer(Modifier.size(16.dp))
-
-            // Deliberately the full width of the eye. A temple-touchpad tap
-            // lands somewhere you cannot see your own finger, which is why
-            // RayNeo's SDK drives selection by focus (FocusHolder, the
-            // *FocusTracker classes) instead of by pointing. A single target
-            // that fills the panel needs neither approach to be hittable.
-            Button(
-                onClick = {
-                    // Persist whatever is in the field so the next launch keeps it.
-                    TokenEndpoint.set(context, endpoint)
-                    TokenEndpoint.setCredential(context, credential)
-                    navigateToVoiceAssistant(
-                        VoiceAssistantRoute(
-                            tokenEndpoint = endpoint.trim(),
-                            credential = credential.trim(),
-                        )
-                    )
-                },
-                colors = ButtonDefaults.buttonColors(
-                    containerColor = Blue500,
-                    contentColor = Color.White
-                ),
-                shape = RoundedCornerShape(16.dp),
+/** The pick bright on blue, kept in view; per eye like BuildSteps, both copies follow `selected`. */
+@Composable
+private fun TaskList(tasks: List<Tasks.Task>, selected: Int, modifier: Modifier = Modifier) {
+    val list = rememberLazyListState()
+    LaunchedEffect(selected) { list.animateScrollToItem((selected - 2).coerceAtLeast(0)) }
+    LazyColumn(state = list, userScrollEnabled = false, modifier = modifier.fillMaxWidth(),
+               verticalArrangement = Arrangement.spacedBy(2.dp)) {
+        itemsIndexed(tasks) { i, t ->
+            val on = i == selected
+            Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .height(64.dp)
+                    .background(if (on) Blue500 else Color.Transparent, RoundedCornerShape(8.dp))
+                    .padding(horizontal = 10.dp, vertical = 3.dp)
             ) {
-                Text(
-                    text = "START CALL",
-                    style = TextStyle(
-                        fontFamily = FontFamily.Monospace,
-                        letterSpacing = 2.sp,
-                        fontSize = 18.sp
-                    )
-                )
+                Text("${t.number}.", color = if (on) Color.White else Color(0xFF9E9E9E), fontSize = 18.sp,
+                     modifier = Modifier.width(36.dp))
+                Text(t.title, color = if (on) Color.White else Color(0xFFBDBDBD), fontSize = 18.sp,
+                     fontWeight = if (on) FontWeight.Bold else FontWeight.Normal, maxLines = 1,
+                     overflow = TextOverflow.Ellipsis)
             }
         }
     }

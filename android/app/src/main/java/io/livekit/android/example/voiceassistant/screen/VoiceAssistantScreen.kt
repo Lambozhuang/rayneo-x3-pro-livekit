@@ -53,6 +53,8 @@ data class VoiceAssistantRoute(
     val tokenEndpoint: String,
     /** Bearer credential for the token endpoint; empty sends no header. */
     val credential: String = "",
+    /** The build picked on the connect screen (Tasks); empty = the backend's default. */
+    val task: String = "",
 )
 
 @Composable

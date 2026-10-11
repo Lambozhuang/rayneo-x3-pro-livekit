@@ -1,0 +1,83 @@
+# A snowman: a blue and a dark grey 4x4 round plate, a light aqua and a yellow 1x4 for the arms, a white 1x6 to stand on. From tasks/sheet.html (the 5-step shortlist), task 4.
+#
+# Grid: columns 1..16 left to right, rows 1..16 from the far edge to the edge nearest the builder. `cells` is the
+# brick's footprint [col0, row0, col1, row1], inclusive: the layout as drawn; a round plate covers its 4x4 square but not the corner cells. Where the build sits on the
+# plate is loose (step 1 says roughly where, so the rest fits); how the five bricks sit against each other is exact.
+# Every step is two parts for the wearer: `find` (which brick to pick up) and, once they have it, `say` (where it
+# goes). `where` and `checks` are what the brain checks a photo against. One vocabulary throughout: the plate as a
+# picture lying in front of the wearer, up = the far edge, down = the near edge, left and right theirs, a brick
+# vertical (long side up-down) or horizontal (left-right).
+
+title = "LEGO snowman on a baseplate"
+plate = 16
+number = 4
+
+[[steps]]
+part = "blue 4x4 round plate"
+name = "Blue round, head"
+color = "blue"
+cells = [7, 3, 10, 6]
+find = "Find the blue round plate: a flat round blue piece, four studs across."
+say = "Lay it in the upper half of the plate, centred left to right."
+where = "the blue 4x4 round plate, in the upper half of the plate, centred left to right; the snowman needs about five rows below it and four columns on each side of it"
+checks = [
+  "it is the blue round plate",
+  "it lies in the upper half of the plate",
+  "it is roughly centred left to right, with at least four empty columns on either side",
+]
+
+[[steps]]
+part = "dark grey 4x4 round plate"
+name = "Dark grey round, body"
+color = "dgrey"
+cells = [7, 7, 10, 10]
+find = "Find the dark grey round plate: a flat round dark grey piece, four studs across."
+say = "Lay it directly below the blue one, touching it, lined up with it."
+where = "the dark grey 4x4 round plate, directly below the blue round plate, touching it, in the same columns"
+checks = [
+  "it is the dark grey round plate",
+  "it touches the bottom of the blue round plate",
+  "it is lined up with the blue plate left to right, in the same columns",
+]
+
+[[steps]]
+part = "light aqua 1x4 brick"
+name = "Aqua 1x4, left arm"
+color = "aqua"
+cells = [3, 8, 6, 8]
+find = "Find the light aqua one-by-four: a thin light aqua brick, four studs long."
+say = "Lay it horizontally against the left side of the dark grey plate, in its second row from the top, as the left arm."
+where = "the light aqua 1x4, horizontal, touching the left side of the dark grey round plate, level with that plate's second row from the top"
+checks = [
+  "it is horizontal and light aqua, not white",
+  "it touches the left side of the dark grey plate",
+  "it is level with the dark grey plate's second row from the top",
+]
+
+[[steps]]
+part = "yellow 1x4 brick"
+name = "Yellow 1x4, right arm"
+color = "yellow"
+cells = [11, 8, 14, 8]
+find = "Find the yellow one-by-four: a thin yellow brick, four studs long."
+say = "Lay it horizontally against the right side of the dark grey plate, in the same row as the light aqua arm."
+where = "the yellow 1x4, horizontal, touching the right side of the dark grey round plate, in the same row as the light aqua brick"
+checks = [
+  "it is horizontal and yellow",
+  "it touches the right side of the dark grey plate",
+  "it is in the same row as the light aqua brick",
+]
+
+[[steps]]
+part = "white 1x6 brick"
+name = "White 1x6, ground"
+color = "white"
+cells = [6, 11, 11, 11]
+find = "Find a white one-by-six: a thin white brick, six studs long."
+say = "Lay it horizontally under the dark grey plate, touching it, sticking out one stud on each side."
+where = "the white 1x6, horizontal, touching the bottom of the dark grey round plate, centred under it, one column sticking out on each side"
+checks = [
+  "it is horizontal and white",
+  "it touches the bottom of the dark grey plate",
+  "it is centred under the dark grey plate, one column sticking out on each side",
+]

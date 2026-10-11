@@ -15,6 +15,7 @@ import io.livekit.android.room.track.VideoCodec
 import io.livekit.android.room.track.VideoEncoding
 import io.livekit.android.token.TokenSource
 import java.net.URI
+import java.net.URLEncoder
 import livekit.org.webrtc.HardwareVideoEncoderFactory
 import livekit.org.webrtc.EglBase
 import livekit.org.webrtc.RtpParameters
@@ -89,7 +90,10 @@ class VoiceAssistantViewModel(application: Application, savedStateHandle: SavedS
         // the URL: query strings end up in access logs.
         val headers = if (route.credential.isBlank()) emptyMap()
         else mapOf("Authorization" to "Bearer ${route.credential}")
-        tokenSource = TokenSource.fromEndpoint(url = URI(route.tokenEndpoint).toURL(), headers = headers)
+        // The picked build rides as ?task=, which the api puts into the agent's dispatch metadata.
+        val endpoint = if (route.task.isBlank()) route.tokenEndpoint
+        else route.tokenEndpoint + "?task=" + URLEncoder.encode(route.task, "UTF-8")
+        tokenSource = TokenSource.fromEndpoint(url = URI(endpoint).toURL(), headers = headers)
     }
 
     override fun onCleared() {

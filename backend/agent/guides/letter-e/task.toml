@@ -12,6 +12,7 @@
 
 title = "LEGO letter E on a baseplate"
 plate = 16
+number = 13
 
 [[steps]]
 part = "dark grey 2x6 brick"
