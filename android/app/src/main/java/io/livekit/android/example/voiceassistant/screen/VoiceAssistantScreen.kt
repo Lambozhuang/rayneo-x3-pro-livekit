@@ -43,7 +43,6 @@ import io.livekit.android.example.voiceassistant.ui.Eyes
 import io.livekit.android.example.voiceassistant.ui.ModelView
 import io.livekit.android.example.voiceassistant.ui.Phase
 import io.livekit.android.example.voiceassistant.ui.PhaseBanner
-import io.livekit.android.example.voiceassistant.ui.ReplyLatencyProbe
 import io.livekit.android.example.voiceassistant.ui.rememberBuildProgress
 import io.livekit.android.example.voiceassistant.ui.rememberEngineState
 import io.livekit.android.example.voiceassistant.viewmodel.VoiceAssistantViewModel
@@ -201,10 +200,6 @@ fun VoiceAssistant(
         val sessionMessages = rememberSessionMessages()
         val speakers by rememberSpeakingParticipants(room)
         val wearerSpeaking = speakers.any { it.identity == room.localParticipant.identity }
-        val agentSpeaking = speakers.any { it.identity == agent.agentParticipant?.identity }
-        // Wearer stops talking -> agent audio arrives, timed here and sent to
-        // the agent's log. See ReplyLatencyProbe.
-        ReplyLatencyProbe(room, wearerSpeaking, agentSpeaking)
         // Has an agent ever been here? Lets "it left" read differently from
         // "it has not arrived yet"; see Phase.of.
         var sawAgent by remember { mutableStateOf(false) }

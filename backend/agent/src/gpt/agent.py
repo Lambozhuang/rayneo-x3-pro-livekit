@@ -75,12 +75,6 @@ async def rayneo_assistant(ctx: JobContext) -> None:
 
     ctx.add_shutdown_callback(_log_usage)
 
-    # The wearer's wait, measured on the glasses (ReplyLatency.kt).
-    @ctx.room.on("data_received")
-    def _log_latency(pkt: rtc.DataPacket) -> None:
-        if pkt.topic == "rayneo.latency":
-            logger.info("latency: %s", pkt.data.decode("utf-8", "replace"))
-
     # Both sides as text, into the log and the brain's timeline; a turn is
     # closed when the audio goes quiet, so these lines trail the speech.
     @session.on("conversation_item_added")

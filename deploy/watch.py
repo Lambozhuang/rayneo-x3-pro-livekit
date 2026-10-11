@@ -19,7 +19,6 @@ GREEN, WHITE, YELLOW, CYAN, RED, DIM, RESET = (
 KEEP = (
     ("user:", GREEN, "you  "),
     ("assistant:", WHITE, "agent"),
-    ("latency:", CYAN, "wait "),
     ("model:", CYAN, "model"),
     ("look:", YELLOW, "look "),
     ("camera:", YELLOW, "call "),

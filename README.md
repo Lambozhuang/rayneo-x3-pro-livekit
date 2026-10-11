@@ -139,9 +139,7 @@ voice handed over, with the wearer's words), `brain:` per ask (the frame it took
 after the ask, when the request went out, when the reply came back with tokens: cached, written,
 thinking, the tool call, the saved frame's file name, the reply; `brain: thinking:` /
 `brain: commentary` what reached the voice), `voice:` (when the voice started saying the answer:
-ms after the commentary and after the delegation), `camera:` (first frame, or none 10 s in), and
-`latency:`, the `reply_ms` the glasses measure from the wearer's last word to the agent's audio
-(`ReplyLatency.kt`; that is the voice's first sound, often "let me look"). `FRAME_DUMP_DIR=/app/frames` keeps every frame sent to the brain under
+ms after the commentary and after the delegation), and `camera:` (first frame, or none 10 s in). `FRAME_DUMP_DIR=/app/frames` keeps every frame sent to the brain under
 `backend/frames/<call>/`, named `ask<n>-s<step>` (`FRAME_DUMP_MAX` caps the count); the
 container writes as root, so
 delete them with `docker run --rm -v "$PWD/frames:/f" backend-agent sh -c "rm -rf /f/2026*"`.
