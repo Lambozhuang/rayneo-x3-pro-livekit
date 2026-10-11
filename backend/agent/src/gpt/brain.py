@@ -199,9 +199,10 @@ class Brain:
         if self._task is not None and not self._task.done():
             logger.info("brain: newer delegation, the one before is dropped")
             self._task.cancel()
-        self._task = asyncio.create_task(self._answer(d.id, d.pending_transcript, self._asks), name="brain")
+        self._task = asyncio.create_task(self._answer(d.id, d.pending_transcript, self._asks, time.monotonic()),
+                                         name="brain")
 
-    async def _answer(self, delegation_id: str, words: str, n: int) -> None:
+    async def _answer(self, delegation_id: str, words: str, n: int, t_asked: float | None = None) -> None:
         try:
             out = await asyncio.wait_for(self._ask(words, n), self._timeout)
         except asyncio.CancelledError:
@@ -209,7 +210,7 @@ class Brain:
         except Exception as e:
             logger.warning("brain: #%d failed (%s), asking the wearer to repeat", n, type(e).__name__)
             self._commentary("You could not see that just now. Ask the wearer to hold the plate in view and say it again.",
-                             delegation_id)
+                             delegation_id, n, t_asked)
             return
         build = self._build
         current = build.step + 1
@@ -222,7 +223,7 @@ class Brain:
             parts.append(f"Step {current} is recorded as done; that was the last step, the build is finished."
                          if build.finished else f"Step {current} is recorded as done; now give step {current + 1}.")
             self._think(self._step_line())
-        self._commentary(" ".join(parts) or "Camera: nothing to add.", delegation_id)
+        self._commentary(" ".join(parts) or "Camera: nothing to add.", delegation_id, n, t_asked)
 
     async def _ask(self, words: str, n: int) -> dict:
         """One look: {text, calls, done}; done = a confirm_step_correct call naming the current step."""
@@ -267,6 +268,30 @@ class Brain:
         logger.info("brain: thinking: %s", text)
         self._session.current_agent.duplex_session.append_thinking(text)
 
-    def _commentary(self, text: str, delegation_id: str) -> None:
+    def _commentary(self, text: str, delegation_id: str, n: int = 0, t_asked: float | None = None) -> None:
         logger.info("brain: commentary %s: %s", delegation_id, text)
+        speaking = self._session.agent_state == "speaking"
         self._session.current_agent.duplex_session.append_commentary(text, delegation_id=delegation_id)
+        if t_asked is not None:
+            asyncio.create_task(self._time_voice(n, t_asked, time.monotonic(), speaking), name="time_voice")
+
+    async def _time_voice(self, n: int, t_asked: float, t_sent: float, speaking: bool, limit: float = 15.0) -> None:
+        """Log when the voice starts saying the answer: ms after the commentary went out and after the delegation
+        (~ the wearer's last word). If the voice was still talking when the answer arrived ("let me look"), the
+        answer is taken to start with its next speech after a pause, which is approximate."""
+        session = self._session
+        if speaking:
+            while session.agent_state == "speaking":
+                if time.monotonic() - t_sent > limit:
+                    logger.info("voice: #%d still on its earlier speech %.0fs after the commentary", n, limit)
+                    return
+                await asyncio.sleep(0.02)
+        while session.agent_state != "speaking":
+            if time.monotonic() - t_sent > limit:
+                logger.info("voice: #%d not speaking %.0fs after the commentary", n, limit)
+                return
+            await asyncio.sleep(0.02)
+        now = time.monotonic()
+        logger.info("voice: #%d started %.0f ms after the commentary, %.0f ms after the delegation%s", n,
+                    (now - t_sent) * 1000, (now - t_asked) * 1000,
+                    " (it was speaking when the answer arrived)" if speaking else "")

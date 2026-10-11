@@ -134,7 +134,9 @@ the ufw rules the glasses need if ufw is active.
 What the agent log shows: `experiment:` (every switch of the run), `step n/m start|done`,
 `user:` / `assistant:` (both transcripts), `delegation:` (what the voice handed over, with the
 wearer's words), `brain:` (each call with its latency, tokens and answer; `brain: thinking:` /
-`brain: commentary` what reached the voice), and `latency:`, the `reply_ms` the glasses
+`brain: commentary` what reached the voice), `voice:` (when the voice started saying the answer:
+ms after the commentary and after the delegation, the wearer's wait for an answer that needed eyes), and
+`latency:`, the `reply_ms` the glasses
 measure from the wearer's last word to the agent's audio (`ReplyLatency.kt`), the number the
 experiment is about. `FRAME_DUMP_DIR=/app/frames` keeps every frame sent to the brain under
 `backend/frames/<call>/`, named `ask<n>-s<step>` (`FRAME_DUMP_MAX` caps the count); the
