@@ -189,6 +189,9 @@ def conversation(history, words: str) -> tuple[list[tuple[str, str]], str]:
     while turns and turns[0][0] == "assistant":
         turns.pop(0)
     last = turns.pop()[1] if turns and turns[-1][0] == "user" else ""
+    # the words that came with the delegation may have reached the history by now: then they go once
+    if last and words and (words in last or last in words):
+        return [(r, t) for r, t in turns], max(last, words, key=len)
     return [(r, t) for r, t in turns], "\n".join(w for w in (last, words) if w)
 
 

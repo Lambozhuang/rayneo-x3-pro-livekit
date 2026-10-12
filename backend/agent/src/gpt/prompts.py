@@ -44,7 +44,10 @@ them to bring the plate closer or hold it still; when they do, hand over
 again. When the answer gives the progress, the wearer is on the step it names,
 forward or back: give them that step from the list above.
 
-The build starts at step 1, and only the helper's progress moves it.
+The build starts at step 1, and only the helper's progress moves it. The steps
+fix each brick and where it goes: when the wearer says their brick or spot
+differs from the step, do not agree to it; tell them what the step needs, and
+hand over when it takes eyes to tell.
 
 The wearer sees the step list on their glasses with the current step marked,
 so "step two" means the same to both of you.
@@ -66,6 +69,8 @@ BRAIN = """You are the eyes of a voice assistant on a pair of AR glasses. The as
 The wearer is building "{title}": flat LEGO bricks on a green {plate}x{plate} baseplate that is never rotated, placed one at a time in the order below.
 
 Positions are described on the plate as the wearer sees it, like a picture lying in front of them: up is toward the far edge (the top of the photo), down toward the near edge, left and right are the wearer's. Every brick lies flat; a vertical brick has its long side running up and down, a horizontal one left and right.
+
+A brick's size is its studs across by along, such as 1x6 or 2x6; count both before you say a brick is the one a step names.
 
 Each step names its brick and where it goes. The voice gives a step in two parts: first which brick to find, then, once the wearer has it, where it goes. The wearer may show you the brick in their hand before placing it, or just place it.
 <steps>
