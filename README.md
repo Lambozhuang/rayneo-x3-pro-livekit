@@ -58,9 +58,10 @@ list to the glasses; the task file feeds both"
 1. **Voice.** `gpt-live-1` is audio only and full duplex, and owns turn-taking and barge-in
    (no VAD on the session). Its instructions are the persona and every step's brick and where
    it goes (`gpt/prompts.py`); it gives a step in two parts: which brick to find, then, once the
-   wearer has it, where it goes. What needs no eyes (the next step, an earlier one, what a brick looks
-   like) it answers itself. Whatever depends on what is in front of the wearer ("is this
-   right?", "where does it go?", "what is this?") it delegates; a goodbye it answers itself and
+   wearer has it, where it goes. What needs no eyes (the next step, an earlier one, where a brick
+   goes, what a brick looks like) it answers itself, and so it does when the wearer asks it not to
+   check. Whatever depends on what is in front of the wearer ("is this right?", "what is this?")
+   it delegates; a goodbye it answers itself and
    the wearer hangs up on the glasses. It opens the call by naming the build. Client
    delegation: the plugin hands the agent an id (and the wearer's words when they are not in
    the history yet, often not), no backend model runs.
@@ -68,14 +69,17 @@ list to the glasses; the task file feeds both"
    Anthropic (`BRAIN_PROVIDER`, `BRAIN_MODEL`, `BRAIN_EFFORT`), built like LiveKit's
    client-delegation example. Instructions: the role (the eyes; it never speaks to the wearer,
    the voice says its reply), every step's brick and where it goes (a step is right when the
-   photo shows that brick there), how to reply; the same on every call, so the prompt cache
-   hits. One tool, `confirm_step_correct(step)`, its rules in its own description. Turns: the call's
+   photo shows that brick there), how to reply: answer what the wearer asked, about any step,
+   and check the whole plate against the steps; the same on every call, so the prompt cache
+   hits. One tool, `set_progress(done)`: how many steps, from step 1, the photo shows built right,
+   its rules in its own description. Turns: the call's
    chat history, the wearer as user and the voice as assistant. The last turn: the camera
    frame's bottom square (the glasses look down at the table; the top of the portrait frame is
-   wall) at `BRAIN_SIDE` (1080), the current step, the wearer's latest words.
+   wall) at `BRAIN_SIDE` (1080), the progress recorded, the wearer's latest words.
    The reply, plain facts, goes back as commentary on that delegation id ("Camera: ..."), which
-   the voice says in its own words. Only a confirm call moves the build: published to the
-   glasses, told to the voice in the same commentary; no call, nothing moves (not done, not sure, or not asked). A newer delegation cancels an older one still running; a call over
+   the voice says in its own words. Only a set_progress call that changes the number moves the
+   build, forward or back: published to the glasses, told to the voice in the same commentary
+   ("Progress: k of n steps done; the wearer is now on step k+1"); no call, nothing moves. A newer delegation cancels an older one still running; a call over
    `BRAIN_TIMEOUT` (12 s) answers "the helper could not answer, say it again". Only the newest photo
    goes, and the brain's earlier replies are not sent back to it: what a look saw survives as
    what the voice said of it.

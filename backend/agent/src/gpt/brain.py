@@ -7,17 +7,16 @@ history. The brain then takes the newest camera frame (the glasses send ~15 a se
 and makes one stateless vision call, to OpenAI's Responses API or Anthropic's
 Messages API (BRAIN_PROVIDER), built like LiveKit's client-delegation example:
 
-    tool          confirm_step_correct(step)
+    tool          set_progress(done)
     instructions  rules + the whole task file                 fixed, so the prompt cache hits
     turns         the call's chat history: the wearer as user, the voice as assistant
-    last turn     the frame's bottom square, the current step, the wearer's latest words
+    last turn     the frame's bottom square, the progress recorded, the wearer's latest words
 
 and gets back a reply in plain facts, maybe with the tool call. Nothing goes
 back to the model: the call is executed here and the reply goes to GPT-Live as
 commentary on that delegation id ("Camera: ..."), which says it in its own
-words. Only a confirm_step_correct call moves the build (published to the glasses,
-told to GPT-Live in the same commentary); no call, nothing moves, whether the
-step is not done, unsure or not asked about.
+words. Only a set_progress call moves the build, forward or back (published to
+the glasses, told to GPT-Live in the same commentary); no call, nothing moves.
 Only the newest photo goes; what an earlier look saw survives only as what the
 voice said of it, and the brain's own earlier replies are not sent back to it.
 
@@ -49,16 +48,16 @@ logger = logging.getLogger("rayneo-agent.brain")
 
 # (name, description, JSON schema of the arguments); the same for both providers
 TOOLS = [
-    ("confirm_step_correct",
-     "Confirms that the current step is built correctly. Use it when the photo clearly shows the current step's brick "
-     "where the step says it goes. When you call it, the build moves on: the step list on the "
-     "glasses advances and the voice tells the wearer the step is right, so your reply should say the same, and a "
-     "step confirmed when it is not right leaves the wearer building on a mistake. Leave it "
-     "out when the brick is not where the step says, when part of it is hidden or too small to judge, when the wearer only says they "
-     "are done without the photo showing it, and when the question is not about the current step. step is the number "
-     "of the current step given in the input.",
-     {"type": "object", "properties": {"step": {"type": "integer", "description": "the current step's number"}},
-      "required": ["step"], "additionalProperties": False}),
+    ("set_progress",
+     "Records how far the build is: the number of steps, counted from step 1, that the photo shows built right, from 0 "
+     "to the number of the last step. It can go up by more than one, or down when an earlier step turns out wrong. The "
+     "step list on the glasses and the voice follow it, so your reply should say the same, and progress recorded "
+     "higher than the plate shows leaves the wearer building on a mistake. Call it only when the photo lets you tell "
+     "and the number differs from the progress given in the input; leave it out when part of the build is hidden or "
+     "too small to judge, and when the wearer only says they are done without the photo showing it.",
+     {"type": "object", "properties": {"done": {"type": "integer",
+                                                "description": "how many steps, from step 1, are built right"}},
+      "required": ["done"], "additionalProperties": False}),
 ]
 
 
@@ -246,31 +245,37 @@ class Brain:
                              delegation_id, n, t_asked)
             return
         build = self._build
-        current = build.step + 1
         parts = [f"Camera: {out['text']}"] if out["text"] else []
-        if out["done"]:
-            build.set_step(current)  # index of the next step = the number of steps done
-            self._record.event("step", done=current, now=None if build.finished else current + 1)
+        if out["progress"] is not None:
+            before = build.step
+            build.set_step(out["progress"])  # index of the step the wearer is on = the number of steps done
+            if build.step > before:
+                self._record.event("step", done=build.step, now=None if build.finished else build.step + 1)
+            else:
+                self._record.event("step", done=None, reopened=build.step + 1, now=build.step + 1)
             await publish_build(build)
-            parts.append(f"Step {current} is recorded as done; that was the last step, the build is finished."
-                         if build.finished else f"Step {current} is recorded as done; now give step {current + 1}.")
+            total = len(build.guide.steps)
+            parts.append(f"Progress: all {total} steps are done, the build is finished." if build.finished else
+                         f"Progress: {build.step} of {total} steps done; the wearer is now on step {build.step + 1} "
+                         f"({build.guide.steps[build.step].brick}).")
         self._commentary(" ".join(parts) or "Camera: nothing to add.", delegation_id, n, t_asked)
 
     async def _ask(self, words: str, n: int) -> dict:
-        """One look: {text, calls, done}; done = a confirm_step_correct call naming the current step."""
+        """One look: {text, calls, progress}; progress = the steps done by a set_progress call that changes it, else None."""
         t0 = time.perf_counter()
         frame, seq = self._tap.latest, self._tap.count  # the newest frame (~15 a second) and its number in this call
         age_ms = (time.monotonic() - self._tap.latest_at) * 1000 if frame is not None else None
         photo = await asyncio.to_thread(_jpeg, frame, self._side) if frame is not None else None
         build = self._build
         total = len(build.guide.steps)
-        where = (f"Step {build.step + 1} of {total} ({build.guide.steps[build.step].brick}); {build.step} done"
-                 if not build.finished else f"none: all {total} steps are done")
+        where = (f"{build.step} of {total} steps recorded as done; the wearer is on step {build.step + 1} "
+                 f"({build.guide.steps[build.step].brick})"
+                 if not build.finished else f"all {total} steps recorded as done")
         turns, words = conversation(self._session.history, words)
         # the last user turn: the photo first (Anthropic: images before text work best), then where the build is,
         # then the wearer's words
         lead = "The photo above was taken just now." if photo else "No photo came with this request: the camera has sent no picture."
-        notice = f"{lead}\n<current_step>{where}</current_step>"
+        notice = f"{lead}\n<progress>{where}</progress>"
         words = words or "(the wearer's words have not come through yet)"
         t_sent = time.perf_counter()
         saved = self._record.photo(photo, f"ask{n}-s{build.step + 1}") if photo else None
@@ -293,25 +298,28 @@ class Brain:
                     n, (t_back - t0) * 1000, (t_back - t_sent) * 1000, u["in"], u["cached"], u.get("written", 0),
                     u["out"], u.get("thinking"), u.get("stop"), saved or "-", reply)
         # one line per tool call the brain made, and what came of it
-        done, ignored = False, None
+        progress, ignored = None, None
         for name, args in calls:
-            if name != "confirm_step_correct":
+            if name != "set_progress":
                 logger.warning("brain: #%d tool call %s(%s): no such tool, ignored", n, name, json.dumps(args))
                 continue
-            if not build.finished and args.get("step") == build.step + 1:
-                done = True
-                logger.info("brain: #%d tool call confirm_step_correct(%s): step %d done", n, json.dumps(args),
-                            build.step + 1)
+            done = args.get("done")
+            if not isinstance(done, int) or not 0 <= done <= total:
+                ignored = done
+                logger.warning("brain: #%d tool call set_progress(%s): ignored, not between 0 and %d", n,
+                               json.dumps(args), total)
+            elif done == build.step:
+                logger.info("brain: #%d tool call set_progress(%s): unchanged, %d done", n, json.dumps(args), done)
             else:
-                ignored = args.get("step")
-                logger.warning("brain: #%d tool call confirm_step_correct(%s): ignored, the current step is %s", n,
-                               json.dumps(args), "none (build finished)" if build.finished else build.step + 1)
+                progress = done
+                logger.info("brain: #%d tool call set_progress(%s): %d done -> %d done", n, json.dumps(args),
+                            build.step, done)
         if not calls:
             logger.info("brain: #%d no tool call", n)
         self._record.event("look_back", n=n, model_ms=round((t_back - t_sent) * 1000),
                            total_ms=round((t_back - t0) * 1000), reply=reply, calls=[[c, a] for c, a in calls],
-                           done=done, ignored_confirm=ignored, usage=u)
-        return {"text": reply, "calls": calls, "done": done}
+                           progress=progress, ignored_progress=ignored, usage=u)
+        return {"text": reply, "calls": calls, "progress": progress}
 
     # ------------------------------------------------------------------ to the voice
 

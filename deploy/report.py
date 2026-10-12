@@ -78,7 +78,7 @@ def outcome(look: dict) -> str:
     back = look.get("look_back")
     if back is None:
         return "dropped"
-    return "done" if back.get("done") else "not"
+    return "done" if back.get("done") or back.get("progress") is not None else "not"  # done: records before set_progress
 
 
 def timeline(events: list[dict], looks: dict[int, dict], end: float) -> str:
@@ -140,7 +140,7 @@ def card(n: int, look: dict, thinking: list[str]) -> str:
     if sent and sent.get("photo"):
         out.append(f'<a href="{esc(sent["photo"])}"><img src="{esc(sent["photo"])}"></a>')
     out.append('<div class="body">')
-    head = {"done": '<span class="ok">step confirmed</span>', "not": "no confirm",
+    head = {"done": '<span class="ok">progress set</span>', "not": "progress unchanged",
             "failed": '<span class="bad">failed</span>', "dropped": '<span class="dim">dropped</span>'}[o]
     out.append(f'<b>#{n}</b> {mmss(d.get("t"))} <span class="tag">{esc(d.get("id"))}</span> &nbsp; {head}<br>')
     asked = (sent or {}).get("words", d.get("asked_with"))
@@ -157,7 +157,9 @@ def card(n: int, look: dict, thinking: list[str]) -> str:
         out.append(f'<p>{esc(back.get("reply"))}</p>')
         out.append(f'<span class="tag">{esc(calls)}</span>'
                    + (f' <span class="bad">ignored: the current step was not {esc(back["ignored_confirm"])}</span>'
-                      if back.get("ignored_confirm") is not None else "") + "<br>")
+                      if back.get("ignored_confirm") is not None else "")
+                   + (f' <span class="bad">ignored: {esc(back["ignored_progress"])} is not a number of steps</span>'
+                      if back.get("ignored_progress") is not None else "") + "<br>")
         out.append(f'<span class="dim">model {back["model_ms"]} ms, total {back["total_ms"]} ms &middot; in {u.get("in")} '
                    f'(cached {u.get("cached")}, written {u.get("written")}) out {u.get("out")} (thinking {u.get("thinking")}) '
                    f'stop {esc(u.get("stop"))}</span><br>')
@@ -194,6 +196,8 @@ def problems(events: list[dict], looks: dict[int, dict]) -> list[str]:
             out.append(f'<a href="#look{e["n"]}">#{e["n"]}</a> {t} dropped for #{e["by"]}')
         elif k == "look_back" and e.get("ignored_confirm") is not None:
             out.append(f'<a href="#look{e["n"]}">#{e["n"]}</a> {t} confirm_step_correct({e["ignored_confirm"]}) ignored')
+        elif k == "look_back" and e.get("ignored_progress") is not None:
+            out.append(f'<a href="#look{e["n"]}">#{e["n"]}</a> {t} set_progress({e["ignored_progress"]}) ignored')
         elif k == "voice_silent":
             out.append(f'<a href="#look{e["n"]}">#{e["n"]}</a> {t} voice {esc(e["why"])}')
         elif k == "live" and e.get("type") == "error":
@@ -257,7 +261,7 @@ def report(d: str) -> str:
     out.append("<h2>Went wrong</h2>" + ("<br>".join(f'<span class="bad">{b}</span>' for b in bad) if bad
                                          else '<span class="ok">nothing flagged</span>'))
     out.append("<h2>Timeline</h2>" + timeline(events, looks, end)
-               + "<p class='dim'>brain bars run from the hand-over to the reply: green = step confirmed, orange = no confirm, "
+               + "<p class='dim'>brain bars run from the hand-over to the reply: green = progress set, orange = progress unchanged, "
                  "red = failed, grey = dropped; click one for its card. Blue tick on the voice lane = the voice starts that "
                  "answer. Red tick on the brain lane = GPT-Live delegated and nothing arrived. Numbers on the steps lane = "
                  "step done.</p>")
@@ -273,7 +277,8 @@ def report(d: str) -> str:
         elif k == "delegation":
             out.append(f'<div class="row">{t}<div style="flex:1">{card(e["n"], looks[e["n"]], thinking.get(e["n"], []))}</div></div>')
         elif k == "step":
-            what = (f"step {e['done']} done, " if e.get("done") else "") + (f"now step {e['now']}" if e.get("now") else "build finished")
+            what = ((f"step {e['done']} done, " if e.get("done") else "") + (f"step {e['reopened']} reopened, " if e.get("reopened") else "")
+                    + (f"now step {e['now']}" if e.get("now") else "build finished"))
             out.append(f'<div class="row">{t}<span class="ok">{what}</span></div>')
         elif k in ("wearer", "quality", "camera", "closed", "end") or (
                 k == "live" and e.get("type") in ("error", "session.started", "session.closed")):

@@ -169,7 +169,7 @@ def build(t: dict) -> str:
     text(bcx0, PY + 30, "brain", 16, t["text"])
     text(bcx0, PY + 52, "gpt/brain.py", 12, t["dim"])
     text(bcx0, PY + 74, "per delegation: the newest frame + the call's turns", 11.5, t["muted"])
-    text(bcx0, PY + 90, "→ one vision call → a reply, maybe a confirmed step", 11.5, t["muted"])
+    text(bcx0, PY + 90, "→ one vision call → a reply, maybe a new progress", 11.5, t["muted"])
     wire([(tx0 + TAP_W + 8, Y_PIPE), (BRAIN_X - 8, Y_PIPE)], t["muted"], "headm")
     text((tx0 + TAP_W + BRAIN_X) / 2, Y_PIPE - 9, "newest frame", 11.5, t["muted"])
 

@@ -46,7 +46,7 @@
 <text x="700.0" y="448" font-size="16" fill="#f1f5f9" text-anchor="middle">brain</text>
 <text x="700.0" y="470" font-size="12" fill="#7c8b9c" text-anchor="middle">gpt/brain.py</text>
 <text x="700.0" y="492" font-size="11.5" fill="#a3b2c2" text-anchor="middle">per delegation: the newest frame + the call's turns</text>
-<text x="700.0" y="508" font-size="11.5" fill="#a3b2c2" text-anchor="middle">→ one vision call → a reply, maybe a confirmed step</text>
+<text x="700.0" y="508" font-size="11.5" fill="#a3b2c2" text-anchor="middle">→ one vision call → a reply, maybe a new progress</text>
 <path d="M442 478.0 L512 478.0" fill="none" stroke="#a3b2c2" stroke-width="1.6" stroke-linejoin="round" marker-end="url(#headm)"/>
 <text x="477.0" y="469.0" font-size="11.5" fill="#a3b2c2" text-anchor="middle">newest frame</text>
 <path d="M316 294 H512 L526 308 V374 Q526 384 516 384 H316 Q306 384 306 374 V304 Q306 294 316 294 Z" fill="#ffffff0a" stroke="#ffffff29" stroke-width="1.4"/>
