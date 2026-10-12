@@ -4,8 +4,8 @@ A voice assistant for RayNeo X3 Pro AR glasses that guides the wearer through a 
 built on LiveKit and OpenAI's GPT-Live. GPT-Live talks; when an answer needs eyes it hands
 the question to the agent, which looks at the newest camera frame with a vision model and
 keeps track of the step. The project is a test bed for
-how the network between the glasses and the server changes that experience. A Gemini Live
-path is kept but not in use.
+how the network between the glasses and the server changes that experience. The repo also
+has a Gemini Live path, not in use.
 
 ## Architecture
 
@@ -38,7 +38,7 @@ ports reachable at the address it advertises):
   account system.
 - **agent** registers under `AGENT_NAME`, joins only rooms whose token names it, and alone
   holds the model API keys. `AGENT_BACKEND=openai` runs the system below (`agent/src/gpt/`);
-  `gemini` runs the old Gemini Live path (`agent/src/gemini/`). Model ids come from `.env`.
+  `gemini` the Gemini Live path (`agent/src/gemini/`). Model ids come from `.env`.
 
 ### Inside the agent
 
@@ -79,8 +79,7 @@ thinking, and the step list to the glasses; the task file feeds both"
    nothing moves (not done, not sure, or not asked). A newer delegation cancels an older one still running; a call over
    `BRAIN_TIMEOUT` (12 s) answers "the helper could not answer, say it again". Only the newest photo
    goes, and the brain's earlier replies are not sent back to it: what a look saw survives as
-   what the voice said of it. Offline tests of models, image and prompt:
-   `eval/brain/RESULTS.md`.
+   what the voice said of it.
 3. **Task file** (`guides/<task>/task.toml`; the 13 numbered five-brick tasks of
    `tasks/sheet.html`, picked on the glasses): per step a name for the list on the glasses, the
    brick, where it goes against the bricks before it (step 1 only roughly on the plate), and the
@@ -88,11 +87,7 @@ thinking, and the step list to the glasses; the task file feeds both"
    plate as a picture lying in front of the wearer, up = far edge, down = near edge, a brick
    vertical or horizontal.
 
-The brain looks only when asked; nothing announces a finished step on its own yet. The
-camera loop of `lego-harness-v1` (`gate.py`, `judge_vlm.py`, `judge_cv.py`, `progress.py`,
-`gpt/watch.py`: a gate, a four-way verdict per frame, a state machine, notes pushed to the
-voice) is kept but not run; `eval/` imports the gate, judges and state machine and replays a
-recorded run through them (`eval/RESULTS.md`).
+The brain looks only when the voice delegates.
 
 ## Layout
 
@@ -107,10 +102,8 @@ backend/
   agent/src/frames.py   FrameTap: keeps camera frames for the brain
   agent/src/runlog.py   one record per call under RUN_DIR (backend/runs)
   agent/src/gpt/        agent, config, prompts (voice persona, brain instructions), brain (delegation -> frame -> answer)
-  agent/src/gate.py, judge_vlm.py, judge_cv.py, progress.py, gpt/watch.py
-                        the lego-harness-v1 camera loop, not run; eval/ uses the first four
   agent/src/gemini/     the Gemini Live path (not in use)
-  agent/src/render.py   reference-model video stream (used by guides with a model.glb; the truck has none)
+  agent/src/render.py   reference-model video stream, Gemini path, for a guide with a model.glb
   agent/guides/         build guides: the numbered tasks the glasses pick from; BUILD_GUIDE when none is picked
 android/                Kotlin + Compose app for the glasses (build picker, call screen)
 tasks/                  the five-brick task sheet (sheet.html) and the bricks it uses (bricks.jpg)
@@ -121,7 +114,6 @@ deploy/
   watch.py              coloured live view of the agent log
   report.py             a call's record as one HTML page
   record.ps1            record a build with the glasses' stock camera app over adb
-eval/                   offline evaluation on recorded runs: brain/ (the brain's looks), judge / gate / replay of the old loop
 ```
 
 ## Running the backend
@@ -233,7 +225,7 @@ every 5 s under `rayneo-video`.
 `AGENT_BACKEND=gemini` runs one Gemini Live model (`GEMINI_MODEL`) that hears, sees the
 camera and judges the bricks itself through tools (`get_step`, `look`, `step_done`, ...), with
 camera frames sent only while the wearer speaks or the model calls `look` (`sampler.py`).
-It is kept as it was; the knobs are in `.env.example` and `agent/src/gemini/`.
+The knobs are in `.env.example` and `agent/src/gemini/`.
 `agent/src/inspect_frame.py` re-asks a saved frame at higher media resolutions.
 
 ## The lab PC

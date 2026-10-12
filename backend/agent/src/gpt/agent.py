@@ -10,9 +10,7 @@
 
 The voice owns the conversation and answers what needs no eyes by itself; it
 hands the rest over (client delegation, brain.py). No VAD is passed to the
-session: the model listens while it speaks and stops on its own. The Gemini
-path (gemini/) is untouched; the reference-model stream (render.py) stays
-wired but unused by the flat-layout guides.
+session: the model listens while it speaks and stops on its own.
 """
 
 import asyncio
@@ -40,7 +38,6 @@ from gpt.brain import TOOLS, Brain, make_model, publish_build
 from gpt.config import Settings, build_live_model, language, require_env
 from gpt.prompts import voice_persona
 from guide import Build, load_guide
-from render import ModelState, ModelStream, stream_enabled
 from runlog import RunLog
 
 logger = logging.getLogger("rayneo-agent")
@@ -78,9 +75,6 @@ async def rayneo_assistant(ctx: JobContext) -> None:
                  settings=asdict(settings), steps=[s.name for s in guide.steps])
     tap = FrameTap(on_first=lambda f: record.event("camera", first_frame=f"{f.width}x{f.height}"))
     build = Build(guide=guide, run=ctx.room.name)
-    stream = ModelStream(guide.model, ModelState()) if guide.model and stream_enabled() else None
-    if stream is not None:
-        ctx.add_shutdown_callback(stream.stop)
     session = AgentSession(video_sampler=tap, llm=build_live_model(settings))
     model = make_model(settings.brain_provider, settings.brain_model, settings.brain_effort, settings.brain_detail)
     brain = Brain(session, build, tap, model, settings.brain_side, lang, settings.brain_timeout, record)
@@ -220,9 +214,6 @@ async def rayneo_assistant(ctx: JobContext) -> None:
             name = quality.name.removeprefix("QUALITY_").lower()
             logger.info("link: %s quality %s", p.identity, name)
             record.event("quality", who=p.identity, quality=name)
-    if stream is not None:
-        await stream.start(ctx.room.local_participant)
-        build.model, build.model_nodes = stream.state, tuple(stream.nodes)
     build.start()
     record.event("step", done=None, now=1)
     await publish_build(build)

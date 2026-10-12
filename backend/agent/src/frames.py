@@ -1,23 +1,16 @@
 """The camera, tapped: every frame from the glasses arrives here, none reaches the model.
 
 `FrameTap` is an AgentSession `video_sampler` that always answers "drop", so
-the framework never forwards video to the speech model, and keeps the frames
-for the code instead: `latest` is the newest one (at the glasses' ~15 a second,
-at most a few tens of milliseconds old), which the brain (gpt/brain.py) takes
-per delegation; `next_frame()` waits for the next one, for the old watch loop.
-
-`dump()` keeps a copy of a frame that was sent to a model, one subdirectory per
-call, for the old watch loop; the brain keeps its photos in the call's record
-(runlog.py) instead.
+the framework never forwards video to the speech model, and keeps the newest
+frame for the code instead: `latest` (at the glasses' ~15 a second, at most a
+few tens of milliseconds old), which the brain (gpt/brain.py) takes per
+delegation.
 """
 
 from __future__ import annotations
 
-import asyncio
 import logging
-import os
 import time
-from concurrent.futures import ThreadPoolExecutor
 
 from livekit import rtc
 from livekit.agents.voice import AgentSession
@@ -32,21 +25,11 @@ def to_image(frame: rtc.VideoFrame) -> Image.Image:
 
 
 class FrameTap:
-    def __init__(self, dump_dir: str | None = None, dump_max: int = 60, on_first=None) -> None:
+    def __init__(self, on_first=None) -> None:
         self._on_first = on_first  # called with the first frame, e.g. to put it in the call's record
         self.count = 0  # frames seen, for the log: zero means the video path is broken
         self.latest: rtc.VideoFrame | None = None  # the newest frame and when it came (time.monotonic())
         self.latest_at = 0.0
-        self._waiters: list[asyncio.Future[rtc.VideoFrame]] = []
-        self._dump_dir: str | None = None
-        self._dump_max = dump_max
-        self._dumped = 0
-        self._writer: ThreadPoolExecutor | None = None
-        if dump_dir:
-            self._dump_dir = os.path.join(dump_dir, time.strftime("%Y%m%d-%H%M%S"))
-            os.makedirs(self._dump_dir, exist_ok=True)
-            self._writer = ThreadPoolExecutor(max_workers=1, thread_name_prefix="framedump")
-            logger.info("dumping up to %d checked frames to %s", dump_max, self._dump_dir)
 
     def __call__(self, frame: rtc.VideoFrame, session: AgentSession) -> bool:
         self.count += 1
@@ -55,40 +38,4 @@ class FrameTap:
             logger.info("camera: first frame %dx%d", frame.width, frame.height)
             if self._on_first is not None:
                 self._on_first(frame)
-        for fut in self._waiters:
-            if not fut.done():
-                fut.set_result(frame)
-        self._waiters.clear()
         return False  # the speech model never sees video
-
-    async def next_frame(self, timeout: float = 3.0) -> rtc.VideoFrame:
-        """The next frame to arrive. Raises asyncio.TimeoutError if the camera is silent."""
-        fut: asyncio.Future[rtc.VideoFrame] = asyncio.get_running_loop().create_future()
-        self._waiters.append(fut)
-        try:
-            return await asyncio.wait_for(fut, timeout)
-        finally:
-            if fut in self._waiters:
-                self._waiters.remove(fut)
-
-    @property
-    def dumping(self) -> bool:
-        """Whether dump() would keep another frame (so callers skip the JPEG encode otherwise)."""
-        return self._dump_dir is not None and self._dumped < self._dump_max
-
-    def dump(self, jpeg: bytes, name: str) -> str | None:
-        """Keep a copy of an encoded frame, if FRAME_DUMP_DIR is set; returns the file's name."""
-        if self._dump_dir is None or self._writer is None or self._dumped >= self._dump_max:
-            return None
-        self._dumped += 1
-        file = f"{self._dumped:03d}-{name}.jpg"
-        self._writer.submit(self._write, os.path.join(self._dump_dir, file), jpeg)
-        return file
-
-    @staticmethod
-    def _write(path: str, data: bytes) -> None:
-        try:
-            with open(path, "wb") as f:
-                f.write(data)
-        except Exception:
-            logger.exception("could not write %s", path)

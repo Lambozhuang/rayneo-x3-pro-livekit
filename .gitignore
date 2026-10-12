@@ -20,13 +20,3 @@ docs/papers/
 
 # scratch: PoC scripts and their output, not part of the project
 tmp/
-
-# recorded evaluation material: videos and extracted frames are large and regenerable from the videos
-eval/**/*.mp4
-eval/**/frames/
-eval/**/sheets/
-eval/**/results/**/*.png
-eval/**/results/**/*.jpg
-eval/**/*_1080p15.mp4
-eval/**/frames_1080p15/
-eval/**/frames_cropstream/

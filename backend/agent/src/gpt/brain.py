@@ -18,10 +18,8 @@ commentary on that delegation id ("Camera: ..."), which says it in its own
 words. Only a confirm_step_correct call moves the build (published to the glasses,
 told to GPT-Live in the same commentary and as one silent thinking line); no
 call, nothing moves, whether the step is not done, unsure or not asked about.
-There is no hang-up tool: a model misjudging a goodbye cut calls off, and the
-wearer ends the call on the glasses (double tap). Only the newest photo goes;
-what an earlier look saw survives only as what the voice said of it, and the
-brain's own earlier replies are not sent back to it.
+Only the newest photo goes; what an earlier look saw survives only as what the
+voice said of it, and the brain's own earlier replies are not sent back to it.
 
 The newest delegation wins: a call still running when the next arrives is
 cancelled. A call that fails or takes longer than BRAIN_TIMEOUT answers "the helper could
@@ -72,8 +70,8 @@ async def publish_build(build: Build) -> None:
 def _jpeg(frame, side: int) -> bytes:
     """The bottom square of the frame (side = the frame's short side), scaled to `side`. The glasses look down at
     the table: the upper part of the portrait frame is wall and the far desk, and dropping it nearly doubles the
-    pixels per stud at the same image size (15 -> 27 px on the truck plate). No plate detection, so whatever else
-    is in front of the wearer stays in the picture."""
+    pixels per stud at the same image size. No plate detection, so whatever else is in front of the wearer stays
+    in the picture."""
     img = to_image(frame)
     w, h = img.size
     s = min(w, h)

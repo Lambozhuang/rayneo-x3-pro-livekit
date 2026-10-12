@@ -2,20 +2,14 @@
 
 A guide is a directory under ../guides with a `task.toml` (a title and an
 ordered list of steps) and, optionally, a `model.glb` of the finished build
-that the agent streams to the glasses as a rotating reference (render.py); a
-bare .toml file is a guide without a model. Each step has a name for the list
-on the glasses, the brick and where it goes. This process
-holds the position in that list; the model knows the names (they are in its
-prompt, so it and the wearer can both say "step two") but sees a step's
-instructions only through the tools in tools.py, one step at a time. Progress therefore cannot drift with the
-conversation, and the log carries the timing of every step.
+that the Gemini path streams to the glasses as a rotating reference
+(render.py); a bare .toml file is a guide without a model. Each step has a
+name for the list on the glasses, the brick and where it goes.
 
-The model judges when a step is done, from the camera. The code does not check
-the bricks: hand-written geometry does not generalise past a flat 2D layout,
-and the real fix for the model over-declaring completion is to ground it
-against a reference image, not to encode every shape here. That is the next
-architecture (a separate photo model sees one fresh frame against a reference);
-until then the model decides and calls step_done.
+`Build` holds the run's position in that list and logs the timing of every
+step. On the GPT path the brain moves it (`set_step`) when it confirms a step
+from the camera; on the Gemini path the model moves it through its tools
+(gemini/tools.py).
 """
 
 from __future__ import annotations
@@ -55,8 +49,6 @@ class Guide:
     title: str
     steps: tuple[Step, ...]
     plate: int = 16  # studs per side of the baseplate, for flat-layout tasks
-    # CV judge colour centres per camera profile: profile -> colour name -> chromaticity (r, g, b)/(r+g+b)
-    colours: dict[str, dict[str, tuple[float, float, float]]] = field(default_factory=dict)
     model: Path | None = None  # model.glb of the finished build, if the guide has one
 
 
@@ -77,7 +69,6 @@ def load_guide(path: str) -> Guide:
         raise ValueError(f"{toml}: guide has no steps")
     return Guide(
         name=p.stem, title=data["title"], steps=steps, plate=int(data.get("plate", 16)),
-        colours={prof: {k: tuple(v) for k, v in table.items()} for prof, table in data.get("colours", {}).items()},
         model=model if model is not None and model.exists() else None,
     )
 

@@ -3,16 +3,16 @@
 Two implementations share this process, chosen once at start by AGENT_BACKEND:
 
   gemini  gemini/   Gemini Live: one native-audio model that hears, sees the
-                    camera frames itself, and judges the bricks. The original.
-  openai  gpt/      GPT-Live voice model with a delegated backend model; the
-                    code watches the camera (gate -> judge -> state machine)
-                    and holds the step.
+                    camera frames itself, and judges the bricks.
+  openai  gpt/      GPT-Live speaks; what needs eyes it hands to the brain,
+                    one vision call on the newest camera frame, which also
+                    holds the step.
 
 Both register with livekit-server under AGENT_NAME and wait to be dispatched;
 the api puts that name into every join token it signs, so the agent turns up
 in exactly the rooms the backend created and nowhere else. guide.py (the build
-and the run's position in it) and render.py (the reference model stream) are
-shared; everything else is per backend, so the two can differ freely.
+and the run's position in it) is shared; everything else belongs to one
+backend, so the two can differ freely.
 """
 
 import os
