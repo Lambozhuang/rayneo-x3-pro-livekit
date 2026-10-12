@@ -256,11 +256,68 @@ check `adb shell settings get global wifi_on`; `adb shell svc wifi enable` bring
 
 ## Reference
 
-- [GPT-Live plugin](https://docs.livekit.io/agents/models/realtime/plugins/gpt-live/)
-- [GPT-Live guide](https://developers.openai.com/api/docs/guides/live)
-- [Agent dispatch](https://docs.livekit.io/agents/server/agent-dispatch/)
-- [Token endpoint spec](https://docs.livekit.io/frontends/build/authentication/endpoint/)
-- [Running LiveKit locally](https://docs.livekit.io/transport/self-hosting/local/)
+Where to look, by source; what each covers, not what it says.
+
+**LiveKit docs** (also searchable through the livekit-docs MCP server)
+- [GPT-Live plugin](https://docs.livekit.io/agents/models/realtime/plugins/gpt-live/): delegation
+  modes, the three context channels, starting speech, turns and transcripts
+- [Video](https://docs.livekit.io/agents/multimodality/vision/video/),
+  [Agent sessions](https://docs.livekit.io/agents/logic/sessions/): frame sampling, live video
+  input, `video_sampler`, idle users
+- [Gemini Live plugin](https://docs.livekit.io/agents/models/realtime/plugins/gemini/),
+  [Gemini vision recipe](https://docs.livekit.io/reference/recipes/gemini_live_vision/): video
+  input and the proactivity option on the Gemini side
+- [Subagent delegation](https://docs.livekit.io/agents/logic/patterns/subagent-delegation/): a fast
+  voice model with a slower reasoning model behind it
+- [Agent dispatch](https://docs.livekit.io/agents/server/agent-dispatch/),
+  [Token endpoint spec](https://docs.livekit.io/frontends/build/authentication/endpoint/),
+  [Running LiveKit locally](https://docs.livekit.io/transport/self-hosting/local/)
+
+**LiveKit code** ([livekit/agents](https://github.com/livekit/agents))
+- [examples/voice_agents/gpt-live](https://github.com/livekit/agents/tree/main/examples/voice_agents/gpt-live):
+  the client-delegation example this agent is built on, and its README on append receipts
+- `livekit-plugins-openai/.../realtime/gpt_live_model.py` (also in `backend/agent/.venv`): how the
+  appends, `generate_reply`, `pending_transcript` and the turn split are implemented
+
+**OpenAI**
+- Guides: [live](https://developers.openai.com/api/docs/guides/live),
+  [live-conversations](https://developers.openai.com/api/docs/guides/live-conversations),
+  [live-delegation](https://developers.openai.com/api/docs/guides/live-delegation),
+  [live-prompting](https://developers.openai.com/api/docs/guides/live-prompting),
+  [decisions-voice](https://developers.openai.com/api/docs/guides/decisions-voice),
+  [live-partner-integrations](https://developers.openai.com/api/docs/guides/live-partner-integrations),
+  [WebRTC quickstart](https://developers.openai.com/api/docs/guides/voice-webrtc?api=live):
+  sessions, append timing, compaction, delegation and images, how to lay out the prompt;
+  `developers.openai.com/api/docs/llms.txt` indexes them
+- [Voice agent evaluation](https://developers.openai.com/cookbook/examples/audio/voice_agent_evaluation)
+  and its harness
+  ([duplex_voice_agent_evaluation](https://github.com/openai/openai-cookbook/tree/main/examples/audio/duplex_voice_agent_evaluation)):
+  testing a GPT-Live agent without people, telling speech from silence on the audio
+- [Community thread on gpt-live-1](https://community.openai.com/t/important-feedback-improvements-for-gpt-live-1-api/1402227):
+  field reports on appended instructions and commentary
+- [Microsoft Foundry event reference](https://learn.microsoft.com/azure/foundry/openai/gpt-live-reference):
+  every client and server event with its fields
+
+**Pipecat** (GPT-Live with a second model of its own)
+- [OpenAI Live service](https://docs.pipecat.ai/api-reference/server/services/s2s/openai-live) and
+  [examples/realtime](https://github.com/pipecat-ai/pipecat/tree/main/examples/realtime)
+  (`realtime-openai-live-client-delegation*.py`, `-responses-delegation.py`)
+- `src/pipecat/services/openai/live/llm.py`, `src/pipecat/workers/llm/backend_llm_worker.py`: how
+  the backend's context is kept across hand-overs, spoken vs silent results, overlapping hand-overs
+
+**Google** (Gemini Live)
+- [Live guide](https://ai.google.dev/gemini-api/docs/live-guide),
+  [Live tools](https://ai.google.dev/gemini-api/docs/live-tools),
+  [Gemini 3.8 Live](https://ai.google.dev/gemini-api/docs/models/gemini-3.8-live): proactive audio,
+  video input, async function scheduling, model differences
+- [Cookbook quickstarts](https://github.com/google-gemini/cookbook/tree/main/quickstarts)
+  (`Get_started_LiveAPI.py`, `Get_started_LiveAPI_tools.ipynb`, `Get_started_Live_Thinking.ipynb`):
+  camera streaming, tool scheduling, background reasoning
+
+**Twilio**: [GPT-Live resources](https://www.twilio.com/en-us/blog/developers/twilio-openai-gpt-live-1-api-resources),
+phone-call samples, audio only
+
+**This project's own ground**
 - [RayNeo dev docs](https://rayneo-en.gitbook.io/rayneo-devdoc/x-series/android-sdk)
 - [agent-starter-android](https://github.com/livekit-examples/agent-starter-android), the
   app's origin (MIT, `android/LICENSE`)
