@@ -10,6 +10,8 @@ The LEGO build is the workload. The wearer picks one of 13 five-brick builds on 
 
 The agent has two architectures: GPT-Live with a separate vision model, and Gemini Live alone.
 
+`docs/TASK.md` has the experiment: the task it is based on (ITU-T P.1321's block building), the choices made for ours, what is measured, and the papers behind them. `docs/TODO.md` is the open list.
+
 ## Architecture
 
 There are two machines: the glasses, and a server on the same Wi-Fi network. The glasses talk only to the server; only the server talks to the model APIs (OpenAI, Anthropic, Google).
