@@ -17,7 +17,6 @@ import asyncio
 import json
 import logging
 import os
-import re
 from dataclasses import asdict
 
 from livekit import agents, rtc
@@ -37,28 +36,12 @@ from frames import FrameTap
 from gpt.brain import TOOLS, Brain, make_model, publish_build
 from gpt.config import Settings, build_live_model, language, require_env
 from gpt.prompts import voice_persona
-from guide import Build, load_guide
+from guide import Build, picked_guide
 from runlog import RunLog
 
 logger = logging.getLogger("rayneo-agent")
 
 server = AgentServer()
-
-
-def picked_task(metadata: str) -> str | None:
-    """The build the glasses picked (the api puts {"task": <name>} into the dispatch metadata), as a guide path;
-    None without a pick, and BUILD_GUIDE is used."""
-    try:
-        name = json.loads(metadata or "{}").get("task")
-    except (ValueError, AttributeError):
-        name = None
-    if not name:
-        return None
-    path = f"guides/{name}"
-    if not re.fullmatch(r"[a-z0-9-]+", name) or not os.path.isfile(os.path.join(os.path.dirname(__file__), "..", "..", path, "task.toml")):
-        logger.warning("picked task %r not found, using BUILD_GUIDE", name)
-        return None
-    return path
 
 
 # Explicit dispatch: the api puts AGENT_NAME into every token it signs, and
@@ -67,7 +50,7 @@ def picked_task(metadata: str) -> str | None:
 async def rayneo_assistant(ctx: JobContext) -> None:
     settings = Settings.from_env()
     lang = language()
-    guide = load_guide(picked_task(ctx.job.metadata) or require_env("BUILD_GUIDE"))
+    guide = picked_guide(ctx.job.metadata)
     logger.info(settings.experiment_line(guide.name))
     # The call's record (runlog.py): what happened, in order, with every field; deploy/report.py reads it.
     record = RunLog(os.environ.get("RUN_DIR"), ctx.room.name)

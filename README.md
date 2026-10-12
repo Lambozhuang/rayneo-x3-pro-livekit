@@ -104,7 +104,7 @@ backend/
   agent/src/gpt/        agent, config, prompts (voice persona, brain instructions), brain (delegation -> frame -> answer)
   agent/src/gemini/     the Gemini Live path (not in use)
   agent/src/render.py   reference-model video stream, Gemini path, for a guide with a model.glb
-  agent/guides/         build guides: the numbered tasks the glasses pick from; BUILD_GUIDE when none is picked
+  agent/guides/         build guides: the numbered tasks the glasses pick from
 android/                Kotlin + Compose app for the glasses (build picker, call screen)
 tasks/                  the five-brick task sheet (sheet.html) and the bricks it uses (bricks.jpg)
 deploy/
@@ -183,7 +183,7 @@ credential, which `glasses.ps1` passes as intent extras. It opens on the build p
 numbered tasks from the api's `GET /tasks` (every `guides/<name>/task.toml` with a `number`).
 On the temple touchpad a swipe moves the pick, a tap starts the call with it
 (`/getToken?task=<name>`; the api puts it into the agent's dispatch metadata and the agent
-loads that task, `BUILD_GUIDE` without a pick), and a double tap ends the call or leaves the
+loads that task; without a pick a tap does nothing), and a double tap ends the call or leaves the
 app. `glasses.ps1 -Task <name>` preselects one.
 
 During a call the top line shows who has the floor. Below it the left half lists the

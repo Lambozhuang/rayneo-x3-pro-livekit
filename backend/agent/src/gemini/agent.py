@@ -29,7 +29,7 @@ from livekit.agents.metrics import RealtimeModelMetrics
 from gemini.config import build_session_model, language, require_env, video_fps
 from gemini.framedump import DumpingSampler
 from livekit.plugins import silero
-from guide import Build, load_guide
+from guide import Build, picked_guide
 from gemini.prompts import build_instructions
 from render import ModelState, ModelStream, stream_enabled
 from gemini.sampler import CameraSampler
@@ -90,7 +90,7 @@ async def rayneo_assistant(ctx: JobContext) -> None:
     # The build guide and this run's position in it. The tools read and
     # advance it through session.userdata; see guide.py. One call is one run.
     build = Build(
-        guide=load_guide(require_env("BUILD_GUIDE")), run=ctx.room.name, request_look=lambda: camera.request().wait()
+        guide=picked_guide(ctx.job.metadata), run=ctx.room.name, request_look=lambda: camera.request().wait()
     )
     # The reference model, if the guide ships one: rendered here, streamed to
     # the glasses as our second video track, the current step's brick

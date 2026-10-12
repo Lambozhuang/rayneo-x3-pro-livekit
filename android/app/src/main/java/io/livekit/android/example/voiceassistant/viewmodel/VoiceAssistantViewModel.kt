@@ -91,8 +91,7 @@ class VoiceAssistantViewModel(application: Application, savedStateHandle: SavedS
         val headers = if (route.credential.isBlank()) emptyMap()
         else mapOf("Authorization" to "Bearer ${route.credential}")
         // The picked build rides as ?task=, which the api puts into the agent's dispatch metadata.
-        val endpoint = if (route.task.isBlank()) route.tokenEndpoint
-        else route.tokenEndpoint + "?task=" + URLEncoder.encode(route.task, "UTF-8")
+        val endpoint = route.tokenEndpoint + "?task=" + URLEncoder.encode(route.task, "UTF-8")
         tokenSource = TokenSource.fromEndpoint(url = URI(endpoint).toURL(), headers = headers)
     }
 

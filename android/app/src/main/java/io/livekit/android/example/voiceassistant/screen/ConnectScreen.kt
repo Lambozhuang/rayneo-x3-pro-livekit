@@ -62,7 +62,7 @@ fun ConnectScreen() {
             Spacer(Modifier.size(10.dp))
             when {
                 problem != null -> Text(
-                    "$problem\ntap starts the backend's default build",
+                    problem,
                     color = Color(0xFFFF8A80), fontSize = 16.sp, lineHeight = 22.sp,
                 )
                 tasks.isEmpty() -> Text("loading…", color = Color(0xFF9E9E9E), fontSize = 16.sp)

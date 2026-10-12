@@ -14,6 +14,7 @@ from the camera; on the Gemini path the model moves it through its tools
 
 from __future__ import annotations
 
+import json
 import logging
 import time
 import tomllib
@@ -71,6 +72,15 @@ def load_guide(path: str) -> Guide:
         name=p.stem, title=data["title"], steps=steps, plate=int(data.get("plate", 16)),
         model=model if model is not None and model.exists() else None,
     )
+
+
+def picked_guide(metadata: str) -> Guide:
+    """The build the glasses picked for this call: the api puts {"task": <name>}
+    into the agent's dispatch metadata, in every token it signs."""
+    task = json.loads(metadata or "{}").get("task")
+    if not task:
+        raise ValueError("the dispatch metadata names no task")
+    return load_guide(f"guides/{task}")
 
 
 @dataclass

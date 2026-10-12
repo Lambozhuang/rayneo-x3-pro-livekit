@@ -180,7 +180,7 @@ class MainActivity : ComponentActivity() {
         val nav = navController ?: return
         val onConnect = nav.currentDestination?.hasRoute(ConnectRoute::class) == true
         when (g) {
-            Gesture.CLICK -> if (onConnect) nav.navigate(savedRoute())
+            Gesture.CLICK -> if (onConnect && Tasks.pick != null) nav.navigate(savedRoute())
             Gesture.DOUBLE_CLICK -> if (onConnect) finish() else nav.navigateUp()
         }
     }
