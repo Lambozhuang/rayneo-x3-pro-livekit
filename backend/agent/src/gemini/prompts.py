@@ -1,9 +1,9 @@
 """Instructions for the Gemini path: one model, one prompt.
 
-Gemini hears, sees and speaks, so it gets what the GPT path splits in two: the
-voice's manner and rules (gpt/prompts.py VOICE_PERSONA) and the brain's task
-and judging rules (BRAIN), said to one model that has eyes. The task block in
-the middle is the shared one (prompts.py), the same words the brain gets.
+The prompt has the model's manner, the task (the plate, the direction words and
+every step's brick and place, the shared block from prompts.py) and the rules
+for giving steps, checking the plate and talking. It cannot change once the
+session has started.
 """
 
 from guide import Guide

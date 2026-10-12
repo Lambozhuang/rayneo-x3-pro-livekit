@@ -1,9 +1,10 @@
-"""The one tool: set_progress, the same the brain has on the GPT path (gpt/brain.py TOOLS).
+"""The one tool: set_progress, how far the build is.
 
-A @function_tool: the framework sends its signature and docstring to the
-model and runs it here when the model calls it. The docstring is the rule book
-the brain's tool description is, in the same words. On gemini-3.8-live tools
-run in the background and the result is taken up when the model is idle.
+A @function_tool: the framework sends its signature and docstring to the model
+and runs it here when the model calls it. The docstring is the tool's rule book:
+when to call it and when not to. On gemini-3.8-live tools run in the background
+and the result is taken up when the model is idle. Only this call moves the
+build; the step list on the glasses follows it (publish_build).
 """
 
 from __future__ import annotations

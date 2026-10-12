@@ -5,11 +5,10 @@
     gemini-live --set_progress(done)--> this process: the build moves, the glasses' step list follows
             <--audio-- SFU <-- this process <-- gemini-live
 
-Nothing is handed over and nothing waits for a second model: the model judges
-the plate from the frames in its own context and calls its one tool. No VAD is
-passed to the session: Gemini's own turn detection decides when the wearer has
-finished. The log and the call's record (runlog.py) carry the same names as the
-GPT path's where the two do the same thing, and their own for the rest.
+The model judges the plate from the frames in its own context and calls its one
+tool. No VAD is passed to the session: Gemini's own turn detection decides when
+the wearer has finished. The log and the call's record (runlog.py) are described
+in the README's Logs section.
 """
 
 import asyncio

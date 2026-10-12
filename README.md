@@ -42,15 +42,13 @@ Two models. GPT-Live (`gpt-live-1`) is the voice: it hears the wearer and speaks
 
 ### Gemini Live (`AGENT_BACKEND=gemini`, `backend/agent/src/gemini/`)
 
-One model, Gemini Live (`GEMINI_MODEL`), hears, sees and speaks. Its prompt is the GPT-Live persona and the brain's task and judging rules said to one model with eyes (`gemini/prompts.py`); the task block in the middle is the same text the brain gets (`src/prompts.py`).
+One model, Gemini Live (`GEMINI_MODEL`), hears, sees and speaks. Its prompt (`gemini/prompts.py`) holds the manner, the task (the plate, the direction words, every step's brick and place, from `src/prompts.py`) and the rules for giving steps, checking the plate and talking.
 
 1. Camera frames go to the model inline with the audio, one a second (`GEMINI_VIDEO_FPS`, `gemini/sampler.py`); every frame stays in its context for the rest of the call, so that rate is the cost knob, and a sliding window drops the oldest turns past `GEMINI_CONTEXT_TRIGGER_TOKENS`.
-2. The model judges the plate from the frames it has and talks to the wearer directly; nothing is handed over.
-3. It has the brain's one tool, `set_progress` (`gemini/tools.py`): the step list on the glasses follows it.
+2. The model judges the plate from the frames it has and talks to the wearer directly.
+3. When it judges that more or fewer steps are built right, it says so through its one tool, `set_progress` (`gemini/tools.py`): the step list on the glasses follows it.
 
-No local VAD: Gemini's own turn detection decides when the wearer has finished. Each frame shown to the model is saved into the call record (see Logs), so a run can be judged from what the model saw.
-
-To the glasses the two architectures are the same participant: audio, captions, and the step list as participant attributes.
+Gemini's own turn detection decides when the wearer has finished. Each frame shown to the model is saved into the call record (see Logs), so a run can be judged from what the model saw.
 
 ## Running
 

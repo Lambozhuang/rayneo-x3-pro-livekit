@@ -3,8 +3,8 @@
 One model does everything, so there is one model to configure: which Gemini
 Live model and voice, how many camera frames a second it is shown, how many
 tokens it spends on each, and the sliding window over its context. The switches
-are logged as one `experiment:` line at the start of every call, like the GPT
-path's, so a run's conditions can be read back from its log.
+are logged as one `experiment:` line at the start of every call, so a run's
+conditions can be read back from its log.
 """
 
 from __future__ import annotations
