@@ -58,10 +58,10 @@ list to the glasses; the task file feeds both"
 1. **Voice.** `gpt-live-1` is audio only and full duplex, and owns turn-taking and barge-in
    (no VAD on the session). Its instructions are the persona and every step's brick and where
    it goes (`gpt/prompts.py`); it gives a step in two parts: which brick to find, then, once the
-   wearer has it, where it goes. What needs no eyes (the next step, an earlier one, where a brick
-   goes, what a brick looks like) it answers itself, and so it does when the wearer asks it not to
-   check. Whatever depends on what is in front of the wearer ("is this right?", "what is this?")
-   it delegates; a goodbye it answers itself and
+   wearer has it, where it goes. Its hand-over rules are laid out as OpenAI's GPT-Live prompting
+   guide lays them out: what the helper does, when to hand over (the answer depends on what is in
+   front of the wearer now, or they want the build checked), when not (the answer is in the steps
+   or the conversation, or it is not about what they see); a goodbye it answers itself and
    the wearer hangs up on the glasses. It opens the call by naming the build. Client
    delegation: the plugin hands the agent an id (and the wearer's words when they are not in
    the history yet, often not), no backend model runs.
