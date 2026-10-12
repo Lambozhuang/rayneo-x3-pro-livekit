@@ -9,8 +9,6 @@ console-recordings/
 /livekit.yaml
 # per-host compose tweaks (network mode, ports)
 backend/docker-compose.override.yml
-# frames dumped by FRAME_DUMP_DIR
-backend/frames/
 # one record per call (RUN_DIR), and the copies pulled from the lab (deploy/pull_run.py)
 backend/runs/
 /logs/

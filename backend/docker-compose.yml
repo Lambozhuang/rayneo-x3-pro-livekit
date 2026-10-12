@@ -57,11 +57,9 @@ services:
     # the host stack too but stays behind ufw.
     depends_on:
       - livekit
-    # runs: the call records. frames: only used when FRAME_DUMP_DIR=/app/frames is
-    # set in .env (gemini path). Both gitignored.
     volumes:
+      # the call records, gitignored
       - ./runs:/app/runs
-      - ./frames:/app/frames
       # Guides are baked into the image; this mount lets you edit one and
       # `docker compose restart agent` without a rebuild.
       - ./agent/guides:/app/guides

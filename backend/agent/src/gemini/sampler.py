@@ -1,69 +1,65 @@
-"""Which camera frames the model gets to see.
+"""Which camera frames the model gets: one every 1/fps seconds, whoever is talking.
 
-Every frame the model sees stays in its context for the rest of the call and
-is paid for again on every turn (a Live turn carries the whole history; at
-MEDIA_RESOLUTION_HIGH that is 280 tokens a frame). Measured: with the SDK's
-default sampler a five-minute call reached 45k image tokens per turn and the
-model's time to first audio went from 2 s to 9 s. So frames are rationed:
+An AgentSession `video_sampler`: the framework calls it with every frame from
+the glasses (~15 a second) and forwards to the model the ones it says yes to.
+A fixed rate is the simplest thing that works; every frame the model sees stays
+in its context for the rest of the call, so GEMINI_VIDEO_FPS is the cost knob
+(config.py). The SDK's own sampler is not used because its "while the user
+speaks" rate needs a local VAD to mean that, which this path does without.
 
-- while the wearer is speaking, `speaking_fps` (default 0.5): they are usually
-  showing something or asking about it;
-- while they are silent, `silent_fps` (default 0): nothing. The model does not
-  need a live feed of a table nobody is talking about;
-- one frame on demand, when the model calls the `look` tool before judging a
-  step. That frame is the freshest possible, and it is the one it should judge.
-
-"Speaking" is `session.user_state`, which is only meaningful with a local VAD
-on the session (agent.py loads Silero). Without one, Gemini's server-side turn
-detection sets that state when the *model* starts generating, so the SDK's
-default sampler ends up sending 1 fps while the agent talks and 0.3 fps the
-rest of the time, the opposite of the intent.
+Every frame passed is also saved into the call's record, encoded as the plugin
+encodes it (config.IMAGE_ENCODE_OPTIONS), so a run can be judged afterwards
+from exactly what the model saw. Encoding a 1080p JPEG takes ~100 ms, which
+on the event loop would be 100 ms of audio and turn handling delayed, so it
+goes to one worker thread, in order; the sampler returns at once.
 """
 
 from __future__ import annotations
 
 import logging
-import asyncio
 import time
+from collections.abc import Callable
+from concurrent.futures import ThreadPoolExecutor
 
 from livekit import rtc
+from livekit.agents.utils import images
 from livekit.agents.voice import AgentSession
+
+from gemini.config import IMAGE_ENCODE_OPTIONS
+from runlog import RunLog
 
 logger = logging.getLogger("rayneo-agent.camera")
 
 
-class CameraSampler:
-    def __init__(self, *, speaking_fps: float, silent_fps: float) -> None:
-        self.speaking_fps = speaking_fps
-        self.silent_fps = silent_fps
-        self._last: float | None = None
-        self._requested = 0
-        self._waiting: list[tuple[asyncio.AbstractEventLoop, asyncio.Event]] = []
-
-    def request(self, frames: int = 1) -> asyncio.Event:
-        """Let the next `frames` frames through regardless of who is talking.
-        The returned event is set once the first of them has gone to the model,
-        so a caller can hold its answer until the model actually has the
-        frame."""
-        self._requested = max(self._requested, frames)
-        ev = asyncio.Event()
-        self._waiting.append((asyncio.get_running_loop(), ev))
-        return ev
+class FixedRateSampler:
+    def __init__(self, fps: float, record: RunLog, step: Callable[[], int]) -> None:
+        self._period = 1.0 / fps
+        self._record = record
+        self._step = step  # the current step number (1-based) when a frame goes, for the photo's name
+        self._last = 0.0
+        self._encoder = ThreadPoolExecutor(max_workers=1, thread_name_prefix="frame-encode")
+        self.count = 0  # frames seen, for the log: zero means the video path is broken
+        self.sent = 0  # frames the model got
 
     def __call__(self, frame: rtc.VideoFrame, session: AgentSession) -> bool:
-        if self._requested > 0:
-            self._requested -= 1
-            self._last = time.time()
-            logger.info("look: frame sent on request")
-            for loop, ev in self._waiting:
-                loop.call_soon_threadsafe(ev.set)
-            self._waiting.clear()
-            return True
-        fps = self.speaking_fps if session.user_state == "speaking" else self.silent_fps
-        if fps <= 0:
+        self.count += 1
+        if self.count == 1:
+            logger.info("camera: first frame %dx%d", frame.width, frame.height)
+            self._record.event("camera", first_frame=f"{frame.width}x{frame.height}")
+        now = time.monotonic()
+        if now - self._last < self._period:
             return False
-        now = time.time()
-        if self._last is None or now - self._last >= 1.0 / fps:
-            self._last = now
-            return True
-        return False
+        self._last = now
+        self.sent += 1
+        self._encoder.submit(self._save, frame, self.sent, self.count, self._step())
+        return True
+
+    def _save(self, frame: rtc.VideoFrame, n: int, seq: int, step: int) -> None:
+        try:
+            jpeg = images.encode(frame, IMAGE_ENCODE_OPTIONS)
+        except Exception:
+            logger.exception("frame %d: could not encode", n)
+            return
+        saved = self._record.photo(jpeg, f"frame{n}-s{step}")
+        self._record.event("frame", n=n, frame=seq, step=step, size=f"{frame.width}x{frame.height}", photo=saved,
+                           photo_kb=len(jpeg) // 1024)

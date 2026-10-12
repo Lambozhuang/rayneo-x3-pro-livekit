@@ -1,18 +1,20 @@
 """Entrypoint for the RayNeo X3 Pro live assistant.
 
-Two implementations share this process, chosen once at start by AGENT_BACKEND:
+Two architectures share this process, chosen once at start by AGENT_BACKEND
+(backend/.env, required):
 
   gemini  gemini/   Gemini Live: one native-audio model that hears, sees the
-                    camera frames itself, and judges the bricks.
+                    camera frames itself, judges the bricks and moves the step.
   openai  gpt/      GPT-Live speaks; what needs eyes it hands to the brain,
                     one vision call on the newest camera frame, which also
-                    holds the step.
+                    moves the step.
 
 Both register with livekit-server under AGENT_NAME and wait to be dispatched;
 the api puts that name into every join token it signs, so the agent turns up
-in exactly the rooms the backend created and nowhere else. guide.py (the build
-and the run's position in it) is shared; everything else belongs to one
-backend, so the two can differ freely.
+in exactly the rooms the backend created and nowhere else. The glasses see the
+same participant either way: audio, captions and the step list as participant
+attributes. guide.py (the build and the run's position in it), frames.py and
+runlog.py are shared; everything else belongs to one architecture.
 """
 
 import os
@@ -22,7 +24,9 @@ from livekit import agents
 
 load_dotenv()  # backend/.env, found by walking up from this file
 
-backend = os.environ.get("AGENT_BACKEND", "gemini")
+backend = os.environ.get("AGENT_BACKEND")
+if not backend:
+    raise SystemExit("AGENT_BACKEND is not set: use gemini or openai (backend/.env)")
 if backend == "gemini":
     from gemini.agent import server
 elif backend == "openai":

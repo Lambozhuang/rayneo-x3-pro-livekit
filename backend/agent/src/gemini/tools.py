@@ -1,158 +1,65 @@
-"""Function tools available to the agent.
+"""The one tool: set_progress, the same the brain has on the GPT path (gpt/brain.py TOOLS).
 
-Plain @function_tool functions: the framework sends their signatures to the
-model and runs them here when the model calls them. They are also the only
-channel that reaches gemini-3.1-flash-live-preview mid-session (instructions
-and chat context cannot be updated on that model), which is why the build
-steps arrive this way rather than in the prompt. show_view and highlight_part
-change what the reference model stream shows (render.py); they raise
-StopResponse because there is nothing to say about a display change. Tools are
-declared non-blocking (config.py): the model talks over them and takes the
-result up when it is idle. look is the one that waits, for the frame it asked
-for, so its result lands after the picture; end_call waits for the goodbye.
+A @function_tool: the framework sends its signature and docstring to the
+model and runs it here when the model calls it. The docstring is the rule book
+the brain's tool description is, in the same words. On gemini-3.8-live tools
+run in the background and the result is taken up when the model is idle.
 """
 
-import asyncio
+from __future__ import annotations
+
 import logging
-import time
+from dataclasses import dataclass
 
-from livekit.agents import RunContext, function_tool, get_job_context
-from livekit.agents.llm import StopResponse
+from livekit.agents import RunContext, function_tool
 
-from guide import Build
-from render import VIEWS
+from guide import Build, publish_build
+from runlog import RunLog
 
 logger = logging.getLogger("rayneo-agent.tools")
 
 
-async def publish_build(build: Build) -> None:
-    """Push the run's position to the glasses as participant attributes; see
-    Build.attributes. Called at start and after every tool that moves it."""
-    await get_job_context().room.local_participant.set_attributes(build.attributes())
+@dataclass
+class Call:
+    """AgentSession.userdata: the run and its record."""
 
-
-async def _after_speech(context: RunContext[Build], grace: float = 0.8, cap: float = 8.0) -> None:
-    """Hold a tool result until the agent has finished saying whatever it said
-    on the way in ("Let me have a look."). Gemini counts itself idle when it
-    has finished generating, not when the wearer has finished hearing, so a
-    result returned at once starts the next generation and the tail of the
-    sentence is cut off. Waits up to `grace` for playout to start, then for it
-    to end, `cap` at most."""
-    t0 = time.monotonic()
-    while context.session.agent_state != "speaking" and time.monotonic() - t0 < grace:
-        await asyncio.sleep(0.05)
-    while context.session.agent_state == "speaking" and time.monotonic() - t0 < cap:
-        await asyncio.sleep(0.05)
+    build: Build
+    record: RunLog
+    tool_calls: int = 0
 
 
 @function_tool()
-async def get_step(context: RunContext[Build]) -> str:
-    """Get the current build step: the part and what to tell the wearer. Call
-    this before giving any instruction, whenever the wearer asks what to do
-    or what comes next, and whenever you are unsure which step you are on.
+async def set_progress(context: RunContext[Call], done: int) -> str:
+    """Records how far the build is: the number of steps, counted from step 1, that the camera shows built right,
+    from 0 to the number of the last step. It can go up by more than one, or down when an earlier step turns out
+    wrong. The step list on the glasses follows it, so what you say should say the same, and progress recorded
+    higher than the plate shows leaves the wearer building on a mistake. Call it only when the frame lets you tell
+    and the number differs from the recorded progress; leave it out when part of the build is hidden or too small
+    to judge, and when the wearer only says they are done without the frame showing it.
+
+    Args:
+        done: how many steps, from step 1, are built right
     """
-    return context.userdata.describe()
-
-
-@function_tool()
-async def look(context: RunContext[Build]) -> str:
-    """Get one fresh camera frame of what the wearer sees right now. Camera
-    frames otherwise reach you only while the wearer is speaking, so call this
-    before judging whether a step is built, whenever the wearer asks you to
-    check something, and whenever you would otherwise be guessing from an old
-    picture. Judge the frame that arrives after this call."""
-    if context.userdata.request_look is None:
-        return "No camera in this session."
-    logger.info("look: requested")
-    try:
-        # Answer only once the frame has gone to the model, so the result
-        # always lands after the picture it refers to.
-        await asyncio.wait_for(context.userdata.request_look(), timeout=3)
-    except asyncio.TimeoutError:
-        logger.warning("look: no camera frame within 3 s")
-        return "No frame came from the camera in three seconds; tell the wearer you cannot see right now."
-    context.userdata.saw_frame()
-    await _after_speech(context)
-    return "You now have a fresh frame; judge from it."
-
-
-@function_tool()
-async def step_done(context: RunContext[Build]) -> str:
-    """Record that the current step is built, and get the next one. Call this
-    last: after you have looked at the camera, said what you see, and it
-    matches the step. It is refused unless you called look during this step
-    within the last 20 seconds. The wearer saying they are done is a request
-    to check, not a confirmation. Until this has been called the step is not
-    done and you must not tell them to move on. The result is the next step,
-    or that the build is finished."""
-    result = context.userdata.complete_step()
-    await publish_build(context.userdata)
-    await _after_speech(context)
-    return result
-
-
-@function_tool()
-async def reopen_previous_step(context: RunContext[Build]) -> str:
-    """Go back to the previous step. Use it when a step was marked done too
-    early: the wearer says it was not finished, or you can now see it is not
-    built as instructed. The result is that step again."""
-    result = context.userdata.reopen_previous_step()
-    await publish_build(context.userdata)
-    return result
-
-
-@function_tool()
-async def restart_build(context: RunContext[Build]) -> str:
-    """Start the build over from the first step. Only when the wearer asks to
-    start again."""
-    result = context.userdata.restart()
-    await publish_build(context.userdata)
-    return result
-
-
-@function_tool()
-async def show_view(context: RunContext[Build], view: str) -> str:
-    """Turn the reference model on the wearer's display. `view` is one of
-    front, back, left, right, top, front-left, front-right (a fixed view), or
-    spin to let it rotate again. Use it when the wearer asks to see a side, or
-    when a fixed view shows where a brick goes better than the rotation."""
-    model = context.userdata.model
-    if model is None:
-        return "There is no model display in this session."
-    view = view.strip().lower().replace(" ", "-").replace("_", "-")
-    if view != "spin" and view not in VIEWS:
-        return f"Unknown view {view!r}. Use one of: spin, {', '.join(VIEWS)}."
-    model.show(view)
-    logger.info("model: view=%s", view)
-    raise StopResponse()  # done; nothing to say about it
-
-
-@function_tool()
-async def highlight_part(context: RunContext[Build], step: int) -> str:
-    """Highlight one step's brick in the reference model on the wearer's
-    display: that brick in colour, the rest grey. `step` is the step number
-    (1-based); 0 shows every brick in colour. The current step's brick is
-    highlighted automatically whenever a step starts, so this is for pointing
-    at another one, or at the whole build."""
-    build = context.userdata
-    if build.model is None:
-        return "There is no model display in this session."
-    if not 0 <= step <= len(build.guide.steps):
-        return f"There is no step {step}; steps are 1 to {len(build.guide.steps)}."
-    build.highlight(None if step == 0 else step - 1)
-    logger.info("model: highlight %s", "none" if step == 0 else f"step {step}")
-    raise StopResponse()  # done; nothing to say about it
-
-
-@function_tool()
-async def end_call(context: RunContext[Build]) -> str:
-    """End the call. Use it when the wearer says goodbye or asks to stop."""
-    build = context.userdata
-    logger.info(
-        "end_call: run=%s at step %d/%d", build.run, build.step + 1, len(build.guide.steps)
-    )
-    # Let whatever the model is saying finish, then close the room. The
-    # glasses are disconnected and return to their connect screen.
-    await context.wait_for_playout()
-    await get_job_context().delete_room()
-    return "The call has ended."
+    call = context.userdata
+    build, record = call.build, call.record
+    call.tool_calls += 1
+    n, total = call.tool_calls, len(build.guide.steps)
+    if not isinstance(done, int) or not 0 <= done <= total:
+        logger.warning("tool: #%d set_progress(%r): ignored, not between 0 and %d", n, done, total)
+        record.event("tool", n=n, name="set_progress", done=done, ignored=True)
+        return f"Not recorded: done must be a whole number from 0 to {total}. Still {build.where()}."
+    before = build.step
+    if not build.set_step(done):
+        logger.info("tool: #%d set_progress(%d): unchanged, %d done", n, done, done)
+        record.event("tool", n=n, name="set_progress", done=done, before=before, unchanged=True)
+        return f"Progress unchanged: {build.where()}."
+    logger.info("tool: #%d set_progress(%d): %d done -> %d done", n, done, before, done)
+    if build.step > before:
+        record.event("step", done=build.step, now=None if build.finished else build.step + 1)
+    else:
+        record.event("step", done=None, reopened=build.step + 1, now=build.step + 1)
+    record.event("tool", n=n, name="set_progress", done=done, before=before)
+    await publish_build(build)
+    if build.finished:
+        return f"Recorded: all {total} steps are done, the build is finished. Tell the wearer."
+    return f"Recorded: {build.where()}. Tell the wearer, then give them step {build.step + 1}."

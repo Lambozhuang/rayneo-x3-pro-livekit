@@ -3,7 +3,8 @@
     python deploy/pull_run.py            the newest call
     python deploy/pull_run.py <call>     that one (a directory name under backend/runs)
 
-Writes logs/<call>/report.html (report.py) and logs/<call>/rounds.html (rounds.py). logs/ is not in git.
+Writes logs/<call>/report.html (report.py) and, for a GPT-Live call, logs/<call>/rounds.html (rounds.py);
+a Gemini call has no brain rounds. logs/ is not in git.
 """
 
 import subprocess
@@ -21,6 +22,6 @@ call = sys.argv[1] if len(sys.argv) > 1 else subprocess.run(
 if not call:
     sys.exit(f"no call records under {HOST}:{RUNS}")
 subprocess.run(["scp", "-q", "-r", f"{HOST}:{RUNS}/{call}", str(logs)], check=True)
-for page in ("report.py", "rounds.py"):
+pages = ["report.py"] + (["rounds.py"] if (logs / call / "brain.txt").exists() else [])
+for page in pages:
     subprocess.run([sys.executable, str(root / "deploy" / page), str(logs / call)], check=True)
-print(logs / call / "rounds.html")

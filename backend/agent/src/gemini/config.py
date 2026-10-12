@@ -1,32 +1,32 @@
-"""Environment configuration and the session model factory."""
+"""Environment configuration for the Gemini path.
+
+One model does everything, so there is one model to configure: which Gemini
+Live model and voice, how many camera frames a second it is shown, how many
+tokens it spends on each, and the sliding window over its context. The switches
+are logged as one `experiment:` line at the start of every call, like the GPT
+path's, so a run's conditions can be read back from its log.
+"""
 
 from __future__ import annotations
 
 import logging
 import os
-from typing import Any
+from dataclasses import dataclass, fields
 
 from google.genai import types
 from livekit.agents.utils import images
 from livekit.plugins import google
 
+from env import require_env
+
 logger = logging.getLogger("rayneo-agent.config")
-
-
-def require_env(name: str) -> str:
-    value = os.environ.get(name)
-    if not value:
-        raise RuntimeError(
-            f"{name} is not set. Copy backend/.env.example to backend/.env and fill it in."
-        )
-    return value
-
 
 # How a camera frame is encoded before upload. The plugin's default squeezes
 # every frame into 1024x1024 at JPEG quality 75, which threw away most of a
 # 1080p capture before Gemini ever saw it. Send frames at their captured size
 # instead; how many tokens the model spends on them is media_resolution's
-# business. framedump.py writes its `-sent.jpg` with these same options.
+# business. The frames saved in the call record are encoded with these options
+# too, so they are what the model saw.
 IMAGE_ENCODE_OPTIONS = images.EncodeOptions(
     format="JPEG",
     quality=85,
@@ -34,80 +34,62 @@ IMAGE_ENCODE_OPTIONS = images.EncodeOptions(
 )
 
 
-def video_fps() -> tuple[float, float]:
-    """(speaking, silent) frames per second for the camera sampler; see sampler.py."""
-    return (
-        float(os.environ.get("VIDEO_SPEAKING_FPS", "0.5")),
-        float(os.environ.get("VIDEO_SILENT_FPS", "0")),
-    )
+@dataclass(frozen=True)
+class Settings:
+    model: str
+    voice: str
+    # Camera frames a second shown to the model (sampler.py). Every frame stays
+    # in the model's context for the rest of the call, so this is the cost knob.
+    video_fps: float
+    # Token budget per frame: the API default, or MEDIA_RESOLUTION_LOW / MEDIUM
+    # / HIGH. Gemini 3 models default to a larger budget than 2.5 did.
+    media_resolution: str | None
+    # A sliding window over the model's context: Live keeps every frame and
+    # every word and re-reads them on every turn; measured on gemini-3.8-live,
+    # a five-minute call grew to 50k input tokens a turn and the time to first
+    # audio from 2 s to 9 s. The window drops the oldest turns once `trigger`
+    # tokens are reached, down to `target`. None turns it off.
+    context_trigger: int | None
+    context_target: int
 
-
-def language() -> str:
-    """The language the agent speaks, whatever it hears. Gemini's native-audio
-    models pick a language on their own and switch mid-conversation when the
-    input sounds foreign (a cough transcribed as German was enough), and the
-    voice changes with it. Pinning it in the prompt is Google's recommended
-    fix."""
-    return os.environ.get("AGENT_LANGUAGE", "English")
-
-
-def _context_compression() -> dict[str, Any]:
-    """A sliding window over the model's context. Every frame and every word of
-    a Live session stays in context and is re-read on every turn; measured on
-    gemini-3.8-live, a five-minute call grew to 50k input tokens a turn and
-    the model's time to first audio from 2 s to 9 s. The window drops the
-    oldest turns once `trigger` is reached, down to `target`. Recent frames,
-    which are the ones that matter, survive; the greeting does not need to.
-    `GEMINI_CONTEXT_TRIGGER_TOKENS=off` disables it."""
-    trigger = os.environ.get("GEMINI_CONTEXT_TRIGGER_TOKENS", "24000")
-    if trigger.lower() == "off":
-        return {}
-    target = int(os.environ.get("GEMINI_CONTEXT_TARGET_TOKENS", "12000"))
-    return {
-        "context_window_compression": types.ContextWindowCompressionConfig(
-            trigger_tokens=int(trigger),
-            sliding_window=types.SlidingWindow(target_tokens=target),
-        )
-    }
-
-
-def build_session_model() -> dict[str, Any]:
-    """Build the model half of the session as AgentSession keyword arguments.
-
-    Returning kwargs rather than a single object is the one seam worth having:
-    today this is a realtime speech-to-speech model, but a half-cascade setup
-    would return {"llm": ..., "tts": ...} from here and agent.py would not
-    change. Callers stay unaware of which shape they got.
-    """
-    model = require_env("GEMINI_MODEL")
-    # How many tokens the model spends per video frame: 70 at the default (and
-    # at MEDIA_RESOLUTION_MEDIUM, measured identical), 280 at
-    # MEDIA_RESOLUTION_HIGH. The frame is uploaded at the same pixel size
-    # either way. Unset means the API default. Env, so it can be A/B'd.
-    resolution = os.environ.get("GEMINI_MEDIA_RESOLUTION")
-    compression = _context_compression()
-    # Tools run in the background by default: the model keeps talking while a
-    # tool runs ("let me have a look") and takes up the result once it has
-    # finished speaking (WHEN_IDLE). Gemini's own default is BLOCKING: silence
-    # until the tool returns, then a second round trip for the reply, which
-    # made every step change a ~3 s pause. `blocking` restores that for A/B.
-    tool_behavior = types.Behavior[os.environ.get("GEMINI_TOOL_BEHAVIOR", "non_blocking").upper()]
-    logger.info(
-        "session model: %s media_resolution=%s context_compression=%s tools=%s",
-        model, resolution or "default",
-        compression["context_window_compression"].trigger_tokens if compression else "off",
-        tool_behavior.value.lower(),
-    )
-
-    return {
-        "llm": google.realtime.RealtimeModel(
-            model=model,
-            api_key=require_env("GOOGLE_API_KEY"),
+    @classmethod
+    def from_env(cls) -> Settings:
+        trigger = os.environ.get("GEMINI_CONTEXT_TRIGGER_TOKENS", "24000")
+        s = cls(
+            model=require_env("GEMINI_MODEL"),
             voice=os.environ.get("GEMINI_VOICE", "Puck"),
-            image_encode_options=IMAGE_ENCODE_OPTIONS,
-            **({"media_resolution": types.MediaResolution(resolution)} if resolution else {}),
-            **compression,
-            tool_behavior=tool_behavior,
-            tool_response_scheduling=types.FunctionResponseScheduling.WHEN_IDLE,
+            video_fps=float(os.environ.get("GEMINI_VIDEO_FPS", "1")),
+            media_resolution=os.environ.get("GEMINI_MEDIA_RESOLUTION") or None,
+            context_trigger=None if trigger.lower() == "off" else int(trigger),
+            context_target=int(os.environ.get("GEMINI_CONTEXT_TARGET_TOKENS", "12000")),
         )
-    }
+        require_env("GOOGLE_API_KEY")  # the plugin reads it itself
+        if s.video_fps <= 0:
+            raise RuntimeError(f"GEMINI_VIDEO_FPS={s.video_fps}: the model must get frames; use a rate above 0")
+        logger.info("session model: %s voice=%s video_fps=%s media_resolution=%s context_compression=%s", s.model,
+                    s.voice, s.video_fps, s.media_resolution or "default", s.context_trigger or "off")
+        return s
+
+    def experiment_line(self, guide: str) -> str:
+        """Every switch of this run on one log line, for the analysis later."""
+        knobs = " ".join(f"{f.name}={getattr(self, f.name)}" for f in fields(self))
+        return f"experiment: backend=gemini guide={guide} {knobs}"
+
+
+def build_live_model(settings: Settings) -> google.realtime.RealtimeModel:
+    """The model for AgentSession(llm=). The instructions go on the Agent. Tools
+    are left at the model's defaults: on gemini-3.8-live they run in the
+    background (NON_BLOCKING) and their results are taken up when the model is
+    idle; it has no thinking level to set, and proactive audio is always on, so
+    the model may decide a stray sound needs no answer."""
+    kw = {}
+    if settings.media_resolution:
+        kw["media_resolution"] = types.MediaResolution(settings.media_resolution)
+    if settings.context_trigger is not None:
+        kw["context_window_compression"] = types.ContextWindowCompressionConfig(
+            trigger_tokens=settings.context_trigger,
+            sliding_window=types.SlidingWindow(target_tokens=settings.context_target),
+        )
+    return google.realtime.RealtimeModel(
+        model=settings.model, voice=settings.voice, image_encode_options=IMAGE_ENCODE_OPTIONS, **kw
+    )

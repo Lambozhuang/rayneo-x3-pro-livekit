@@ -42,13 +42,15 @@ Two models. GPT-Live (`gpt-live-1`) is the voice: it hears the wearer and speaks
 
 ### Gemini Live (`AGENT_BACKEND=gemini`, `backend/agent/src/gemini/`)
 
-One model, Gemini Live (`GEMINI_MODEL`), hears, sees and speaks. It judges the bricks itself and moves the build through its own tools (`gemini/tools.py`: `get_step`, `look`, `step_done`, `reopen_previous_step`, ...).
+One model, Gemini Live (`GEMINI_MODEL`), hears, sees and speaks. Its prompt is the GPT-Live persona and the brain's task and judging rules said to one model with eyes (`gemini/prompts.py`); the task block in the middle is the same text the brain gets (`src/prompts.py`).
 
-Every frame it gets stays in its context, so frames are rationed (`gemini/sampler.py`): 0.5 a second while the wearer speaks (`VIDEO_SPEAKING_FPS`), none while they are silent (`VIDEO_SILENT_FPS`), and one when it calls `look`.
+1. Camera frames go to the model inline with the audio, one a second (`GEMINI_VIDEO_FPS`, `gemini/sampler.py`); every frame stays in its context for the rest of the call, so that rate is the cost knob, and a sliding window drops the oldest turns past `GEMINI_CONTEXT_TRIGGER_TOKENS`.
+2. The model judges the plate from the frames it has and talks to the wearer directly; nothing is handed over.
+3. It has the brain's one tool, `set_progress` (`gemini/tools.py`): the step list on the glasses follows it.
 
-A local VAD (Silero) tells the agent when the wearer is speaking; Gemini still decides when to answer.
+No local VAD: Gemini's own turn detection decides when the wearer has finished. Each frame shown to the model is saved into the call record (see Logs), so a run can be judged from what the model saw.
 
-This architecture writes no call record (see Logs).
+To the glasses the two architectures are the same participant: audio, captions, and the step list as participant attributes.
 
 ## Running
 
@@ -73,24 +75,42 @@ docker compose down              # after testing
 
 `-Install` needs a JDK: `JAVA_HOME`, or Android Studio's, which the script finds by itself. The debug build is required: it allows cleartext `http://` / `ws://` to a LAN IP. Glasses and server must share an IP network: USB carries adb only, and libwebrtc binds to Wi-Fi. `glasses.ps1` also turns off the policy that switches the glasses' Wi-Fi off a minute after they think they were taken off; `-RestoreSleep` puts it back. On the glasses: swipe to pick a build, tap to call, double tap to end the call or leave.
 
+### Scripts
+
+Everything in `deploy/`, each one's header has the details. The shell and Python ones run on the server (stdlib only); the PowerShell ones on the Windows PC with the glasses on adb, from the repo root.
+
+| script | does | arguments |
+|---|---|---|
+| `setup.sh lab` | first-time setup on a Linux host: a livekit-server key pair, `livekit.yaml` at the repo root from `livekit.lab.yaml`, `backend/.env` from `.env.example` with the LAN IP filled in; never overwrites a file that exists; prints the ufw rules | `lab` is the only shape (private LAN, `ws://` on 7880, media UDP 50000-60000, `AUTH_MODE=dev`); asks for `GOOGLE_API_KEY` at a terminal, otherwise takes it from the environment or leaves it blank |
+| `watch.py` | the agent log as one coloured line per event: wearer green, agent white, build yellow, timings cyan, warnings red; drops SDK chatter | `docker compose logs -f --no-log-prefix agent \| python3 ../deploy/watch.py`; `-v` keeps the dropped lines, dim |
+| `pull_run.py` | copies a call's record from the lab PC (`ylab-pc`, `~/services/rayneo-x3-pro-livekit/backend/runs`, both constants in the file) into `logs/<call>/` and runs the two page scripts on it | none: the newest call; `<call>`: that directory name |
+| `report.py` | one record as `report.html` beside it: the call at a glance (settings, steps done, looks or `set_progress` calls, model times, what went wrong), a timeline, the whole call in order with a card per look | one or more record directories, e.g. `logs/<call>` or `backend/runs/<call>` on the server |
+| `rounds.py` | a GPT-Live record as `rounds.html`: every brain round in full, the messages as sent, the photo, the reply, what went to GPT-Live; refuses a Gemini record | one record directory |
+| `glasses.ps1` | builds, installs and launches the app on the glasses over adb, pointed at a backend; also turns off the glasses' Wi-Fi-off-when-taken-off policy | `-Ip` backend LAN address (default: this PC's), `-Port` api port (default: `API_PORT` from `backend\.env`, else 3000), `-Credential` the static token when `AUTH_MODE=static`, `-Task <name>` preselect a build, `-Install` build and install first, `-Log` tail the gesture log, `-Stop` kill the app, `-RestoreSleep` put the policy back |
+| `record.ps1` | records source video with the glasses' stock camera app, driven over adb; the app stops every clip at 60 s, so `-Start` keeps restarting it (a beep, a two-second gap) until `-Stop` from another shell, which pulls the clips to `tmp\videos\` and joins them | `-Start`; `-Stop -Name <name>` (needs ffmpeg and ffprobe on PATH for the join) |
+
+`livekit.lab.yaml` is the livekit-server config template `setup.sh` fills in; the copy with the real key pair lives at the repo root as `livekit.yaml`, gitignored.
+
 ## Logs
 
-The agent log (`docker compose logs agent`, coloured by `deploy/watch.py`) of the GPT-Live architecture, by prefix:
+The agent log (`docker compose logs agent`, coloured by `deploy/watch.py`), by prefix. The first group is the same on both architectures, the other two belong to one each:
 
 | prefix | what |
 |---|---|
-| `experiment:` | every setting of the run |
+| `experiment:` | every setting of the run, `backend=openai` or `gemini` |
 | `user:` / `assistant:` | both transcripts, when a turn ends |
-| `live:` | who speaks when; `live: sent` every event to GPT-Live but mic audio; `live: event` GPT-Live's own (delegations, receipts, errors) |
-| `delegation:` | a hand-over, with the wearer's words |
-| `brain:` | per request: frame, timings, tokens, reply, one line per tool call |
-| `voice:` | when GPT-Live started saying an answer |
-| `step`, `build` | progress changes, the build finished or restarted |
+| `step`, `build` | progress changes, the build finished |
 | `camera:`, `link:` | first frame; the glasses joining, leaving, link quality |
-| `gpt-live:` | session start and close, seconds billed |
-| `usage:` | the voice's session time about once a minute; at the end, the session's usage and the camera frames received |
+| `usage:` | the model's usage about once a minute; at the end, the session's total and the camera frames received |
+| `live:` | GPT-Live: who speaks when; `live: sent` every event to GPT-Live but mic audio; `live: event` GPT-Live's own (delegations, receipts, errors). Gemini: when the model speaks |
+| `delegation:` | GPT-Live: a hand-over, with the wearer's words |
+| `brain:` | GPT-Live: per request: frame, timings, tokens, reply, one line per tool call |
+| `voice:` | GPT-Live: when it started saying an answer |
+| `gpt-live:` | GPT-Live: session start and close, seconds billed |
+| `model:` | Gemini: per reply, time to first audio, generation length, tokens with the image tokens spelled out (zero means no video is arriving) |
+| `tool:` | Gemini: each `set_progress` call and what came of it |
 
-Each call of that architecture also leaves a record in `backend/runs/<UTC start>-<room>/`: `events.jsonl` (the log's story with every field), the photos sent to the brain, both prompts as sent. `python deploy/pull_run.py [<call>]` copies the newest (or that) record into `logs/` and writes `report.html` (timeline, waits, what went wrong) and `rounds.html` (each request's input and output in full). The container writes records as root; delete them with `docker run --rm -v "$PWD/runs:/r" backend-agent sh -c "rm -rf /r/2026*"` in `backend/`.
+Each call also leaves a record in `backend/runs/<UTC start>-<room>/`: `events.jsonl` (the log's story with every field), the prompts as sent, and the photos: on the GPT path every photo sent to the brain, on the Gemini path every frame shown to the model. `python deploy/pull_run.py [<call>]` copies the newest (or that) record into `logs/` and writes `report.html` (timeline, waits, what went wrong; for a Gemini call the frames shown and each `set_progress` with the newest frame before it) and, for a GPT-Live call, `rounds.html` (each request's input and output in full). The container writes records as root; delete them with `docker run --rm -v "$PWD/runs:/r" backend-agent sh -c "rm -rf /r/2026*"` in `backend/`.
 
 **Never set the root logger to `DEBUG` in code** (`logging.basicConfig(level=logging.DEBUG)` and the like): the `websockets` logger then prints request headers, API keys included. `--log-level debug` on the agent CLI sets the root logger to `DEBUG` too, but holds `websockets.client` at `WARN`. If a key reached a log, rotate it.
 
@@ -104,8 +124,10 @@ backend/
   agent/src/agent.py    entrypoint, AGENT_BACKEND picks gpt/ or gemini/
   agent/src/gpt/        GPT-Live and a vision model: agent, config, prompts, brain
   agent/src/gemini/     Gemini Live: agent, config, prompts, tools, sampler
-  agent/src/guide.py    task file loader and the build's progress
-  agent/src/frames.py   FrameTap: keeps the newest camera frame
+  agent/src/guide.py    task file loader, the build's progress, publishing it to the glasses
+  agent/src/prompts.py  the task block both architectures put in their prompts
+  agent/src/env.py      what both read from .env
+  agent/src/frames.py   FrameTap: keeps the newest camera frame (GPT path)
   agent/src/runlog.py   one record per call (RUN_DIR)
   agent/guides/         the builds the glasses pick from, one task.toml each
 android/                the glasses app
@@ -117,9 +139,9 @@ docs/                   TASK.md (the experiment task), TODO.md, notes-gpt-live-o
 logs/                   records pulled from the lab (not in git)
 ```
 
-**backend/agent/src/gpt/**: `prompts.py` builds both prompts from the task file; `brain.py` answers each hand-over (its docstring has the details: the frame's crop, timeouts, a newer hand-over cancelling an older one); `agent.py` wires the session, the brain and the logs.
+**backend/agent/src/gpt/**: `prompts.py` builds both prompts, the voice's and the brain's, around the shared task block; `brain.py` answers each hand-over (its docstring has the details: the frame's crop, timeouts, a newer hand-over cancelling an older one); `agent.py` wires the session, the brain and the logs.
 
-**backend/agent/src/gemini/**: `prompts.py` the model's instructions, `tools.py` its tools, `sampler.py` which frames it gets (its docstring has the measurements behind the rationing), `agent.py` the session.
+**backend/agent/src/gemini/**: `prompts.py` the one prompt, `tools.py` the one tool, `sampler.py` which frames the model gets and saving them to the record, `config.py` the settings and the model, `agent.py` the session and the logs.
 
 **Task file** (`backend/agent/guides/<task>/task.toml`): per step a name for the list on the glasses, the brick, where it goes against the bricks before it, and the brick's cells as drawn (for the sheet, not the models). Each file's `number` is its task on `tasks/sheet.html`.
 

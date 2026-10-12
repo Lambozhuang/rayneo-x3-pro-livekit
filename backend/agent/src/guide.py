@@ -1,15 +1,13 @@
 """The build guide and the state of one run through it.
 
 A guide is a directory under ../guides with a `task.toml` (a title and an
-ordered list of steps) and, optionally, a `model.glb` of the finished build
-that the Gemini path streams to the glasses as a rotating reference
-(render.py); a bare .toml file is a guide without a model. Each step has a
-name for the list on the glasses, the brick and where it goes.
+ordered list of steps); a bare .toml file works too. Each step has a name for
+the list on the glasses, the brick and where it goes.
 
 `Build` holds the run's position in that list and logs the timing of every
-step. On the GPT path the brain moves it (`set_step`) when it confirms a step
-from the camera; on the Gemini path the model moves it through its tools
-(gemini/tools.py).
+step. A model moves it (`set_step`) when it judges from the camera how many
+steps are built: the brain on the GPT path, Gemini itself through its tool on
+the Gemini path; `publish_build` sends the position to the glasses.
 """
 
 from __future__ import annotations
@@ -18,21 +16,10 @@ import json
 import logging
 import time
 import tomllib
-from collections.abc import Awaitable, Callable
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import TYPE_CHECKING
-
-if TYPE_CHECKING:
-    from render import ModelState
 
 logger = logging.getLogger("rayneo-agent.build")
-
-# How old the model's last look may be when it closes a step. Long enough for
-# "let me have a look" plus the verdict, short enough that a frame from before
-# the wearer moved a brick does not count.
-LOOK_MAX_AGE = 20.0
-
 
 @dataclass(frozen=True)
 class Step:
@@ -49,8 +36,7 @@ class Guide:
     name: str
     title: str
     steps: tuple[Step, ...]
-    plate: int = 16  # studs per side of the baseplate, for flat-layout tasks
-    model: Path | None = None  # model.glb of the finished build, if the guide has one
+    plate: int = 16  # studs per side of the baseplate
 
 
 def load_guide(path: str) -> Guide:
@@ -59,7 +45,7 @@ def load_guide(path: str) -> Guide:
     p = Path(path)
     if not p.is_absolute():
         p = Path(__file__).resolve().parent.parent / p
-    toml, model = (p / "task.toml", p / "model.glb") if p.is_dir() else (p, None)
+    toml = p / "task.toml" if p.is_dir() else p
     with toml.open("rb") as f:
         data = tomllib.load(f)
     steps = tuple(
@@ -68,10 +54,7 @@ def load_guide(path: str) -> Guide:
     )
     if not steps:
         raise ValueError(f"{toml}: guide has no steps")
-    return Guide(
-        name=p.stem, title=data["title"], steps=steps, plate=int(data.get("plate", 16)),
-        model=model if model is not None and model.exists() else None,
-    )
+    return Guide(name=p.stem, title=data["title"], steps=steps, plate=int(data.get("plate", 16)))
 
 
 def picked_guide(metadata: str) -> Guide:
@@ -97,27 +80,10 @@ class Build:
     step: int = 0  # index of the current step; len(steps) once finished
     started: float = field(default_factory=time.monotonic)
     step_started: float = field(default_factory=time.monotonic)
-    # When the model last got a frame it asked for (the look tool), during
-    # this step; None until it has. complete_step refuses without a recent
-    # one: the model must have seen the step before it can close it.
-    looked: float | None = None
-    # Asks the camera sampler for one fresh frame; the `look` tool calls it.
-    # Set by agent.py; None in tests and in console mode, where there is no camera.
-    request_look: Callable[[], Awaitable[None]] | None = field(default=None, repr=False)
-    # The streamed reference model, when the guide has one (render.py): its
-    # state, which the tools change, and the node names in the GLB, so a step
-    # can be turned into the node to highlight. None without a model.
-    model: ModelState | None = field(default=None, repr=False)
-    model_nodes: tuple[str, ...] = ()
 
     @property
     def finished(self) -> bool:
         return self.step >= len(self.guide.steps)
-
-    def status(self) -> str:
-        if self.finished:
-            return f"All {len(self.guide.steps)} steps complete."
-        return f"Step {self.step + 1} of {len(self.guide.steps)}."
 
     def attributes(self) -> dict[str, str]:
         """The run as participant attributes, for the list on the glasses:
@@ -131,57 +97,19 @@ class Build:
             "rayneo.build.step": str(self.step),
         }
 
-    def describe(self) -> str:
-        """The current step, as the model should hear about it."""
+    def where(self) -> str:
+        """The recorded progress, as a model is told it."""
+        total = len(self.guide.steps)
         if self.finished:
-            return "The build is finished. There are no more steps."
-        s = self.guide.steps[self.step]
-        return f"{self.status()} The {s.brick}: {s.place}."
-
-    def saw_frame(self) -> None:
-        """The look tool got its frame to the model."""
-        self.looked = time.monotonic()
-
-    def complete_step(self) -> str:
-        """Advance to the next step. The model calls this once it is satisfied,
-        from the camera, that the current step is done. Refused unless it has
-        looked during this step, and recently: the wearer saying "done" is not
-        evidence, and the model was closing steps on old frames or none."""
-        if self.finished:
-            return self.describe()
-        n, total = self.step + 1, len(self.guide.steps)
-        if self.request_look is not None:  # no camera: nothing to enforce
-            age = None if self.looked is None else time.monotonic() - self.looked
-            if age is None or age > LOOK_MAX_AGE:
-                logger.warning("step %d/%d done refused: %s", n, total, "no look this step" if age is None else f"last look {age:.0f}s ago")
-                why = "You have not looked at this step yet." if age is None else f"Your last look was {age:.0f} seconds ago."
-                return f"Not recorded. {why} Call look, judge the fresh frame, and call step_done only if it matches the step."
-        logger.info(
-            "step %d/%d done after %.0fs", n, total, time.monotonic() - self.step_started
-        )
-        self.step += 1
-        self.step_started = time.monotonic()
-        self.looked = None
-        if self.finished:
-            logger.info(
-                "build finished: run=%s in %.0fs", self.run, time.monotonic() - self.started
-            )
-            self.highlight(None)
-            return (
-                f"Recorded: step {n} is right, and it was the last one. Tell the wearer the step is "
-                "right, then that the build is finished, and congratulate them."
-            )
-        self._log_step_start()
-        return (
-            f"Recorded: step {n} is right. First tell the wearer, in one sentence, that it is right "
-            f"and what you saw; then give them the next step. {self.describe()}"
-        )
+            return f"all {total} steps recorded as done"
+        return (f"{self.step} of {total} steps recorded as done; the wearer is on step {self.step + 1} "
+                f"({self.guide.steps[self.step].brick})")
 
     def set_step(self, step: int) -> bool:
         """Move to step index `step` (0-based; len(steps) = finished) because a
-        model judged the build to be there. Logs the transition like the
-        tool-driven path does, so a run's timing reads the same. Returns
-        whether anything changed."""
+        model judged the build to be there. Every step passed is logged with
+        its time, so a run's timing reads the same whichever model moved it.
+        Returns whether anything changed."""
         step = max(0, min(step, len(self.guide.steps)))
         if step == self.step:
             return False
@@ -196,23 +124,9 @@ class Build:
         self.step_started = time.monotonic()
         if self.finished:
             logger.info("build finished: run=%s in %.0fs", self.run, time.monotonic() - self.started)
-            self.highlight(None)
         else:
             self._log_step_start()
         return True
-
-    def reopen_previous_step(self) -> str:
-        """Go back one step: the model marked one done too early and the
-        wearer, or a second look, says it is not. Logged so a run's score
-        shows the false completion."""
-        if self.step == 0:
-            return "Already at the first step. " + self.describe()
-        self.step -= 1
-        self.step_started = time.monotonic()
-        self.looked = None
-        logger.info("step %d/%d reopened", self.step + 1, len(self.guide.steps))
-        self.highlight(self.step)
-        return "Reopened. " + self.describe()
 
     def start(self) -> None:
         logger.info(
@@ -220,36 +134,13 @@ class Build:
         )
         self._log_step_start()
 
-    def restart(self) -> str:
-        logger.info("build restarted: run=%s at step %d", self.run, self.step + 1)
-        self.step = 0
-        self.started = self.step_started = time.monotonic()
-        self.looked = None
-        self._log_step_start()
-        return "Starting over. " + self.describe()
-
     def _log_step_start(self) -> None:
         s = self.guide.steps[self.step]
         logger.info("step %d/%d start: %s", self.step + 1, len(self.guide.steps), s.name)
-        self.highlight(self.step)
 
-    def node_for(self, index: int) -> str | None:
-        """The model node of step `index` (0-based): the GLB names one node per brick stepNN_..."""
-        prefix = f"step{index + 1:02d}"
-        return next((n for n in self.model_nodes if n.startswith(prefix)), None)
 
-    def highlight(self, index: int | None) -> None:
-        """Show the build up to step `index` in the streamed model, that step's
-        brick a little brighter; None shows the whole finished model. Steps do
-        this as they start; the highlight_part tool does it on request."""
-        if self.model is None:
-            return
-        node = None if index is None else self.node_for(index)
-        if index is not None and node is None:
-            logger.warning(
-                "model: no node for step %d in %s", index + 1, self.model_nodes
-            )
-        self.model.highlight = node
-        self.model.upto = None if index is None else frozenset(
-            n for k in range(index + 1) if (n := self.node_for(k)) is not None
-        )
+async def publish_build(build: Build) -> None:
+    """The run's position to the glasses, as participant attributes (Build.attributes)."""
+    from livekit.agents import get_job_context
+
+    await get_job_context().room.local_participant.set_attributes(build.attributes())

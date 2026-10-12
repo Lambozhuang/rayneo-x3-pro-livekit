@@ -11,6 +11,8 @@ import sys
 from pathlib import Path
 
 run = Path(sys.argv[1])
+if not (run / "brain.txt").exists():
+    sys.exit(f"{run}: no brain.txt, not a GPT-Live call (a Gemini call has no rounds; see report.html)")
 ev = [json.loads(line) for line in (run / "events.jsonl").read_text(encoding="utf-8").splitlines() if line.strip()]
 brain_txt = (run / "brain.txt").read_text(encoding="utf-8")
 tools_txt = (run / "brain-tools.json").read_text(encoding="utf-8")

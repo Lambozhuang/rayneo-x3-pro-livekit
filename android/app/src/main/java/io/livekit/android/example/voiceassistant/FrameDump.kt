@@ -13,9 +13,10 @@ import livekit.org.webrtc.VideoSink
 
 /**
  * Debugging aid: saves camera frames as they leave the capturer, before the
- * encoder ever sees them. Paired with the agent's FRAME_DUMP_DIR, this splits
- * "the camera is soft" from "the transport made it soft": the two ends of the
- * pipe, side by side.
+ * encoder ever sees them. Next to the photos in the agent's call record
+ * (backend/runs, what the vision model was sent), this splits "the camera is
+ * soft" from "the transport made it soft": the two ends of the pipe, side by
+ * side.
  *
  * Armed by a marker file rather than a UI or an intent extra, because there is
  * no UI for it and the intent already carries the endpoint:

@@ -36,11 +36,11 @@ import json
 import logging
 import time
 
-from livekit.agents import AgentSession, get_job_context
+from livekit.agents import AgentSession
 
 from frames import FrameTap, to_image
 from gpt.prompts import brain_instructions
-from guide import Build
+from guide import Build, publish_build
 from runlog import RunLog
 
 logger = logging.getLogger("rayneo-agent.brain")
@@ -59,11 +59,6 @@ TOOLS = [
                                                 "description": "how many steps, from step 1, are built right"}},
       "required": ["done"], "additionalProperties": False}),
 ]
-
-
-async def publish_build(build: Build) -> None:
-    """The run's position to the glasses, as participant attributes (Build.attributes)."""
-    await get_job_context().room.local_participant.set_attributes(build.attributes())
 
 
 def _jpeg(frame, side: int) -> bytes:
@@ -271,9 +266,7 @@ class Brain:
         photo = await asyncio.to_thread(_jpeg, frame, self._side) if frame is not None else None
         build = self._build
         total = len(build.guide.steps)
-        where = (f"{build.step} of {total} steps recorded as done; the wearer is on step {build.step + 1} "
-                 f"({build.guide.steps[build.step].brick})"
-                 if not build.finished else f"all {total} steps recorded as done")
+        where = build.where()
         turns, words = conversation(self._session.history, words)
         # the last user turn: the photo first (Anthropic: images before text work best), then where the build is,
         # then the wearer's words

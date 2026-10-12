@@ -1,10 +1,8 @@
 package io.livekit.android.example.voiceassistant.screen
 
 import android.widget.Toast
-import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
@@ -15,7 +13,6 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
-import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
@@ -40,7 +37,6 @@ import io.livekit.android.example.voiceassistant.requirePermissions
 import io.livekit.android.example.voiceassistant.ui.BuildSteps
 import io.livekit.android.example.voiceassistant.ui.Captions
 import io.livekit.android.example.voiceassistant.ui.Eyes
-import io.livekit.android.example.voiceassistant.ui.ModelView
 import io.livekit.android.example.voiceassistant.ui.Phase
 import io.livekit.android.example.voiceassistant.ui.PhaseBanner
 import io.livekit.android.example.voiceassistant.ui.rememberBuildProgress
@@ -79,15 +75,13 @@ fun VoiceAssistantScreen(
  *   top           who has the floor (you / listening / thinking / speaking)
  *   left half     the build's steps, the current one highlighted and kept in view
  *   right half    the conversation, newest at the bottom, what the model heard in green
- *   top-right     the reference model, when the agent streams one (see ModelView);
- *                 the flat guides do not, and it is transparent then
  * Each half scrolls on its own when it is longer than the screen, driven by
  * the content (the current step, the newest line): the glasses have no pointer.
  *
  * Mic and camera are always on. Toggling them was the starter's idea of a
  * feature; here it is a way to silently break the assistant. There is no
  * camera self-preview either: the wearer is looking at the scene directly,
- * and the picture only competed with the model for the little screen there is.
+ * and the picture would only compete with the steps and the captions.
  */
 @OptIn(Beta::class, ExperimentalPermissionsApi::class)
 @Composable
@@ -148,9 +142,9 @@ fun VoiceAssistant(
             }
         }
 
-        // And leave the screen when the session ends: the agent hung up
-        // (end_call deletes the room), or the connection was lost and the SDK
-        // gave up reconnecting. A brief loss is RECONNECTING, not DISCONNECTED,
+        // And leave the screen when the session ends: the room was closed on
+        // the server, or the connection was lost and the SDK gave up
+        // reconnecting. A brief loss is RECONNECTING, not DISCONNECTED,
         // so this does not fire for a network blip; the banner shows that.
         LaunchedEffect(Unit) {
             session.waitUntilConnected()
@@ -221,46 +215,32 @@ fun VoiceAssistant(
         // composed once per eye, so a `remember` inside it would exist twice
         // and the two copies could disagree. See Eyes.
         Eyes {
-            Box(modifier = modifier) {
-                // Who has the floor on top; below it the steps on the left and
-                // the conversation on the right, each scrolling on its own.
-                Column(modifier = Modifier.fillMaxSize()) {
-                    PhaseBanner(
-                        phase = phase,
-                        agent = agent,
-                        modifier = Modifier.padding(top = 4.dp)
-                    )
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .weight(1f)
-                            .padding(top = 12.dp, bottom = 4.dp)
-                    ) {
-                        BuildSteps(
-                            progress = buildProgress,
-                            modifier = Modifier
-                                .weight(1f)
-                                .padding(end = 12.dp)
-                        )
-                        Captions(
-                            messages = sessionMessages.messages,
-                            wearerIdentity = wearerIdentity,
-                            modifier = Modifier.weight(1f)
-                        )
-                    }
-                }
-
-                // Top right: the finished build, rendered and streamed by the
-                // agent with the current step's brick highlighted; black, so
-                // transparent here, where there is no model. 42% of a 640 px
-                // eye is 269 px wide, about what the agent streams (render.py).
-                ModelView(
-                    agent = agent.agentParticipant,
-                    modifier = Modifier
-                        .align(Alignment.TopEnd)
-                        .fillMaxWidth(0.42f)
-                        .aspectRatio(4f / 3f)
+            // Who has the floor on top; below it the steps on the left and
+            // the conversation on the right, each scrolling on its own.
+            Column(modifier = modifier) {
+                PhaseBanner(
+                    phase = phase,
+                    agent = agent,
+                    modifier = Modifier.padding(top = 4.dp)
                 )
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .weight(1f)
+                        .padding(top = 12.dp, bottom = 4.dp)
+                ) {
+                    BuildSteps(
+                        progress = buildProgress,
+                        modifier = Modifier
+                            .weight(1f)
+                            .padding(end = 12.dp)
+                    )
+                    Captions(
+                        messages = sessionMessages.messages,
+                        wearerIdentity = wearerIdentity,
+                        modifier = Modifier.weight(1f)
+                    )
+                }
             }
         }
     }

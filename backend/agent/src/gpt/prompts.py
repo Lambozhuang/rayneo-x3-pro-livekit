@@ -8,6 +8,7 @@ prompt cache.
 """
 
 from guide import Guide
+from prompts import steps_text, task_block
 
 VOICE_PERSONA = """You are the voice of a pair of AR glasses. You are guiding the wearer through a
 small LEGO build called "{title}", {count} steps, one step at a time. You are a
@@ -61,22 +62,11 @@ spot when you say where something goes.
 Always speak {language}, whatever you hear. One or two short sentences at a
 time."""
 
-# Laid out after Anthropic's prompting guide: a role, the data (the task) before the instructions, numbered
-# instructions with their reasons attached; the tool's rules in its own description (brain.py TOOLS).
+# Laid out after Anthropic's prompting guide: a role, the data (the task, prompts.TASK) before the instructions,
+# numbered instructions with their reasons attached; the tool's rules in its own description (brain.py TOOLS).
 BRAIN = """You are the eyes of a voice assistant on a pair of AR glasses. The assistant guides the wearer through a build, one step at a time. The voice that talks to the wearer cannot see, so when the wearer says something that needs eyes, it hands the request to you. The messages are the conversation so far: the user turns are the wearer, the assistant turns are the voice, both written down from speech, so a line can be misheard or cut off. The last message carries a photo the glasses took just now and how far the build is recorded. You keep that record: how many steps are built right. You never speak to the wearer yourself: your reply goes to the voice, which tells the wearer in its own words.
 
-<task>
-The wearer is building "{title}": flat LEGO bricks on a green {plate}x{plate} baseplate that is never rotated, placed one at a time in the order below.
-
-Positions are described on the plate as the wearer sees it, like a picture lying in front of them: up is toward the far edge (the top of the photo), down toward the near edge, left and right are the wearer's. Every brick lies flat; a vertical brick has its long side running up and down, a horizontal one left and right.
-
-A brick's size is its studs across by along, such as 1x6 or 2x6; count both before you say a brick is the one a step names.
-
-Each step names its brick and where it goes. The voice gives a step in two parts: first which brick to find, then, once the wearer has it, where it goes. The wearer may show you the brick in their hand before placing it, or just place it.
-<steps>
-{steps}
-</steps>
-</task>
+{task}
 
 <instructions>
 For each request:
@@ -89,15 +79,11 @@ For each request:
 </instructions>"""
 
 
-def _steps(guide: Guide, indent: str = "") -> str:
-    return "\n".join(f"{indent}{i}. {s.brick}: {s.place}" for i, s in enumerate(guide.steps, 1))
-
-
 def voice_persona(guide: Guide, language: str) -> str:
-    steps = _steps(guide, "  ") + ("\n\nEach step has two parts: first tell the wearer which brick to find; when they "
+    steps = steps_text(guide, "  ") + ("\n\nEach step has two parts: first tell the wearer which brick to find; when they "
                                    "say they have it, tell them where it goes.")
     return VOICE_PERSONA.format(title=guide.title, count=len(guide.steps), steps=steps, language=language)
 
 
 def brain_instructions(guide: Guide, language: str) -> str:
-    return BRAIN.format(title=guide.title, plate=guide.plate, steps=_steps(guide), language=language)
+    return BRAIN.format(task=task_block(guide), language=language)

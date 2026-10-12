@@ -20,7 +20,7 @@ KEEP = (
     ("user:", GREEN, "you  "),
     ("assistant:", WHITE, "agent"),
     ("model:", CYAN, "model"),
-    ("look:", YELLOW, "look "),
+    ("tool:", YELLOW, "tool "),
     ("camera:", YELLOW, "call "),
     ("voice:", CYAN, "voice"),
     ("brain:", YELLOW, "brain"),
@@ -30,7 +30,6 @@ KEEP = (
     ("gpt-live:", CYAN, "bill "),
     ("step ", YELLOW, "build"),
     ("build", YELLOW, "build"),
-    ("end_call", YELLOW, "build"),
     ("session for", YELLOW, "call "),
     ("session model:", YELLOW, "call "),
 )

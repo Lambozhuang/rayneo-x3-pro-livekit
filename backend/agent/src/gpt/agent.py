@@ -32,11 +32,12 @@ from livekit.agents import (
 from livekit.agents.llm import ChatMessage
 from livekit.agents.metrics import RealtimeModelMetrics
 
+from env import language, require_env
 from frames import FrameTap
-from gpt.brain import TOOLS, Brain, make_model, publish_build
-from gpt.config import Settings, build_live_model, language, require_env
+from gpt.brain import TOOLS, Brain, make_model
+from gpt.config import Settings, build_live_model
 from gpt.prompts import voice_persona
-from guide import Build, picked_guide
+from guide import Build, picked_guide, publish_build
 from runlog import RunLog
 
 logger = logging.getLogger("rayneo-agent")

@@ -4,12 +4,14 @@
     python3 deploy/report.py backend/runs/<call> [more calls]     -> <call>/report.html
 
 Reads what the agent wrote under RUN_DIR (backend/agent/src/runlog.py): events.jsonl,
-the photos, brain.txt and voice.txt. The page has the call at a glance (settings, steps
-done, looks, how long the brain and the wearer waited, anything that went wrong), a
-timeline of who spoke when and every look, and then the call in order, each hand-over
-as one card: what the wearer said, the photo and the whole input the brain got, its
-reply and tool call, what reached the voice and when the voice started speaking.
-Only stdlib, so it runs on the backend host as is.
+the photos and the prompts. The page has the call at a glance (settings, steps done,
+looks, how long the brain and the wearer waited, anything that went wrong), a timeline
+of who spoke when and every look, and then the call in order. For a GPT-Live call each
+hand-over is one card: what the wearer said, the photo and the whole input the brain
+got, its reply and tool call, what reached the voice and when the voice started
+speaking. For a Gemini call there are no hand-overs: the timeline shows the frames the
+model was shown and its set_progress calls, and each call is a row with the newest
+frame before it. Only stdlib, so it runs on the backend host as is.
 """
 
 import html
@@ -81,21 +83,35 @@ def outcome(look: dict) -> str:
     return "done" if back.get("done") or back.get("progress") is not None else "not"  # done: records before set_progress
 
 
-def timeline(events: list[dict], looks: dict[int, dict], end: float) -> str:
+def timeline(events: list[dict], looks: dict[int, dict], end: float, gemini: bool) -> str:
     width = int(end * PX) + 80
-    lanes = ["wearer", "voice", "brain", "steps"]
+    # a GPT-Live call: who speaks, the brain's looks, the steps; a Gemini call has no wearer state (no local VAD)
+    # and no brain: the frames shown to the model and its tool calls instead
+    lanes = ["voice", "frames", "tool", "steps"] if gemini else ["wearer", "voice", "brain", "steps"]
     h = LANE * len(lanes) + 24
     x = lambda t: 60 + t * PX  # noqa: E731
+    y = lambda name: lanes.index(name) * LANE  # noqa: E731
     svg = [f'<svg width="{width}" height="{h}" font-size="11" font-family="sans-serif">']
     for i, name in enumerate(lanes):
         svg.append(f'<text x="4" y="{i * LANE + 15}" fill="#888">{name}</text>')
     for s in range(0, int(end) + 1, 10):
         svg.append(f'<line x1="{x(s)}" y1="0" x2="{x(s)}" y2="{h - 18}" stroke="#262626"/>'
                    f'<text x="{x(s) - 12}" y="{h - 4}" fill="#666">{mmss(s)[:5]}</text>')
-    for lane, who, colour in ((0, "wearer", "#4a4"), (1, "voice", "#bbb")):
+    for who, colour in (("wearer", "#4a4"), ("voice", "#bbb")):
+        if who not in lanes:
+            continue
         for a, b in spans(events, who, "speaking", end):
-            svg.append(f'<rect x="{x(a):.1f}" y="{lane * LANE + 4}" width="{max((b - a) * PX, 1):.1f}" height="{LANE - 8}" '
+            svg.append(f'<rect x="{x(a):.1f}" y="{y(who) + 4}" width="{max((b - a) * PX, 1):.1f}" height="{LANE - 8}" '
                        f'fill="{colour}"><title>{who} speaking {mmss(a)}-{mmss(b)}</title></rect>')
+    if gemini:
+        for e in events:
+            if e["kind"] == "frame":
+                svg.append(f'<line x1="{x(e["t"]):.1f}" y1="{y("frames") + 6}" x2="{x(e["t"]):.1f}" y2="{y("frames") + LANE - 6}" '
+                           f'stroke="#69c"><title>frame {e["n"]} ({e.get("photo") or ""}) at step {e.get("step")}</title></line>')
+            elif e["kind"] == "tool":
+                colour = "#d44" if e.get("ignored") else "#c93" if e.get("unchanged") else "#5b5"
+                svg.append(f'<a href="#tool{e["n"]}"><rect x="{x(e["t"]) - 2:.1f}" y="{y("tool") + 4}" width="5" height="{LANE - 8}" '
+                           f'fill="{colour}"><title>#{e["n"]} set_progress({e.get("done")}) at {mmss(e["t"])}</title></rect></a>')
     colours = {"done": "#5b5", "not": "#c93", "failed": "#d44", "dropped": "#555"}
     for n, look in looks.items():
         d = look.get("delegation")
@@ -104,21 +120,21 @@ def timeline(events: list[dict], looks: dict[int, dict], end: float) -> str:
         stop = (look.get("look_back") or look.get("look_failed") or look.get("look_dropped") or {}).get("t", d["t"])
         o = outcome(look)
         tip = f"#{n} {o} {mmss(d['t'])}-{mmss(stop)}: {(look.get('look_back') or {}).get('reply', '')}"
-        svg.append(f'<a href="#look{n}"><rect x="{x(d["t"]):.1f}" y="{2 * LANE + 4}" width="{max((stop - d["t"]) * PX, 2):.1f}" '
+        svg.append(f'<a href="#look{n}"><rect x="{x(d["t"]):.1f}" y="{y("brain") + 4}" width="{max((stop - d["t"]) * PX, 2):.1f}" '
                    f'height="{LANE - 8}" fill="{colours[o]}"><title>{esc(tip)}</title></rect>'
-                   f'<text x="{x(d["t"]) + 2:.1f}" y="{2 * LANE + 15}" fill="#111">{n}</text></a>')
+                   f'<text x="{x(d["t"]) + 2:.1f}" y="{y("brain") + 15}" fill="#111">{n}</text></a>')
         v = look.get("voice_started")
         if v is not None:
-            svg.append(f'<line x1="{x(v["t"]):.1f}" y1="{LANE + 1}" x2="{x(v["t"]):.1f}" y2="{2 * LANE - 1}" stroke="#9cf" '
+            svg.append(f'<line x1="{x(v["t"]):.1f}" y1="{y("voice") + 1}" x2="{x(v["t"]):.1f}" y2="{y("voice") + LANE - 1}" stroke="#9cf" '
                        f'stroke-width="2"><title>voice starts answer #{n}</title></line>')
     for e in events:
         if e["kind"] == "live" and e.get("type") == "delegation.created" and not any(
                 (lk.get("delegation") or {}).get("id") == e.get("id") for lk in looks.values()):
-            svg.append(f'<line x1="{x(e["t"]):.1f}" y1="{2 * LANE}" x2="{x(e["t"]):.1f}" y2="{3 * LANE}" stroke="#f44" '
+            svg.append(f'<line x1="{x(e["t"]):.1f}" y1="{y("brain")}" x2="{x(e["t"]):.1f}" y2="{y("brain") + LANE}" stroke="#f44" '
                        f'stroke-width="3"><title>GPT-Live delegated, nothing reached the brain</title></line>')
         if e["kind"] == "step" and e.get("done"):
-            svg.append(f'<line x1="{x(e["t"]):.1f}" y1="{3 * LANE + 2}" x2="{x(e["t"]):.1f}" y2="{4 * LANE - 2}" stroke="#5b5" '
-                       f'stroke-width="2"/><text x="{x(e["t"]) + 3:.1f}" y="{3 * LANE + 15}" fill="#7d7">{e["done"]}</text>')
+            svg.append(f'<line x1="{x(e["t"]):.1f}" y1="{y("steps") + 2}" x2="{x(e["t"]):.1f}" y2="{y("steps") + LANE - 2}" stroke="#5b5" '
+                       f'stroke-width="2"/><text x="{x(e["t"]) + 3:.1f}" y="{y("steps") + 15}" fill="#7d7">{e["done"]}</text>')
     svg.append("</svg>")
     return '<div class="tl">' + "".join(svg) + "</div>"
 
@@ -185,12 +201,33 @@ def card(n: int, look: dict, thinking: list[str]) -> str:
     return "".join(out)
 
 
+def tool_row(e: dict, frame: dict | None) -> str:
+    """A Gemini set_progress call: the newest frame the model had been shown before it, and what came of it."""
+    out = [f'<div class="card {"failed" if e.get("ignored") else "not" if e.get("unchanged") else "done"}" id="tool{e["n"]}">']
+    if frame and frame.get("photo"):
+        out.append(f'<a href="{esc(frame["photo"])}"><img src="{esc(frame["photo"])}"></a>')
+    out.append('<div class="body">')
+    what = (f'<span class="bad">set_progress({esc(e.get("done"))}) ignored: not a number of steps</span>' if e.get("ignored")
+            else f'set_progress({e.get("done")}): unchanged' if e.get("unchanged")
+            else f'<span class="ok">set_progress({e.get("done")}): {e.get("before")} done &rarr; {e.get("done")} done</span>')
+    out.append(f'<b>#{e["n"]}</b> {mmss(e["t"])} &nbsp; {what}<br>')
+    if frame:
+        out.append(f'<span class="dim">newest frame shown: {frame["n"]} at {mmss(frame["t"])}, {(e["t"] - frame["t"]):.1f} s '
+                   f'before the call, {frame.get("size")}, {frame.get("photo_kb")} KB</span><br>')
+    else:
+        out.append('<span class="bad">no frame had been shown to the model yet</span><br>')
+    out.append('</div><div class="clear"></div></div>')
+    return "".join(out)
+
+
 def problems(events: list[dict], looks: dict[int, dict]) -> list[str]:
     out = []
     ids = {(lk.get("delegation") or {}).get("id") for lk in looks.values()}
     for e in events:
         k, t = e["kind"], mmss(e["t"])
-        if k == "look_failed":
+        if k == "tool" and e.get("ignored"):
+            out.append(f'<a href="#tool{e["n"]}">#{e["n"]}</a> {t} set_progress({esc(e.get("done"))}) ignored')
+        elif k == "look_failed":
             out.append(f'<a href="#look{e["n"]}">#{e["n"]}</a> {t} failed: {esc(e["error"])}')
         elif k == "look_dropped":
             out.append(f'<a href="#look{e["n"]}">#{e["n"]}</a> {t} dropped for #{e["by"]}')
@@ -241,35 +278,63 @@ def report(d: str) -> str:
     billed = next((e.get("seconds") for e in events if e["kind"] == "live" and e.get("type") == "session.closed"),
                   end_ev.get("voice_s"))
     name = os.path.basename(os.path.normpath(d))
+    gemini = (call.get("settings") or {}).get("video_fps") is not None  # the Gemini path's settings; no brain
+    tools = [e for e in events if e["kind"] == "tool"]
+    frames = [e for e in events if e["kind"] == "frame"]
+    turns = [e for e in events if e["kind"] == "model"]
 
     out = [f"<!doctype html><meta charset='utf-8'><title>{esc(name)}</title><style>{CSS}</style>",
            f"<h1>{esc(name)}</h1><table class='kv'>"]
     kv = [("guide", f"{call.get('guide')} ({call.get('language')})"), ("commit", call.get("commit") or "unknown"),
-          ("length", mmss(end)), ("steps done", f"{len(done)}/{steps}"),
-          ("looks", f"{len(looks)}: " + ", ".join(f"{outcomes.count(o)} {o}" for o in ("done", "not", "failed", "dropped")
-                                                   if outcomes.count(o))),
-          ("brain model / total (min / median / max)", f"{stats(model_ms)} &nbsp; / &nbsp; {stats(total_ms)}"),
-          ("hand-over to voice speaking", stats(wait_ms)),
-          ("GPT-Live billed", f"{billed} s" if billed is not None else "-"),
-          ("camera frames", end_ev.get("camera_frames", "-"))]
+          ("length", mmss(end)), ("steps done", f"{len(done)}/{steps}")]
+    if gemini:
+        kv += [("set_progress calls", f"{len(tools)}: {sum(1 for e in tools if not e.get('unchanged') and not e.get('ignored'))} "
+                                      f"moved, {sum(1 for e in tools if e.get('unchanged'))} unchanged, "
+                                      f"{sum(1 for e in tools if e.get('ignored'))} ignored"),
+               ("model ttft / generation (min / median / max)",
+                f"{stats([e['ttft_ms'] for e in turns])} &nbsp; / &nbsp; {stats([e['duration_ms'] for e in turns])}"),
+               ("model turns, tokens in (image) / out", f"{len(turns)}, {end_ev.get('in_tokens', '-')} ({end_ev.get('image_tokens', '-')}) "
+                                                        f"/ {end_ev.get('out_tokens', '-')}"),
+               ("camera frames / shown to the model", f"{end_ev.get('camera_frames', '-')} / {end_ev.get('frames_to_model', len(frames))}")]
+    else:
+        kv += [("looks", f"{len(looks)}: " + ", ".join(f"{outcomes.count(o)} {o}" for o in ("done", "not", "failed", "dropped")
+                                                        if outcomes.count(o))),
+               ("brain model / total (min / median / max)", f"{stats(model_ms)} &nbsp; / &nbsp; {stats(total_ms)}"),
+               ("hand-over to voice speaking", stats(wait_ms)),
+               ("GPT-Live billed", f"{billed} s" if billed is not None else "-"),
+               ("camera frames", end_ev.get("camera_frames", "-"))]
     kv += [(k, v) for k, v in (call.get("settings") or {}).items()]
-    out += [f"<tr><td>{esc(k)}</td><td>{v if k.startswith(('looks', 'brain', 'hand')) else esc(v)}</td></tr>" for k, v in kv]
-    out.append("</table><p><a href='brain.txt'>brain instructions</a> &middot; <a href='brain-tools.json'>brain tools</a> &middot; <a href='voice.txt'>voice persona</a>"
-               " &middot; <a href='events.jsonl'>events.jsonl</a></p>")
+    out += [f"<tr><td>{esc(k)}</td><td>{v if k.startswith(('looks', 'brain', 'hand', 'model', 'set_progress')) else esc(v)}</td></tr>" for k, v in kv]
+    texts = [(f, label) for f, label in (("brain.txt", "brain instructions"), ("brain-tools.json", "brain tools"),
+                                         ("voice.txt", "voice persona"), ("instructions.txt", "instructions"))
+             if os.path.exists(os.path.join(d, f))]
+    out.append("</table><p>" + " &middot; ".join(f"<a href='{f}'>{label}</a>" for f, label in texts)
+               + " &middot; <a href='events.jsonl'>events.jsonl</a></p>")
 
     bad = problems(events, looks)
     out.append("<h2>Went wrong</h2>" + ("<br>".join(f'<span class="bad">{b}</span>' for b in bad) if bad
                                          else '<span class="ok">nothing flagged</span>'))
-    out.append("<h2>Timeline</h2>" + timeline(events, looks, end)
-               + "<p class='dim'>brain bars run from the hand-over to the reply: green = progress set, orange = progress unchanged, "
-                 "red = failed, grey = dropped; click one for its card. Blue tick on the voice lane = the voice starts that "
-                 "answer. Red tick on the brain lane = GPT-Live delegated and nothing arrived. Numbers on the steps lane = "
-                 "step done.</p>")
+    legend = ("<p class='dim'>ticks on the frames lane = a frame shown to the model; marks on the tool lane = set_progress: "
+              "green = progress moved, orange = unchanged, red = ignored; click one for its row. Numbers on the steps lane = "
+              "step done. The wearer's speech is not recorded on this path (no local VAD).</p>" if gemini else
+              "<p class='dim'>brain bars run from the hand-over to the reply: green = progress set, orange = progress unchanged, "
+              "red = failed, grey = dropped; click one for its card. Blue tick on the voice lane = the voice starts that "
+              "answer. Red tick on the brain lane = GPT-Live delegated and nothing arrived. Numbers on the steps lane = "
+              "step done.</p>")
+    out.append("<h2>Timeline</h2>" + timeline(events, looks, end, gemini) + legend)
 
     out.append("<h2>The call</h2>")
+    last_frame = None
     for e in events:
         k, t = e["kind"], f'<span class="t">{mmss(e["t"])}</span>'
-        if k == "said":
+        if k == "frame":
+            last_frame = e
+        elif k == "tool":
+            out.append(f'<div class="row">{t}<div style="flex:1">{tool_row(e, last_frame)}</div></div>')
+        elif k == "model":
+            out.append(f'<div class="row">{t}<span class="dim">model: ttft {e["ttft_ms"]} ms, generation {e["duration_ms"]} ms, '
+                       f'in {e["in_tokens"]} (image {e["image_tokens"]}) out {e["out_tokens"]}</span></div>')
+        elif k == "said":
             spoke = f" (spoke {mmss(e['started'])}-{mmss(e['stopped'])})" if e.get("started") is not None else ""
             cut = " [interrupted]" if e.get("interrupted") else ""
             out.append(f'<div class="row">{t}<span class="{e["who"]}">{e["who"]}: {esc(e["text"])}'
