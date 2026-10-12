@@ -195,7 +195,6 @@ def build(t: dict) -> str:
     wire([(X_ANSWER, PY - 2), (X_ANSWER, sy + sh + 4)], t["muted"], "headm")
     text(X_ANSWER + 14, 304, "↓ delegation: an id (+ words, sometimes)", 11.5, t["muted"], "start")
     text(X_ANSWER + 14, 324, "↑ commentary on that id (the answer)", 11.5, t["muted"], "start")
-    text(X_ANSWER + 14, 344, "↑ thinking: the wearer is on step N", 11.5, t["muted"], "start")
 
     # glasses <-> agent, over WebRTC
     wire([(GX + GW + 2, Y_AUDIO), (sx - 4, Y_AUDIO)], t["accent"], "head", 1.8)

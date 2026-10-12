@@ -156,12 +156,31 @@ async def rayneo_assistant(ctx: JobContext) -> None:
             record.event("live", type="delegation.created", id=d.get("id"), target=d.get("target"),
                          offset_ms=event.get("offset_ms"))
         elif etype in ("session.commentary.appended", "session.thinking.appended", "session.instructions.appended"):
-            logger.info("live: event %s", etype.split(".", 1)[1])
-            record.event("live", type=etype.split(".", 1)[1])
+            # the receipt comes at the estimated end of injection, not when it is spoken
+            logger.info("live: event %s for %s start_ms=%s end_ms=%s", etype.split(".", 1)[1],
+                        event.get("client_event_id"), event.get("start_ms"), event.get("end_ms"))
+            record.event("live", type=etype.split(".", 1)[1], for_id=event.get("client_event_id"),
+                         start_ms=event.get("start_ms"), end_ms=event.get("end_ms"))
         elif etype == "error":
             logger.warning("live: event error %s", event.get("error"))
             record.event("live", type="error", error=event.get("error"))
 
+    # Everything this process sends to GPT-Live, as it goes on the wire (the plugin's own events too, such as the
+    # greeting's commentary from generate_reply); the mic audio is left out. session.start went before this hook.
+    def _log_live_sent(event: dict) -> None:
+        etype = event.get("type", "")
+        if etype == "session.input_audio.append":
+            return
+        if etype in ("session.commentary.append", "session.thinking.append", "session.instructions.append"):
+            logger.info("live: sent %s id=%s delegation=%s: %s", etype.split(".", 1)[1], event.get("event_id"),
+                        event.get("delegation_id") or "none", event.get("content"))
+            record.event("live_sent", type=etype.split(".", 1)[1], id=event.get("event_id"),
+                         delegation=event.get("delegation_id"), content=event.get("content"))
+        else:
+            logger.info("live: sent %s %s", etype, json.dumps({k: v for k, v in event.items() if k != "type"}))
+            record.event("live_sent", type=etype, event=event)
+
+    duplex.on("openai_client_event_queued", _log_live_sent)
     duplex.on("openai_server_event_received", _log_live_event)
     if getattr(duplex, "_session_id", None):  # started before the hook above was in place
         logger.info("gpt-live: session started %s (billed from here; before this line)", duplex._session_id)

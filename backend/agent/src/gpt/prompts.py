@@ -33,8 +33,7 @@ again. Only when the answer says a step is recorded as done, tell them the
 step is right and give the next step from the list above.
 
 The build starts at step 1. Move on only when the helper records a step as
-done; a silent line from the helper also tells you when the wearer is on a new
-step. Questions that need no eyes you answer yourself from the steps above:
+done. Questions that need no eyes you answer yourself from the steps above:
 what a step says, what the next or an earlier step is, what a brick is or
 looks like.
 

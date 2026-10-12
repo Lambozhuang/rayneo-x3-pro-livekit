@@ -60,7 +60,6 @@
 <path d="M586 416 L586 250" fill="none" stroke="#a3b2c2" stroke-width="1.6" stroke-linejoin="round" marker-end="url(#headm)"/>
 <text x="600" y="304" font-size="11.5" fill="#a3b2c2" text-anchor="start">↓ delegation: an id (+ words, sometimes)</text>
 <text x="600" y="324" font-size="11.5" fill="#a3b2c2" text-anchor="start">↑ commentary on that id (the answer)</text>
-<text x="600" y="344" font-size="11.5" fill="#a3b2c2" text-anchor="start">↑ thinking: the wearer is on step N</text>
 <path d="M164 186 L302 186" fill="none" stroke="#38bdf8" stroke-width="1.8" stroke-linejoin="round" marker-end="url(#head)"/>
 <text x="224.0" y="178" font-size="11.5" fill="#38bdf8" text-anchor="middle">mic audio</text>
 <path d="M304 228 L166 228" fill="none" stroke="#38bdf8" stroke-width="1.8" stroke-linejoin="round" marker-end="url(#head)"/>

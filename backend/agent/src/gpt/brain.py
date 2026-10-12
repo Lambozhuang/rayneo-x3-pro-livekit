@@ -16,8 +16,8 @@ and gets back a reply in plain facts, maybe with the tool call. Nothing goes
 back to the model: the call is executed here and the reply goes to GPT-Live as
 commentary on that delegation id ("Camera: ..."), which says it in its own
 words. Only a confirm_step_correct call moves the build (published to the glasses,
-told to GPT-Live in the same commentary and as one silent thinking line); no
-call, nothing moves, whether the step is not done, unsure or not asked about.
+told to GPT-Live in the same commentary); no call, nothing moves, whether the
+step is not done, unsure or not asked about.
 Only the newest photo goes; what an earlier look saw survives only as what the
 voice said of it, and the brain's own earlier replies are not sent back to it.
 
@@ -254,7 +254,6 @@ class Brain:
             await publish_build(build)
             parts.append(f"Step {current} is recorded as done; that was the last step, the build is finished."
                          if build.finished else f"Step {current} is recorded as done; now give step {current + 1}.")
-            self._think(self._step_line())
         self._commentary(" ".join(parts) or "Camera: nothing to add.", delegation_id, n, t_asked)
 
     async def _ask(self, words: str, n: int) -> dict:
@@ -289,20 +288,26 @@ class Brain:
                            prep_ms=round((t_sent - t0) * 1000), turns=turns, notice=notice, words=words)
         reply, calls, u = await self._model.ask(self._instructions, turns, notice, words, photo, build.run)
         t_back = time.perf_counter()
+        logger.info("brain: #%d reply after %.0f ms (model %.0f ms): in=%d (cached %d, written %d) out=%d (thinking %s) "
+                    "stop=%s frame=%s reply: %s",
+                    n, (t_back - t0) * 1000, (t_back - t_sent) * 1000, u["in"], u["cached"], u.get("written", 0),
+                    u["out"], u.get("thinking"), u.get("stop"), saved or "-", reply)
+        # one line per tool call the brain made, and what came of it
         done, ignored = False, None
         for name, args in calls:
             if name != "confirm_step_correct":
+                logger.warning("brain: #%d tool call %s(%s): no such tool, ignored", n, name, json.dumps(args))
                 continue
             if not build.finished and args.get("step") == build.step + 1:
                 done = True
+                logger.info("brain: #%d tool call confirm_step_correct(%s): step %d done", n, json.dumps(args),
+                            build.step + 1)
             else:
                 ignored = args.get("step")
-                logger.warning("brain: #%d confirm_step_correct(%s) ignored, the current step is %d", n, args.get("step"),
-                               build.step + 1)
-        logger.info("brain: #%d reply after %.0f ms (model %.0f ms): in=%d (cached %d, written %d) out=%d (thinking %s) "
-                    "stop=%s calls=%s frame=%s reply: %s",
-                    n, (t_back - t0) * 1000, (t_back - t_sent) * 1000, u["in"], u["cached"], u.get("written", 0),
-                    u["out"], u.get("thinking"), u.get("stop"), [f"{c}({a})" for c, a in calls], saved or "-", reply)
+                logger.warning("brain: #%d tool call confirm_step_correct(%s): ignored, the current step is %s", n,
+                               json.dumps(args), "none (build finished)" if build.finished else build.step + 1)
+        if not calls:
+            logger.info("brain: #%d no tool call", n)
         self._record.event("look_back", n=n, model_ms=round((t_back - t_sent) * 1000),
                            total_ms=round((t_back - t0) * 1000), reply=reply, calls=[[c, a] for c, a in calls],
                            done=done, ignored_confirm=ignored, usage=u)
@@ -310,20 +315,8 @@ class Brain:
 
     # ------------------------------------------------------------------ to the voice
 
-    def _step_line(self) -> str:
-        build = self._build
-        if build.finished:
-            return "The helper says: the build is finished, all steps are done."
-        s = build.guide.steps[build.step]
-        return f"The helper says: the wearer is now on step {build.step + 1} ({s.brick})."
-
-    def _think(self, text: str) -> None:
-        logger.info("brain: thinking: %s", text)
-        self._record.event("thinking", text=text)
-        self._session.current_agent.duplex_session.append_thinking(text)
-
     def _commentary(self, text: str, delegation_id: str, n: int = 0, t_asked: float | None = None) -> None:
-        logger.info("brain: commentary %s: %s", delegation_id, text)
+        # the wire line (live: sent commentary.append ...) is logged by agent.py as it goes out
         speaking = self._session.agent_state == "speaking"
         self._record.event("commentary", n=n, id=delegation_id, text=text, voice_speaking=speaking)
         self._session.current_agent.duplex_session.append_commentary(text, delegation_id=delegation_id)

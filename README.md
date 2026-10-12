@@ -50,8 +50,8 @@ holds the step. One task file feeds both.
   <source media="(prefers-color-scheme: dark)" srcset="docs/agent-dark.png">
   <img alt="Inside the agent: audio to a GPT-Live session whose persona holds every step's wording;
 video to FrameTap; the session delegates to the brain with an id, the brain takes the newest frame
-and the call's turns to a vision model and answers with commentary on that id, a new step as
-thinking, and the step list to the glasses; the task file feeds both"
+and the call's turns to a vision model and answers with commentary on that id, and the step
+list to the glasses; the task file feeds both"
        src="docs/agent-light.png">
 </picture>
 
@@ -75,8 +75,7 @@ thinking, and the step list to the glasses; the task file feeds both"
    wall) at `BRAIN_SIDE` (1080), the current step, the wearer's latest words.
    The reply, plain facts, goes back as commentary on that delegation id ("Camera: ..."), which
    the voice says in its own words. Only a confirm call moves the build: published to the
-   glasses, told to the voice in the same commentary and as one line of thinking; no call,
-   nothing moves (not done, not sure, or not asked). A newer delegation cancels an older one still running; a call over
+   glasses, told to the voice in the same commentary; no call, nothing moves (not done, not sure, or not asked). A newer delegation cancels an older one still running; a call over
    `BRAIN_TIMEOUT` (12 s) answers "the helper could not answer, say it again". Only the newest photo
    goes, and the brain's earlier replies are not sent back to it: what a look saw survives as
    what the voice said of it.
@@ -136,12 +135,14 @@ the ufw rules the glasses need if ufw is active.
 
 What the agent log shows: `experiment:` (every switch of the run), `step n/m start|done`,
 `user:` / `assistant:` (both transcripts, printed when a turn ends), `live:` (the call's
-timeline: the wearer and the voice going speaking / listening, and GPT-Live's own events:
-`delegation.created`, the commentary or thinking it took in, errors), `delegation:` (what the
+timeline: the wearer and the voice going speaking / listening; `live: sent` every event this
+process sends to GPT-Live but the mic audio, a commentary / thinking / instructions append with
+its id, delegation id and text; `live: event` GPT-Live's own: `delegation.created`, the receipt
+for each append by its id, errors), `delegation:` (what the
 voice handed over, with the wearer's words), `brain:` per ask (the frame it took and how long
 after the ask, when the request went out, when the reply came back with tokens: cached, written,
-thinking, the tool call, the saved frame's file name, the reply; `brain: thinking:` /
-`brain: commentary` what reached the voice), `voice:` (when the voice started saying the answer:
+thinking, the saved frame's file name, the reply; then one `tool call` line per tool call and
+what came of it, or `no tool call`), `voice:` (when the voice started saying the answer:
 ms after the commentary and after the delegation), `camera:` (first frame, or none 10 s in) and
 `link:` (the glasses joining and leaving, with the SFU's reason, and the SFU's quality score) and
 `gpt-live:` (the voice session's start and close with the seconds billed; GPT-Live bills by the
@@ -149,7 +150,8 @@ session second).
 
 Every call also leaves a record in `backend/runs/<UTC start>-<room>/` (`runlog.py`): `events.jsonl`
 (the same story with every field: who speaks when, both transcripts, each hand-over, each look's
-photo, whole input, reply, tool call, tokens and timings, step changes, link events), the photos
+photo, whole input, reply, tool call, tokens and timings, step changes, every event sent to
+GPT-Live and its receipt, link events), the photos
 sent to the brain (`ask<n>-s<step>.jpg`), and both prompts as sent (`brain.txt` with `brain-tools.json`, `voice.txt`).
 `python3 deploy/report.py backend/runs/<call>` writes `report.html` beside it: settings and commit,
 steps done, brain and wait times, what went wrong, a timeline, and one card per hand-over. Build
