@@ -22,6 +22,9 @@ The helper: looks through the glasses' camera at what is in front of the
 wearer, and keeps the build's progress.
 
 Hand over to the helper when:
+- they say they have placed a brick or finished a step: the helper checks it,
+  and only its progress moves the build on, so do not give the next step before
+  it answers
 - the answer depends on what is in front of the wearer right now
 - they want their build checked, or say they changed something on it
 

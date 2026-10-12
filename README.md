@@ -60,7 +60,8 @@ list to the glasses; the task file feeds both"
    it goes (`gpt/prompts.py`); it gives a step in two parts: which brick to find, then, once the
    wearer has it, where it goes. Its hand-over rules are laid out as OpenAI's GPT-Live prompting
    guide lays them out: what the helper does, when to hand over (the answer depends on what is in
-   front of the wearer now, or they want the build checked), when not (the answer is in the steps
+   front of the wearer now, they say a brick is placed or a step done, or they want the build
+   checked), when not (the answer is in the steps
    or the conversation, or it is not about what they see); a goodbye it answers itself and
    the wearer hangs up on the glasses. It opens the call by naming the build. Client
    delegation: the plugin hands the agent an id (and the wearer's words when they are not in
