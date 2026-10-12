@@ -6,8 +6,7 @@ Each frame the sampler lets through is written twice: `-full.jpg` is the frame
 as it arrived from the glasses (no resize, high JPEG quality), `-sent.jpg` is
 what the Gemini plugin actually encodes and uploads (config.py's
 IMAGE_ENCODE_OPTIONS). Comparing the two is how you tell a capture problem (blur, distance,
-a sideways sensor) from a resolution problem, and `-full.jpg` is the input for
-inspect_frame.py.
+a sideways sensor) from a resolution problem.
 """
 
 from __future__ import annotations

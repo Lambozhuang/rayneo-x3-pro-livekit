@@ -9,7 +9,6 @@ through the room.
 
 import logging
 import os
-import sys
 
 from dotenv import load_dotenv
 from livekit import agents, rtc
@@ -41,19 +40,6 @@ load_dotenv()  # backend/.env, found by walking up from this file
 
 logger = logging.getLogger("rayneo-agent")
 
-# Two knobs for a CPU without AVX2 (the 2012 Mac mini this was first deployed
-# on, Ivy Bridge). The framework's job-process warm-up (livekit.agents.ipc
-# ._preload) initialises `livekit.local_inference`, the native local VAD and
-# turn-detection models, and that library dies with SIGILL there: every job
-# process crashes while initialising, the worker registers but can never take
-# a call. AGENT_NO_LOCAL_INFERENCE=1 makes that import fail instead, which the
-# warm-up catches and logs. We never use those models: turn detection is
-# Gemini's, and the VAD below is the Silero plugin's own ONNX runtime.
-# AGENT_MP_CONTEXT=spawn is the older half of the same fix, from when the
-# warm-up ran in the forkserver. Leave both unset on modern CPUs.
-if os.environ.get("AGENT_NO_LOCAL_INFERENCE"):
-    sys.modules["livekit.local_inference"] = None  # type: ignore[assignment]
-
 # A local VAD, loaded once per process. Turn-taking stays with Gemini; this
 # only tells the framework when the *wearer* is talking, which it otherwise
 # does not know (Gemini's speech events fire when the model starts answering).
@@ -63,10 +49,7 @@ def _load_vad(proc: agents.JobProcess) -> None:
     proc.userdata["vad"] = silero.VAD.load()
 
 
-server = AgentServer(
-    setup_fnc=_load_vad,
-    **({"multiprocessing_context": ctx} if (ctx := os.environ.get("AGENT_MP_CONTEXT")) else {}),  # type: ignore[arg-type]
-)
+server = AgentServer(setup_fnc=_load_vad)
 
 
 # Explicit dispatch. With a name set the server never auto-joins new rooms; it

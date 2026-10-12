@@ -225,15 +225,13 @@ every 5 s under `rayneo-video`.
 `AGENT_BACKEND=gemini` runs one Gemini Live model (`GEMINI_MODEL`) that hears, sees the
 camera and judges the bricks itself through tools (`get_step`, `look`, `step_done`, ...), with
 camera frames sent only while the wearer speaks or the model calls `look` (`sampler.py`).
-The knobs are in `.env.example` and `agent/src/gemini/`.
-`agent/src/inspect_frame.py` re-asks a saved frame at higher media resolutions.
+The knobs are in `agent/src/gemini/`.
 
 ## The lab PC
 
 Ubuntu on the glasses' network, reached over ssh. It runs the recipe above:
 `docker compose up -d --build` while testing, `docker compose down` after. The machine has
-other jobs, so nothing is installed as a service. `AGENT_MP_CONTEXT=spawn` in `.env` is only
-for a host whose CPU lacks AVX2; see the note in `agent.py`.
+other jobs, so nothing is installed as a service.
 
 ## When it breaks
 
