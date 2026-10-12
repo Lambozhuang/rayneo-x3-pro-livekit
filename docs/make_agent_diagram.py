@@ -1,18 +1,16 @@
-"""Build the 'Inside the agent' diagram: transparent SVG + 2x PNG, dark and light.
+"""Build the 'Inside the GPT-Live agent' diagram: SVG + 2x PNG, white background, black text.
 
-Same recipe and look as make_diagram.py (hand-laid-out SVG, transparent
-background, semi-transparent cards, headless-Chrome 2x PNG); the helpers are
-copied rather than imported because make_diagram.py renders on import.
+Same recipe and look as make_diagram.py (hand-laid-out SVG, headless-Chrome 2x
+PNG); the helpers are copied rather than imported because make_diagram.py
+renders on import.
 
     python docs/make_agent_diagram.py
-    python docs/make_agent_diagram.py --check   # also write proof sheets on white/black
 """
 
 import os
 import re
 import shutil
 import subprocess
-import sys
 import tempfile
 from pathlib import Path
 
@@ -21,18 +19,12 @@ ICONS = HERE / "icons"
 
 MONO = "JetBrains Mono, Cascadia Mono, Consolas, monospace"
 
-THEMES = {
-    "dark": dict(
-        card="#ffffff0a", edge="#ffffff29", text="#f1f5f9", muted="#a3b2c2",
-        dim="#7c8b9c", accent="#38bdf8", cloud="#3fbf9a",
-        livekit="#ffffff", python="#4B8BBE", check="#0b1017",
-    ),
-    "light": dict(
-        card="#0f172a08", edge="#0f172a26", text="#0f172a", muted="#475569",
-        dim="#64748b", accent="#0369a1", cloud="#0d8a6a",
-        livekit="#0f172a", python="#3776AB", check="#ffffff",
-    ),
-}
+# white background, black text; colour only on the lines, the icons and the card edges
+THEME = dict(
+    background="#ffffff", card="#0f172a08", edge="#0f172a26", text="#000000",
+    muted="#475569", accent="#0369a1", cloud="#0d8a6a",
+    livekit="#000000", python="#3776AB",
+)
 
 # geometry ----------------------------------------------------------------
 PAD = 32
@@ -86,8 +78,8 @@ def build(t: dict) -> str:
     out: list[str] = []
     add = out.append
 
-    def text(x, y, s, size, fill, anchor="middle", extra=""):
-        add(f'<text x="{x}" y="{y}" font-size="{size}" fill="{fill}" '
+    def text(x, y, s, size, anchor="middle", extra=""):
+        add(f'<text x="{x}" y="{y}" font-size="{size}" fill="{t["text"]}" '
             f'text-anchor="{anchor}"{extra}>{s}</text>')
 
     def card(x, y, w, h, edge=None, dash=False):
@@ -102,13 +94,14 @@ def build(t: dict) -> str:
         add(f'<path d="{d}" fill="none" stroke="{colour}" stroke-width="{width}" '
             f'stroke-linejoin="round"{dd}{ms} marker-end="url(#{marker})"/>')
 
-    def label(x, y, lines, colour, size=11.5, step=14):
+    def label(x, y, lines, size=11.5, step=14):
         """Lines stacked upward so the last one sits at y."""
         for i, s in enumerate(lines):
-            text(x, y - (len(lines) - 1 - i) * step, s, size, colour)
+            text(x, y - (len(lines) - 1 - i) * step, s, size)
 
     add(f'<svg xmlns="http://www.w3.org/2000/svg" width="{W}" height="{H}" '
         f'viewBox="0 0 {W} {H}" font-family="{MONO}">')
+    add(f'<rect width="{W}" height="{H}" fill="{t["background"]}"/>')
     add('<defs>')
     for mid, colour in (("head", t["accent"]), ("headm", t["muted"]),
                         ("headv", t["cloud"])):
@@ -119,8 +112,8 @@ def build(t: dict) -> str:
     add('</defs>')
 
     # title
-    text(PAD, 46, "Inside the agent", 28, t["text"], "start")
-    text(PAD, 74, "voice path and camera path", 15, t["muted"], "start")
+    text(PAD, 46, "Inside the GPT-Live agent", 28, "start")
+    text(PAD, 74, "voice path and camera path", 15, "start")
 
     # glasses ------------------------------------------------------------
     gtop, gbot = VY, Y_STEPS + 24
@@ -129,49 +122,48 @@ def build(t: dict) -> str:
     add(place("glasses", gcx, 318, 46,
               f'fill="none" stroke="{t["accent"]}" stroke-width="1.9" '
               'stroke-linecap="round" stroke-linejoin="round"'))
-    text(gcx, 392, "Glasses", 17, t["text"])
-    text(gcx, 412, "RayNeo X3 Pro", 12, t["dim"])
+    text(gcx, 392, "Glasses", 17)
+    text(gcx, 412, "RayNeo X3 Pro", 12)
 
     # the WebRTC hop, the one the experiment shapes
     bx1, bx2 = GX + GW + 6, FX - 6
     add(f'<rect x="{bx1}" y="{gtop}" width="{bx2 - bx1}" height="{gbot - gtop}" '
         f'rx="8" fill="{t["accent"]}" fill-opacity="0.07"/>')
     bcx = (bx1 + bx2) / 2
-    label(bcx, 318, ["WebRTC via", "LiveKit"], t["accent"], 13, 17)
-    label(bcx, 380, ["the experiment's", "variable:", "loss / jitter"],
-          t["accent"], 11.5, 15)
+    label(bcx, 318, ["WebRTC via", "LiveKit"], 13, 17)
+    label(bcx, 380, ["the experiment's", "variable:", "loss / jitter"], 11.5, 15)
 
     # agent frame ----------------------------------------------------------
     fr = CX0 - 110
     add(f'<rect x="{FX}" y="{FTOP}" width="{fr - FX}" height="{FBOT - FTOP}" '
         f'rx="16" fill="none" stroke="{t["edge"]}" stroke-width="1.4"/>')
     add(place("python", FX + IN + 10, 111, 20, f'fill="{t["python"]}"'))
-    text(FX + IN + 30, 127, "Python agent, lab PC", 15, t["text"], "start")
-    text(FX + IN, 152, "Voice path", 12, t["dim"], "start", ' letter-spacing="0.6"')
-    text(FX + IN, PY - 10, "Camera path", 12, t["dim"],
+    text(FX + IN + 30, 127, "Python agent, lab PC", 15, "start")
+    text(FX + IN, 152, "Voice path", 12, "start", ' letter-spacing="0.6"')
+    text(FX + IN, PY - 10, "Camera path", 12,
          "start", ' letter-spacing="0.6"')
 
     # GPT-Live session
     sx, sy, sw, sh = SESS
     card(sx, sy, sw, sh)
-    text(sx + sw / 2, sy + 34, "GPT-Live session", 16, t["text"])
-    text(sx + sw / 2, sy + 58, "persona + every step's instructions", 12, t["muted"])
+    text(sx + sw / 2, sy + 34, "GPT-Live session", 16)
+    text(sx + sw / 2, sy + 58, "persona + every step's instructions", 12)
 
     # FrameTap and the brain
     tx0 = FX + IN
     card(tx0, PY, TAP_W, PH)
-    text(tx0 + TAP_W / 2, PY + 30, "FrameTap", 16, t["text"])
-    text(tx0 + TAP_W / 2, PY + 52, "frames.py", 12, t["dim"])
-    text(tx0 + TAP_W / 2, PY + 74, "no frame reaches", 11.5, t["muted"])
-    text(tx0 + TAP_W / 2, PY + 90, "GPT-Live", 11.5, t["muted"])
+    text(tx0 + TAP_W / 2, PY + 30, "FrameTap", 16)
+    text(tx0 + TAP_W / 2, PY + 52, "frames.py", 12)
+    text(tx0 + TAP_W / 2, PY + 74, "no frame reaches", 11.5)
+    text(tx0 + TAP_W / 2, PY + 90, "GPT-Live", 11.5)
     card(BRAIN_X, PY, BRAIN_W, PH)
     bcx0 = BRAIN_X + BRAIN_W / 2
-    text(bcx0, PY + 30, "brain", 16, t["text"])
-    text(bcx0, PY + 52, "gpt/brain.py", 12, t["dim"])
-    text(bcx0, PY + 74, "per delegation: the newest frame + the call's turns", 11.5, t["muted"])
-    text(bcx0, PY + 90, "→ one vision call → a reply, maybe a new progress", 11.5, t["muted"])
+    text(bcx0, PY + 30, "brain", 16)
+    text(bcx0, PY + 52, "gpt/brain.py", 12)
+    text(bcx0, PY + 74, "per delegation: the newest frame + the call's turns", 11.5)
+    text(bcx0, PY + 90, "→ one vision call → a reply, maybe a new progress", 11.5)
     wire([(tx0 + TAP_W + 8, Y_PIPE), (BRAIN_X - 8, Y_PIPE)], t["muted"], "headm")
-    text((tx0 + TAP_W + BRAIN_X) / 2, Y_PIPE - 9, "newest frame", 11.5, t["muted"])
+    text((tx0 + TAP_W + BRAIN_X) / 2, Y_PIPE - 9, "newest frame", 11.5)
 
     # task file
     tx, ty, tw, th = TASK
@@ -183,9 +175,9 @@ def build(t: dict) -> str:
         f'stroke-width="1.4"/>')
     add(f'<path d="M{tx + tw - fold} {ty} V{ty + fold} H{tx + tw}" fill="none" '
         f'stroke="{t["edge"]}" stroke-width="1.4"/>')
-    text(tx + 14, ty + 26, "guides/&lt;task&gt;/task.toml", 13, t["text"], "start")
+    text(tx + 14, ty + 26, "guides/&lt;task&gt;/task.toml", 13, "start")
     for j, s in enumerate(["what the wearer hears → voice", "all of it → brain"]):
-        text(tx + 14, ty + 50 + j * 18, s, 11.5, t["muted"], "start")
+        text(tx + 14, ty + 50 + j * 18, s, 11.5, "start")
     wire([(400, ty - 2), (400, sy + sh + 4)], t["muted"], "headm", 1.2, dash=True)
     wire([(tx + tw - 30, ty + th + 2), (tx + tw - 30, ty + th + 18), (BRAIN_X + 20, ty + th + 18),
           (BRAIN_X + 20, PY - 4)], t["muted"], "headm", 1.2, dash=True)
@@ -193,44 +185,44 @@ def build(t: dict) -> str:
     # voice <-> brain
     wire([(X_DELEG, sy + sh + 2), (X_DELEG, PY - 4)], t["muted"], "headm")
     wire([(X_ANSWER, PY - 2), (X_ANSWER, sy + sh + 4)], t["muted"], "headm")
-    text(X_ANSWER + 14, 304, "↓ delegation: an id (+ words, sometimes)", 11.5, t["muted"], "start")
-    text(X_ANSWER + 14, 324, "↑ commentary on that id (the answer)", 11.5, t["muted"], "start")
+    text(X_ANSWER + 14, 304, "↓ delegation: an id (+ words, sometimes)", 11.5, "start")
+    text(X_ANSWER + 14, 324, "↑ commentary on that id (the answer)", 11.5, "start")
 
     # glasses <-> agent, over WebRTC
     wire([(GX + GW + 2, Y_AUDIO), (sx - 4, Y_AUDIO)], t["accent"], "head", 1.8)
-    text(bcx, Y_AUDIO - 8, "mic audio", 11.5, t["accent"])
+    text(bcx, Y_AUDIO - 8, "mic audio", 11.5)
     wire([(sx - 2, Y_SPEECH), (GX + GW + 4, Y_SPEECH)], t["accent"], "head", 1.8)
-    text(bcx, Y_SPEECH - 8, "speech", 11.5, t["accent"])
+    text(bcx, Y_SPEECH - 8, "speech", 11.5)
     wire([(GX + GW + 2, Y_PIPE), (tx0 - 4, Y_PIPE)], t["accent"], "head", 1.8)
-    label(bcx, Y_PIPE - 9, ["camera video", "1080p 15 fps"], t["accent"])
+    label(bcx, Y_PIPE - 9, ["camera video", "1080p 15 fps"])
     wire([(BRAIN_X + 60, PY + PH + 2), (BRAIN_X + 60, Y_STEPS), (GX + GW + 4, Y_STEPS)],
          t["accent"], "head", 1.8)
-    label(bcx, Y_STEPS - 9, ["step list", "(attributes)"], t["accent"])
+    label(bcx, Y_STEPS - 9, ["step list", "(attributes)"])
 
     # model APIs -----------------------------------------------------------
     add(f'<rect x="{CX0}" y="{FTOP}" width="{CCW}" height="{FBOT - FTOP}" rx="16" '
         f'fill="none" stroke="{t["cloud"]}" stroke-opacity="0.55" stroke-width="1.4"/>')
     ccx = CX0 + CCW / 2
-    text(ccx, 127, "model APIs", 13.5, t["cloud"], extra=' letter-spacing="0.6"')
+    text(ccx, 127, "model APIs", 13.5, extra=' letter-spacing="0.6"')
     cx1, cw = CX0 + CI, CCW - 2 * CI
 
     card(cx1, VY, cw, VH, edge=t["cloud"])
     add(place("openai", ccx, VY + 12, 26, f'fill="{t["cloud"]}"'))
-    text(ccx, VY + 60, "gpt-live-1", 16, t["text"])
-    text(ccx, VY + 77, "GPT-Live", 12, t["dim"])
+    text(ccx, VY + 60, "gpt-live-1", 16)
+    text(ccx, VY + 77, "GPT-Live", 12)
 
     vy, vh = Y_PIPE - 40, 80
     card(cx1, vy, cw, vh, edge=t["cloud"])
-    text(ccx, vy + 28, "vision model", 15, t["text"])
-    text(ccx, vy + 50, "BRAIN_MODEL", 11, t["muted"])
-    text(ccx, vy + 66, "OpenAI / Anthropic", 11, t["muted"])
+    text(ccx, vy + 28, "vision model", 15)
+    text(ccx, vy + 50, "BRAIN_MODEL", 11)
+    text(ccx, vy + 66, "OpenAI / Anthropic", 11)
 
     # agent <-> cloud
     gx_mid = (fr + CX0) / 2
     wire([(sx + sw + 2, Y_WS), (cx1 - 2, Y_WS)], t["cloud"], "headv", 1.8, start=True)
-    text((sx + sw + cx1) / 2, Y_WS - 9, "WebSocket", 12.5, t["cloud"], extra=' letter-spacing="0.6"')
+    text((sx + sw + cx1) / 2, Y_WS - 9, "WebSocket", 12.5, extra=' letter-spacing="0.6"')
     wire([(BRAIN_X + BRAIN_W + 2, Y_PIPE), (cx1 - 3, Y_PIPE)], t["cloud"], "headv", 1.4, start=True)
-    text((BRAIN_X + BRAIN_W + cx1) / 2, Y_PIPE - 9, "one call per look", 11.5, t["cloud"])
+    text((BRAIN_X + BRAIN_W + cx1) / 2, Y_PIPE - 9, "one call per look", 11.5)
 
     add("</svg>")
     return "\n".join(out)
@@ -248,8 +240,8 @@ CHROME = next(
 )
 
 
-def screenshot(svg: Path, png: Path, backdrop: str = "transparent") -> None:
-    """2x PNG of an SVG. backdrop='transparent' keeps the alpha channel."""
+def screenshot(svg: Path, png: Path) -> None:
+    """2x PNG of an SVG."""
     if not CHROME:
         raise SystemExit("no Chrome/Edge found — SVGs written, PNGs skipped")
     with tempfile.TemporaryDirectory() as tmp:
@@ -258,27 +250,20 @@ def screenshot(svg: Path, png: Path, backdrop: str = "transparent") -> None:
             '<!doctype html><meta charset="utf-8">'
             "<style>html,body{margin:0;background:%s}"
             "img{display:block;width:%dpx;height:%dpx}</style>"
-            '<img src="%s">' % (backdrop, W, H, svg.as_uri()),
+            '<img src="%s">' % (THEME["background"], W, H, svg.as_uri()),
             encoding="utf-8",
         )
         subprocess.run(
             [CHROME, "--headless=new", "--disable-gpu", "--hide-scrollbars",
              "--force-device-scale-factor=2", f"--window-size={W},{H}",
-             "--default-background-color=00000000",
              f"--screenshot={png}", wrap.as_uri()],
             check=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
             env={**os.environ, "CHROME_LOG_FILE": os.devnull},
         )
 
 
-for variant, theme in THEMES.items():
-    svg_path = HERE / f"agent-{variant}.svg"
-    svg_path.write_text(build(theme), encoding="utf-8")
-    png_path = HERE / f"agent-{variant}.png"
-    screenshot(svg_path, png_path)
-    print("wrote", svg_path.name, "and", png_path.name)
-
-    if "--check" in sys.argv:
-        proof = HERE / f"_check-agent-{variant}.png"
-        screenshot(svg_path, proof, backdrop=theme["check"])
-        print("wrote", proof.name)
+svg_path = HERE / "agent.svg"
+svg_path.write_text(build(THEME), encoding="utf-8")
+png_path = HERE / "agent.png"
+screenshot(svg_path, png_path)
+print("wrote", svg_path.name, "and", png_path.name)

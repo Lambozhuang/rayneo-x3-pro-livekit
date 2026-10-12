@@ -1,26 +1,22 @@
-"""Build the architecture diagram: transparent SVG + 2x PNG, dark and light.
+"""Build the GPT-Live architecture diagram (the Gemini Live architecture has none): SVG + 2x PNG, white background, black text.
 
 Hand-laid-out SVG (no diagram engine), sized tight around its content so it can
-be dropped onto a slide at any scale. Backgrounds are transparent, so two colour
-variants ship: `-dark` for dark decks, `-light` for light ones. Card fills are
-semi-transparent, which keeps them readable over any nearby backdrop tone.
+be dropped onto a slide at any scale.
 
 Icons come from docs/icons/, fetched from simple-icons (brand marks, CC0) and
 lucide (the glasses glyph, ISC); their inner markup is inlined so the SVG is
 self-contained.
 
     python docs/make_diagram.py
-    python docs/make_diagram.py --check   # also write proof sheets on white/black
 
-The PNGs are headless-Chrome screenshots, so they render identically everywhere;
-README links them and keeps the SVGs as source.
+The PNG is a headless-Chrome screenshot, so it renders identically everywhere;
+README links it and keeps the SVG as source.
 """
 
 import os
 import re
 import shutil
 import subprocess
-import sys
 import tempfile
 from pathlib import Path
 
@@ -37,18 +33,12 @@ ROW_Y = 116        # top of the card row
 W = PAD * 2 + CW * 4 + GAP * 3
 H = ROW_Y + CH + PAD
 
-THEMES = {
-    "dark": dict(
-        card="#ffffff0a", edge="#ffffff29", text="#f1f5f9", muted="#a3b2c2",
-        dim="#7c8b9c", accent="#38bdf8", cloud="#3fbf9a",
-        livekit="#ffffff", python="#4B8BBE", check="#0b1017",
-    ),
-    "light": dict(
-        card="#0f172a08", edge="#0f172a26", text="#0f172a", muted="#475569",
-        dim="#64748b", accent="#0369a1", cloud="#0d8a6a",
-        livekit="#0f172a", python="#3776AB", check="#ffffff",
-    ),
-}
+# white background, black text; colour only on the lines, the icons and the card edges
+THEME = dict(
+    background="#ffffff", card="#0f172a08", edge="#0f172a26", text="#000000",
+    muted="#475569", accent="#0369a1", cloud="#0d8a6a",
+    livekit="#000000", python="#3776AB",
+)
 
 
 def icon(name: str) -> str:
@@ -72,6 +62,7 @@ def build(t: dict) -> str:
 
     add(f'<svg xmlns="http://www.w3.org/2000/svg" width="{W}" height="{H}" '
         f'viewBox="0 0 {W} {H}" font-family="{MONO}">')
+    add(f'<rect width="{W}" height="{H}" fill="{t["background"]}"/>')
     add(f'''<defs>
   <marker id="head" viewBox="0 0 10 10" refX="9" refY="5"
           markerWidth="6.5" markerHeight="6.5" orient="auto-start-reverse">
@@ -89,8 +80,8 @@ def build(t: dict) -> str:
 
     # title
     add(f'<text x="{PAD}" y="46" font-size="28" fill="{t["text"]}">'
-        'Architecture</text>')
-    add(f'<text x="{PAD}" y="74" font-size="15" fill="{t["muted"]}">'
+        'GPT-Live architecture</text>')
+    add(f'<text x="{PAD}" y="74" font-size="15" fill="{t["text"]}">'
         'RayNeo X3 Pro live AI assistant</text>')
 
     glasses = (f'fill="none" stroke="{t["accent"]}" stroke-width="1.9" '
@@ -113,7 +104,7 @@ def build(t: dict) -> str:
         add(f'<text x="{cx}" y="{ROW_Y + 111}" font-size="19.5" '
             f'fill="{t["text"]}" text-anchor="middle">{title}</text>')
         add(f'<text x="{cx}" y="{ROW_Y + 134}" font-size="13" '
-            f'fill="{t["dim"]}" text-anchor="middle">{sub}</text>')
+            f'fill="{t["text"]}" text-anchor="middle">{sub}</text>')
 
     link_y = ROW_Y + CH / 2
     # protocol above the line, the network it crosses below; the first hop is
@@ -130,7 +121,7 @@ def build(t: dict) -> str:
         for label, y, size in zip(labels, (link_y - 14, link_y + 26, link_y + 46),
                                   (13.5, 13.5, 12)):
             add(f'<text x="{(x1 + x2) / 2}" y="{y}" font-size="{size}" '
-                f'letter-spacing="0.6" fill="{colour}" text-anchor="middle">'
+                f'letter-spacing="0.6" fill="{t["text"]}" text-anchor="middle">'
                 f'{label}</text>')
 
     add("</svg>")
@@ -149,8 +140,8 @@ CHROME = next(
 )
 
 
-def screenshot(svg: Path, png: Path, backdrop: str = "transparent") -> None:
-    """2x PNG of an SVG. backdrop='transparent' keeps the alpha channel."""
+def screenshot(svg: Path, png: Path) -> None:
+    """2x PNG of an SVG."""
     if not CHROME:
         raise SystemExit("no Chrome/Edge found — SVGs written, PNGs skipped")
     with tempfile.TemporaryDirectory() as tmp:
@@ -159,28 +150,20 @@ def screenshot(svg: Path, png: Path, backdrop: str = "transparent") -> None:
             '<!doctype html><meta charset="utf-8">'
             "<style>html,body{margin:0;background:%s}"
             "img{display:block;width:%dpx;height:%dpx}</style>"
-            '<img src="%s">' % (backdrop, W, H, svg.as_uri()),
+            '<img src="%s">' % (THEME["background"], W, H, svg.as_uri()),
             encoding="utf-8",
         )
         subprocess.run(
             [CHROME, "--headless=new", "--disable-gpu", "--hide-scrollbars",
              "--force-device-scale-factor=2", f"--window-size={W},{H}",
-             "--default-background-color=00000000",
              f"--screenshot={png}", wrap.as_uri()],
             check=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
             env={**os.environ, "CHROME_LOG_FILE": os.devnull},
         )
 
 
-for variant, theme in THEMES.items():
-    svg_path = HERE / f"architecture-{variant}.svg"
-    svg_path.write_text(build(theme), encoding="utf-8")
-    png_path = HERE / f"architecture-{variant}.png"
-    screenshot(svg_path, png_path)
-    print("wrote", svg_path.name, "and", png_path.name)
-
-    if "--check" in sys.argv:
-        # proof sheet: the transparent art over the tone it's meant for
-        proof = HERE / f"_check-{variant}.png"
-        screenshot(svg_path, proof, backdrop=theme["check"])
-        print("wrote", proof.name)
+svg_path = HERE / "architecture.svg"
+svg_path.write_text(build(THEME), encoding="utf-8")
+png_path = HERE / "architecture.png"
+screenshot(svg_path, png_path)
+print("wrote", svg_path.name, "and", png_path.name)
