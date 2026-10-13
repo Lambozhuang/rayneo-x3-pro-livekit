@@ -38,8 +38,9 @@ def bottom_square(frame: rtc.VideoFrame, side: int) -> Image.Image:
 
 
 def to_frame(img: Image.Image) -> rtc.VideoFrame:
-    """A PIL image as an RGB24 video frame, for pushing to a realtime model."""
-    return rtc.VideoFrame(img.width, img.height, rtc.VideoBufferType.RGB24, img.convert("RGB").tobytes())
+    """A PIL image as an RGBA video frame, for pushing to a realtime model. RGBA is what the plugins encode from;
+    any other type they convert through the rtc FFI first, which cannot convert from RGB24."""
+    return rtc.VideoFrame(img.width, img.height, rtc.VideoBufferType.RGBA, img.convert("RGBA").tobytes())
 
 
 class FrameTap:

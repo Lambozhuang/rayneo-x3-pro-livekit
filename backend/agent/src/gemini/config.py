@@ -22,14 +22,11 @@ from env import require_env
 logger = logging.getLogger("rayneo-agent.config")
 
 # How the plugin encodes a frame before upload. The frames it gets are already
-# the cropped square (sampler.py), so this only has to leave them alone: the
-# plugin's default would squeeze them into 1024x1024 at JPEG quality 75. How
-# many tokens the model spends on a frame is media_resolution's business.
-IMAGE_ENCODE_OPTIONS = images.EncodeOptions(
-    format="JPEG",
-    quality=85,
-    resize_options=images.ResizeOptions(width=4096, height=4096, strategy="scale_aspect_fit"),
-)
+# the cropped square (sampler.py), so this only has to leave them alone: no
+# resizing (the plugin's default would squeeze them into 1024x1024 at JPEG
+# quality 75, and a ResizeOptions scales a smaller frame up). How many tokens
+# the model spends on a frame is media_resolution's business.
+IMAGE_ENCODE_OPTIONS = images.EncodeOptions(format="JPEG", quality=85, resize_options=None)
 
 
 @dataclass(frozen=True)
