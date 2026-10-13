@@ -39,16 +39,19 @@ class Settings:
     # The side in px of the square cut from each frame (sampler.py).
     side: int
     # Token budget per frame: the API default (70 tokens on Gemini 3 models), or
-    # MEDIA_RESOLUTION_LOW / MEDIUM (also 70) / HIGH (280).
+    # MEDIA_RESOLUTION_LOW / MEDIUM (also 70) / HIGH (280, the most the Live
+    # API gives a frame). At 70 the model cannot count studs; at 280 it reads
+    # colours and large shapes and still misreads a brick's length.
     media_resolution: str | None
     # A sliding window over the model's context. Google cuts an audio-and-video
     # session off at two minutes unless compression is configured, so it is
     # always configured; where it bites is the question. The window drops the
     # oldest turns once `trigger` tokens are reached, down to `target`. The
-    # defaults sit far above what a trial uses (about 20k tokens for three
-    # minutes at one frame a second), so a trial keeps its whole call in
-    # context; the model's time to first audio then grows with the call, which
-    # the `model:` lines show. None turns compression off.
+    # defaults sit above what a trial uses (three minutes at one frame a second
+    # is about 20k tokens at the default resolution, about 58k at HIGH), so a
+    # trial keeps its whole call in context; the model's time to first audio
+    # then grows with the call, which the `model:` lines show. None turns
+    # compression off.
     context_trigger: int | None
     context_target: int
     # BCP-47 code the wearer's audio is transcribed in, for the `user:` lines of

@@ -46,11 +46,11 @@ Two models. GPT-Live (`gpt-live-1`) is the voice: it hears the wearer and speaks
 
 One model, Gemini Live (`GEMINI_MODEL`: `gemini-3.8-live`, or `gemini-3.8-live-extended-thinking` reasoning in the background at `GEMINI_THINKING_LEVEL`), hears, sees and speaks. Its prompt (`gemini/prompts.py`) holds the manner, the task (the plate, the direction words, every step's brick and place, from `src/prompts.py`) and the rules for giving steps, checking the plate and talking.
 
-1. Camera frames go to the model inline with the audio, one a second (`GEMINI_VIDEO_FPS`), each cropped to the bottom square of the frame, the table in front of the wearer (`gemini/sampler.py`). Every frame stays in the model's context for the rest of the call, so that rate sets the cost. A sliding window drops the oldest turns past `GEMINI_CONTEXT_TRIGGER_TOKENS`; it is set above what a trial uses, and configured only because Google ends an audio-and-video session at two minutes without it.
+1. Camera frames go to the model inline with the audio, one a second (`GEMINI_VIDEO_FPS`), each cropped to the bottom square of the frame, the table in front of the wearer, scaled to `GEMINI_SIDE` px (`gemini/sampler.py`, the crop in `src/frames.py`). The model spends `GEMINI_MEDIA_RESOLUTION` tokens on each: 70 at the API default and at LOW or MEDIUM, 280 at HIGH, the most the Live API allows; the lab runs HIGH, since at 70 the model cannot count studs. Every frame stays in the model's context for the rest of the call, so the rate and the resolution set the cost. A sliding window drops the oldest turns past `GEMINI_CONTEXT_TRIGGER_TOKENS`; it is set above what a trial uses, and configured only because Google ends an audio-and-video session at two minutes without it.
 2. The model judges the plate from the frames it has and talks to the wearer directly.
 3. When it judges that more or fewer steps are built right, it says so through its one tool, `set_progress` (`gemini/tools.py`): the step list on the glasses follows it.
 
-Gemini's own turn detection decides when the wearer has finished. Each frame shown to the model is saved into the call record (see Logs), so a run can be judged from what the model saw.
+Gemini's own turn detection decides when the wearer has finished. The wearer's audio is transcribed for the log in `GEMINI_TRANSCRIPT_LANGUAGE`; the model's own language is set by the prompt. Each frame shown to the model is saved into the call record (see Logs), so a run can be judged from what the model saw.
 
 ## Running
 
@@ -123,7 +123,7 @@ backend/
   agent/src/guide.py    task file loader, the build's progress, publishing it to the glasses
   agent/src/prompts.py  the task block both architectures put in their prompts
   agent/src/env.py      what both read from .env
-  agent/src/frames.py   FrameTap: keeps the newest camera frame (GPT path)
+  agent/src/frames.py   the bottom-square crop both paths show their model; FrameTap keeps the newest frame (GPT path)
   agent/src/runlog.py   one record per call (RUN_DIR)
   agent/guides/         the builds the glasses pick from, one task.toml each
 android/                the glasses app

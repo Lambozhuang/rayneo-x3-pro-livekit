@@ -1,10 +1,12 @@
-"""The camera, tapped: every frame from the glasses arrives here, none reaches the model.
+"""What a model gets to see of the camera: the crop both paths use, and the GPT path's tap on the frames.
 
-`FrameTap` is an AgentSession `video_sampler` that always answers "drop", so
-the framework never forwards video to the speech model, and keeps the newest
-frame for the code instead: `latest` (at the glasses' ~15 a second, at most a
-few tens of milliseconds old), which the brain (gpt/brain.py) takes per
-delegation.
+`bottom_square` cuts the picture both architectures show their model, the
+table in front of the wearer; `to_frame` turns it back into a video frame for a
+realtime model (the Gemini sampler pushes it). `FrameTap` is the GPT path's
+AgentSession `video_sampler`: it always answers "drop", so the framework never
+forwards video to the speech model, and keeps the newest frame for the code
+instead: `latest` (at the glasses' ~15 a second, at most a few tens of
+milliseconds old), which the brain (gpt/brain.py) takes per delegation.
 """
 
 from __future__ import annotations
