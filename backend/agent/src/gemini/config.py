@@ -56,6 +56,11 @@ class Settings:
     # utterance and writes English speech down as Spanish or Japanese. It does
     # not touch the model's own speech; the prompt pins that.
     transcript_language: str
+    # Background reasoning on gemini-3.8-live-extended-thinking: low, medium or
+    # high. That model reasons while it streams audio and takes this level;
+    # gemini-3.8-live has no level to set. Required with the one, refused with
+    # the other, so a run's conditions are never implied.
+    thinking_level: str | None
 
     @classmethod
     def from_env(cls) -> Settings:
@@ -69,12 +74,19 @@ class Settings:
             context_trigger=None if trigger.lower() == "off" else int(trigger),
             context_target=int(os.environ.get("GEMINI_CONTEXT_TARGET_TOKENS", "50000")),
             transcript_language=os.environ.get("GEMINI_TRANSCRIPT_LANGUAGE", "en-US"),
+            thinking_level=os.environ.get("GEMINI_THINKING_LEVEL") or None,
         )
         require_env("GOOGLE_API_KEY")  # the plugin reads it itself
         if s.video_fps <= 0:
             raise RuntimeError(f"GEMINI_VIDEO_FPS={s.video_fps}: the model must get frames; use a rate above 0")
-        logger.info("session model: %s voice=%s video_fps=%s side=%d media_resolution=%s context_compression=%s",
-                    s.model, s.voice, s.video_fps, s.side, s.media_resolution or "default", s.context_trigger or "off")
+        thinking_model = "thinking" in s.model
+        if thinking_model and s.thinking_level not in ("low", "medium", "high"):
+            raise RuntimeError(f"GEMINI_THINKING_LEVEL={s.thinking_level!r}: {s.model} needs low, medium or high")
+        if s.thinking_level and not thinking_model:
+            raise RuntimeError(f"GEMINI_THINKING_LEVEL is set but {s.model} has no thinking level; unset it")
+        logger.info("session model: %s thinking=%s voice=%s video_fps=%s side=%d media_resolution=%s "
+                    "context_compression=%s", s.model, s.thinking_level or "none", s.voice, s.video_fps, s.side,
+                    s.media_resolution or "default", s.context_trigger or "off")
         return s
 
     def experiment_line(self, guide: str) -> str:
@@ -85,11 +97,13 @@ class Settings:
 
 def build_live_model(settings: Settings) -> google.realtime.RealtimeModel:
     """The model for AgentSession(llm=). The instructions go on the Agent. Tools
-    are left at the model's defaults: on gemini-3.8-live they run in the
+    are left at the model's defaults: on the 3.8 Live models they run in the
     background (NON_BLOCKING) and their results are taken up when the model is
-    idle; it has no thinking level to set, and proactive audio is always on, so
-    the model may decide a stray sound needs no answer."""
+    idle. Proactive audio is always on, so the model may decide a stray sound
+    needs no answer. The extended-thinking model gets its thinking level."""
     kw = {}
+    if settings.thinking_level:
+        kw["thinking_config"] = types.ThinkingConfig(thinking_level=types.ThinkingLevel(settings.thinking_level.upper()))
     if settings.media_resolution:
         kw["media_resolution"] = types.MediaResolution(settings.media_resolution)
     if settings.context_trigger is not None:

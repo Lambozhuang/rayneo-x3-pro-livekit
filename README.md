@@ -44,7 +44,7 @@ Two models. GPT-Live (`gpt-live-1`) is the voice: it hears the wearer and speaks
 
 ### Gemini Live (`AGENT_BACKEND=gemini`, `backend/agent/src/gemini/`)
 
-One model, Gemini Live (`GEMINI_MODEL`), hears, sees and speaks. Its prompt (`gemini/prompts.py`) holds the manner, the task (the plate, the direction words, every step's brick and place, from `src/prompts.py`) and the rules for giving steps, checking the plate and talking.
+One model, Gemini Live (`GEMINI_MODEL`: `gemini-3.8-live`, or `gemini-3.8-live-extended-thinking` reasoning in the background at `GEMINI_THINKING_LEVEL`), hears, sees and speaks. Its prompt (`gemini/prompts.py`) holds the manner, the task (the plate, the direction words, every step's brick and place, from `src/prompts.py`) and the rules for giving steps, checking the plate and talking.
 
 1. Camera frames go to the model inline with the audio, one a second (`GEMINI_VIDEO_FPS`), each cropped to the bottom square of the frame, the table in front of the wearer (`gemini/sampler.py`). Every frame stays in the model's context for the rest of the call, so that rate sets the cost. A sliding window drops the oldest turns past `GEMINI_CONTEXT_TRIGGER_TOKENS`; it is set above what a trial uses, and configured only because Google ends an audio-and-video session at two minutes without it.
 2. The model judges the plate from the frames it has and talks to the wearer directly.
