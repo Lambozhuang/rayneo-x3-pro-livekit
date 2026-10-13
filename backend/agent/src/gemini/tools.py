@@ -3,8 +3,10 @@
 A @function_tool: the framework sends its signature and docstring to the model
 and runs it here when the model calls it. The docstring is the tool's rule book:
 when to call it and when not to. On gemini-3.8-live tools run in the background
-and the result is taken up when the model is idle. Only this call moves the
-build; the step list on the glasses follows it (publish_build).
+and the result is taken up when the model is idle; it states what was recorded
+and nothing else, since the model takes any instruction in it as a new turn and
+repeats what it already said. Only this call moves the build; the step list on
+the glasses follows it (publish_build).
 """
 
 from __future__ import annotations
@@ -36,7 +38,8 @@ async def set_progress(context: RunContext[Call], done: int) -> str:
     wrong. The step list on the glasses follows it, so what you say should say the same, and progress recorded
     higher than the plate shows leaves the wearer building on a mistake. Call it only when the frame lets you tell
     and the number differs from the recorded progress; leave it out when part of the build is hidden or too small
-    to judge, and when the wearer only says they are done without the frame showing it.
+    to judge, and when the wearer only says they are done without the frame showing it. The result only confirms
+    what was recorded; it needs no reply.
 
     Args:
         done: how many steps, from step 1, are built right
@@ -62,5 +65,5 @@ async def set_progress(context: RunContext[Call], done: int) -> str:
     record.event("tool", n=n, name="set_progress", done=done, before=before)
     await publish_build(build)
     if build.finished:
-        return f"Recorded: all {total} steps are done, the build is finished. Tell the wearer."
-    return f"Recorded: {build.where()}. Tell the wearer, then give them step {build.step + 1}."
+        return f"Recorded: all {total} steps are done, the build is finished."
+    return f"Recorded: {build.where()}."

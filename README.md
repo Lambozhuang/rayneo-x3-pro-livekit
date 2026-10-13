@@ -94,7 +94,7 @@ The agent writes one JSON line per event (`docker compose logs agent`; `deploy/w
 | prefix | the line says |
 |---|---|
 | `experiment:` | every setting of the run, with `backend=openai` or `gemini` |
-| `user:` / `assistant:` | what one side said, written when its turn ends |
+| `user:` / `assistant:` | what one side said, written when its turn ends; on the Gemini path the wearer's line is Gemini's transcription of the audio, in `GEMINI_TRANSCRIPT_LANGUAGE` |
 | `step`, `build` | a step was done or reopened, the build was finished |
 | `camera:`, `link:` | the first frame arrived; the glasses joined, left, or changed link quality |
 | `usage:` | the speech model's usage so far, about once a minute; at the end, the session's total and how many camera frames arrived |

@@ -51,6 +51,11 @@ class Settings:
     # the `model:` lines show. None turns compression off.
     context_trigger: int | None
     context_target: int
+    # BCP-47 code the wearer's audio is transcribed in, for the `user:` lines of
+    # the log. Left to itself the transcription guesses the language per
+    # utterance and writes English speech down as Spanish or Japanese. It does
+    # not touch the model's own speech; the prompt pins that.
+    transcript_language: str
 
     @classmethod
     def from_env(cls) -> Settings:
@@ -63,6 +68,7 @@ class Settings:
             media_resolution=os.environ.get("GEMINI_MEDIA_RESOLUTION") or None,
             context_trigger=None if trigger.lower() == "off" else int(trigger),
             context_target=int(os.environ.get("GEMINI_CONTEXT_TARGET_TOKENS", "50000")),
+            transcript_language=os.environ.get("GEMINI_TRANSCRIPT_LANGUAGE", "en-US"),
         )
         require_env("GOOGLE_API_KEY")  # the plugin reads it itself
         if s.video_fps <= 0:
@@ -92,5 +98,9 @@ def build_live_model(settings: Settings) -> google.realtime.RealtimeModel:
             sliding_window=types.SlidingWindow(target_tokens=settings.context_target),
         )
     return google.realtime.RealtimeModel(
-        model=settings.model, voice=settings.voice, image_encode_options=IMAGE_ENCODE_OPTIONS, **kw
+        model=settings.model,
+        voice=settings.voice,
+        image_encode_options=IMAGE_ENCODE_OPTIONS,
+        input_audio_transcription=types.AudioTranscriptionConfig(language_codes=[settings.transcript_language]),
+        **kw,
     )
