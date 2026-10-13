@@ -64,6 +64,8 @@ docker compose logs -f --no-log-prefix agent | python3 ../deploy/watch.py
 docker compose down              # after testing
 ```
 
+From the Windows PC, `python deploy/backend.py lab openai` does the pull, the `AGENT_BACKEND` edit and the `docker compose up` on the server over ssh, and waits for the agent to register; the first word names the server (`lab` or `home`, the ssh aliases are in the script), the second the architecture (`openai` or `gemini`); `down` in its place stops the containers.
+
 `backend/.env` (see `.env.example`) takes `AGENT_BACKEND`, the keys (`OPENAI_API_KEY`; `ANTHROPIC_API_KEY` with `BRAIN_PROVIDER=anthropic`; `GOOGLE_API_KEY` for Gemini), the model ids, `AUTH_MODE` (`dev` lets anyone in, `static` wants one shared token, `jwt` an account system's token) and `LIVEKIT_PUBLIC_URL` (`ws://<lan-ip>:7880`, what the glasses get). `setup.sh` prints the ufw rules the glasses need if ufw is on. Without Docker: start livekit-server with `docker run --rm -it --network host livekit/livekit-server --dev`, then run `uv run src/server.py` in `backend/api` and `uv run src/agent.py start` in `backend/agent`.
 
 **Glasses**: from a Windows PC with adb, in the repo root:
@@ -81,6 +83,7 @@ docker compose down              # after testing
 
 | script | purpose | usage |
 |---|---|---|
+| `backend.py` | starts the backend on a server over ssh with the architecture chosen: pulls the checkout, sets `AGENT_BACKEND` in `backend/.env`, builds and starts the containers, waits for the agent to register; `down` stops the containers | `python deploy/backend.py {lab\|home} {openai\|gemini\|down}` |
 | `setup.sh` | sets up a new server: writes the key pair, `livekit.yaml` from `livekit.lab.yaml`, and `backend/.env`; never overwrites a file that exists | `deploy/setup.sh lab` |
 | `watch.py` | follows the call live from the agent's JSON log: the transcripts, the progress, the timings and the warnings, one line each, the SDK's own lines dropped | `docker compose logs -f --no-log-prefix agent \| python3 ../deploy/watch.py`, `-v` keeps the dropped lines |
 | `pull_run.py` | copies a call's record from the lab PC into `logs/` and runs `report.py` on it | `python deploy/pull_run.py` (newest) or `python deploy/pull_run.py <call>` |
@@ -128,7 +131,7 @@ backend/
   agent/guides/         the builds the glasses pick from, one task.toml each
 android/                the glasses app
 tasks/                  the task sheet (sheet.html) and its bricks
-deploy/                 setup.sh, livekit.lab.yaml, glasses.ps1, watch.py, pull_run.py, report.py
+deploy/                 setup.sh, backend.py, livekit.lab.yaml, glasses.ps1, watch.py, pull_run.py, report.py
 docs/                   TASK.md (the experiment task), TODO.md, notes-gpt-live-official.md,
                         research/, the figures and their scripts
 logs/                   records pulled from the lab (not in git)
