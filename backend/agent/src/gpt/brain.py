@@ -38,7 +38,7 @@ import time
 
 from livekit.agents import AgentSession
 
-from frames import FrameTap, to_image
+from frames import FrameTap, bottom_square
 from gpt.prompts import brain_instructions
 from guide import Build, publish_build
 from runlog import RunLog
@@ -62,17 +62,9 @@ TOOLS = [
 
 
 def _jpeg(frame, side: int) -> bytes:
-    """The bottom square of the frame (side = the frame's short side), scaled to `side`. The glasses look down at
-    the table: the upper part of the portrait frame is wall and the far desk, and dropping it nearly doubles the
-    pixels per stud at the same image size. No plate detection, so whatever else is in front of the wearer stays
-    in the picture."""
-    img = to_image(frame)
-    w, h = img.size
-    s = min(w, h)
-    img = img.crop(((w - s) // 2, h - s, (w - s) // 2 + s, h))
-    img.thumbnail((side, side))
+    """The bottom square of the frame (frames.bottom_square) as a JPEG."""
     buf = io.BytesIO()
-    img.save(buf, "JPEG", quality=85)
+    bottom_square(frame, side).save(buf, "JPEG", quality=85)
     return buf.getvalue()
 
 

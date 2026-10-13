@@ -24,6 +24,24 @@ def to_image(frame: rtc.VideoFrame) -> Image.Image:
     return Image.frombytes("RGB", (f.width, f.height), bytes(f.data))
 
 
+def bottom_square(frame: rtc.VideoFrame, side: int) -> Image.Image:
+    """The bottom square of the frame (its short side wide), scaled down to `side` if larger. The glasses look
+    down at the table: the upper part of the portrait frame is wall and the far desk, and dropping it nearly
+    doubles the pixels per stud at the same image size. No plate detection, so whatever else is in front of the
+    wearer stays in the picture. Both architectures send the model this picture."""
+    img = to_image(frame)
+    w, h = img.size
+    s = min(w, h)
+    img = img.crop(((w - s) // 2, h - s, (w - s) // 2 + s, h))
+    img.thumbnail((side, side))
+    return img
+
+
+def to_frame(img: Image.Image) -> rtc.VideoFrame:
+    """A PIL image as an RGB24 video frame, for pushing to a realtime model."""
+    return rtc.VideoFrame(img.width, img.height, rtc.VideoBufferType.RGB24, img.convert("RGB").tobytes())
+
+
 class FrameTap:
     def __init__(self, on_first=None) -> None:
         self._on_first = on_first  # called with the first frame, e.g. to put it in the call's record

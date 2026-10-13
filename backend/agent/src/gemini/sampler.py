@@ -1,39 +1,42 @@
-"""Which camera frames the model gets: one every 1/fps seconds, whoever is talking.
+"""Which camera frames the model gets, and what each looks like: the bottom square, one every 1/fps seconds.
 
 An AgentSession `video_sampler`: the framework calls it with every frame from
-the glasses (~15 a second) and forwards to the model the ones it says yes to.
-A fixed rate is the simplest thing that works; every frame the model sees stays
-in its context for the rest of the call, so GEMINI_VIDEO_FPS is the cost knob
-(config.py). The SDK's own sampler is not used because its "while the user
-speaks" rate needs a local VAD to mean that, which this path does without.
+the glasses (~15 a second). This one never lets a frame through as it is;
+when one is due it crops it to the bottom square scaled to `side`
+(frames.bottom_square, the picture the brain gets on the GPT path) and pushes
+the cropped frame to the model itself, through the agent's realtime session,
+the same call the framework would have made. A fixed rate is the simplest
+thing that works; every frame the model sees stays in its context for the rest
+of the call, so GEMINI_VIDEO_FPS is the cost knob (config.py).
 
-Every frame passed is also saved into the call's record, encoded as the plugin
-encodes it (config.IMAGE_ENCODE_OPTIONS), so a run can be judged afterwards
-from exactly what the model saw. Encoding a 1080p JPEG takes ~100 ms, which
-on the event loop would be 100 ms of audio and turn handling delayed, so it
-goes to one worker thread, in order; the sampler returns at once.
+Every frame pushed is also saved into the call's record as a JPEG, so a run
+can be judged afterwards from what the model saw. The crop runs on the event
+loop (a few milliseconds); the JPEG encoding, longer, goes to one worker
+thread, in order.
 """
 
 from __future__ import annotations
 
+import io
 import logging
 import time
 from collections.abc import Callable
 from concurrent.futures import ThreadPoolExecutor
 
 from livekit import rtc
-from livekit.agents.utils import images
 from livekit.agents.voice import AgentSession
+from PIL import Image
 
-from gemini.config import IMAGE_ENCODE_OPTIONS
+from frames import bottom_square, to_frame
 from runlog import RunLog
 
 logger = logging.getLogger("rayneo-agent.camera")
 
 
 class FixedRateSampler:
-    def __init__(self, fps: float, record: RunLog, step: Callable[[], int]) -> None:
+    def __init__(self, fps: float, side: int, record: RunLog, step: Callable[[], int]) -> None:
         self._period = 1.0 / fps
+        self._side = side
         self._record = record
         self._step = step  # the current step number (1-based) when a frame goes, for the photo's name
         self._last = 0.0
@@ -49,17 +52,21 @@ class FixedRateSampler:
         now = time.monotonic()
         if now - self._last < self._period:
             return False
-        self._last = now
-        self.sent += 1
-        self._encoder.submit(self._save, frame, self.sent, self.count, self._step())
-        return True
-
-    def _save(self, frame: rtc.VideoFrame, n: int, seq: int, step: int) -> None:
         try:
-            jpeg = images.encode(frame, IMAGE_ENCODE_OPTIONS)
-        except Exception:
-            logger.exception("frame %d: could not encode", n)
-            return
+            rt = session.current_agent.realtime_llm_session
+        except RuntimeError:
+            return False  # the session is not running yet; the next frame will do
+        self._last = now
+        img = bottom_square(frame, self._side)
+        rt.push_video(to_frame(img))
+        self.sent += 1
+        self._encoder.submit(self._save, img, self.sent, self.count, self._step())
+        return False  # pushed above; the framework must not send the full frame too
+
+    def _save(self, img: Image.Image, n: int, seq: int, step: int) -> None:
+        buf = io.BytesIO()
+        img.save(buf, "JPEG", quality=85)
+        jpeg = buf.getvalue()
         saved = self._record.photo(jpeg, f"frame{n}-s{step}")
-        self._record.event("frame", n=n, frame=seq, step=step, size=f"{frame.width}x{frame.height}", photo=saved,
+        self._record.event("frame", n=n, frame=seq, step=step, size=f"{img.width}x{img.height}", photo=saved,
                            photo_kb=len(jpeg) // 1024)

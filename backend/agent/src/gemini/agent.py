@@ -1,7 +1,7 @@
 """The Gemini path: one model hears, sees, speaks and keeps the progress.
 
     glasses --audio--> SFU --> this process --ws--> gemini-live (knows every step)
-            --video-->     --> FixedRateSampler: one frame a second on to the model, a copy into the record
+            --video-->     --> FixedRateSampler: one frame a second, cropped to the table, on to the model, a copy into the record
     gemini-live --set_progress(done)--> this process: the build moves, the glasses' step list follows
             <--audio-- SFU <-- this process <-- gemini-live
 
@@ -56,7 +56,7 @@ async def rayneo_assistant(ctx: JobContext) -> None:
     record.event("call", room=ctx.room.name, guide=guide.name, language=lang, commit=os.environ.get("GIT_COMMIT") or None,
                  settings=asdict(settings), steps=[s.name for s in guide.steps])
     build = Build(guide=guide, run=ctx.room.name)
-    sampler = FixedRateSampler(settings.video_fps, record, step=lambda: build.step + 1)
+    sampler = FixedRateSampler(settings.video_fps, settings.side, record, step=lambda: build.step + 1)
     session = AgentSession(userdata=Call(build, record), video_sampler=sampler, llm=build_live_model(settings))
     prompt = instructions(guide, lang)
     record.text("instructions.txt", prompt)
@@ -128,7 +128,7 @@ async def rayneo_assistant(ctx: JobContext) -> None:
     await session.start(
         agent=Agent(instructions=prompt, tools=[set_progress]),
         room=ctx.room,
-        # Camera frames from the glasses go inline with the audio session, through the sampler.
+        # Camera frames from the glasses reach the sampler, which crops and pushes them to the model itself.
         room_options=room_io.RoomOptions(video_input=True),
     )
 

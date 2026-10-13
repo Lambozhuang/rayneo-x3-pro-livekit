@@ -21,16 +21,14 @@ from env import require_env
 
 logger = logging.getLogger("rayneo-agent.config")
 
-# How a camera frame is encoded before upload. The plugin's default squeezes
-# every frame into 1024x1024 at JPEG quality 75, which threw away most of a
-# 1080p capture before Gemini ever saw it. Send frames at their captured size
-# instead; how many tokens the model spends on them is media_resolution's
-# business. The frames saved in the call record are encoded with these options
-# too, so they are what the model saw.
+# How the plugin encodes a frame before upload. The frames it gets are already
+# the cropped square (sampler.py), so this only has to leave them alone: the
+# plugin's default would squeeze them into 1024x1024 at JPEG quality 75. How
+# many tokens the model spends on a frame is media_resolution's business.
 IMAGE_ENCODE_OPTIONS = images.EncodeOptions(
     format="JPEG",
     quality=85,
-    resize_options=images.ResizeOptions(width=1920, height=1920, strategy="scale_aspect_fit"),
+    resize_options=images.ResizeOptions(width=4096, height=4096, strategy="scale_aspect_fit"),
 )
 
 
@@ -41,33 +39,39 @@ class Settings:
     # Camera frames a second shown to the model (sampler.py). Every frame stays
     # in the model's context for the rest of the call, so this is the cost knob.
     video_fps: float
-    # Token budget per frame: the API default, or MEDIA_RESOLUTION_LOW / MEDIUM
-    # / HIGH. Gemini 3 models default to a larger budget than 2.5 did.
+    # The side in px of the square cut from each frame (sampler.py).
+    side: int
+    # Token budget per frame: the API default (70 tokens on Gemini 3 models), or
+    # MEDIA_RESOLUTION_LOW / MEDIUM (also 70) / HIGH (280).
     media_resolution: str | None
-    # A sliding window over the model's context: Live keeps every frame and
-    # every word and re-reads them on every turn; measured on gemini-3.8-live,
-    # a five-minute call grew to 50k input tokens a turn and the time to first
-    # audio from 2 s to 9 s. The window drops the oldest turns once `trigger`
-    # tokens are reached, down to `target`. None turns it off.
+    # A sliding window over the model's context. Google cuts an audio-and-video
+    # session off at two minutes unless compression is configured, so it is
+    # always configured; where it bites is the question. The window drops the
+    # oldest turns once `trigger` tokens are reached, down to `target`. The
+    # defaults sit far above what a trial uses (about 20k tokens for three
+    # minutes at one frame a second), so a trial keeps its whole call in
+    # context; the model's time to first audio then grows with the call, which
+    # the `model:` lines show. None turns compression off.
     context_trigger: int | None
     context_target: int
 
     @classmethod
     def from_env(cls) -> Settings:
-        trigger = os.environ.get("GEMINI_CONTEXT_TRIGGER_TOKENS", "24000")
+        trigger = os.environ.get("GEMINI_CONTEXT_TRIGGER_TOKENS", "100000")
         s = cls(
             model=require_env("GEMINI_MODEL"),
             voice=os.environ.get("GEMINI_VOICE", "Puck"),
             video_fps=float(os.environ.get("GEMINI_VIDEO_FPS", "1")),
+            side=int(os.environ.get("GEMINI_SIDE", "1080")),
             media_resolution=os.environ.get("GEMINI_MEDIA_RESOLUTION") or None,
             context_trigger=None if trigger.lower() == "off" else int(trigger),
-            context_target=int(os.environ.get("GEMINI_CONTEXT_TARGET_TOKENS", "12000")),
+            context_target=int(os.environ.get("GEMINI_CONTEXT_TARGET_TOKENS", "50000")),
         )
         require_env("GOOGLE_API_KEY")  # the plugin reads it itself
         if s.video_fps <= 0:
             raise RuntimeError(f"GEMINI_VIDEO_FPS={s.video_fps}: the model must get frames; use a rate above 0")
-        logger.info("session model: %s voice=%s video_fps=%s media_resolution=%s context_compression=%s", s.model,
-                    s.voice, s.video_fps, s.media_resolution or "default", s.context_trigger or "off")
+        logger.info("session model: %s voice=%s video_fps=%s side=%d media_resolution=%s context_compression=%s",
+                    s.model, s.voice, s.video_fps, s.side, s.media_resolution or "default", s.context_trigger or "off")
         return s
 
     def experiment_line(self, guide: str) -> str:
