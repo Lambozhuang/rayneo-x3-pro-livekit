@@ -290,6 +290,7 @@ def report(d: str) -> str:
     task = (f"started {mmss(began['t'])}, " if began else "") + (
         f"finished {mmss(finished['t'])} ({finished['took_s']:.0f} s)" if finished else '<span class="warn">not finished</span>')
     kv = [("guide", f"{call.get('guide')} ({call.get('language')})"), ("commit", call.get("commit") or "unknown"),
+          ("t=0 wall clock ms", call.get("wall_ms") or "not recorded"),
           ("length", mmss(end)), ("build", task), ("steps done", f"{len(done)}/{steps}")]
     if gemini:
         kv += [("set_progress calls", f"{len(tools)}: {sum(1 for e in tools if not e.get('unchanged') and not e.get('ignored'))} "

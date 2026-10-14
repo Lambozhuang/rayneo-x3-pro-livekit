@@ -3,7 +3,8 @@
 RUN_DIR (compose: /app/runs = backend/runs on the host) gets one directory per call,
 <UTC start>-<room>:
 
-    events.jsonl   one JSON object per line: t (seconds since the call started), kind, the event's fields
+    events.jsonl   one JSON object per line: t (seconds since the call started), kind, the event's fields;
+                   the first, `call`, carries wall_ms, the wall clock of t=0
     brain.txt      the brain's instructions as sent; voice.txt the voice's persona
     ask<n>-s<step>.jpg   every photo sent to the brain, as sent
 
@@ -36,6 +37,12 @@ class RunLog:
             self._writer = ThreadPoolExecutor(max_workers=1, thread_name_prefix="runlog")
             self._events = open(os.path.join(self.dir, "events.jsonl"), "a", encoding="utf-8")
             logger.info("run record in %s", self.dir)
+
+    @property
+    def wall_ms(self) -> int:
+        """The call's t=0 as wall clock ms, for putting the glasses' lines (their own wall clock) on this axis;
+        the directory name gives the same instant to the second only."""
+        return round(self._wall0 * 1000)
 
     def t(self, wall: float | None = None) -> float:
         """Seconds since the call started: now, or at a time.time() stamp (the framework's own timestamps)."""

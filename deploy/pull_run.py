@@ -37,13 +37,14 @@ subprocess.run([sys.executable, str(root / "deploy" / "report.py"), str(logs / c
 
 
 def clock_ahead_ms(cmd: list[str], tries: int = 5) -> dict:
-    """How far the clock `cmd` prints (epoch ms) is ahead of this PC's, taken at the middle of the quickest exchange."""
+    """How far the clock `cmd` prints (epoch ns: `date +%s%N`, which GNU date and Android's toybox both give;
+    GNU date ignores a width such as %3N) is ahead of this PC's, taken at the middle of the quickest exchange."""
     best = None
     for _ in range(tries):
         t0 = time.time()
         out = subprocess.run(cmd, check=True, capture_output=True, text=True).stdout.strip()
         t1 = time.time()
-        sample = {"ahead_ms": round(int(out) - (t0 + t1) / 2 * 1000), "exchange_ms": round((t1 - t0) * 1000)}
+        sample = {"ahead_ms": round(int(out) / 1e6 - (t0 + t1) / 2 * 1000), "exchange_ms": round((t1 - t0) * 1000)}
         if best is None or sample["exchange_ms"] < best["exchange_ms"]:
             best = sample
     return best
@@ -54,8 +55,8 @@ if any(line.strip().endswith("device") for line in devices):
     with open(logs / call / "glasses.log", "w", encoding="utf-8") as f:
         subprocess.run(["adb", "logcat", "-d", "-v", "time", "-s", "rayneo-call", "rayneo-link", "rayneo-speech"], check=True, stdout=f)
     print(logs / call / "glasses.log")
-    glasses = clock_ahead_ms(["adb", "shell", "date", "+%s%3N"])
-    server = clock_ahead_ms(["ssh", HOST, "date +%s%3N"])
+    glasses = clock_ahead_ms(["adb", "shell", "date", "+%s%N"])
+    server = clock_ahead_ms(["ssh", HOST, "date +%s%N"])
     clock = {"glasses_ahead_of_server_ms": glasses["ahead_ms"] - server["ahead_ms"],
              "measured_at_ms": round(time.time() * 1000), "glasses": glasses, "server": server}
     (logs / call / "clock.json").write_text(json.dumps(clock, indent=1), encoding="utf-8")

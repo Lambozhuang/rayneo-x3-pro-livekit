@@ -55,7 +55,7 @@ async def rayneo_assistant(ctx: JobContext) -> None:
     logger.info(settings.experiment_line(guide.name))
     # The call's record (runlog.py): what happened, in order, with every field; deploy/report.py reads it.
     record = RunLog(os.environ.get("RUN_DIR"), ctx.room.name)
-    record.event("call", room=ctx.room.name, guide=guide.name, language=lang, commit=os.environ.get("GIT_COMMIT") or None,
+    record.event("call", wall_ms=record.wall_ms, room=ctx.room.name, guide=guide.name, language=lang, commit=os.environ.get("GIT_COMMIT") or None,
                  settings=asdict(settings), steps=[s.name for s in guide.steps])
     tap = FrameTap(on_first=lambda f: record.event("camera", first_frame=f"{f.width}x{f.height}"))
     build = Build(guide=guide, run=ctx.room.name)
