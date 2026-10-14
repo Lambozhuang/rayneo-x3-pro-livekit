@@ -41,9 +41,12 @@ from livekit.agents import AgentSession
 from frames import FrameTap, bottom_square
 from gpt.prompts import brain_instructions
 from guide import Build, publish_build
+from livekit.agents import get_job_context
 from runlog import RunLog
 
 logger = logging.getLogger("rayneo-agent.brain")
+
+LOOKING_ATTRIBUTE = "rayneo.brain.looking"  # "1" while a look runs; the glasses show "Thinking" (Phase.kt)
 
 
 # (name, description, JSON schema of the arguments); the same for both providers
@@ -222,6 +225,7 @@ class Brain:
             self._task.cancel()
         self._task_n = self._asks
         self._task = asyncio.create_task(self._answer(d.id, words, self._asks, time.monotonic()), name="brain")
+        self._publish_looking(True)
 
     async def _answer(self, delegation_id: str, words: str, n: int, t_asked: float | None = None) -> None:
         try:
@@ -233,6 +237,7 @@ class Brain:
             self._record.event("look_failed", n=n, error=f"{type(e).__name__}: {e}"[:500])
             self._commentary("The helper could not answer this time. Ask the wearer to say it again.",
                              delegation_id, n, t_asked)
+            self._publish_looking(False)
             return
         build = self._build
         parts = [f"Camera: {out['text']}"] if out["text"] else []
@@ -251,6 +256,15 @@ class Brain:
                          f"Progress: {build.step} of {total} steps done; the wearer is now on step {build.step + 1} "
                          f"({build.guide.steps[build.step].brick}).")
         self._commentary(" ".join(parts) or "Camera: nothing to add.", delegation_id, n, t_asked)
+        self._publish_looking(False)
+
+    def _publish_looking(self, looking: bool) -> None:
+        """Tell the glasses whether a look is in progress, as the participant attribute LOOKING_ATTRIBUTE ("1" or
+        cleared), so they can show "Thinking" while the brain works: the speech model's own state stays
+        "listening" through a hand-over. Set on every hand-over and cleared when the answer or the failure goes
+        to the voice, not when a look is cancelled, since a cancelled look was replaced by a newer one."""
+        attributes = {LOOKING_ATTRIBUTE: "1" if looking else ""}
+        asyncio.create_task(get_job_context().room.local_participant.set_attributes(attributes), name="looking")
 
     async def _ask(self, words: str, n: int) -> dict:
         """One look: {text, calls, progress}; progress = the steps done by a set_progress call that changes it, else None."""

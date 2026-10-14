@@ -43,6 +43,7 @@ import io.livekit.android.example.voiceassistant.ui.Captions
 import io.livekit.android.example.voiceassistant.ui.Eyes
 import io.livekit.android.example.voiceassistant.ui.Phase
 import io.livekit.android.example.voiceassistant.ui.PhaseBanner
+import io.livekit.android.example.voiceassistant.ui.rememberBrainLooking
 import io.livekit.android.example.voiceassistant.ui.rememberBuildProgress
 import io.livekit.android.example.voiceassistant.ui.rememberEngineState
 import io.livekit.android.example.voiceassistant.viewmodel.VoiceAssistantViewModel
@@ -238,7 +239,8 @@ fun VoiceAssistant(
         }
         val engineState by rememberEngineState(room)
         val buildProgress by rememberBuildProgress(agent.agentParticipant)
-        val phase = Phase.of(agent, wearerSpeaking, session, engineState, sawAgent, localMedia.isMicrophoneEnabled)
+        val brainLooking by rememberBrainLooking(agent.agentParticipant)
+        val phase = Phase.of(agent, wearerSpeaking, session, engineState, sawAgent, localMedia.isMicrophoneEnabled, brainLooking)
 
         // Both sides. The agent's lines are its own transcript; the wearer's
         // are what the model heard, published back by the agent under the

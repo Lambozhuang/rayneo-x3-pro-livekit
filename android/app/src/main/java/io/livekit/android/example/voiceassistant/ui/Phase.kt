@@ -14,7 +14,11 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.State
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -27,6 +31,8 @@ import io.livekit.android.compose.state.Agent
 import io.livekit.android.compose.state.AgentState
 import io.livekit.android.compose.state.Session
 import io.livekit.android.room.ConnectionState
+import io.livekit.android.room.participant.Participant
+import io.livekit.android.util.flow
 import io.livekit.android.compose.ui.audio.VoiceAssistantBarVisualizer
 
 /**
@@ -35,11 +41,14 @@ import io.livekit.android.compose.ui.audio.VoiceAssistantBarVisualizer
  * visualizer only moved while the agent spoke, so "listening", "thinking" and
  * "the mic is dead" all looked identical.
  *
- * Derived from three sources. The agent publishes its own state (listening /
+ * Derived from four sources. The agent publishes its own state (listening /
  * thinking / speaking) as a participant attribute, which the SDK exposes as
  * [Agent.agentState], merged with what the SDK knows about the agent's
  * arrival: no participant yet, one that has been and gone, none within the
- * timeout. Whether the *wearer* is speaking is not something the agent
+ * timeout. On the GPT-Live path that state never says "thinking": the speech
+ * model keeps listening while the hand-over to the vision model runs, so the
+ * agent sets its own attribute, `rayneo.brain.looking`, for as long as a
+ * look is in progress ([rememberBrainLooking]). Whether the *wearer* is speaking is not something the agent
  * reports; it comes from the SFU's active-speaker updates, which include the
  * local participant. And the room connection itself can be mid-reconnect,
  * which on a network-quality test bed is the most interesting state of all;
@@ -82,12 +91,13 @@ enum class Phase(val label: String, val color: Color, val hint: String? = null) 
             engine: ConnectionState,
             sawAgent: Boolean,
             micOn: Boolean,
+            brainLooking: Boolean,
         ): Phase = when {
             session.isReconnecting || engine == ConnectionState.RESUMING || engine == ConnectionState.RECONNECTING -> RECONNECTING
             agent.agentState == AgentState.FAILED -> NO_AGENT
             session.isConnected && sawAgent && agent.agentParticipant == null -> LOST
             agent.agentState == AgentState.SPEAKING -> SPEAKING
-            agent.agentState == AgentState.THINKING -> THINKING
+            agent.agentState == AgentState.THINKING || brainLooking -> THINKING
             agent.isConnected && micOn && wearerSpeaking -> LISTENING
             agent.isConnected && micOn -> READY
             else -> CONNECTING
@@ -143,4 +153,12 @@ fun PhaseBanner(phase: Phase, agent: Agent, modifier: Modifier = Modifier) {
             )
         }
     }
+}
+
+/** Whether the agent's brain is on a look right now: its `rayneo.brain.looking` attribute is "1" (brain.py). */
+@Composable
+fun rememberBrainLooking(agent: Participant?): State<Boolean> {
+    if (agent == null) return remember { mutableStateOf(false) }
+    val attributes by agent::attributes.flow.collectAsState()
+    return remember(attributes) { mutableStateOf(attributes["rayneo.brain.looking"] == "1") }
 }
