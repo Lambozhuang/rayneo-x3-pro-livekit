@@ -11,7 +11,9 @@
 # The app remembers the last endpoint and build it was given, and opens on the
 # build picker: swipe on the temple to choose, tap to start the call.
 # Run from the repo root. Needs adb on PATH and the glasses plugged in (USB is
-# for launching and logs only; the call itself is Wi-Fi).
+# for launching and logs only; the call itself is Wi-Fi). -Install builds the
+# debug variant on purpose: it is the one that allows cleartext http:// and
+# ws:// to a LAN IP. It needs a JDK: JAVA_HOME, or Android Studio's.
 
 param(
     [string]$Ip,                  # backend LAN address; default: this PC's
@@ -88,6 +90,11 @@ if ((& adb shell settings get global wifi_on).Trim() -ne "1") {
 
 # Asleep glasses (taken off for a minute) keep the app out of the foreground.
 & adb shell input keyevent KEYCODE_WAKEUP
+
+# The app's link and speech lines (rayneo-link, rayneo-speech) are read back
+# after the call by deploy/pull_run.py. The SDK logs at DEBUG and rolls the
+# default 256 KB buffer in seconds, so a whole call has to fit: 64 MB does.
+& adb logcat -G 64M
 
 # An empty -e credential "" is eaten by the shell and `am start` then fails
 # with "Argument expected"; only pass it when there is one.

@@ -54,41 +54,68 @@ Gemini's own turn detection decides when the wearer has finished. The wearer's a
 
 ## Running
 
-**Server**: a Linux machine with Docker on the glasses' network. The lab PC is Ubuntu, reached over ssh, with nothing installed as a service. The three programs run as Docker containers, all in `backend/docker-compose.yml`. They use the server's own network rather than Docker's (`network_mode: host`): livekit-server tells the glasses which IP address and UDP ports to send media to, and that has to be the server's real LAN address, not a container's.
+You need a Linux server with Docker on the same Wi-Fi as the glasses, and a Windows PC with adb to drive the glasses. Run every command below on the Windows PC, from the repo root.
+
+### Setting up a new server or new glasses
+
+Clone the repo on the server and generate its config (`lab`: a private LAN, no TLS, `AUTH_MODE=dev`):
 
 ```shell
-deploy/setup.sh lab              # once: key pair, livekit.yaml, backend/.env
-cd backend
-GIT_COMMIT=$(git describe --always --dirty) docker compose up -d --build
-docker compose logs -f --no-log-prefix agent | python3 ../deploy/watch.py
-docker compose down              # after testing
+ssh <server> 'cd <repo> && deploy/setup.sh lab'
 ```
 
-From the Windows PC, `python deploy/backend.py lab openai` does the pull, the `AGENT_BACKEND` edit and the `docker compose up` on the server over ssh, and waits for the agent to register; the first word names the server (`lab` or `home`, the ssh aliases are in the script), the second the architecture (`openai` or `gemini`); `down` in its place stops the containers.
+Paste the API keys into `backend/.env` on the server, and add the server's ssh alias and repo path to `SERVERS` in `deploy/backend.py`.
 
-`backend/.env` (see `.env.example`) takes `AGENT_BACKEND`, the keys (`OPENAI_API_KEY`; `ANTHROPIC_API_KEY` with `BRAIN_PROVIDER=anthropic`; `GOOGLE_API_KEY` for Gemini), the model ids, `AUTH_MODE` (`dev` lets anyone in, `static` wants one shared token, `jwt` an account system's token) and `LIVEKIT_PUBLIC_URL` (`ws://<lan-ip>:7880`, what the glasses get). `setup.sh` prints the ufw rules the glasses need if ufw is on. Without Docker: start livekit-server with `docker run --rm -it --network host livekit/livekit-server --dev`, then run `uv run src/server.py` in `backend/api` and `uv run src/agent.py start` in `backend/agent`.
-
-**Glasses**: from a Windows PC with adb, in the repo root:
+Build the app and install it on the glasses:
 
 ```powershell
-.\deploy\glasses.ps1 -Ip 192.168.50.147 -Install   # build the debug APK, install it, launch against that server
-.\deploy\glasses.ps1 -Ip 192.168.50.147            # launch only; -Task <name> preselects a build, -Stop kills the app
+.\deploy\glasses.ps1 -Ip <server LAN IP> -Install
 ```
 
-`-Install` needs a JDK: `JAVA_HOME`, or Android Studio's, which the script finds by itself. The debug build is required: it allows cleartext `http://` / `ws://` to a LAN IP. Glasses and server must share an IP network: USB carries adb only, and libwebrtc binds to Wi-Fi. `glasses.ps1` also turns off the policy that switches the glasses' Wi-Fi off a minute after they think they were taken off; `-RestoreSleep` puts it back. On the glasses: swipe to pick a build, tap to call, double tap to end the call or leave.
+### Running a session
+
+Start the backend on a server (`lab` or `home`) with an architecture (`openai` or `gemini`):
+
+```shell
+python deploy/backend.py lab openai
+```
+
+Launch the app on the glasses. Swipe to pick a build, tap to call, double tap to end.
+
+```powershell
+.\deploy\glasses.ps1 -Ip <server LAN IP>
+```
+
+Follow the call live:
+
+```shell
+ssh <server> 'cd <repo>/backend && docker compose logs -f --no-log-prefix agent | python3 ../deploy/watch.py'
+```
+
+After the call, copy its record into `logs/` and write `report.html`:
+
+```shell
+python deploy/pull_run.py
+```
+
+Stop the backend:
+
+```shell
+python deploy/backend.py lab down
+```
 
 ### Scripts
 
-`deploy/` holds these scripts. The shell and Python ones run on the server, the PowerShell one on the Windows PC with the glasses on adb, from the repo root. Each script's header has the details.
+`deploy/` holds the scripts. `setup.sh` and `watch.py` run on the server; the rest run on the Windows PC, from the repo root. Each script's header says more. `livekit.lab.yaml` is the livekit-server config that `setup.sh` starts from.
 
-| script | purpose | usage |
+| script | what it does | usage |
 |---|---|---|
-| `backend.py` | starts the backend on a server over ssh with the architecture chosen: pulls the checkout, sets `AGENT_BACKEND` in `backend/.env`, builds and starts the containers, waits for the agent to register; `down` stops the containers | `python deploy/backend.py {lab\|home} {openai\|gemini\|down}` |
-| `setup.sh` | sets up a new server: writes the key pair, `livekit.yaml` from `livekit.lab.yaml`, and `backend/.env`; never overwrites a file that exists | `deploy/setup.sh lab` |
-| `watch.py` | follows the call live from the agent's JSON log: the transcripts, the progress, the timings and the warnings, one line each, the SDK's own lines dropped | `docker compose logs -f --no-log-prefix agent \| python3 ../deploy/watch.py`, `-v` keeps the dropped lines |
-| `pull_run.py` | copies a call's record from the lab PC into `logs/` and runs `report.py` on it | `python deploy/pull_run.py` (newest) or `python deploy/pull_run.py <call>` |
-| `report.py` | turns a call's record into a web page | `python deploy/report.py logs/<call>` writes `logs/<call>/report.html` |
-| `glasses.ps1` | builds, installs and launches the app on the glasses | `.\deploy\glasses.ps1 -Ip <server> [-Install] [-Task <name>] [-Stop] [-RestoreSleep]` |
+| `backend.py` | starts the backend on a server with one architecture, or stops it | `python deploy/backend.py {lab\|home} {openai\|gemini\|down}` |
+| `setup.sh` | writes a new server's config: a livekit key pair, `livekit.yaml`, `backend/.env`; keeps any of them that already exists | `deploy/setup.sh lab` |
+| `watch.py` | prints the call as it happens, from the agent's log: what each side said, the progress, the timings, the warnings | `docker compose logs -f --no-log-prefix agent \| python3 ../deploy/watch.py [-v]`; `-v` also shows the lines it drops |
+| `pull_run.py` | copies a call's record from the lab PC into `logs/` and runs `report.py` on it | `python deploy/pull_run.py [<call>]`; the newest call without an argument |
+| `report.py` | writes a call's record as one web page, `report.html` in the record's directory | `python deploy/report.py logs/<call>` |
+| `glasses.ps1` | builds, installs, launches or stops the app on the glasses | `.\deploy\glasses.ps1 -Ip <server LAN IP> [-Install] [-Task <build>] [-Stop] [-RestoreSleep]` |
 
 ## Logs
 
@@ -109,7 +136,7 @@ The agent writes one JSON line per event (`docker compose logs agent`; `deploy/w
 | `model:` | Gemini: one reply's time to first audio, generation length and tokens, the image tokens spelled out (zero means no video is reaching the model) |
 | `tool:` | Gemini: it called `set_progress`, and what came of it |
 
-Each call also leaves a record in `backend/runs/<UTC start>-<room>/`: `events.jsonl` (every event with all its fields), the prompts as sent, and the photos: on the GPT path every photo sent to the brain, on the Gemini path every frame shown to the model. `python deploy/pull_run.py [<call>]` copies the newest (or that) record into `logs/` and writes `report.html` (timeline, waits, what went wrong, each look with its photo and the input as sent; for a Gemini call the frames shown and each `set_progress` with the newest frame before it). The container writes records as root; delete them with `docker run --rm -v "$PWD/runs:/r" backend-agent sh -c "rm -rf /r/2026*"` in `backend/`.
+Each call also leaves a record in `backend/runs/<UTC start>-<room>/`: `events.jsonl` (every event with all its fields), the prompts as sent, and the photos: on the GPT path every photo sent to the brain, on the Gemini path every frame shown to the model. `python deploy/pull_run.py [<call>]` copies the newest (or that) record into `logs/`, saves the glasses' `rayneo-link` and `rayneo-speech` lines as `glasses.log` when the glasses are on adb, and writes `report.html` (timeline, waits, what went wrong, each look with its photo and the input as sent; for a Gemini call the frames shown and each `set_progress` with the newest frame before it). The container writes records as root; delete them with `docker run --rm -v "$PWD/runs:/r" backend-agent sh -c "rm -rf /r/2026*"` in `backend/`.
 
 **Never set the root logger to `DEBUG` in code** (`logging.basicConfig(level=logging.DEBUG)` and the like): the `websockets` logger then prints request headers, API keys included. `--log-level debug` on the agent CLI sets the root logger to `DEBUG` too, but holds `websockets.client` at `WARN`. If a key reached a log, rotate it.
 
@@ -150,7 +177,7 @@ logs/                   records pulled from the lab (not in git)
 - The display is additive: black emits nothing, so the background is black, no light theme.
 - Check layouts with `adb shell uiautomator dump`; `screencap` is post-correction and misreports.
 
-The camera sensor is mounted sideways: frames arrive as 1080x1920 portrait, fixed focus. The app sends one 1920x1080 layer, 15 fps, H264 on the hardware encoder at 4 Mbps (`VoiceAssistantViewModel.kt`), through libwebrtc's `HardwareVideoEncoderFactory` directly: the SDK's simulcast wrapper crop-scales this sensor's frames, and VP8 is software here and blurry. `VideoStatsLog.kt` logs the encoder every 5 s under `rayneo-video`. The "Reconnecting" banner reads the SDK engine's own state (`EngineState.kt`), since the public room state stays "connected" through the soft reconnect a Wi-Fi drop triggers.
+The camera sensor is mounted sideways: frames arrive as 1080x1920 portrait, fixed focus. The app sends one 1920x1080 layer, 15 fps, H264 on the hardware encoder at 4 Mbps (`VoiceAssistantViewModel.kt`), through libwebrtc's `HardwareVideoEncoderFactory` directly: the SDK's simulcast wrapper crop-scales this sensor's frames, and VP8 is software here and blurry. `LinkStatsLog.kt` logs the link as WebRTC measures it on the glasses every 5 s under `rayneo-link`: the encoder's size, frame rate and bitrate and what limits it, the round trip and loss the SFU reports back for video and microphone, and for the agent's voice the loss, jitter, jitter-buffer hold and concealed samples. `SpeechEdgeLog.kt` logs under `rayneo-speech` the wall-clock moment the microphone goes quiet and the moment the agent's voice arrives, the glasses' side of a turn's wait. The "Reconnecting" banner reads the SDK engine's own state (`EngineState.kt`), since the public room state stays "connected" through the soft reconnect a Wi-Fi drop triggers.
 
 ## Reference
 
