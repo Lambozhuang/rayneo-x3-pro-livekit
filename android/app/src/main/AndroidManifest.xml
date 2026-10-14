@@ -11,6 +11,10 @@
         android:supportsRtl="true"
         android:theme="@style/Theme.LiveKitVoiceAssistantExample"
         tools:targetApi="31">
+        <!-- The RayNeo launcher lists only apps that carry this flag. -->
+        <meta-data
+            android:name="com.rayneo.mercury.app"
+            android:value="true" />
         <activity
             android:name=".MainActivity"
             android:exported="true"
