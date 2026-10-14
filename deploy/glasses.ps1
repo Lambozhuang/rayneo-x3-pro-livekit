@@ -91,7 +91,7 @@ if ((& adb shell settings get global wifi_on).Trim() -ne "1") {
 # Asleep glasses (taken off for a minute) keep the app out of the foreground.
 & adb shell input keyevent KEYCODE_WAKEUP
 
-# The app's link and speech lines (rayneo-link, rayneo-speech) are read back
+# The app's call, link and speech lines (rayneo-call, rayneo-link, rayneo-speech) are read back
 # after the call by deploy/pull_run.py. The SDK logs at DEBUG and rolls the
 # default 256 KB buffer in seconds, so a whole call has to fit: 64 MB does.
 & adb logcat -G 64M

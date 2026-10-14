@@ -12,6 +12,7 @@ the glasses follows it (publish_build).
 from __future__ import annotations
 
 import logging
+import time
 from dataclasses import dataclass
 
 from livekit.agents import RunContext, function_tool
@@ -60,6 +61,8 @@ async def set_progress(context: RunContext[Call], done: int) -> str:
     logger.info("tool: #%d set_progress(%d): %d done -> %d done", n, done, before, done)
     if build.step > before:
         record.event("step", done=build.step, now=None if build.finished else build.step + 1)
+        if build.finished:
+            record.event("build", finished=True, took_s=round(time.monotonic() - build.started, 1))
     else:
         record.event("step", done=None, reopened=build.step + 1, now=build.step + 1)
     record.event("tool", n=n, name="set_progress", done=done, before=before)

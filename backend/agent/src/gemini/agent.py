@@ -164,6 +164,8 @@ async def rayneo_assistant(ctx: JobContext) -> None:
             record.event("quality", who=p.identity, quality=name)
 
     build.start()
+    # The task's bounds in the record: `build` started here, finished when the last step is recorded as done.
+    record.event("build", started=True, steps=len(guide.steps))
     record.event("step", done=None, now=1)
     await publish_build(build)
 

@@ -129,6 +129,9 @@ class Build:
         return True
 
     def start(self) -> None:
+        """The task begins now: the wearer is in the call. The time it takes is counted from here, not from
+        when this object was made while the call was still being set up."""
+        self.started = self.step_started = time.monotonic()
         logger.info(
             "build: run=%s guide=%s steps=%d", self.run, self.guide.name, len(self.guide.steps)
         )

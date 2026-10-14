@@ -241,6 +241,8 @@ class Brain:
             build.set_step(out["progress"])  # index of the step the wearer is on = the number of steps done
             if build.step > before:
                 self._record.event("step", done=build.step, now=None if build.finished else build.step + 1)
+                if build.finished:
+                    self._record.event("build", finished=True, took_s=round(time.monotonic() - build.started, 1))
             else:
                 self._record.event("step", done=None, reopened=build.step + 1, now=build.step + 1)
             await publish_build(build)

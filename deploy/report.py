@@ -285,8 +285,12 @@ def report(d: str) -> str:
 
     out = [f"<!doctype html><meta charset='utf-8'><title>{esc(name)}</title><style>{CSS}</style>",
            f"<h1>{esc(name)}</h1><table class='kv'>"]
+    began = next((e for e in events if e["kind"] == "build" and e.get("started")), None)
+    finished = next((e for e in events if e["kind"] == "build" and e.get("finished")), None)
+    task = (f"started {mmss(began['t'])}, " if began else "") + (
+        f"finished {mmss(finished['t'])} ({finished['took_s']:.0f} s)" if finished else '<span class="warn">not finished</span>')
     kv = [("guide", f"{call.get('guide')} ({call.get('language')})"), ("commit", call.get("commit") or "unknown"),
-          ("length", mmss(end)), ("steps done", f"{len(done)}/{steps}")]
+          ("length", mmss(end)), ("build", task), ("steps done", f"{len(done)}/{steps}")]
     if gemini:
         kv += [("set_progress calls", f"{len(tools)}: {sum(1 for e in tools if not e.get('unchanged') and not e.get('ignored'))} "
                                       f"moved, {sum(1 for e in tools if e.get('unchanged'))} unchanged, "
@@ -304,7 +308,7 @@ def report(d: str) -> str:
                ("GPT-Live billed", f"{billed} s" if billed is not None else "-"),
                ("camera frames", end_ev.get("camera_frames", "-"))]
     kv += [(k, v) for k, v in (call.get("settings") or {}).items()]
-    out += [f"<tr><td>{esc(k)}</td><td>{v if k.startswith(('looks', 'brain', 'hand', 'model', 'set_progress')) else esc(v)}</td></tr>" for k, v in kv]
+    out += [f"<tr><td>{esc(k)}</td><td>{v if k.startswith(('looks', 'brain', 'hand', 'model', 'set_progress', 'build')) else esc(v)}</td></tr>" for k, v in kv]
     texts = [(f, label) for f, label in (("brain.txt", "brain instructions"), ("brain-tools.json", "brain tools"),
                                          ("voice.txt", "voice persona"), ("instructions.txt", "instructions"))
              if os.path.exists(os.path.join(d, f))]
@@ -343,8 +347,11 @@ def report(d: str) -> str:
             out.append(f'<div class="row">{t}<div style="flex:1">{card(e["n"], looks[e["n"]], thinking.get(e["n"], []))}</div></div>')
         elif k == "step":
             what = ((f"step {e['done']} done, " if e.get("done") else "") + (f"step {e['reopened']} reopened, " if e.get("reopened") else "")
-                    + (f"now step {e['now']}" if e.get("now") else "build finished"))
+                    + (f"now step {e['now']}" if e.get("now") else "last step done"))
             out.append(f'<div class="row">{t}<span class="ok">{what}</span></div>')
+        elif k == "build":
+            what = f"build started, {e['steps']} steps" if e.get("started") else f"build finished in {e['took_s']:.0f} s"
+            out.append(f'<div class="row">{t}<b class="ok">{what}</b></div>')
         elif k in ("wearer", "quality", "camera", "closed", "end") or (
                 k == "live" and e.get("type") in ("error", "session.started", "session.closed")):
             body = {key: v for key, v in e.items() if key not in ("t", "kind")}

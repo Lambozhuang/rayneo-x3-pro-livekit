@@ -1,5 +1,6 @@
 package io.livekit.android.example.voiceassistant.screen
 
+import android.util.Log
 import android.widget.Toast
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -29,8 +30,11 @@ import io.livekit.android.compose.state.rememberSession
 import io.livekit.android.compose.state.rememberSessionMessages
 import io.livekit.android.compose.state.rememberSpeakingParticipants
 import io.livekit.android.example.voiceassistant.FrameDump
-import io.livekit.android.example.voiceassistant.VideoStatsLog
+import io.livekit.android.example.voiceassistant.LinkStatsLog
+import io.livekit.android.example.voiceassistant.SpeechEdgeLog
+import io.livekit.android.room.track.LocalAudioTrack
 import io.livekit.android.room.track.LocalVideoTrack
+import io.livekit.android.room.track.RemoteAudioTrack
 import io.livekit.android.example.voiceassistant.rememberCanEnableCamera
 import io.livekit.android.example.voiceassistant.rememberCanEnableMic
 import io.livekit.android.example.voiceassistant.requirePermissions
@@ -43,6 +47,9 @@ import io.livekit.android.example.voiceassistant.ui.rememberBuildProgress
 import io.livekit.android.example.voiceassistant.ui.rememberEngineState
 import io.livekit.android.example.voiceassistant.viewmodel.VoiceAssistantViewModel
 import kotlinx.serialization.Serializable
+
+/** Tag of the two lines that bound a call in the glasses' log; deploy/pull_run.py reads them with the link and speech lines. */
+private const val CALL_TAG = "rayneo-call"
 
 @Serializable
 data class VoiceAssistantRoute(
@@ -135,9 +142,14 @@ fun VoiceAssistant(
             }
         }
 
-        // End the session when leaving the screen.
+        val room = requireRoom()
+
+        // End the session when leaving the screen. This is also where every call
+        // ends in the glasses' log, whichever side ended it: a double tap leaves
+        // the screen, and a server-side end leaves it through onEndCall below.
         DisposableEffect(Unit) {
             onDispose {
+                Log.i(CALL_TAG, "call ends room=${room.name} at=${System.currentTimeMillis()}")
                 session.end()
             }
         }
@@ -146,13 +158,14 @@ fun VoiceAssistant(
         // the server, or the connection was lost and the SDK gave up
         // reconnecting. A brief loss is RECONNECTING, not DISCONNECTED,
         // so this does not fire for a network blip; the banner shows that.
+        // The room name on the start line is the one in the server's record
+        // (backend/runs/<UTC start>-<room>/), so the two logs pair up by it.
         LaunchedEffect(Unit) {
             session.waitUntilConnected()
+            Log.i(CALL_TAG, "call starts room=${room.name} at=${System.currentTimeMillis()}")
             session.waitUntilDisconnected()
             onEndCall()
         }
-
-        val room = requireRoom()
         val localMedia = rememberLocalMedia()
 
         // Neither of these starts capture until the session is fully connected:
@@ -180,10 +193,31 @@ fun VoiceAssistant(
         }
 
         val cameraTrack = localMedia.cameraTrack?.publication?.track as? LocalVideoTrack
+        val micTrack = localMedia.microphoneTrack?.publication?.track as? LocalAudioTrack
+        val agentAudio = agent.audioTrack?.publication?.track as? RemoteAudioTrack
 
-        // What the encoder is doing, every few seconds. See VideoStatsLog.
+        // The link as WebRTC measures it here, one line per stream every few seconds. See LinkStatsLog.
         LaunchedEffect(cameraTrack) {
-            if (cameraTrack != null) VideoStatsLog.run(cameraTrack)
+            if (cameraTrack != null) LinkStatsLog.upVideo(cameraTrack)
+        }
+        LaunchedEffect(micTrack) {
+            if (micTrack != null) LinkStatsLog.upAudio(micTrack)
+        }
+        LaunchedEffect(agentAudio) {
+            if (agentAudio != null) LinkStatsLog.downAudio(agentAudio)
+        }
+
+        // When the wearer's voice stops at the microphone and when the agent's voice arrives, as wall clock
+        // times. See SpeechEdgeLog; the mic's threshold is higher because the room is in it.
+        DisposableEffect(micTrack) {
+            val edges = if (micTrack != null) SpeechEdgeLog("wearer", threshold = 1000) else null
+            if (edges != null) micTrack!!.addSink(edges)
+            onDispose { if (edges != null) micTrack!!.removeSink(edges) }
+        }
+        DisposableEffect(agentAudio) {
+            val edges = if (agentAudio != null) SpeechEdgeLog("agent", threshold = 500) else null
+            if (edges != null) agentAudio!!.addSink(edges)
+            onDispose { if (edges != null) agentAudio!!.removeSink(edges) }
         }
 
         // Debug only: raw frames to disk when the marker file exists. See FrameDump.
