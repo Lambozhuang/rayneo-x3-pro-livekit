@@ -32,8 +32,11 @@ if backend == "down":
 script = f"""
 set -eu
 cd ~/{repo}
+# The checkout has to be on main: a pull on another branch succeeds and quietly runs old code (it did, for a day).
+branch=$(git rev-parse --abbrev-ref HEAD)
+[ "$branch" = main ] || {{ echo "the server's checkout is on $branch, not main; fix it there: git checkout main" >&2; exit 1; }}
 git pull --ff-only
-echo "at $(git describe --always --dirty)"
+echo "at $(git describe --always --dirty) on main"
 cd backend
 sed -i 's/^AGENT_BACKEND=.*/AGENT_BACKEND={backend}/' .env
 grep -q '^AGENT_BACKEND={backend}$' .env || {{ echo "AGENT_BACKEND is not in .env" >&2; exit 1; }}
