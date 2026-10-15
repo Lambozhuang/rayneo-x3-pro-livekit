@@ -42,7 +42,10 @@ sed -i 's/^AGENT_BACKEND=.*/AGENT_BACKEND={backend}/' .env
 grep -q '^AGENT_BACKEND={backend}$' .env || {{ echo "AGENT_BACKEND is not in .env" >&2; exit 1; }}
 export GIT_COMMIT=$(git describe --always --dirty)
 docker compose build -q
-docker compose up -d livekit api
+docker compose up -d livekit
+# The api is recreated every time: it bind-mounts agent/guides, and a checkout that replaces that directory leaves
+# a running container looking at the old, empty one (the glasses then get no task list). It holds no state.
+docker compose up -d --force-recreate api
 since=$(date -u +%Y-%m-%dT%H:%M:%S)
 docker compose up -d --force-recreate agent
 for i in $(seq 30); do
