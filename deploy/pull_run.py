@@ -32,7 +32,6 @@ call = sys.argv[1] if len(sys.argv) > 1 else subprocess.run(
 if not call:
     sys.exit(f"no call records under {HOST}:{RUNS}")
 subprocess.run(["scp", "-q", "-r", f"{HOST}:{RUNS}/{call}", str(logs)], check=True)
-subprocess.run([sys.executable, str(root / "deploy" / "report.py"), str(logs / call)], check=True)
 
 
 
@@ -63,3 +62,6 @@ if any(line.strip().endswith("device") for line in devices):
     print(f"{logs / call / 'clock.json'}: glasses clock {clock['glasses_ahead_of_server_ms']:+d} ms against the server's")
 else:
     print("no glasses on adb: glasses.log and clock.json not written")
+
+# The page last, since it draws the glasses' side when those two files are there.
+subprocess.run([sys.executable, str(root / "deploy" / "report.py"), str(logs / call)], check=True)

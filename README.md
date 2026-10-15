@@ -117,6 +117,21 @@ python deploy/backend.py lab down
 | `report.py` | writes a call's record as one web page, `report.html` in the record's directory | `python deploy/report.py logs/<call>` |
 | `glasses.ps1` | builds, installs, launches or stops the app on the glasses | `.\deploy\glasses.ps1 -Ip <server LAN IP> [-Install] [-Task <build>] [-Stop] [-RestoreSleep]` |
 
+## Media and network settings
+
+The glasses talk WebRTC to livekit-server over Wi-Fi and the lab LAN; the server forwards the RTP unchanged to the agent on the same machine; the agent reaches the models over the internet. Everything not listed is a default.
+
+| | glasses | livekit-server | agent |
+|---|---|---|---|
+| stack | LiveKit Android SDK 2.28 on libwebrtc | livekit-server 1.13 (Go, Pion) | livekit-agents 1.8, libwebrtc through the Rust SDK |
+| transport | Wi-Fi to the server: UDP 50000-60000, TCP 7881 fallback, signalling ws://7880, no TURN, no TLS | same, bound to the LAN address (`deploy/livekit.lab.yaml`) | loopback to the server; WebSocket to GPT-Live, HTTPS to the brain's model |
+| video | sends one layer 1920x1080 at 15 fps, H264 hardware encoder, 4 Mbps cap, simulcast off, `MAINTAIN_RESOLUTION` (`VoiceAssistantViewModel.kt`) | forwards | receives and decodes; keeps the newest frame for the brain (`frames.py`) |
+| audio | sends Opus 48 kHz with AEC/NS/AGC, no RED, no in-band FEC; plays the agent's Opus | forwards | decodes the glasses' Opus for GPT-Live; sends GPT-Live's voice as Opus |
+| loss repair | NACK and PLI (libwebrtc default) | NACK and PLI toward both ends, no FEC (default) | NACK and PLI (default) |
+| receiver side | jitter buffer about 150 ms, Opus PLC | none, no decoding | jitter buffer, Opus PLC |
+| congestion control | GCC with transport-wide feedback for what it sends | its own estimator for what it sends down | not on an impaired link |
+| what it logs | every 5 s: RTT, loss, encoder size/fps/bitrate/limit, NACK/PLI, jitter-buffer hold, concealed samples (`LinkStatsLog.kt`); speech edges (`SpeechEdgeLog.kt`) | connection quality score only | the call's record (`runlog.py`) |
+
 ## Logs
 
 The agent writes one JSON line per event (`docker compose logs agent`; `deploy/watch.py` shows the call out of it). Each line's message starts with a prefix that says what it is. The first five prefixes appear on both architectures; the rest say which one writes them.
