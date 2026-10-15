@@ -6,7 +6,13 @@
 Reads what the agent wrote under RUN_DIR (backend/agent/src/runlog.py): events.jsonl,
 the photos and the prompts. The page has the call at a glance (settings, steps done,
 looks, how long the brain and the wearer waited, anything that went wrong), a timeline
-of who spoke when and every look, and then the call in order. For a GPT-Live call each
+of who spoke when and every look, and then the call in order. With the glasses' log and
+clock offset beside the record (deploy/pull_run.py writes glasses.log and clock.json) the
+timeline also shows the wearer's voice at the microphone and the agent's voice as it
+reached the glasses, and a GPT-Live call gets one stacked bar per hand-over that splits
+the wait from the wearer's last word to the answer in their ear into its stages: the
+network up with GPT-Live hearing the turn end and handing over, the brain's preparation
+and model, GPT-Live taking up the answer, the network down. For a GPT-Live call each
 hand-over is one card: what the wearer said, the photo and the whole input the brain
 got, its reply and tool call, what reached the voice and when the voice started
 speaking. For a Gemini call there are no hand-overs: the timeline shows the frames the
@@ -17,11 +23,18 @@ frame before it. Only stdlib, so it runs on the backend host as is.
 import html
 import json
 import os
+import re
 import sys
 from statistics import median
 
 PX = 6  # timeline px per second
 LANE = 22
+# The stages of one hand-over's wait, in order, with their colours (categorical, validated for this dark surface).
+STAGES = [("up", "network up, GPT-Live hearing the turn end and handing over", "#3987e5"),
+          ("prep", "brain: photo and prompt", "#199e70"),
+          ("model", "brain: the model", "#c98500"),
+          ("voice", "GPT-Live taking up the answer", "#d55181"),
+          ("down", "network down to the glasses", "#008300")]
 
 CSS = """
 body{font-family:sans-serif;background:#111;color:#ddd;margin:16px 24px;font-size:14px}
@@ -36,6 +49,9 @@ table.kv td{padding:1px 12px 1px 0;vertical-align:top}table.kv td:first-child{co
 .card .body{overflow:hidden}.card .clear{clear:both}
 pre{white-space:pre-wrap;background:#1d1d1d;padding:8px;font-size:12px;margin:4px 0}
 summary{cursor:pointer;color:#9cf}.tag{font-family:monospace;color:#888}
+table.stages{border-collapse:collapse;margin-top:8px}table.stages td,table.stages th{padding:2px 10px;text-align:right;font-variant-numeric:tabular-nums}
+table.stages th{color:#888;font-weight:normal}table.stages td:first-child,table.stages th:first-child{text-align:left}
+.sw{display:inline-block;width:10px;height:10px;border-radius:2px;margin-right:4px;vertical-align:middle}
 """
 
 
@@ -72,6 +88,110 @@ def spans(events: list[dict], who: str, state: str, end: float) -> list[tuple[fl
     return out
 
 
+def glasses(d: str, call: dict, end: float) -> dict | None:
+    """The glasses' speech edges on the call's time axis, from glasses.log and clock.json beside the record:
+    {"mic": [(a, b)], "heard": [(a, b)]}, the wearer's voice at the microphone and the agent's voice as decoded
+    on the glasses. Bursts separated by less than a second are one utterance. None when any of the three
+    pieces (the two files, the record's wall_ms) is missing: without them nothing can be placed."""
+    log, clock = os.path.join(d, "glasses.log"), os.path.join(d, "clock.json")
+    if not (call.get("wall_ms") and os.path.exists(log) and os.path.exists(clock)):
+        return None
+    ahead = json.load(open(clock, encoding="utf-8"))["glasses_ahead_of_server_ms"]
+    at_t = lambda at: (int(at) - ahead - call["wall_ms"]) / 1000  # noqa: E731
+    edges = {"wearer": [], "agent": []}
+    hung_up = end  # when the app left the call; a burst still open then ends there
+    for line in open(log, encoding="utf-8", errors="replace"):
+        m = re.search(r"rayneo-speech.*: (wearer|agent) sound (starts|stops) at=(\d+)", line)
+        if m and -2 <= at_t(m.group(3)) <= end + 2:
+            edges[m.group(1)].append((m.group(2), at_t(m.group(3))))
+        m = re.search(r"rayneo-call.*: call ends room=(\S+) at=(\d+)", line)
+        if m and m.group(1) == call.get("room"):
+            hung_up = at_t(m.group(2))
+    out = {}
+    for who, key in (("wearer", "mic"), ("agent", "heard")):
+        bursts, start = [], None
+        for kind, t in edges[who]:
+            if kind == "starts":
+                start = t
+            elif start is not None:
+                bursts.append((start, max(t, start)))
+                start = None
+        if start is not None:
+            bursts.append((start, max(start, hung_up)))
+        merged = []
+        for a, b in bursts:
+            if merged and a - merged[-1][1] < 1.0:
+                merged[-1] = (merged[-1][0], b)
+            else:
+                merged.append((a, b))
+        out[key] = merged
+    return out
+
+
+def stages(looks: dict[int, dict], ears: dict | None) -> list[dict]:
+    """One hand-over's wait split into STAGES, in seconds, for every look that got an answer: from the wearer's
+    last word at the microphone to the answer in their ear; without the glasses' log, from the hand-over to
+    GPT-Live starting to speak. The hand-over is the turn's end as GPT-Live judged it: the record's own "wearer
+    stopped speaking" trails it, since the framework closes the turn when the transcript arrives. A stage is
+    None when its edge is not in the record."""
+    rows = []
+    for n, look in sorted(looks.items()):
+        d, sent, back, v = look.get("delegation"), look.get("look_sent"), look.get("look_back"), look.get("voice_started")
+        if d is None or back is None:
+            continue
+        mic = max((b for a, b in ears["mic"] if d["t"] - 6 <= b <= d["t"] + 0.3), default=None) if ears else None
+        heard = None
+        if ears and v is not None:
+            heard = min((a for a, b in ears["heard"] if v["t"] - 0.2 <= a <= v["t"] + 3), default=None)
+        row = {"n": n, "outcome": outcome(look), "was_speaking": bool(v and v.get("was_speaking")),
+               "up": (d["t"] - mic) if mic is not None else None,
+               "prep": (sent["t"] - d["t"]) if sent else None,
+               "model": (back["t"] - sent["t"]) if sent else None,
+               "voice": (v["t"] - back["t"]) if v else None,
+               "down": (heard - v["t"]) if heard is not None and v else None}
+        rows.append(row)
+    return rows
+
+
+def stage_chart(rows: list[dict]) -> str:
+    """The stacked bars and the table: one row per look, the stages left to right in STAGES' colours."""
+    if not rows:
+        return '<span class="dim">no answered hand-over to split</span>'
+    px = 40  # per second
+    width = int(max(sum(r[k] or 0 for k, _, _ in STAGES) for r in rows) * px) + 140
+    h = 24
+    svg = [f'<svg width="{width}" height="{h * len(rows) + 20}" font-size="11" font-family="sans-serif">']
+    for i, r in enumerate(rows):
+        y, x = i * h, 40
+        svg.append(f'<a href="#look{r["n"]}"><text x="4" y="{y + 15}" fill="#ddd">#{r["n"]}</text></a>')
+        for key, label, colour in STAGES:
+            if r[key] is None or r[key] <= 0:
+                continue
+            w = r[key] * px
+            dim = ' opacity="0.55"' if key == "voice" and r["was_speaking"] else ""
+            note = " (approximate: GPT-Live was still speaking when the answer came)" if dim else ""
+            svg.append(f'<rect x="{x:.1f}" y="{y + 4}" width="{max(w - 2, 1):.1f}" height="{h - 8}" rx="2" fill="{colour}"{dim}>'
+                       f'<title>#{r["n"]} {label}: {r[key] * 1000:.0f} ms{note}</title></rect>')
+            x += w
+        total = sum(r[k] or 0 for k, _, _ in STAGES)
+        svg.append(f'<text x="{x + 4:.1f}" y="{y + 15}" fill="#aaa">{total:.1f} s</text>')
+    svg.append("</svg>")
+    legend = " &nbsp; ".join(f'<span class="sw" style="background:{c}"></span>{esc(label)}' for _, label, c in STAGES)
+    head = "".join(f"<th>{k}</th>" for k, _, _ in STAGES)
+    body = []
+    for r in rows:
+        cells = "".join(f"<td>{r[k] * 1000:.0f}</td>" if r[k] is not None else '<td class="dim">-</td>' for k, _, _ in STAGES)
+        total = sum(r[k] or 0 for k, _, _ in STAGES)
+        body.append(f'<tr><td><a href="#look{r["n"]}">#{r["n"]}</a> {r["outcome"]}</td>{cells}<td><b>{total * 1000:.0f}</b></td></tr>')
+    rows_html = "".join(body)
+    note = ("<p class='dim'>ms. From the wearer's last word at the microphone to the answer decoded on the glasses when "
+            "glasses.log and clock.json are beside the record; without them the first and last stages are missing and "
+            "the total runs from the hand-over to GPT-Live starting to speak. A faded voice stage is "
+            "approximate: GPT-Live was still speaking when the answer came. - : that edge is not in the record.</p>")
+    return ('<div class="tl">' + "".join(svg) + "</div><p class='dim'>" + legend + "</p>"
+            f'<table class="stages"><tr><th>look</th>{head}<th>total</th></tr>{rows_html}</table>' + note)
+
+
 def outcome(look: dict) -> str:
     if "look_failed" in look:
         return "failed"
@@ -83,11 +203,15 @@ def outcome(look: dict) -> str:
     return "done" if back.get("done") or back.get("progress") is not None else "not"  # done: records before set_progress
 
 
-def timeline(events: list[dict], looks: dict[int, dict], end: float, gemini: bool) -> str:
+def timeline(events: list[dict], looks: dict[int, dict], end: float, gemini: bool, ears: dict | None) -> str:
     width = int(end * PX) + 80
     # a GPT-Live call: who speaks, the brain's looks, the steps; a Gemini call has no wearer state (no local VAD)
-    # and no brain: the frames shown to the model and its tool calls instead
+    # and no brain: the frames shown to the model and its tool calls instead. With the glasses' log: the wearer's
+    # voice at the microphone above what the model heard, the agent's voice as it reached the glasses below it.
     lanes = ["voice", "frames", "tool", "steps"] if gemini else ["wearer", "voice", "brain", "steps"]
+    if ears:
+        v = lanes.index("voice") + 1
+        lanes = ([] if gemini else ["mic"]) + lanes[:v] + ["heard"] + lanes[v:]
     h = LANE * len(lanes) + 24
     x = lambda t: 60 + t * PX  # noqa: E731
     y = lambda name: lanes.index(name) * LANE  # noqa: E731
@@ -103,6 +227,13 @@ def timeline(events: list[dict], looks: dict[int, dict], end: float, gemini: boo
         for a, b in spans(events, who, "speaking", end):
             svg.append(f'<rect x="{x(a):.1f}" y="{y(who) + 4}" width="{max((b - a) * PX, 1):.1f}" height="{LANE - 8}" '
                        f'fill="{colour}"><title>{who} speaking {mmss(a)}-{mmss(b)}</title></rect>')
+    if ears:
+        for lane, colour, what in (("mic", "#2d7a2d", "wearer at the microphone"), ("heard", "#777", "agent's voice on the glasses")):
+            if lane not in lanes:
+                continue
+            for a, b in ears[lane]:
+                svg.append(f'<rect x="{x(a):.1f}" y="{y(lane) + 4}" width="{max((b - a) * PX, 1):.1f}" height="{LANE - 8}" '
+                           f'fill="{colour}"><title>{what} {mmss(a)}-{mmss(b)}</title></rect>')
     if gemini:
         for e in events:
             if e["kind"] == "frame":
@@ -282,6 +413,7 @@ def report(d: str) -> str:
     tools = [e for e in events if e["kind"] == "tool"]
     frames = [e for e in events if e["kind"] == "frame"]
     turns = [e for e in events if e["kind"] == "model"]
+    ears = glasses(d, call, end)
 
     out = [f"<!doctype html><meta charset='utf-8'><title>{esc(name)}</title><style>{CSS}</style>",
            f"<h1>{esc(name)}</h1><table class='kv'>"]
@@ -326,7 +458,14 @@ def report(d: str) -> str:
               "red = failed, grey = dropped; click one for its card. Blue tick on the voice lane = the voice starts that "
               "answer. Red tick on the brain lane = GPT-Live delegated and nothing arrived. Numbers on the steps lane = "
               "step done.</p>")
-    out.append("<h2>Timeline</h2>" + timeline(events, looks, end, gemini) + legend)
+    if ears:
+        legend = legend[:-4] + (" Mic lane = the wearer's voice at the microphone, heard lane = the agent's voice decoded on "
+                                "the glasses, both from glasses.log placed with clock.json.</p>")
+    else:
+        legend = legend[:-4] + " No glasses.log, clock.json or wall_ms beside the record: the glasses' side is not shown.</p>"
+    out.append("<h2>Timeline</h2>" + timeline(events, looks, end, gemini, ears) + legend)
+    if not gemini:
+        out.append("<h2>Where the wait goes, per hand-over</h2>" + stage_chart(stages(looks, ears)))
 
     out.append("<h2>The call</h2>")
     last_frame = None
