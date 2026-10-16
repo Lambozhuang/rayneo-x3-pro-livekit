@@ -31,6 +31,10 @@ IMAGE_ENCODE_OPTIONS = images.EncodeOptions(format="JPEG", quality=85, resize_op
 # The voice the glasses-only prototype (rayneo-x3-pro-gemini-live) speaks in, so the two sound the same.
 VOICE = "Kore"
 
+# Both sides are transcribed for the log in US English. Left to itself the transcription guesses the language per
+# utterance and writes English speech down as Spanish or Japanese; the model answers in English (the prompt).
+TRANSCRIPTION = types.AudioTranscriptionConfig(language_codes=["en-US"])
+
 
 @dataclass(frozen=True)
 class Settings:
@@ -81,8 +85,8 @@ class Settings:
 def build_live_model(settings: Settings) -> google.realtime.RealtimeModel:
     """The model for AgentSession(llm=). The instructions go on the Agent.
     The session is set up as the glasses-only prototype sets up its own: the
-    voice Kore, both sides transcribed with the language left to the API, and
-    a sliding window over the context at the API's own trigger and target.
+    voice Kore and a sliding window over the context at the API's own trigger
+    and target; both sides are transcribed in US English.
     Google cuts an audio-and-video session off at two minutes unless
     compression is configured, so it always is. Proactive audio is always on,
     so the model may decide a stray sound needs no answer. The
@@ -96,6 +100,8 @@ def build_live_model(settings: Settings) -> google.realtime.RealtimeModel:
         model=settings.model,
         voice=VOICE,
         image_encode_options=IMAGE_ENCODE_OPTIONS,
+        input_audio_transcription=TRANSCRIPTION,
+        output_audio_transcription=TRANSCRIPTION,
         context_window_compression=types.ContextWindowCompressionConfig(sliding_window=types.SlidingWindow()),
         **kw,
     )

@@ -49,7 +49,7 @@ One model, Gemini Live (`GEMINI_MODEL`: `gemini-3.8-live`, or `gemini-3.8-live-e
 1. Camera frames go to the model inline with the audio, one a second (`GEMINI_VIDEO_FPS`, the most the Live API takes), each cropped to the middle square of the frame and scaled to `GEMINI_SIDE` x `GEMINI_SIDE` px, 768 by default as Google recommends (`gemini/sampler.py`, the crop in `src/frames.py`). The model spends `GEMINI_MEDIA_RESOLUTION` tokens on each: 70 at the API default and at LOW or MEDIUM, 280 at HIGH, the most the Live API allows; the lab runs LOW, as the prototype does. Every frame stays in the model's context until the sliding window drops it, so the rate and the resolution set the cost. The window runs at the API's own trigger and target, and is configured because Google ends an audio-and-video session at two minutes without it.
 2. The model answers the wearer from what it hears and the frames it has.
 
-Gemini's own turn detection decides when the wearer has finished. Both sides are transcribed for the log, with the language left to the API, so a wearer's English line can come out written in another language; the model always answers in English, whatever `AGENT_LANGUAGE` says. Each frame shown to the model is saved into the call record (see Logs), so a run can be judged from what the model saw.
+Gemini's own turn detection decides when the wearer has finished. Both sides are transcribed for the log in US English; the model always answers in English, whatever `AGENT_LANGUAGE` says. Each frame shown to the model is saved into the call record (see Logs), so a run can be judged from what the model saw.
 
 ## Running
 
@@ -124,8 +124,8 @@ The glasses talk WebRTC to livekit-server over Wi-Fi and the lab LAN; the server
 |---|---|---|---|
 | stack | LiveKit Android SDK 2.28 on libwebrtc | livekit-server 1.13 (Go, Pion) | livekit-agents 1.8, libwebrtc through the Rust SDK |
 | transport | Wi-Fi to the server: UDP 50000-60000, TCP 7881 fallback, signalling ws://7880, no TURN, no TLS | same, bound to the LAN address (`deploy/livekit.lab.yaml`) | loopback to the server; WebSocket to GPT-Live, HTTPS to the brain's model |
-| video | sends one layer 1920x1080 at 15 fps, H264 hardware encoder, 4 Mbps cap, simulcast off, `MAINTAIN_RESOLUTION` (`VoiceAssistantViewModel.kt`) | forwards | receives and decodes; keeps the newest frame for the brain (`frames.py`) |
-| audio | sends Opus 48 kHz with AEC/NS/AGC, no RED, no in-band FEC; plays the agent's Opus | forwards | decodes the glasses' Opus for GPT-Live; sends GPT-Live's voice as Opus |
+| video | sends one layer 1920x1080 at 15 fps, H264 hardware encoder, 4 Mbps cap, simulcast off, `MAINTAIN_RESOLUTION` (`VoiceAssistantViewModel.kt`) | forwards | receives and decodes; keeps the newest frame for the brain (`frames.py`), or sends Gemini one a second (`gemini/sampler.py`) |
+| audio | sends Opus 48 kHz with AEC/NS/AGC, no RED, no in-band FEC; plays the agent's Opus | forwards | decodes the glasses' Opus for the speech model (GPT-Live, or Gemini at 16 kHz); sends the model's voice as Opus |
 | loss repair | NACK and PLI (libwebrtc default) | NACK and PLI toward both ends, no FEC (default) | NACK and PLI (default) |
 | receiver side | jitter buffer about 150 ms, Opus PLC | none, no decoding | jitter buffer, Opus PLC |
 | congestion control | GCC with transport-wide feedback for what it sends | its own estimator for what it sends down | not on an impaired link |
@@ -138,7 +138,7 @@ The agent writes one JSON line per event (`docker compose logs agent`; `deploy/w
 | prefix | the line says |
 |---|---|
 | `experiment:` | every setting of the run, with `backend=openai` or `gemini` |
-| `user:` / `assistant:` | what one side said, written when its turn ends; on the Gemini path the wearer's line is Gemini's transcription of the audio, in the language the API guesses |
+| `user:` / `assistant:` | what one side said, written when its turn ends; on the Gemini path both lines are Gemini's transcriptions of the audio, in US English |
 | `step`, `build` | GPT-Live: a step was done or reopened, the build was finished |
 | `camera:`, `link:` | the first frame arrived; the glasses joined, left, or changed link quality |
 | `usage:` | the speech model's usage so far, about once a minute; at the end, the session's total and how many camera frames arrived |
