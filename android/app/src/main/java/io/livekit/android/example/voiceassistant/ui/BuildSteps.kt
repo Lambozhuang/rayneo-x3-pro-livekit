@@ -28,23 +28,24 @@ import io.livekit.android.util.flow
  * Where the build stands: every step by name, the current one bright.
  *
  * The agent process owns the position (guide.py) and publishes it as its own
- * participant attributes, `rayneo.build.steps` (names, one per line) and
- * `rayneo.build.step` (index of the current step; equal to the count once the
- * build is done). Attributes travel on the signalling channel and are re-sent
+ * participant attributes, `rayneo.build.title` (the build's name),
+ * `rayneo.build.steps` (step names, one per line) and `rayneo.build.step`
+ * (index of the current step; equal to the count once the build is done). Attributes travel on the signalling channel and are re-sent
  * after a reconnect, so this list is right again as soon as the connection is.
  *
  * @param current index of the step being built, or null when nothing has
  * been published yet; `steps.size` once finished.
  */
-data class BuildProgress(val steps: List<String>, val current: Int?) {
+data class BuildProgress(val title: String, val steps: List<String>, val current: Int?) {
     companion object {
-        val NONE = BuildProgress(emptyList(), null)
+        val NONE = BuildProgress("", emptyList(), null)
 
         fun of(attributes: Map<String, String>): BuildProgress {
             val steps = attributes[KEY_STEPS]?.split('\n')?.filter { it.isNotBlank() } ?: return NONE
-            return BuildProgress(steps, attributes[KEY_STEP]?.toIntOrNull())
+            return BuildProgress(attributes[KEY_TITLE] ?: "", steps, attributes[KEY_STEP]?.toIntOrNull())
         }
 
+        private const val KEY_TITLE = "rayneo.build.title"
         private const val KEY_STEPS = "rayneo.build.steps"
         private const val KEY_STEP = "rayneo.build.step"
     }
@@ -57,10 +58,27 @@ fun rememberBuildProgress(agent: Participant?): State<BuildProgress> {
     return remember(attributes) { mutableStateOf(BuildProgress.of(attributes)) }
 }
 
+/** The build's title on one line, white; nothing when no build has been published. */
+@Composable
+fun BuildTitle(progress: BuildProgress, modifier: Modifier = Modifier) {
+    if (progress.title.isEmpty()) return
+    Text(
+        text = progress.title,
+        color = Color(0xFFEEEEEE),
+        fontSize = 20.sp,
+        lineHeight = 26.sp,
+        fontWeight = FontWeight.Medium,
+        maxLines = 1,
+        overflow = TextOverflow.Ellipsis,
+        modifier = modifier,
+    )
+}
+
 /**
  * A numbered list. Done steps dim, the current one white and bold, the rest
- * grey; a name may take two lines. Nothing when the agent has not published a
- * build, so a session without a guide looks as before.
+ * grey; a name takes one line and is cut short if it does not fit. Nothing
+ * when the agent has not published a build, so a session without a guide
+ * looks as before.
  *
  * Longer than the space, the list scrolls by itself so that the current step
  * is the second line, one done step above it for context. The scroll position
@@ -103,7 +121,7 @@ fun BuildSteps(progress: BuildProgress, modifier: Modifier = Modifier) {
                     fontSize = 18.sp,
                     lineHeight = 24.sp,
                     fontWeight = weight,
-                    maxLines = 2,
+                    maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
                     modifier = Modifier.fillMaxWidth(),
                 )

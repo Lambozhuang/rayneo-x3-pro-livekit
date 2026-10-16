@@ -2,11 +2,17 @@ package io.livekit.android.example.voiceassistant.screen
 
 import android.util.Log
 import android.widget.Toast
+import androidx.compose.foundation.border
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
@@ -15,6 +21,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import com.google.accompanist.permissions.ExperimentalPermissionsApi
@@ -39,10 +46,12 @@ import io.livekit.android.example.voiceassistant.rememberCanEnableCamera
 import io.livekit.android.example.voiceassistant.rememberCanEnableMic
 import io.livekit.android.example.voiceassistant.requirePermissions
 import io.livekit.android.example.voiceassistant.ui.BuildSteps
-import io.livekit.android.example.voiceassistant.ui.Captions
+import io.livekit.android.example.voiceassistant.ui.AgentLines
+import io.livekit.android.example.voiceassistant.ui.BuildTitle
+import io.livekit.android.example.voiceassistant.ui.WearerLine
 import io.livekit.android.example.voiceassistant.ui.Eyes
 import io.livekit.android.example.voiceassistant.ui.Phase
-import io.livekit.android.example.voiceassistant.ui.PhaseBanner
+import io.livekit.android.example.voiceassistant.ui.StatusBand
 import io.livekit.android.example.voiceassistant.ui.rememberBrainLooking
 import io.livekit.android.example.voiceassistant.ui.rememberBuildProgress
 import io.livekit.android.example.voiceassistant.ui.rememberEngineState
@@ -244,40 +253,64 @@ fun VoiceAssistant(
 
         // Both sides. The agent's lines are its own transcript; the wearer's
         // are what the model heard, published back by the agent under the
-        // wearer's identity. See Captions.
+        // wearer's identity. See Captions.kt.
         val wearerIdentity = room.localParticipant.identity
 
         // Everything above the Eyes call is hoisted on purpose: that layout is
         // composed once per eye, so a `remember` inside it would exist twice
         // and the two copies could disagree. See Eyes.
         Eyes {
-            // Who has the floor on top; below it the steps on the left and
-            // the conversation on the right, each scrolling on its own.
-            Column(modifier = modifier) {
-                PhaseBanner(
-                    phase = phase,
-                    agent = agent,
-                    modifier = Modifier.padding(top = 4.dp)
-                )
+            // Above the band, the build on the left (the step's picture,
+            // the build's title, the steps) and the agent's lines on the
+            // right. The band along the bottom says who has the floor and
+            // what the model heard the wearer say.
+            Column(modifier = modifier.fillMaxSize()) {
                 Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .weight(1f)
-                        .padding(top = 12.dp, bottom = 4.dp)
+                    horizontalArrangement = Arrangement.spacedBy(16.dp),
+                    modifier = Modifier.fillMaxWidth().weight(1f)
                 ) {
-                    BuildSteps(
-                        progress = buildProgress,
-                        modifier = Modifier
-                            .weight(1f)
-                            .padding(end = 12.dp)
-                    )
-                    Captions(
+                    Column(modifier = Modifier.width(LEFT_WIDTH).fillMaxHeight()) {
+                        // Reserved for the current step's picture, which
+                        // nothing publishes yet; the outline marks the slot
+                        // on device.
+                        Box(
+                            modifier = Modifier
+                                .size(DIAGRAM_SIDE)
+                                .border(1.dp, Color(0xFF333333))
+                        )
+                        BuildTitle(
+                            progress = buildProgress,
+                            modifier = Modifier.padding(top = 6.dp)
+                        )
+                        BuildSteps(
+                            progress = buildProgress,
+                            modifier = Modifier.weight(1f)
+                        )
+                    }
+                    AgentLines(
                         messages = sessionMessages.messages,
                         wearerIdentity = wearerIdentity,
-                        modifier = Modifier.weight(1f)
+                        modifier = Modifier.weight(1f).fillMaxHeight()
+                    )
+                }
+                StatusBand(
+                    phase = phase,
+                    modifier = Modifier.fillMaxWidth().padding(top = 6.dp)
+                ) { rest ->
+                    WearerLine(
+                        messages = sessionMessages.messages,
+                        wearerIdentity = wearerIdentity,
+                        modifier = rest
                     )
                 }
             }
         }
     }
 }
+
+/** Width of the build's column, which holds the longest step name, "Dark grey 2x6, right post", on one line at 18 sp. */
+private val LEFT_WIDTH = 272.dp
+
+/** Side of the square kept for the step's picture, out of the 592 px an eye has after its margins. */
+private val DIAGRAM_SIDE = 216.dp
+

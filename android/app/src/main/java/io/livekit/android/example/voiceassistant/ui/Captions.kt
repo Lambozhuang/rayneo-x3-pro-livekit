@@ -4,6 +4,7 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Text
@@ -20,13 +21,13 @@ import io.livekit.android.compose.types.ReceivedMessage
 import io.livekit.android.room.participant.Participant
 
 /**
- * The conversation, newest at the bottom and brightest, the wearer's turns in
- * green. The wearer's lines are not what they said but what the model heard:
- * the transcript comes back from the model, late and sometimes wrong, and on a
- * network-quality test bed that is the point, a dropped word shows up here as
- * a dropped word. The agent's lines stream in and grow word by word;
- * [ReceivedMessage.id] is stable across those updates, which is what lets the
- * list stay put.
+ * The conversation, in two parts: the agent's lines ([AgentLines]), and one
+ * line for the wearer ([WearerLine]). The wearer's words are not what they
+ * said but what the model heard: the transcript comes back from the model,
+ * late and sometimes wrong, and on a network-quality test bed that is the
+ * point, a dropped word shows up here as a dropped word. The agent's lines
+ * stream in and grow word by word; [ReceivedMessage.id] is stable across
+ * those updates, which is what lets the list stay put.
  *
  * A full-duplex model (GPT-Live) does not stop when the wearer talks over it,
  * so its transcript keeps growing in the same segment after the wearer's
@@ -36,21 +37,24 @@ import io.livekit.android.room.participant.Participant
  * was actually heard. Transcript deltas also arrive with a leading space; the
  * text is trimmed so every line starts at the margin.
  *
- * Every line is shown whole. Short, the column sits at the bottom of its
- * space; longer than the space, it scrolls and stays pinned to the newest
- * line as it grows (there is no pointer, so no one scrolls back). The scroll
- * position is per eye (Eyes composes this twice); both copies follow the same
- * bottom, so they agree. At most [MAX_ITEMS] lines are kept.
+ * Both parts read the same message list and record the cuts the same way
+ * ([rememberCuts]), so they agree on where the agent's lines end and the
+ * wearer's begin.
+ */
+
+/**
+ * The agent's lines, newest at the bottom and brightest. Every line is shown
+ * whole. Short, the column sits at the bottom of its space; longer than the
+ * space, it scrolls and stays pinned to the newest line as it grows (there
+ * is no pointer, so no one scrolls back). The scroll position is per eye
+ * (Eyes composes this twice); both copies follow the same bottom, so they
+ * agree. At most [MAX_ITEMS] lines are kept.
  *
  * @param wearerIdentity the local participant; everything else is the agent.
  */
 @Composable
-fun Captions(messages: List<ReceivedMessage>, wearerIdentity: Participant.Identity?, modifier: Modifier = Modifier) {
-    // agent message id -> the wearer message ids that arrived while it was
-    // still growing, with the agent text length at that moment. Plain memory,
-    // not state: recomposition is driven by `messages` already.
-    val cuts = remember { mutableMapOf<String, MutableList<Pair<String, Int>>>() }
-    val recent = split(messages, wearerIdentity, cuts).takeLast(MAX_ITEMS)
+fun AgentLines(messages: List<ReceivedMessage>, wearerIdentity: Participant.Identity?, modifier: Modifier = Modifier) {
+    val recent = split(messages, wearerIdentity, rememberCuts()).filter { !it.wearer }.takeLast(MAX_ITEMS)
     val scroll = rememberScrollState()
     // Whenever the content grows (a new line, a longer one), go to the bottom.
     LaunchedEffect(scroll) {
@@ -68,12 +72,7 @@ fun Captions(messages: List<ReceivedMessage>, wearerIdentity: Participant.Identi
                 val newest = i == recent.lastIndex
                 Text(
                     text = line.text,
-                    color = when {
-                        line.wearer && newest -> Color(0xFF8CE99A)
-                        line.wearer -> Color(0xFF5E9A66)
-                        newest -> Color(0xFFEEEEEE)
-                        else -> Color(0xFF8A8A8A)
-                    },
+                    color = if (newest) Color(0xFFEEEEEE) else Color(0xFF8A8A8A),
                     fontSize = if (newest) 22.sp else 18.sp,
                     lineHeight = if (newest) 30.sp else 24.sp,
                 )
@@ -81,6 +80,45 @@ fun Captions(messages: List<ReceivedMessage>, wearerIdentity: Participant.Identi
         }
     }
 }
+
+/**
+ * What the model heard the wearer say, on one line, in green. Speech
+ * recognition breaks a hesitant sentence into several segments, and showing
+ * each as its own line scrolled the agent's words away; here the segments
+ * that arrive between two agent lines are joined into the one line, and the
+ * first segment after the agent has spoken replaces it. The line shows its
+ * tail, since the newest words are there; it is empty until the wearer has
+ * been heard.
+ */
+@Composable
+fun WearerLine(messages: List<ReceivedMessage>, wearerIdentity: Participant.Identity?, modifier: Modifier = Modifier) {
+    val lines = split(messages, wearerIdentity, rememberCuts())
+    val text = lines.takeLastWhile { it.wearer }.ifEmpty { lines.dropLastWhile { !it.wearer }.takeLastWhile { it.wearer } }
+        .joinToString(" ") { it.text }
+    val scroll = rememberScrollState()
+    LaunchedEffect(scroll) {
+        snapshotFlow { scroll.maxValue }.collect { scroll.scrollTo(it) }
+    }
+    Text(
+        text = if (text.isEmpty()) " " else text,
+        color = Color(0xFF8CE99A),
+        fontSize = 22.sp,
+        lineHeight = 30.sp,
+        maxLines = 1,
+        softWrap = false,
+        modifier = modifier.horizontalScroll(scroll, enabled = false),
+    )
+}
+
+/**
+ * agent message id -> the wearer message ids that arrived while it was still
+ * growing, with the agent text length at that moment. Plain memory, not
+ * state: recomposition is driven by the messages already. One per call site,
+ * which is one per eye; every copy sees the same messages in the same order,
+ * so they record the same cuts.
+ */
+@Composable
+private fun rememberCuts(): MutableMap<String, MutableList<Pair<String, Int>>> = remember { mutableMapOf() }
 
 private class Line(val text: String, val wearer: Boolean)
 

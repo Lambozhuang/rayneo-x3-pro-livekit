@@ -2,12 +2,12 @@ package io.livekit.android.example.voiceassistant.ui
 
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.foundation.background
+import androidx.compose.ui.draw.drawBehind
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -22,7 +22,6 @@ import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -33,7 +32,6 @@ import io.livekit.android.compose.state.Session
 import io.livekit.android.room.ConnectionState
 import io.livekit.android.room.participant.Participant
 import io.livekit.android.util.flow
-import io.livekit.android.compose.ui.audio.VoiceAssistantBarVisualizer
 
 /**
  * Who has the floor. This is the one thing a wearer needs to know at a glance
@@ -106,54 +104,56 @@ enum class Phase(val label: String, val color: Color, val hint: String? = null) 
 }
 
 /**
- * A coloured dot, a word, and the agent's level meter; below them, when the
- * phase has one, a line saying what to do about it. Big enough to read without
+ * The band along the bottom of the eye: a coloured dot and a word for who
+ * has the floor, and after them what the model heard the wearer say
+ * ([wearer]), or, when the phase has one, a line saying what to do about it
+ * instead. Who has the floor and what the agent heard are read together,
+ * so they share the line and the size; the word keeps a fixed width so the
+ * wearer's words do not jump when it changes. Big enough to catch without
  * focusing on it: the panels are 640x480 at arm's length, so anything under
  * ~18 sp is a squint.
  */
-@OptIn(Beta::class)
 @Composable
-fun PhaseBanner(phase: Phase, agent: Agent, modifier: Modifier = Modifier) {
+fun StatusBand(phase: Phase, modifier: Modifier = Modifier, wearer: @Composable (Modifier) -> Unit) {
     val color by animateColorAsState(phase.color, label = "phaseColor")
-    Column(modifier = modifier) {
-        Row(
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(12.dp),
-        ) {
-            Box(
-                modifier = Modifier
-                    .size(14.dp)
-                    .background(color, CircleShape)
-            )
-            Text(
-                text = phase.label,
-                color = color,
-                fontSize = 22.sp,
-                fontWeight = FontWeight.Medium,
-            )
-            Spacer(Modifier.width(4.dp))
-            VoiceAssistantBarVisualizer(
-                agentState = agent.agentState,
-                audioTrackRef = agent.audioTrack,
-                barCount = 5,
-                minHeight = 0.2f,
-                barWidth = 4.dp,
-                brush = SolidColor(color),
-                modifier = Modifier
-                    .width(44.dp)
-                    .height(22.dp)
-            )
-        }
+    Row(
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(12.dp),
+        modifier = modifier
+            .drawBehind { drawLine(Color(0xFF333333), Offset(0f, 0f), Offset(size.width, 0f), 1.dp.toPx()) }
+            .padding(top = 8.dp),
+    ) {
+        Box(
+            modifier = Modifier
+                .size(16.dp)
+                .background(color, CircleShape)
+        )
+        Text(
+            text = phase.label,
+            color = color,
+            fontSize = 22.sp,
+            lineHeight = 30.sp,
+            fontWeight = FontWeight.Bold,
+            maxLines = 1,
+            modifier = Modifier.width(LABEL_WIDTH),
+        )
+        val rest = Modifier.weight(1f)
         phase.hint?.let {
             Text(
                 text = it,
                 color = Color(0xFFBDBDBD),
-                fontSize = 18.sp,
-                modifier = Modifier.padding(top = 6.dp)
+                fontSize = 22.sp,
+                lineHeight = 30.sp,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+                modifier = rest,
             )
-        }
+        } ?: wearer(rest)
     }
 }
+
+/** Width that holds the longest phase word, "Reconnecting", at 22 sp bold. */
+private val LABEL_WIDTH = 150.dp
 
 /** Whether the agent's brain is on a look right now: its `rayneo.brain.looking` attribute is "1" (brain.py). */
 @Composable
