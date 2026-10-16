@@ -1,13 +1,11 @@
-"""The task as both architectures describe it to their models: the build, the
-plate, the direction words and the steps, from the one task file. gpt/prompts.py
-and gemini/prompts.py put their own rules around it.
+"""The task as the GPT path describes it to its models: the build, the plate,
+the direction words and the steps, from the one task file. gpt/prompts.py puts
+its own rules around it.
 """
 
 from guide import Guide
 
-# What the wearer is building and how positions are described. The same words
-# for the brain (GPT path) and for Gemini, so a judgement of the same plate
-# starts from the same conventions.
+# What the wearer is building and how positions are described.
 TASK = """<task>
 The wearer is building "{title}": flat LEGO bricks on a green {plate}x{plate} baseplate that is never rotated, placed one at a time in the order below.
 

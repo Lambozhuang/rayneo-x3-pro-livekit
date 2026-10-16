@@ -5,9 +5,9 @@ ordered list of steps); a bare .toml file works too. Each step has a name for
 the list on the glasses, the brick and where it goes.
 
 `Build` holds the run's position in that list and logs the timing of every
-step. A model moves it (`set_step`) when it judges from the camera how many
-steps are built: the brain on the GPT path, Gemini itself through its tool on
-the Gemini path; `publish_build` sends the position to the glasses.
+step. The brain on the GPT path moves it (`set_step`) when it judges from the
+camera how many steps are built; `publish_build` sends the position to the
+glasses.
 """
 
 from __future__ import annotations
@@ -25,7 +25,7 @@ logger = logging.getLogger("rayneo-agent.build")
 class Step:
     name: str  # one line for the list on the glasses
     brick: str  # which brick, e.g. "purple 2x4"
-    place: str  # where it goes, against the bricks before it; both models get `brick` and `place`
+    place: str  # where it goes, against the bricks before it; the models get `brick` and `place`
     # The brick's footprint as drawn on the sheet, [col0, row0, col1, row1] inclusive, columns left to right and rows
     # from the far edge; for drawings, never sent to a model.
     cells: tuple[int, int, int, int] | None = None
@@ -108,8 +108,7 @@ class Build:
     def set_step(self, step: int) -> bool:
         """Move to step index `step` (0-based; len(steps) = finished) because a
         model judged the build to be there. Every step passed is logged with
-        its time, so a run's timing reads the same whichever model moved it.
-        Returns whether anything changed."""
+        its time. Returns whether anything changed."""
         step = max(0, min(step, len(self.guide.steps)))
         if step == self.step:
             return False

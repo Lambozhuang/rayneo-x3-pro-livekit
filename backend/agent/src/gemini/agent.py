@@ -1,14 +1,14 @@
-"""The Gemini path: one model hears, sees, speaks and keeps the progress.
+"""The Gemini path: one model hears, sees and speaks, with no task and no tools.
 
-    glasses --audio--> SFU --> this process --ws--> gemini-live (knows every step)
-            --video-->     --> FixedRateSampler: one frame a second, cropped to the table, on to the model, a copy into the record
-    gemini-live --set_progress(done)--> this process: the build moves, the glasses' step list follows
+    glasses --audio--> SFU --> this process --ws--> gemini-live
+            --video-->     --> FixedRateSampler: one frame a second, cropped to the middle square, on to the model, a copy into the record
             <--audio-- SFU <-- this process <-- gemini-live
 
-The model judges the plate from the frames in its own context and calls its one
-tool. No VAD is passed to the session: Gemini's own turn detection decides when
-the wearer has finished. The log and the call's record (runlog.py) are described
-in the README's Logs section.
+The build the glasses picked is not read: the model is a general assistant
+that answers what the wearer says about what the camera shows. No VAD is passed
+to the session: Gemini's own turn detection decides when the wearer has
+finished. The log and the call's record (runlog.py) are described in the
+README's Logs section.
 """
 
 import asyncio
@@ -30,12 +30,10 @@ from livekit.agents import (
 from livekit.agents.llm import ChatMessage
 from livekit.agents.metrics import RealtimeModelMetrics
 
-from env import language, require_env
+from env import require_env
 from gemini.config import Settings, build_live_model
-from gemini.prompts import instructions
+from gemini.prompts import INSTRUCTIONS
 from gemini.sampler import FixedRateSampler
-from gemini.tools import Call, set_progress
-from guide import Build, picked_guide, publish_build
 from runlog import RunLog
 
 logger = logging.getLogger("rayneo-agent")
@@ -48,18 +46,14 @@ server = AgentServer()
 @server.rtc_session(agent_name=require_env("AGENT_NAME"))
 async def rayneo_assistant(ctx: JobContext) -> None:
     settings = Settings.from_env()
-    lang = language()
-    guide = picked_guide(ctx.job.metadata)
-    logger.info(settings.experiment_line(guide.name))
+    logger.info(settings.experiment_line())
     # The call's record (runlog.py): what happened, in order, with every field; deploy/report.py reads it.
     record = RunLog(os.environ.get("RUN_DIR"), ctx.room.name)
-    record.event("call", wall_ms=record.wall_ms, room=ctx.room.name, guide=guide.name, language=lang, commit=os.environ.get("GIT_COMMIT") or None,
-                 settings=asdict(settings), steps=[s.name for s in guide.steps])
-    build = Build(guide=guide, run=ctx.room.name)
-    sampler = FixedRateSampler(settings.video_fps, settings.side, record, step=lambda: build.step + 1)
-    session = AgentSession(userdata=Call(build, record), video_sampler=sampler, llm=build_live_model(settings))
-    prompt = instructions(guide, lang)
-    record.text("instructions.txt", prompt)
+    record.event("call", wall_ms=record.wall_ms, room=ctx.room.name, language="English", commit=os.environ.get("GIT_COMMIT") or None,
+                 settings=asdict(settings))
+    sampler = FixedRateSampler(settings.video_fps, settings.side, record)
+    session = AgentSession(video_sampler=sampler, llm=build_live_model(settings))
+    record.text("instructions.txt", INSTRUCTIONS)
 
     # The model's own timing for each reply: from the first server message of a generation to its first audio
     # (ttft), the whole generation (duration), and this turn's tokens, image tokens spelled out: they are the
@@ -126,7 +120,7 @@ async def rayneo_assistant(ctx: JobContext) -> None:
             )
 
     await session.start(
-        agent=Agent(instructions=prompt, tools=[set_progress]),
+        agent=Agent(instructions=INSTRUCTIONS),
         room=ctx.room,
         # Camera frames from the glasses reach the sampler, which crops and pushes them to the model itself.
         room_options=room_io.RoomOptions(video_input=True),
@@ -163,19 +157,9 @@ async def rayneo_assistant(ctx: JobContext) -> None:
             logger.info("link: %s quality %s", p.identity, name)
             record.event("quality", who=p.identity, quality=name)
 
-    build.start()
-    # The task's bounds in the record: `build` started here, finished when the last step is recorded as done.
-    record.event("build", started=True, steps=len(guide.steps))
-    record.event("step", done=None, now=1)
-    await publish_build(build)
-
     # Open the conversation, so the wearer knows the line is live without having to test it.
     await session.generate_reply(
-        instructions=(
-            "Greet the wearer briefly: say you can see through their glasses and will "
-            f'guide them through building "{guide.title}", naming it in a few words, and '
-            "ask them to say when they are ready. Do not describe any step yet."
-        )
+        instructions="Greet the wearer."
     )
 
 

@@ -24,11 +24,10 @@
 
 ### Gemini 路径
 
-2026-10-13 实验室四次运行的结论：Live API 给一帧最多 280 token（MEDIA_RESOLUTION_HIGH），模型认得出颜色和大件形状，数不清颗粒，2x6 近看读成 1x6 或 2x4；乐高任务留给 GPT 路径；Gemini 路径要不要继续、拿来做什么，没定。
+2026-10-13 实验室四次运行的结论：Live API 给一帧最多 280 token（MEDIA_RESOLUTION_HIGH），模型认得出颜色和大件形状，数不清颗粒，2x6 近看读成 1x6 或 2x4；乐高任务留给 GPT 路径。2026-10-16 起 Gemini 路径去掉了乐高任务和 set_progress，是不带任务的通用助手（整帧、通用提示词）；拿来做什么任务，没定。
 
 - [ ] 待定：Gemini 路径是否换一个 P.1321 任务。看过的候选是 Annex D 寻宝（多人非对称，B 在真实房间找线索，A 持清单和密码表解码），模型只需认大件物品和对话，符号可以由 B 念给它查表。只是候选，没有决定做
-- [ ] 工具跟着话触发：被试说"放好了"模型就调 set_progress，不等看帧；提示词已写"那是请求检查"，仍会发生
-- [ ] 工具返回后重复：set_progress 返回时模型把判定和下一步再说一遍，返回文本只剩记录结果仍未根治；试 tool_response_scheduling=SILENT
+- 工具跟着话触发、工具返回后重复（set_progress 的两个问题）随乐高任务一起去掉了；以后再给 Gemini 加工具时还会碰到，届时试 tool_response_scheduling=SILENT
 - [ ] extended thinking 搁置：gemini-3.8-live-extended-thinking 用 interaction_status 协议（IN_PROGRESS / REQUIRES_ACTION / IDLE），锁定的 google-genai 2.18.1 不认 IDLE，plugin 1.8.3 不读该字段，模型"查看中"17 s 后报系统错误、工具调用没发出。等 livekit-agents 和 google-genai 跟上再试；GEMINI_THINKING_LEVEL 留在 config.py
 
 ### 眼镜

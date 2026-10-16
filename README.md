@@ -1,14 +1,14 @@
 # RayNeo X3 Pro live AI assistant
 
-A voice assistant on RayNeo X3 Pro AR glasses that guides the wearer through a LEGO build, on LiveKit, with GPT-Live or Gemini Live.
+A voice assistant on RayNeo X3 Pro AR glasses, on LiveKit: GPT-Live guides the wearer through a LEGO build, and Gemini Live answers whatever the wearer asks about what the camera shows.
 
 ## Overview
 
 The project is a test bed: how does the network between the glasses and the server change a voice-and-vision assistant?
 
-The LEGO build is the workload. The wearer picks one of 13 five-brick builds on the glasses and talks it through with the assistant. The assistant sees through the glasses' camera, says which brick to find and where it goes, checks each brick placed and keeps the step list on the glasses current.
+The LEGO build is the GPT path's workload. The wearer picks one of 13 five-brick builds on the glasses and talks it through with the assistant. The assistant sees through the glasses' camera, says which brick to find and where it goes, checks each brick placed and keeps the step list on the glasses current.
 
-The agent has two architectures: GPT-Live with a separate vision model, and Gemini Live alone.
+The agent has two architectures: GPT-Live with a separate vision model, which runs the LEGO build, and Gemini Live alone, which runs no task: it is a general voice assistant that sees through the camera. The Gemini path dropped the LEGO build after the 2026-10-13 lab runs showed it cannot count studs at the 280 tokens the Live API gives a frame.
 
 `docs/TASK.md` has the experiment: the task it is based on (ITU-T P.1321's block building), the choices made for ours, what is measured, and the papers behind them. `docs/TODO.md` is the open list.
 
@@ -22,7 +22,7 @@ The server runs three programs:
 
 - **livekit-server**, LiveKit's media server: the glasses and the agent join the same room on it; it checks their join tokens and passes audio and video between them.
 - **api** (`backend/api/`): lists the builds, and gives the glasses their join token with the build they picked.
-- **agent** (`backend/agent/`): joins the room as the assistant, with that build loaded, and holds the model keys. It runs one of the two architectures below, picked by `AGENT_BACKEND`.
+- **agent** (`backend/agent/`): joins the room as the assistant, with that build loaded on the GPT path, and holds the model keys. It runs one of the two architectures below, picked by `AGENT_BACKEND`.
 
 A call starts with the glasses asking the api for the builds; the wearer picks one, the glasses get a join token for it and join the room, and the agent joins too. It ends when the wearer ends it on the glasses.
 
@@ -44,13 +44,12 @@ Two models. GPT-Live (`gpt-live-1`) is the voice: it hears the wearer and speaks
 
 ### Gemini Live (`AGENT_BACKEND=gemini`, `backend/agent/src/gemini/`)
 
-One model, Gemini Live (`GEMINI_MODEL`: `gemini-3.8-live`, or `gemini-3.8-live-extended-thinking` reasoning in the background at `GEMINI_THINKING_LEVEL`), hears, sees and speaks. Its prompt (`gemini/prompts.py`) holds the manner, the task (the plate, the direction words, every step's brick and place, from `src/prompts.py`) and the rules for giving steps, checking the plate and talking.
+One model, Gemini Live (`GEMINI_MODEL`: `gemini-3.8-live`, or `gemini-3.8-live-extended-thinking` reasoning in the background at `GEMINI_THINKING_LEVEL`), hears, sees and speaks. It has no task and no tools: its prompt (`gemini/prompts.py`) is the one the glasses-only prototype (rayneo-x3-pro-gemini-live) sends, word for word, and pins the reply language to English. The voice is the plugin's default, Puck. The agent ignores the build the wearer picked, so the glasses show no step list.
 
-1. Camera frames go to the model inline with the audio, one a second (`GEMINI_VIDEO_FPS`), each cropped to the bottom square of the frame, the table in front of the wearer, scaled to `GEMINI_SIDE` px (`gemini/sampler.py`, the crop in `src/frames.py`). The model spends `GEMINI_MEDIA_RESOLUTION` tokens on each: 70 at the API default and at LOW or MEDIUM, 280 at HIGH, the most the Live API allows; the lab runs HIGH, since at 70 the model cannot count studs. Every frame stays in the model's context for the rest of the call, so the rate and the resolution set the cost. A sliding window drops the oldest turns past `GEMINI_CONTEXT_TRIGGER_TOKENS`; it is set above what a trial uses, and configured only because Google ends an audio-and-video session at two minutes without it.
-2. The model judges the plate from the frames it has and talks to the wearer directly.
-3. When it judges that more or fewer steps are built right, it says so through its one tool, `set_progress` (`gemini/tools.py`): the step list on the glasses follows it.
+1. Camera frames go to the model inline with the audio, one a second (`GEMINI_VIDEO_FPS`, the most the Live API takes), each cropped to the middle square of the frame and scaled to `GEMINI_SIDE` x `GEMINI_SIDE` px, 768 by default as Google recommends (`gemini/sampler.py`, the crop in `src/frames.py`). The model spends `GEMINI_MEDIA_RESOLUTION` tokens on each: 70 at the API default and at LOW or MEDIUM, 280 at HIGH, the most the Live API allows. Every frame stays in the model's context for the rest of the call, so the rate and the resolution set the cost. A sliding window drops the oldest turns past `GEMINI_CONTEXT_TRIGGER_TOKENS`; it is set above what a few minutes of call use, and configured only because Google ends an audio-and-video session at two minutes without it.
+2. The model answers the wearer from what it hears and the frames it has.
 
-Gemini's own turn detection decides when the wearer has finished. The wearer's audio is transcribed for the log in `GEMINI_TRANSCRIPT_LANGUAGE`; the model's own language is set by the prompt. Each frame shown to the model is saved into the call record (see Logs), so a run can be judged from what the model saw.
+Gemini's own turn detection decides when the wearer has finished. The wearer's audio is transcribed for the log in `GEMINI_TRANSCRIPT_LANGUAGE`; the model always answers in English, whatever `AGENT_LANGUAGE` says. Each frame shown to the model is saved into the call record (see Logs), so a run can be judged from what the model saw.
 
 ## Running
 
@@ -140,7 +139,7 @@ The agent writes one JSON line per event (`docker compose logs agent`; `deploy/w
 |---|---|
 | `experiment:` | every setting of the run, with `backend=openai` or `gemini` |
 | `user:` / `assistant:` | what one side said, written when its turn ends; on the Gemini path the wearer's line is Gemini's transcription of the audio, in `GEMINI_TRANSCRIPT_LANGUAGE` |
-| `step`, `build` | a step was done or reopened, the build was finished |
+| `step`, `build` | GPT-Live: a step was done or reopened, the build was finished |
 | `camera:`, `link:` | the first frame arrived; the glasses joined, left, or changed link quality |
 | `usage:` | the speech model's usage so far, about once a minute; at the end, the session's total and how many camera frames arrived |
 | `live:` | GPT-Live: who is speaking; `live: sent` is every event sent to GPT-Live except mic audio, `live: event` is one of GPT-Live's own (a delegation, a receipt, an error). Gemini: the model started or stopped speaking |
@@ -149,9 +148,8 @@ The agent writes one JSON line per event (`docker compose logs agent`; `deploy/w
 | `voice:` | GPT-Live: it started saying an answer, and how long after the hand-over |
 | `gpt-live:` | GPT-Live: the session started or closed, and the seconds billed |
 | `model:` | Gemini: one reply's time to first audio, generation length and tokens, the image tokens spelled out (zero means no video is reaching the model) |
-| `tool:` | Gemini: it called `set_progress`, and what came of it |
 
-Each call also leaves a record in `backend/runs/<UTC start>-<room>/`: `events.jsonl` (every event with all its fields), the prompts as sent, and the photos: on the GPT path every photo sent to the brain, on the Gemini path every frame shown to the model. `python deploy/pull_run.py [<call>]` copies the newest (or that) record into `logs/`, saves the glasses' `rayneo-call`, `rayneo-link` and `rayneo-speech` lines as `glasses.log` (`rayneo-call` bounds each call with its room name) and the glasses' clock offset against the server's as `clock.json` when the glasses are on adb, and writes `report.html` (timeline, waits, what went wrong, each look with its photo and the input as sent; for a Gemini call the frames shown and each `set_progress` with the newest frame before it). With `glasses.log` and `clock.json` beside the record the timeline also shows the wearer's voice at the microphone and the agent's voice as decoded on the glasses, and a GPT-Live call gets one stacked bar per hand-over splitting the wait from the wearer's last word to the answer in their ear into network up with GPT-Live's turn end, the brain's preparation and model, GPT-Live taking up the answer, and network down. The container writes records as root; delete them with `docker run --rm -v "$PWD/runs:/r" backend-agent sh -c "rm -rf /r/2026*"` in `backend/`.
+Each call also leaves a record in `backend/runs/<UTC start>-<room>/`: `events.jsonl` (every event with all its fields), the prompts as sent, and the photos: on the GPT path every photo sent to the brain, on the Gemini path every frame shown to the model. `python deploy/pull_run.py [<call>]` copies the newest (or that) record into `logs/`, saves the glasses' `rayneo-call`, `rayneo-link` and `rayneo-speech` lines as `glasses.log` (`rayneo-call` bounds each call with its room name) and the glasses' clock offset against the server's as `clock.json` when the glasses are on adb, and writes `report.html` (timeline, waits, what went wrong, each look with its photo and the input as sent; for a Gemini call the frames shown to the model). With `glasses.log` and `clock.json` beside the record the timeline also shows the wearer's voice at the microphone and the agent's voice as decoded on the glasses, and a GPT-Live call gets one stacked bar per hand-over splitting the wait from the wearer's last word to the answer in their ear into network up with GPT-Live's turn end, the brain's preparation and model, GPT-Live taking up the answer, and network down. The container writes records as root; delete them with `docker run --rm -v "$PWD/runs:/r" backend-agent sh -c "rm -rf /r/2026*"` in `backend/`.
 
 **Never set the root logger to `DEBUG` in code** (`logging.basicConfig(level=logging.DEBUG)` and the like): the `websockets` logger then prints request headers, API keys included. `--log-level debug` on the agent CLI sets the root logger to `DEBUG` too, but holds `websockets.client` at `WARN`. If a key reached a log, rotate it.
 
@@ -164,11 +162,11 @@ backend/
   api/src/              server.py (/getToken, /tasks), auth.py (AUTH_MODE)
   agent/src/agent.py    entrypoint, AGENT_BACKEND picks gpt/ or gemini/
   agent/src/gpt/        GPT-Live and a vision model: agent, config, prompts, brain
-  agent/src/gemini/     Gemini Live: agent, config, prompts, tools, sampler
+  agent/src/gemini/     Gemini Live: agent, config, prompts, sampler
   agent/src/guide.py    task file loader, the build's progress, publishing it to the glasses
-  agent/src/prompts.py  the task block both architectures put in their prompts
+  agent/src/prompts.py  the task block the GPT path puts in its prompts
   agent/src/env.py      what both read from .env
-  agent/src/frames.py   the bottom-square crop both paths show their model; FrameTap keeps the newest frame (GPT path)
+  agent/src/frames.py   the crop each path shows its model; FrameTap keeps the newest frame (GPT path)
   agent/src/runlog.py   one record per call (RUN_DIR)
   agent/guides/         the builds the glasses pick from, one task.toml each
 android/                the glasses app
@@ -181,7 +179,7 @@ logs/                   records pulled from the lab (not in git)
 
 **backend/agent/src/gpt/**: `prompts.py` builds both prompts, the voice's and the brain's, around the shared task block; `brain.py` answers each hand-over (its docstring has the details: the frame's crop, timeouts, a newer hand-over cancelling an older one); `agent.py` wires the session, the brain and the logs.
 
-**backend/agent/src/gemini/**: `prompts.py` builds the prompt around the shared task block; `tools.py` is `set_progress`; `sampler.py` picks which frames the model gets and saves each to the record; `config.py` reads the settings and makes the model; `agent.py` wires the session and the logs.
+**backend/agent/src/gemini/**: `prompts.py` is the prompt; `sampler.py` picks which frames the model gets and saves each to the record; `config.py` reads the settings and makes the model; `agent.py` wires the session and the logs.
 
 **Task file** (`backend/agent/guides/<task>/task.toml`): each step has a name for the list on the glasses, the brick, where it goes against the bricks before it, and the cells it covers as drawn on the sheet (used to draw the sheet, never sent to a model). Each file's `number` is its task on `tasks/sheet.html`.
 

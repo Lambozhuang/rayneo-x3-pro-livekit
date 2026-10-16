@@ -4,17 +4,18 @@ Two architectures share this process, chosen once at start by AGENT_BACKEND
 (backend/.env, required):
 
   gemini  gemini/   Gemini Live: one native-audio model that hears, sees the
-                    camera frames itself, judges the bricks and moves the step.
-  openai  gpt/      GPT-Live speaks; what needs eyes it hands to the brain,
-                    one vision call on the newest camera frame, which also
-                    moves the step.
+                    camera frames itself and talks, with no task loaded.
+  openai  gpt/      GPT-Live speaks the LEGO build; what needs eyes it hands
+                    to the brain, one vision call on the newest camera frame,
+                    which also moves the step.
 
 Both register with livekit-server under AGENT_NAME and wait to be dispatched;
 the api puts that name into every join token it signs, so the agent turns up
 in exactly the rooms the backend created and nowhere else. The glasses see the
-same participant either way: audio, captions and the step list as participant
-attributes. guide.py (the build and the run's position in it), frames.py and
-runlog.py are shared; everything else belongs to one architecture.
+same participant either way: audio and captions, and on the GPT path the step
+list as participant attributes. frames.py and runlog.py are shared; guide.py
+and prompts.py (the build) serve the GPT path; everything else belongs to one
+architecture.
 """
 
 import os
