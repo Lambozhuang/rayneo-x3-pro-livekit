@@ -24,7 +24,7 @@
 
 ### Gemini 路径
 
-2026-10-13 实验室四次运行的结论：Live API 给一帧最多 280 token（MEDIA_RESOLUTION_HIGH），模型认得出颜色和大件形状，数不清颗粒，2x6 近看读成 1x6 或 2x4；乐高任务留给 GPT 路径。2026-10-16 起 Gemini 路径去掉了乐高任务和 set_progress，是不带任务的通用助手（整帧、通用提示词）；拿来做什么任务，没定。
+2026-10-13 实验室四次运行的结论：Live API 给一帧最多 280 token（MEDIA_RESOLUTION_HIGH），模型认得出颜色和大件形状，数不清颗粒，2x6 近看读成 1x6 或 2x4；乐高任务留给 GPT 路径。2026-10-16 起 Gemini 路径去掉了乐高任务和 set_progress，是不带任务的通用助手：中间正方形 768x768，提示词、音色 Kore、MEDIA_RESOLUTION_LOW、默认滑动窗口和不先开口都照 rayneo-x3-pro-gemini-live；拿来做什么任务，没定。
 
 - [ ] 待定：Gemini 路径是否换一个 P.1321 任务。看过的候选是 Annex D 寻宝（多人非对称，B 在真实房间找线索，A 持清单和密码表解码），模型只需认大件物品和对话，符号可以由 B 念给它查表。只是候选，没有决定做
 - 工具跟着话触发、工具返回后重复（set_progress 的两个问题）随乐高任务一起去掉了；以后再给 Gemini 加工具时还会碰到，届时试 tool_response_scheduling=SILENT

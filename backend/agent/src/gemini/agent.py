@@ -7,7 +7,7 @@
 The build the glasses picked is not read: the model is a general assistant
 that answers what the wearer says about what the camera shows. No VAD is passed
 to the session: Gemini's own turn detection decides when the wearer has
-finished. The log and the call's record (runlog.py) are described in the
+finished. The model does not speak first; the wearer opens the conversation. The log and the call's record (runlog.py) are described in the
 README's Logs section.
 """
 
@@ -156,11 +156,6 @@ async def rayneo_assistant(ctx: JobContext) -> None:
             name = quality.name.removeprefix("QUALITY_").lower()
             logger.info("link: %s quality %s", p.identity, name)
             record.event("quality", who=p.identity, quality=name)
-
-    # Open the conversation, so the wearer knows the line is live without having to test it.
-    await session.generate_reply(
-        instructions="Greet the wearer."
-    )
 
 
 if __name__ == "__main__":

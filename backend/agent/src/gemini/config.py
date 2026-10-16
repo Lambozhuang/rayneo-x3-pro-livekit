@@ -28,6 +28,9 @@ logger = logging.getLogger("rayneo-agent.config")
 # the model spends on a frame is media_resolution's business.
 IMAGE_ENCODE_OPTIONS = images.EncodeOptions(format="JPEG", quality=85, resize_options=None)
 
+# The voice the glasses-only prototype (rayneo-x3-pro-gemini-live) speaks in, so the two sound the same.
+VOICE = "Kore"
+
 
 @dataclass(frozen=True)
 class Settings:
@@ -42,22 +45,6 @@ class Settings:
     # API gives a frame). At 280 the model reads colours and large shapes but
     # not small detail.
     media_resolution: str | None
-    # A sliding window over the model's context. Google cuts an audio-and-video
-    # session off at two minutes unless compression is configured, so it is
-    # always configured; where it bites is the question. The window drops the
-    # oldest turns once `trigger` tokens are reached, down to `target`. The
-    # defaults sit above what a short call uses (three minutes at one frame a
-    # second is about 20k tokens at the default resolution, about 58k at HIGH),
-    # so such a call keeps all of itself in context; the model's time to first audio
-    # then grows with the call, which the `model:` lines show. None turns
-    # compression off.
-    context_trigger: int | None
-    context_target: int
-    # BCP-47 code the wearer's audio is transcribed in, for the `user:` lines of
-    # the log. Left to itself the transcription guesses the language per
-    # utterance and writes English speech down as Spanish or Japanese. It does
-    # not touch the model's own speech; the prompt pins that.
-    transcript_language: str
     # Background reasoning on gemini-3.8-live-extended-thinking: low, medium or
     # high. That model reasons while it streams audio and takes this level;
     # gemini-3.8-live has no level to set. Required with the one, refused with
@@ -66,15 +53,11 @@ class Settings:
 
     @classmethod
     def from_env(cls) -> Settings:
-        trigger = os.environ.get("GEMINI_CONTEXT_TRIGGER_TOKENS", "100000")
         s = cls(
             model=require_env("GEMINI_MODEL"),
             video_fps=float(os.environ.get("GEMINI_VIDEO_FPS", "1")),
             side=int(os.environ.get("GEMINI_SIDE", "768")),
             media_resolution=os.environ.get("GEMINI_MEDIA_RESOLUTION") or None,
-            context_trigger=None if trigger.lower() == "off" else int(trigger),
-            context_target=int(os.environ.get("GEMINI_CONTEXT_TARGET_TOKENS", "50000")),
-            transcript_language=os.environ.get("GEMINI_TRANSCRIPT_LANGUAGE", "en-US"),
             thinking_level=os.environ.get("GEMINI_THINKING_LEVEL") or None,
         )
         require_env("GOOGLE_API_KEY")  # the plugin reads it itself
@@ -85,9 +68,8 @@ class Settings:
             raise RuntimeError(f"GEMINI_THINKING_LEVEL={s.thinking_level!r}: {s.model} needs low, medium or high")
         if s.thinking_level and not thinking_model:
             raise RuntimeError(f"GEMINI_THINKING_LEVEL is set but {s.model} has no thinking level; unset it")
-        logger.info("session model: %s thinking=%s video_fps=%s side=%d media_resolution=%s "
-                    "context_compression=%s", s.model, s.thinking_level or "none", s.video_fps, s.side,
-                    s.media_resolution or "default", s.context_trigger or "off")
+        logger.info("session model: %s thinking=%s voice=%s video_fps=%s side=%d media_resolution=%s", s.model,
+                    s.thinking_level or "none", VOICE, s.video_fps, s.side, s.media_resolution or "default")
         return s
 
     def experiment_line(self) -> str:
@@ -97,23 +79,23 @@ class Settings:
 
 
 def build_live_model(settings: Settings) -> google.realtime.RealtimeModel:
-    """The model for AgentSession(llm=). The instructions go on the Agent. The
-    voice is the plugin's default, Puck, on every run.
-    Proactive audio is always on, so the model may decide a stray sound needs
-    no answer. The extended-thinking model gets its thinking level."""
+    """The model for AgentSession(llm=). The instructions go on the Agent.
+    The session is set up as the glasses-only prototype sets up its own: the
+    voice Kore, both sides transcribed with the language left to the API, and
+    a sliding window over the context at the API's own trigger and target.
+    Google cuts an audio-and-video session off at two minutes unless
+    compression is configured, so it always is. Proactive audio is always on,
+    so the model may decide a stray sound needs no answer. The
+    extended-thinking model gets its thinking level."""
     kw = {}
     if settings.thinking_level:
         kw["thinking_config"] = types.ThinkingConfig(thinking_level=types.ThinkingLevel(settings.thinking_level.upper()))
     if settings.media_resolution:
         kw["media_resolution"] = types.MediaResolution(settings.media_resolution)
-    if settings.context_trigger is not None:
-        kw["context_window_compression"] = types.ContextWindowCompressionConfig(
-            trigger_tokens=settings.context_trigger,
-            sliding_window=types.SlidingWindow(target_tokens=settings.context_target),
-        )
     return google.realtime.RealtimeModel(
         model=settings.model,
+        voice=VOICE,
         image_encode_options=IMAGE_ENCODE_OPTIONS,
-        input_audio_transcription=types.AudioTranscriptionConfig(language_codes=[settings.transcript_language]),
+        context_window_compression=types.ContextWindowCompressionConfig(sliding_window=types.SlidingWindow()),
         **kw,
     )

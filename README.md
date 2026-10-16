@@ -44,12 +44,12 @@ Two models. GPT-Live (`gpt-live-1`) is the voice: it hears the wearer and speaks
 
 ### Gemini Live (`AGENT_BACKEND=gemini`, `backend/agent/src/gemini/`)
 
-One model, Gemini Live (`GEMINI_MODEL`: `gemini-3.8-live`, or `gemini-3.8-live-extended-thinking` reasoning in the background at `GEMINI_THINKING_LEVEL`), hears, sees and speaks. It has no task and no tools: its prompt (`gemini/prompts.py`) is the one the glasses-only prototype (rayneo-x3-pro-gemini-live) sends, word for word, and pins the reply language to English. The voice is the plugin's default, Puck. The agent ignores the build the wearer picked, so the glasses show no step list.
+One model, Gemini Live (`GEMINI_MODEL`: `gemini-3.8-live`, or `gemini-3.8-live-extended-thinking` reasoning in the background at `GEMINI_THINKING_LEVEL`), hears, sees and speaks. It has no task and no tools: its prompt (`gemini/prompts.py`) is the one the glasses-only prototype (rayneo-x3-pro-gemini-live) sends, word for word, and pins the reply language to English. The session is set up as the prototype sets up its own, apart from the camera frames and the turn detection: the voice Kore, `MEDIA_RESOLUTION_LOW`, the API's own sliding window over the context, and no greeting, so the wearer speaks first. The agent ignores the build the wearer picked, so the glasses show no step list.
 
-1. Camera frames go to the model inline with the audio, one a second (`GEMINI_VIDEO_FPS`, the most the Live API takes), each cropped to the middle square of the frame and scaled to `GEMINI_SIDE` x `GEMINI_SIDE` px, 768 by default as Google recommends (`gemini/sampler.py`, the crop in `src/frames.py`). The model spends `GEMINI_MEDIA_RESOLUTION` tokens on each: 70 at the API default and at LOW or MEDIUM, 280 at HIGH, the most the Live API allows. Every frame stays in the model's context for the rest of the call, so the rate and the resolution set the cost. A sliding window drops the oldest turns past `GEMINI_CONTEXT_TRIGGER_TOKENS`; it is set above what a few minutes of call use, and configured only because Google ends an audio-and-video session at two minutes without it.
+1. Camera frames go to the model inline with the audio, one a second (`GEMINI_VIDEO_FPS`, the most the Live API takes), each cropped to the middle square of the frame and scaled to `GEMINI_SIDE` x `GEMINI_SIDE` px, 768 by default as Google recommends (`gemini/sampler.py`, the crop in `src/frames.py`). The model spends `GEMINI_MEDIA_RESOLUTION` tokens on each: 70 at the API default and at LOW or MEDIUM, 280 at HIGH, the most the Live API allows; the lab runs LOW, as the prototype does. Every frame stays in the model's context until the sliding window drops it, so the rate and the resolution set the cost. The window runs at the API's own trigger and target, and is configured because Google ends an audio-and-video session at two minutes without it.
 2. The model answers the wearer from what it hears and the frames it has.
 
-Gemini's own turn detection decides when the wearer has finished. The wearer's audio is transcribed for the log in `GEMINI_TRANSCRIPT_LANGUAGE`; the model always answers in English, whatever `AGENT_LANGUAGE` says. Each frame shown to the model is saved into the call record (see Logs), so a run can be judged from what the model saw.
+Gemini's own turn detection decides when the wearer has finished. Both sides are transcribed for the log, with the language left to the API, so a wearer's English line can come out written in another language; the model always answers in English, whatever `AGENT_LANGUAGE` says. Each frame shown to the model is saved into the call record (see Logs), so a run can be judged from what the model saw.
 
 ## Running
 
@@ -138,7 +138,7 @@ The agent writes one JSON line per event (`docker compose logs agent`; `deploy/w
 | prefix | the line says |
 |---|---|
 | `experiment:` | every setting of the run, with `backend=openai` or `gemini` |
-| `user:` / `assistant:` | what one side said, written when its turn ends; on the Gemini path the wearer's line is Gemini's transcription of the audio, in `GEMINI_TRANSCRIPT_LANGUAGE` |
+| `user:` / `assistant:` | what one side said, written when its turn ends; on the Gemini path the wearer's line is Gemini's transcription of the audio, in the language the API guesses |
 | `step`, `build` | GPT-Live: a step was done or reopened, the build was finished |
 | `camera:`, `link:` | the first frame arrived; the glasses joined, left, or changed link quality |
 | `usage:` | the speech model's usage so far, about once a minute; at the end, the session's total and how many camera frames arrived |
