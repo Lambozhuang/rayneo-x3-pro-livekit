@@ -19,3 +19,6 @@ docs/papers/
 
 # scratch: PoC scripts and their output, not part of the project
 tmp/
+
+# packet captures taken on the lab's netem bridge and the scripts that read them, kept on this machine only
+traffic/
