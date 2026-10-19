@@ -6,9 +6,10 @@ or Anthropic's Messages API (BRAIN_PROVIDER), that looks in two ways:
 - A watch look runs whenever no delegation does, one after the other, at most one
   every BRAIN_WATCH_EVERY seconds, on the newest camera frame scaled to
   BRAIN_WATCH_SIDE, without thinking. Nobody asked: the brain writes down what may
-  matter later (note, which also goes to GPT-Live as silent thinking), has GPT-Live
-  say something now (say, commentary on no delegation), moves the build
-  (set_progress), or does nothing, which leaves no trace in its context.
+  matter later (note, which also goes to GPT-Live as silent thinking unless it is
+  about what the photo does not let it tell), has GPT-Live say something now (say,
+  commentary on no delegation, sent once the next look calls say too), moves the
+  build (set_progress), or does nothing, which leaves no trace in its context.
 - A delegation: when the wearer says something that needs eyes ("is this right?",
   "where does it go?", "what is this?"), GPT-Live delegates; the plugin emits
   `delegation_created` with an id and, sometimes, the wearer's words not yet in the
@@ -77,11 +78,16 @@ SET_PROGRESS = (
 NOTE = (
     "note",
     "Writes down what the photo shows that may matter later and the call so far does not say yet. It goes into the "
-    "call so far, so later looks and requests read it, and silently to the voice, which uses it when the wearer asks "
-    "and does not read it out.",
-    {"type": "object", "properties": {"text": {"type": "string",
-                                               "description": "one short sentence of plain facts"}},
-     "required": ["text"], "additionalProperties": False})
+    "call so far, so later looks and requests read it, and, unless to_voice is false, silently to the voice, which "
+    "uses it when the wearer asks and does not read it out.",
+    {"type": "object", "properties": {
+        "text": {"type": "string", "description": "one short sentence of plain facts"},
+        "to_voice": {"type": "boolean",
+                     "description": "false when the note is about what the photo does not let you tell yet (a hand "
+                                    "covers it, it is blurred, it is out of the picture): such a note stays in the "
+                                    "call so far for your later looks, and the voice, which cannot look again, is "
+                                    "not told something it might pass on as a doubt"}},
+     "required": ["text", "to_voice"], "additionalProperties": False})
 SAY = (
     "say",
     "Has the voice tell the wearer something now, unasked, in its own words. It also goes into the call so far.",
@@ -259,6 +265,9 @@ class Brain:
         self._watcher: asyncio.Task | None = None
         self._look: asyncio.Task | None = None  # the watch look running, if any
         self._look_w = 0
+        # A watch look's say, and the notes that came with it, waiting for the next look to say something too
+        # (_watch_look): {"w", "says", "notes"}, or None.
+        self._held: dict | None = None
 
     @property
     def instructions(self) -> str:
@@ -300,21 +309,44 @@ class Brain:
             self._record.event("watch_failed", w=w, error=f"{type(e).__name__}: {e}"[:500])
 
     async def _watch_look(self, w: int) -> None:
+        """One watch look and what comes of it. A say goes out only when the next look calls say too: GPT-Live
+        cannot take back what it was told, so a correction made from one photo, often of a brick still being
+        pressed down, would be spoken even once the next look sees it right. Until then the say and the notes of
+        its look are held, out of the call so far as well, so the next look judges afresh; they are dropped when
+        the next look calls no say, or a delegation comes. Progress is never held."""
         said, _ = call_so_far(self._session.history, self._written, self._record)
         reply, calls, u, progress = await self._look_once("watch", w, self._watch_side, said, WATCH_ASK, WATCH_TOOLS,
                                                           "none")
         now = time.time()
-        speak = []
+        notes, says = [], []
         for name, args in calls:
             text = " ".join(str(args.get("text") or "").split())
             if name == "note" and text:
-                self._written.append((now, "noted", text))
-                self._record.event("note", w=w, text=text)
-                self._session.current_agent.duplex_session.append_thinking(f"Camera: {text}")
+                notes.append((text, args.get("to_voice") is not False))
             elif name == "say" and text:
-                self._written.append((now, "said", text))
-                self._record.event("say", w=w, text=text)
-                speak.append(f"Camera: {text}")
+                says.append(text)
+        held, self._held = self._held, None
+        if says and held is None:
+            self._held = {"w": w, "says": says, "notes": notes}
+            logger.info("watch: #%d say held until the next look: %s", w, " ".join(says))
+            self._record.event("say_held", w=w, text=" ".join(says))
+            notes, says = [], []
+        elif says:
+            logger.info("watch: #%d confirms the say of #%d", w, held["w"])
+            self._record.event("say_confirmed", w=held["w"], by=w)
+        elif held is not None:
+            logger.info("watch: #%d calls no say, the say of #%d is dropped", w, held["w"])
+            self._record.event("say_dropped", w=held["w"], by=w)
+        speak = []
+        for text, to_voice in notes:
+            self._written.append((now, "noted", text))
+            self._record.event("note", w=w, text=text, to_voice=to_voice)
+            if to_voice:
+                self._session.current_agent.duplex_session.append_thinking(f"Camera: {text}")
+        for text in says:
+            self._written.append((now, "said", text))
+            self._record.event("say", w=w, text=text)
+            speak.append(f"Camera: {text}")
         if progress is not None:
             speak.append(await self._move(progress))
         if speak:
@@ -332,6 +364,10 @@ class Brain:
         logger.info("delegation: %s #%d wearer: %s", d.id, self._asks, words or "(no words came with it)")
         self._record.event("delegation", n=self._asks, id=d.id, words=words)
         self._free.clear()
+        if self._held is not None:
+            logger.info("watch: the say of #%d is dropped for delegation #%d", self._held["w"], self._asks)
+            self._record.event("say_dropped", w=self._held["w"], by_delegation=self._asks)
+            self._held = None
         if self._look is not None and not self._look.done():
             logger.info("watch: #%d dropped for delegation #%d", self._look_w, self._asks)
             self._record.event("watch_dropped", w=self._look_w, by=self._asks)

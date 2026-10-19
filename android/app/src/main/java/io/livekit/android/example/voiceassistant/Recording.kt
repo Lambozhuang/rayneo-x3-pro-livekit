@@ -39,8 +39,9 @@ import org.json.JSONObject
  *
  * Per call, under the app's external files dir, `recordings/<room>/`:
  *
- *   video.mp4    H.264 at [BITRATE] on a second hardware encoder, the sensor's 1920x1080 with the
- *                rotation as the MP4's orientation, as the call's own encoder sends it
+ *   video.mp4    H.264 on a second hardware encoder in VBR up to [BITRATE], the sensor's 1920x1080 with
+ *                the rotation as the MP4's orientation, as the call's own encoder sends it; on a desk scene
+ *                it holds QP 20 at about 15 Mbps, far under the ceiling
  *   video.csv    one line per camera frame: n, its timestamp (ns, the capturer's clock), the wall clock
  *                when it arrived, and whether it was recorded or skipped
  *   mic.wav      the wearer's microphone as the call sends it; agent.wav the agent's voice as decoded here

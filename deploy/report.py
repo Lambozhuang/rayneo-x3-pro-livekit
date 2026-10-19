@@ -314,10 +314,11 @@ def watch_outcome(look: dict) -> str:
         return "dropped" if "watch_dropped" in look else "unfinished"
     if back.get("progress") is not None:
         return "progress"
-    return "say" if "say" in look else "note" if "note" in look else "nothing"
+    return ("say" if "say" in look else "held" if "say_held" in look else "note" if "note" in look
+            else "nothing")
 
 
-WATCH_COLOURS = {"progress": "#5b5", "say": "#a6d", "note": "#69c", "nothing": "#444", "failed": "#d44", "dropped": "#555",
+WATCH_COLOURS = {"progress": "#5b5", "say": "#a6d", "held": "#d8b", "note": "#69c", "nothing": "#444", "failed": "#d44", "dropped": "#555",
                  "unfinished": "#555"}
 
 
@@ -334,6 +335,13 @@ def watch_card(w: int, look: dict) -> str:
     for kind in ("note", "say"):
         if kind in look:
             out.append(f'<p>{kind}: {esc(look[kind]["text"])}</p>')
+    if "say_held" in look:
+        fate = look.get("say_confirmed") or look.get("say_dropped") or {}
+        how = (f"sent: watch {fate['by']} said so too" if "say_confirmed" in look else
+               f"dropped: hand-over #{fate['by_delegation']} came" if fate.get("by_delegation") else
+               f"dropped: watch {fate['by']} said nothing" if fate else "still held when the call ended")
+        out.append(f'<p>say, held for the next look: {esc(look["say_held"]["text"])}<br>'
+                   f'<span class="dim">{how}</span></p>')
     if back:
         u = back.get("usage") or {}
         calls = ", ".join(f"{c}({json.dumps(a)})" for c, a in back.get("calls", [])) or "no tool call"
@@ -469,8 +477,8 @@ def report(d: str) -> str:
     watches: dict[int, dict] = {}
     last_back = None
     for e in events:
-        if e["kind"] in ("watch_sent", "watch_back", "watch_failed", "watch_dropped", "note", "say",
-                         "commentary") and e.get("w"):
+        if e["kind"] in ("watch_sent", "watch_back", "watch_failed", "watch_dropped", "note", "say", "say_held",
+                         "say_confirmed", "say_dropped", "commentary") and e.get("w"):
             watches.setdefault(e["w"], {})[e["kind"]] = e
         if e["kind"] in ("delegation", "look_sent", "look_back", "look_failed", "look_dropped", "commentary",
                          "voice_started", "voice_silent") and e.get("n"):
@@ -543,7 +551,7 @@ def report(d: str) -> str:
               "<p class='dim'>brain bars run from the hand-over to the reply: green = progress set, orange = progress unchanged, "
               "red = failed, grey = dropped; click one for its card. Blue tick on the voice lane = the voice starts that "
               "answer. Red tick on the brain lane = GPT-Live delegated and nothing arrived. Watch bars run from a watch "
-              "look to its reply: green = progress set, purple = say, blue = note, dark = nothing, red = failed, grey = "
+              "look to its reply: green = progress set, purple = say, pink = say held for the next look, blue = note, dark = nothing, red = failed, grey = "
               "dropped for a hand-over; click one for its card. Numbers on the steps lane = step done.</p>")
     if ears:
         legend = legend[:-4] + (" Mic lane = the wearer's voice at the microphone, heard lane = the agent's voice decoded on "
@@ -570,7 +578,7 @@ def report(d: str) -> str:
             cut = " [interrupted]" if e.get("interrupted") else ""
             out.append(f'<div class="row">{t}<span class="{e["who"]}">{e["who"]}: {esc(e["text"])}'
                        f'<span class="dim">{spoke}{cut}</span></span></div>')
-        elif k in ("watch_back", "watch_failed") and watch_outcome(watches[e["w"]]) in ("progress", "say", "note", "failed"):
+        elif k in ("watch_back", "watch_failed") and watch_outcome(watches[e["w"]]) in ("progress", "say", "held", "note", "failed"):
             out.append(f'<div class="row">{t}<div style="flex:1">{watch_card(e["w"], watches[e["w"]])}</div></div>')
         elif k == "delegation":
             out.append(f'<div class="row">{t}<div style="flex:1">{card(e["n"], looks[e["n"]], thinking.get(e["n"], []))}</div></div>')

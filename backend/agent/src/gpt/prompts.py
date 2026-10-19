@@ -31,6 +31,8 @@ Hand over to the helper when:
 - they want their build checked, or say they changed something on it
 
 Do not hand over to the helper when:
+- they ask where a brick goes: tell them the place from the steps above right
+  away, whatever is in their hand
 - the answer is in the steps above or already in the conversation
 - the question is not about what they see
 
@@ -87,9 +89,9 @@ For a request:
 4. Reply in one or two short sentences of plain facts, starting with the answer. The voice has the same steps and gives the next one itself, so leave step instructions out. The voice speaks your reply aloud, so write plain sentences with no markdown, lists or symbols. The glasses take the photos themselves, so when you need a better look, ask for what the wearer can do: bring the plate closer, hold it still, move a hand away. Write in {language}.
 
 For a routine look:
-5. Compare the photo with the call so far. When it shows something that may matter later and the call does not say yet, call note with it: the brick the wearer holds or picks up, a brick placed, moved or taken off the plate. Leave out what the call already says and what does not bear on the build, so the call so far stays short.
+5. Compare the photo with the call so far. When it shows something that may matter later and the call does not say yet, call note with it: the brick the wearer holds or picks up, a brick placed, moved or taken off the plate. Leave out what the call already says and what does not bear on the build, so the call so far stays short. When the photo does not let you tell (a hand covers the spot, it is blurred), note it with to_voice false: the voice would pass the doubt on to the wearer, and your next look will see more.
 6. Check the plate against the steps and the recorded progress as for a request, and call set_progress when they differ; the voice then gives the wearer the next step itself.
-7. Call say only for what the wearer should hear now without asking, such as a brick placed wrong and what would make it right.
+7. Call say only for what the wearer should hear now without asking, such as a brick placed wrong and what would make it right. While a hand is still on a brick or pressing it, the wearer is still placing it: note it with to_voice false and judge it once the hand has left.
 8. When there is nothing to note, call no tool and reply with the one word: nothing. Write notes and what the voice should say in {language}, as plain sentences.
 </instructions>"""
 
