@@ -139,6 +139,21 @@ async def rayneo_assistant(ctx: JobContext) -> None:
         room_options=room_io.RoomOptions(video_input=True),
     )
 
+    # The session as the API runs it, from its own session.created and session.updated events: the model, the
+    # reasoning effort, the turn detection and the transcription it took up, so the record shows what the run
+    # actually used. A hook set after session.start can miss the first of them.
+    def _log_session(event: dict) -> None:
+        if event.get("type") in ("session.created", "session.updated"):
+            s = event.get("session") or {}
+            audio_in = (s.get("audio") or {}).get("input") or {}
+            logger.info("live: %s model=%s reasoning=%s turn_detection=%s transcription=%s", event["type"],
+                        s.get("model"), s.get("reasoning"), (audio_in.get("turn_detection") or {}).get("type"),
+                        audio_in.get("transcription"))
+            record.event("live", type=event["type"], model=s.get("model"), reasoning=s.get("reasoning"),
+                         turn_detection=audio_in.get("turn_detection"), transcription=audio_in.get("transcription"))
+
+    session.current_agent.realtime_llm_session.on("openai_server_event_received", _log_session)
+
     async def _camera_watch() -> None:
         await asyncio.sleep(10)
         if sampler.count == 0:
