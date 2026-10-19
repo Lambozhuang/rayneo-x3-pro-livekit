@@ -28,22 +28,22 @@ A call starts with the glasses asking the api for the builds; the wearer picks o
 
 ### GPT-Live and a vision model (`AGENT_BACKEND=openai`, `backend/agent/src/gpt/`)
 
-<img alt="GPT-Live architecture: the glasses reach our server over Wi-Fi, the link under test; livekit-server and the Python agent share that server; the agent talks to GPT-Live over a WebSocket" src="docs/architecture.png">
+<img alt="GPT-Live path, deployment: the glasses reach livekit-server on our server by WebRTC over Wi-Fi, the link under test; the Python agent on the same server reaches livekit-server over loopback, gpt-live-1 (OpenAI) over a WebSocket and Claude Sonnet 5.5 (Anthropic) over HTTPS" src="docs/gpt-live-overview.png">
 
-<img alt="Inside the GPT-Live agent: audio to a GPT-Live session whose persona holds every step's wording; video to FrameTap; the session delegates to the brain with an id, the brain takes the newest frame and the call's turns to a vision model and answers with commentary on that id, and the step list to the glasses; the task file feeds both" src="docs/agent.png">
+<img alt="GPT-Live path, agent architecture: the glasses send mic audio and H.264 video and receive the agent's speech and the step list as participant attributes; the GPT-Live session holds the conversation, tells each step from the build plan in its prompt and hands questions that need the camera to the brain as delegations; the brain watches the newest frame by itself at most every 2 s (768 px, no thinking), answers each delegation (1080 px, with thinking), records the progress and updates the step list, and sends every look the transcript of the call and its own earlier notes; it answers GPT-Live with commentary, which is spoken, and thinking, which is not" src="docs/gpt-live-agent.png">
 
-Two models. GPT-Live (`gpt-live-1`) is the voice: it hears the wearer and speaks, both at once, and decides itself when to talk; it takes audio only, so it cannot see. The brain (`gpt/brain.py`) is the eyes: it sends the camera picture to a vision model (OpenAI or Anthropic) and keeps the build's progress.
+Two models. GPT-Live (`gpt-live-1`) is the voice: it hears the wearer and speaks, both at once, and decides itself when to talk; it takes audio only, so it cannot see. The brain (`gpt/brain.py`) is the eyes: it sends the camera picture to a vision model (OpenAI or Anthropic), by itself every few seconds and whenever GPT-Live asks, and keeps the build's progress.
 
 1. GPT-Live's prompt holds every step, so it answers by itself whatever the steps or the conversation already answer.
 2. What needs eyes, or a brick placed, it hands over to the agent: GPT-Live sends a hand-over (a "delegation") with an id, sometimes with the wearer's words.
 3. The brain sends one request to the vision model: the newest camera frame (bottom square at `BRAIN_SIDE`, thinking at `BRAIN_EFFORT`), the call so far, the progress, the wearer's words.
 4. The brain's reply goes back to GPT-Live as text attached to that id (a "commentary"), and GPT-Live says it in its own words.
 5. When the vision model judges that more or fewer steps are built right, it says so through its tool `set_progress`: the step list on the glasses changes and the same commentary tells GPT-Live.
-6. While no hand-over runs, the brain also looks by itself, one look after the other, at most one every `BRAIN_WATCH_EVERY` seconds, on the newest frame at `BRAIN_WATCH_SIDE` without thinking. Nobody asked, so the vision model decides what to do: `note` writes down what may matter later and passes it to GPT-Live silently (a "thinking"), unless it is about what the photo does not let the model tell, `say` has GPT-Live tell the wearer something now (a commentary on no hand-over) once the next look calls `say` too, since GPT-Live cannot take back what it was told, `set_progress` moves the build, and no tool at all leaves no trace. A hand-over cancels the look running and the watch goes on after it.
+6. While no hand-over runs, the brain also looks by itself, one look after the other, at most one every `BRAIN_WATCH_EVERY` seconds, on the newest frame at `BRAIN_WATCH_SIDE` without thinking. Nobody asked, so the vision model decides what to do: `note` writes down what may matter later and passes it to GPT-Live silently (a "thinking"), unless it is about what the photo does not let the model tell, `say` has GPT-Live tell the wearer something now (a commentary on no hand-over) once the next look calls `say` too, since GPT-Live cannot take back what it was told, `set_progress` moves the build and tells GPT-Live in a commentary on no hand-over, and no tool at all leaves no trace. A hand-over cancels the look running and the watch goes on after it.
 
 The call so far, in every request, is one line per entry with its time into the call: what the wearer and GPT-Live said, and what the brain itself noted, had GPT-Live say, or answered. No photo is kept from one request to the next.
 
-<sub>`python docs/make_diagram.py` and `docs/make_agent_diagram.py` regenerate the two figures.</sub>
+<sub>`python docs/make_gpt_live_overview.py` and `docs/make_gpt_live_agent.py` regenerate the two figures.</sub>
 
 ### OpenAI Realtime (`AGENT_BACKEND=realtime`, `backend/agent/src/realtime/`)
 
@@ -192,7 +192,7 @@ docs/                   TASK.md (the experiment task), TODO.md, notes-gpt-live-o
 logs/                   records pulled from the lab (not in git)
 ```
 
-**backend/agent/src/gpt/**: `prompts.py` builds both prompts, the voice's and the brain's, around the shared task block; `brain.py` answers each hand-over (its docstring has the details: the frame's crop, timeouts, a newer hand-over cancelling an older one); `agent.py` wires the session, the brain and the logs.
+**backend/agent/src/gpt/**: `prompts.py` builds both prompts, the voice's and the brain's, around the shared task block; `brain.py` looks by itself between hand-overs and answers each hand-over (its docstring has the details: the frame's crop, timeouts, a newer hand-over cancelling an older one and the look running, a say held for the next look); `agent.py` wires the session, the brain and the logs.
 
 **backend/agent/src/realtime/**: `prompts.py` is the prompt; `tools.py` is `set_progress`; `sampler.py` picks which frames the model gets and saves each to the record; `config.py` reads the settings and makes the model; `agent.py` wires the session, the build and the logs.
 

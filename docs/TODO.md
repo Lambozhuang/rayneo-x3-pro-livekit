@@ -18,7 +18,7 @@
 
 ### GPT 路径（大脑）
 
-- [ ] 主动观察（watch，2026-10-19 写好未跑）：没有委托时大脑一张接一张看，最少间隔 BRAIN_WATCH_EVERY=2 s，768 不思考；工具 note（记进大脑的时间线并以 thinking 给 Live）、say（commentary 让 Live 现在说）、set_progress；不调工具就什么都不留。委托来时取消正在跑的 watch。真机跑一次看：每次 watch 多久、note 记得多不多、主动开口会不会撞上佩戴者说话、误推进度
+- [x] 主动观察（watch）：没有委托时大脑一张接一张看，最少间隔 BRAIN_WATCH_EVERY=2 s，768 不思考；工具 note（记进大脑的时间线，to_voice 时以 thinking 给 Live）、say（下一次 watch 也调 say 才以 commentary 让 Live 说）、set_progress；不调工具就什么都不留。委托来时取消正在跑的 watch。2026-10-19 实验室跑了三轮，用户认为弥补了之前的问题
 - [ ] 保留意见：委托来时如果 watch 发出不到 1 s，不取消，让它的结论带上委托 id 当回答（watch 不知道问题，可能答不上）
 - [ ] 端到端延迟的最后一段：记录里已有委托 → 大脑回复 → Live 开口，还缺眼镜播出，要在眼镜本地按真实声音计时
 - [ ] 对比模型和图片尺寸对延迟的影响
