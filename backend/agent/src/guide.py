@@ -5,8 +5,9 @@ ordered list of steps); a bare .toml file works too. Each step has a name for
 the list on the glasses, the brick and where it goes.
 
 `Build` holds the run's position in that list and logs the timing of every
-step. The brain on the GPT path moves it (`set_step`) when it judges from the
-camera how many steps are built; `publish_build` sends the position to the
+step. The brain on the GPT path, or the model's set_progress call on the
+Realtime path, moves it (`set_step`) when it judges from the camera how many
+steps are built; `publish_build` sends the position to the
 glasses.
 """
 

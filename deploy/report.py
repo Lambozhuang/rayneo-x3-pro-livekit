@@ -15,9 +15,9 @@ network up with GPT-Live hearing the turn end and handing over, the brain's prep
 and model, GPT-Live taking up the answer, the network down. For a GPT-Live call each
 hand-over is one card: what the wearer said, the photo and the whole input the brain
 got, its reply and tool call, what reached the voice and when the voice started
-speaking. For a Gemini call there are no hand-overs: the timeline shows the frames the
-model was shown and its set_progress calls, and each call is a row with the newest
-frame before it. Only stdlib, so it runs on the backend host as is.
+speaking. For a one-model call (Gemini, OpenAI Realtime) there are no hand-overs: the
+timeline shows the frames the model was shown and its set_progress calls, and each call
+is a row with the newest frame before it. Only stdlib, so it runs on the backend host as is.
 """
 
 import html
@@ -203,15 +203,17 @@ def outcome(look: dict) -> str:
     return "done" if back.get("done") or back.get("progress") is not None else "not"  # done: records before set_progress
 
 
-def timeline(events: list[dict], looks: dict[int, dict], end: float, gemini: bool, ears: dict | None) -> str:
+def timeline(events: list[dict], looks: dict[int, dict], end: float, one_model: bool, ears: dict | None) -> str:
     width = int(end * PX) + 80
-    # a GPT-Live call: who speaks, the brain's looks, the steps; a Gemini call has no wearer state (no local VAD)
-    # and no brain: the frames shown to the model and its tool calls instead. With the glasses' log: the wearer's
-    # voice at the microphone above what the model heard, the agent's voice as it reached the glasses below it.
-    lanes = ["voice", "frames", "tool", "steps"] if gemini else ["wearer", "voice", "brain", "steps"]
+    # a GPT-Live call: who speaks, the brain's looks, the steps; a one-model call has no brain: the frames shown to
+    # the model and its tool calls instead, and a wearer lane only when the record has the wearer's state (Realtime;
+    # Gemini has no local VAD). With the glasses' log: the wearer's voice at the microphone above what the model
+    # heard, the agent's voice as it reached the glasses below it.
+    wearer = not one_model or any(e["kind"] == "state" and e.get("who") == "wearer" for e in events)
+    lanes = (["wearer"] if wearer else []) + (["voice", "frames", "tool", "steps"] if one_model else ["voice", "brain", "steps"])
     if ears:
         v = lanes.index("voice") + 1
-        lanes = ([] if gemini else ["mic"]) + lanes[:v] + ["heard"] + lanes[v:]
+        lanes = (["mic"] if wearer else []) + lanes[:v] + ["heard"] + lanes[v:]
     h = LANE * len(lanes) + 24
     x = lambda t: 60 + t * PX  # noqa: E731
     y = lambda name: lanes.index(name) * LANE  # noqa: E731
@@ -234,7 +236,7 @@ def timeline(events: list[dict], looks: dict[int, dict], end: float, gemini: boo
             for a, b in ears[lane]:
                 svg.append(f'<rect x="{x(a):.1f}" y="{y(lane) + 4}" width="{max((b - a) * PX, 1):.1f}" height="{LANE - 8}" '
                            f'fill="{colour}"><title>{what} {mmss(a)}-{mmss(b)}</title></rect>')
-    if gemini:
+    if one_model:
         for e in events:
             if e["kind"] == "frame":
                 svg.append(f'<line x1="{x(e["t"]):.1f}" y1="{y("frames") + 6}" x2="{x(e["t"]):.1f}" y2="{y("frames") + LANE - 6}" '
@@ -409,7 +411,7 @@ def report(d: str) -> str:
     billed = next((e.get("seconds") for e in events if e["kind"] == "live" and e.get("type") == "session.closed"),
                   end_ev.get("voice_s"))
     name = os.path.basename(os.path.normpath(d))
-    gemini = (call.get("settings") or {}).get("video_fps") is not None  # the Gemini path's settings; no brain
+    one_model = "brain_model" not in (call.get("settings") or {})  # Gemini or Realtime: no brain
     tools = [e for e in events if e["kind"] == "tool"]
     frames = [e for e in events if e["kind"] == "frame"]
     turns = [e for e in events if e["kind"] == "model"]
@@ -424,7 +426,7 @@ def report(d: str) -> str:
     kv = [("guide", f"{call.get('guide')} ({call.get('language')})"), ("commit", call.get("commit") or "unknown"),
           ("t=0 wall clock ms", call.get("wall_ms") or "not recorded"),
           ("length", mmss(end)), ("build", task), ("steps done", f"{len(done)}/{steps}")]
-    if gemini:
+    if one_model:
         kv += [("set_progress calls", f"{len(tools)}: {sum(1 for e in tools if not e.get('unchanged') and not e.get('ignored'))} "
                                       f"moved, {sum(1 for e in tools if e.get('unchanged'))} unchanged, "
                                       f"{sum(1 for e in tools if e.get('ignored'))} ignored"),
@@ -453,7 +455,8 @@ def report(d: str) -> str:
                                          else '<span class="ok">nothing flagged</span>'))
     legend = ("<p class='dim'>ticks on the frames lane = a frame shown to the model; marks on the tool lane = set_progress: "
               "green = progress moved, orange = unchanged, red = ignored; click one for its row. Numbers on the steps lane = "
-              "step done. The wearer's speech is not recorded on this path (no local VAD).</p>" if gemini else
+              "step done." + ("" if any(e["kind"] == "state" and e.get("who") == "wearer" for e in events) else
+                              " The wearer's speech is not recorded on this path (no local VAD).") + "</p>" if one_model else
               "<p class='dim'>brain bars run from the hand-over to the reply: green = progress set, orange = progress unchanged, "
               "red = failed, grey = dropped; click one for its card. Blue tick on the voice lane = the voice starts that "
               "answer. Red tick on the brain lane = GPT-Live delegated and nothing arrived. Numbers on the steps lane = "
@@ -463,8 +466,8 @@ def report(d: str) -> str:
                                 "the glasses, both from glasses.log placed with clock.json.</p>")
     else:
         legend = legend[:-4] + " No glasses.log, clock.json or wall_ms beside the record: the glasses' side is not shown.</p>"
-    out.append("<h2>Timeline</h2>" + timeline(events, looks, end, gemini, ears) + legend)
-    if not gemini:
+    out.append("<h2>Timeline</h2>" + timeline(events, looks, end, one_model, ears) + legend)
+    if not one_model:
         out.append("<h2>Where the wait goes, per hand-over</h2>" + stage_chart(stages(looks, ears)))
 
     out.append("<h2>The call</h2>")

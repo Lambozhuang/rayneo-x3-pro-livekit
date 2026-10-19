@@ -22,6 +22,12 @@
 - [ ] 端到端延迟的最后一段：记录里已有委托 → 大脑回复 → Live 开口，还缺眼镜播出，要在眼镜本地按真实声音计时
 - [ ] 对比模型和图片尺寸对延迟的影响
 
+### Realtime 路径（PoC）
+
+2026-10-19 加的第三条路：gpt-realtime-2.1 自己听、看、说，用 set_progress 推进度；说话时每秒一帧、不说话约 3 s 一帧，帧是底部正方形 1080。
+
+- [ ] 真机跑一次乐高：判对率、set_progress 是否该调就调、调完会不会重复播报、每帧多少 image token、上下文随帧怎么涨、回复延迟
+
 ### Gemini 路径
 
 2026-10-13 实验室四次运行的结论：Live API 给一帧最多 280 token（MEDIA_RESOLUTION_HIGH），模型认得出颜色和大件形状，数不清颗粒，2x6 近看读成 1x6 或 2x4；乐高任务留给 GPT 路径。2026-10-16 起 Gemini 路径去掉了乐高任务和 set_progress，是不带任务的通用助手：中间正方形 768x768，提示词、音色 Kore、MEDIA_RESOLUTION_LOW、默认滑动窗口和不先开口都照 rayneo-x3-pro-gemini-live；拿来做什么任务，没定。

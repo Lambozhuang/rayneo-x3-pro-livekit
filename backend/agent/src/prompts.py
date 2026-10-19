@@ -1,6 +1,6 @@
-"""The task as the GPT path describes it to its models: the build, the plate,
-the direction words and the steps, from the one task file. gpt/prompts.py puts
-its own rules around it.
+"""The task as the GPT and Realtime paths describe it to their models: the build,
+the plate, the direction words and the steps, from the one task file.
+gpt/prompts.py and realtime/prompts.py put their own rules around it.
 """
 
 from guide import Guide

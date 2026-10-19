@@ -1,14 +1,14 @@
 # RayNeo X3 Pro live AI assistant
 
-A voice assistant on RayNeo X3 Pro AR glasses, on LiveKit: GPT-Live guides the wearer through a LEGO build, and Gemini Live answers whatever the wearer asks about what the camera shows.
+A voice assistant on RayNeo X3 Pro AR glasses, on LiveKit: GPT-Live or OpenAI Realtime guides the wearer through a LEGO build, and Gemini Live answers whatever the wearer asks about what the camera shows.
 
 ## Overview
 
 The project is a test bed: how does the network between the glasses and the server change a voice-and-vision assistant?
 
-The LEGO build is the GPT path's workload. The wearer picks one of 13 five-brick builds on the glasses and talks it through with the assistant. The assistant sees through the glasses' camera, says which brick to find and where it goes, checks each brick placed and keeps the step list on the glasses current.
+The LEGO build is the workload of the GPT and Realtime paths. The wearer picks one of 13 five-brick builds on the glasses and talks it through with the assistant. The assistant sees through the glasses' camera, says which brick to find and where it goes, checks each brick placed and keeps the step list on the glasses current.
 
-The agent has two architectures: GPT-Live with a separate vision model, which runs the LEGO build, and Gemini Live alone, which runs no task: it is a general voice assistant that sees through the camera. The Gemini path dropped the LEGO build after the 2026-10-13 lab runs showed it cannot count studs at the 280 tokens the Live API gives a frame.
+The agent has three architectures: GPT-Live with a separate vision model, which runs the LEGO build; OpenAI Realtime alone, which sees the camera itself and runs the LEGO build, as a proof of concept; and Gemini Live alone, which runs no task: it is a general voice assistant that sees through the camera. The Gemini path dropped the LEGO build after the 2026-10-13 lab runs showed it cannot count studs at the 280 tokens the Live API gives a frame.
 
 `docs/TASK.md` has the experiment: the task it is based on (ITU-T P.1321's block building), the choices made for ours, what is measured, and the papers behind them. `docs/TODO.md` is the open list.
 
@@ -22,7 +22,7 @@ The server runs three programs:
 
 - **livekit-server**, LiveKit's media server: the glasses and the agent join the same room on it; it checks their join tokens and passes audio and video between them.
 - **api** (`backend/api/`): lists the builds, and gives the glasses their join token with the build they picked.
-- **agent** (`backend/agent/`): joins the room as the assistant, with that build loaded on the GPT path, and holds the model keys. It runs one of the two architectures below, picked by `AGENT_BACKEND`.
+- **agent** (`backend/agent/`): joins the room as the assistant, with that build loaded on the GPT and Realtime paths, and holds the model keys. It runs one of the three architectures below, picked by `AGENT_BACKEND`.
 
 A call starts with the glasses asking the api for the builds; the wearer picks one, the glasses get a join token for it and join the room, and the agent joins too. It ends when the wearer ends it on the glasses.
 
@@ -41,6 +41,15 @@ Two models. GPT-Live (`gpt-live-1`) is the voice: it hears the wearer and speaks
 5. When the vision model judges that more or fewer steps are built right, it says so through its one tool, `set_progress`: the step list on the glasses changes and the same commentary tells GPT-Live.
 
 <sub>`python docs/make_diagram.py` and `docs/make_agent_diagram.py` regenerate the two figures.</sub>
+
+### OpenAI Realtime (`AGENT_BACKEND=realtime`, `backend/agent/src/realtime/`)
+
+One model, OpenAI Realtime (`REALTIME_MODEL`, `gpt-realtime-2.1`), hears, sees, speaks and keeps the build's progress. It is a proof of concept, there to find out how well the model alone runs the LEGO build. Its prompt (`realtime/prompts.py`) holds every step, and its one tool, `set_progress`, moves the step list on the glasses (`realtime/tools.py`). Turn detection, input transcription and reasoning are the plugin's and the API's defaults; the voice is marin.
+
+1. Camera frames go into the model's conversation as image messages: one a second while the wearer speaks (`REALTIME_SPEAKING_FPS`), one every ~3 s otherwise (`REALTIME_SILENT_FPS`, 0.3), the rule of LiveKit's own video sampler. Each is the bottom square of the frame, the table in front of the wearer, scaled to `REALTIME_SIDE` px, 1080 by default (`realtime/sampler.py`, the crop in `src/frames.py`). Every frame stays in the model's context and is read again on every turn, so the rates set the cost.
+2. The model answers the wearer from what it hears and the frames it has; when it judges that more or fewer steps are built right, it calls `set_progress`, and speaks its verdict after the call returns.
+
+The API's turn detection decides when the wearer has finished, and sets the wearer's state that picks the frame rate. Each frame shown to the model is saved into the call record (see Logs), so a run can be judged from what the model saw.
 
 ### Gemini Live (`AGENT_BACKEND=gemini`, `backend/agent/src/gemini/`)
 
@@ -73,7 +82,7 @@ Build the app and install it on the glasses:
 
 ### Running a session
 
-Start the backend on a server (`lab` or `home`) with an architecture (`openai` or `gemini`):
+Start the backend on a server (`lab` or `home`) with an architecture (`openai`, `realtime` or `gemini`):
 
 ```shell
 python deploy/backend.py lab openai
@@ -109,7 +118,7 @@ python deploy/backend.py lab down
 
 | script | what it does | usage |
 |---|---|---|
-| `backend.py` | starts the backend on a server with one architecture, or stops it | `python deploy/backend.py {lab\|home} {openai\|gemini\|down}` |
+| `backend.py` | starts the backend on a server with one architecture, or stops it | `python deploy/backend.py {lab\|home} {openai\|realtime\|gemini\|down}` |
 | `setup.sh` | writes a new server's config: a livekit key pair, `livekit.yaml`, `backend/.env`; keeps any of them that already exists | `deploy/setup.sh lab` |
 | `watch.py` | prints the call as it happens, from the agent's log: what each side said, the progress, the timings, the warnings | `docker compose logs -f --no-log-prefix agent \| python3 ../deploy/watch.py [-v]`; `-v` also shows the lines it drops |
 | `pull_run.py` | copies a call's record from the lab PC into `logs/` and runs `report.py` on it | `python deploy/pull_run.py [<call>]`; the newest call without an argument |
@@ -123,8 +132,8 @@ The glasses talk WebRTC to livekit-server over Wi-Fi and the lab LAN; the server
 | | glasses | livekit-server | agent |
 |---|---|---|---|
 | stack | LiveKit Android SDK 2.28 on libwebrtc | livekit-server 1.13 (Go, Pion) | livekit-agents 1.8, libwebrtc through the Rust SDK |
-| transport | Wi-Fi to the server: UDP 50000-60000, TCP 7881 fallback, signalling ws://7880, no TURN, no TLS | same, bound to the LAN address (`deploy/livekit.lab.yaml`) | loopback to the server; WebSocket to GPT-Live, HTTPS to the brain's model |
-| video | sends one layer 1920x1080 at 15 fps, H264 hardware encoder, 4 Mbps cap, simulcast off, `MAINTAIN_RESOLUTION` (`VoiceAssistantViewModel.kt`) | forwards | receives and decodes; keeps the newest frame for the brain (`frames.py`), or sends Gemini one a second (`gemini/sampler.py`) |
+| transport | Wi-Fi to the server: UDP 50000-60000, TCP 7881 fallback, signalling ws://7880, no TURN, no TLS | same, bound to the LAN address (`deploy/livekit.lab.yaml`) | loopback to the server; WebSocket to GPT-Live, HTTPS to the brain's model; or WebSocket to OpenAI Realtime or Gemini |
+| video | sends one layer 1920x1080 at 15 fps, H264 hardware encoder, 4 Mbps cap, simulcast off, `MAINTAIN_RESOLUTION` (`VoiceAssistantViewModel.kt`) | forwards | receives and decodes; keeps the newest frame for the brain (`frames.py`), or sends Gemini one a second (`gemini/sampler.py`), or sends OpenAI Realtime one a second while the wearer speaks and one every ~3 s otherwise (`realtime/sampler.py`) |
 | audio | sends Opus 48 kHz with AEC/NS/AGC, no RED, no in-band FEC; plays the agent's Opus | forwards | decodes the glasses' Opus for the speech model (GPT-Live, or Gemini at 16 kHz); sends the model's voice as Opus |
 | loss repair | NACK and PLI (libwebrtc default) | NACK and PLI toward both ends, no FEC (default) | NACK and PLI (default) |
 | receiver side | jitter buffer about 150 ms, Opus PLC | none, no decoding | jitter buffer, Opus PLC |
@@ -133,23 +142,24 @@ The glasses talk WebRTC to livekit-server over Wi-Fi and the lab LAN; the server
 
 ## Logs
 
-The agent writes one JSON line per event (`docker compose logs agent`; `deploy/watch.py` shows the call out of it). Each line's message starts with a prefix that says what it is. The first five prefixes appear on both architectures; the rest say which one writes them.
+The agent writes one JSON line per event (`docker compose logs agent`; `deploy/watch.py` shows the call out of it). Each line's message starts with a prefix that says what it is. The first five prefixes appear on every architecture; the rest say which one writes them.
 
 | prefix | the line says |
 |---|---|
-| `experiment:` | every setting of the run, with `backend=openai` or `gemini` |
+| `experiment:` | every setting of the run, with `backend=openai`, `realtime` or `gemini` |
 | `user:` / `assistant:` | what one side said, written when its turn ends; on the Gemini path both lines are Gemini's transcriptions of the audio, in US English |
-| `step`, `build` | GPT-Live: a step was done or reopened, the build was finished |
+| `step`, `build` | GPT-Live and Realtime: a step was done or reopened, the build was finished |
 | `camera:`, `link:` | the first frame arrived; the glasses joined, left, or changed link quality |
 | `usage:` | the speech model's usage so far, about once a minute; at the end, the session's total and how many camera frames arrived |
-| `live:` | GPT-Live: who is speaking; `live: sent` is every event sent to GPT-Live except mic audio, `live: event` is one of GPT-Live's own (a delegation, a receipt, an error). Gemini: the model started or stopped speaking |
+| `live:` | GPT-Live: who is speaking; `live: sent` is every event sent to GPT-Live except mic audio, `live: event` is one of GPT-Live's own (a delegation, a receipt, an error). Realtime: who is speaking, the wearer's state from the API's turn detection. Gemini: the model started or stopped speaking |
 | `delegation:` | GPT-Live: it handed a request over, with the wearer's words |
 | `brain:` | GPT-Live: one request to the vision model: the frame, the timings, the tokens, the reply, and one line per tool call |
 | `voice:` | GPT-Live: it started saying an answer, and how long after the hand-over |
 | `gpt-live:` | GPT-Live: the session started or closed, and the seconds billed |
-| `model:` | Gemini: one reply's time to first audio, generation length and tokens, the image tokens spelled out (zero means no video is reaching the model) |
+| `tool:` | Realtime: one `set_progress` call and what came of it: moved, unchanged or ignored |
+| `model:` | Gemini and Realtime: one reply's time to first audio, generation length and tokens, the image tokens spelled out (zero means no video is reaching the model) |
 
-Each call also leaves a record in `backend/runs/<UTC start>-<room>/`: `events.jsonl` (every event with all its fields), the prompts as sent, and the photos: on the GPT path every photo sent to the brain, on the Gemini path every frame shown to the model. `python deploy/pull_run.py [<call>]` copies the newest (or that) record into `logs/`, saves the glasses' `rayneo-call`, `rayneo-link` and `rayneo-speech` lines as `glasses.log` (`rayneo-call` bounds each call with its room name) and the glasses' clock offset against the server's as `clock.json` when the glasses are on adb, and writes `report.html` (timeline, waits, what went wrong, each look with its photo and the input as sent; for a Gemini call the frames shown to the model). With `glasses.log` and `clock.json` beside the record the timeline also shows the wearer's voice at the microphone and the agent's voice as decoded on the glasses, and a GPT-Live call gets one stacked bar per hand-over splitting the wait from the wearer's last word to the answer in their ear into network up with GPT-Live's turn end, the brain's preparation and model, GPT-Live taking up the answer, and network down. The container writes records as root; delete them with `docker run --rm -v "$PWD/runs:/r" backend-agent sh -c "rm -rf /r/2026*"` in `backend/`.
+Each call also leaves a record in `backend/runs/<UTC start>-<room>/`: `events.jsonl` (every event with all its fields), the prompts as sent, and the photos: on the GPT path every photo sent to the brain, on the Realtime and Gemini paths every frame shown to the model. `python deploy/pull_run.py [<call>]` copies the newest (or that) record into `logs/`, saves the glasses' `rayneo-call`, `rayneo-link` and `rayneo-speech` lines as `glasses.log` (`rayneo-call` bounds each call with its room name) and the glasses' clock offset against the server's as `clock.json` when the glasses are on adb, and writes `report.html` (timeline, waits, what went wrong, each look with its photo and the input as sent; for a Realtime or Gemini call the frames shown to the model and the `set_progress` calls). With `glasses.log` and `clock.json` beside the record the timeline also shows the wearer's voice at the microphone and the agent's voice as decoded on the glasses, and a GPT-Live call gets one stacked bar per hand-over splitting the wait from the wearer's last word to the answer in their ear into network up with GPT-Live's turn end, the brain's preparation and model, GPT-Live taking up the answer, and network down. The container writes records as root; delete them with `docker run --rm -v "$PWD/runs:/r" backend-agent sh -c "rm -rf /r/2026*"` in `backend/`.
 
 **Never set the root logger to `DEBUG` in code** (`logging.basicConfig(level=logging.DEBUG)` and the like): the `websockets` logger then prints request headers, API keys included. `--log-level debug` on the agent CLI sets the root logger to `DEBUG` too, but holds `websockets.client` at `WARN`. If a key reached a log, rotate it.
 
@@ -162,9 +172,10 @@ backend/
   api/src/              server.py (/getToken, /tasks), auth.py (AUTH_MODE)
   agent/src/agent.py    entrypoint, AGENT_BACKEND picks gpt/ or gemini/
   agent/src/gpt/        GPT-Live and a vision model: agent, config, prompts, brain
+  agent/src/realtime/   OpenAI Realtime: agent, config, prompts, sampler, tools
   agent/src/gemini/     Gemini Live: agent, config, prompts, sampler
   agent/src/guide.py    task file loader, the build's progress, publishing it to the glasses
-  agent/src/prompts.py  the task block the GPT path puts in its prompts
+  agent/src/prompts.py  the task block the GPT and Realtime paths put in their prompts
   agent/src/env.py      what both read from .env
   agent/src/frames.py   the crop each path shows its model; FrameTap keeps the newest frame (GPT path)
   agent/src/runlog.py   one record per call (RUN_DIR)
@@ -178,6 +189,8 @@ logs/                   records pulled from the lab (not in git)
 ```
 
 **backend/agent/src/gpt/**: `prompts.py` builds both prompts, the voice's and the brain's, around the shared task block; `brain.py` answers each hand-over (its docstring has the details: the frame's crop, timeouts, a newer hand-over cancelling an older one); `agent.py` wires the session, the brain and the logs.
+
+**backend/agent/src/realtime/**: `prompts.py` is the prompt; `tools.py` is `set_progress`; `sampler.py` picks which frames the model gets and saves each to the record; `config.py` reads the settings and makes the model; `agent.py` wires the session, the build and the logs.
 
 **backend/agent/src/gemini/**: `prompts.py` is the prompt; `sampler.py` picks which frames the model gets and saves each to the record; `config.py` reads the settings and makes the model; `agent.py` wires the session and the logs.
 
@@ -197,6 +210,7 @@ The camera sensor is mounted sideways: frames arrive as 1080x1920 portrait, fixe
 **LiveKit docs** (also searchable through the livekit-docs MCP server)
 - [GPT-Live plugin](https://docs.livekit.io/agents/models/realtime/plugins/gpt-live/): delegation modes, the three context channels, starting speech, turns and transcripts
 - [Video](https://docs.livekit.io/agents/multimodality/vision/video/), [Agent sessions](https://docs.livekit.io/agents/logic/sessions/): frame sampling, live video input, `video_sampler`, idle users
+- [OpenAI Realtime plugin](https://docs.livekit.io/agents/models/realtime/openai/): video input, the default frame rates, turn detection
 - [Gemini Live plugin](https://docs.livekit.io/agents/models/realtime/plugins/gemini/), [Gemini vision recipe](https://docs.livekit.io/reference/recipes/gemini_live_vision/): video input and the proactivity option on the Gemini side
 - [Subagent delegation](https://docs.livekit.io/agents/logic/patterns/subagent-delegation/): a fast voice model with a slower reasoning model behind it
 - [Agent dispatch](https://docs.livekit.io/agents/server/agent-dispatch/), [Token endpoint spec](https://docs.livekit.io/frontends/build/authentication/endpoint/), [Running LiveKit locally](https://docs.livekit.io/transport/self-hosting/local/)

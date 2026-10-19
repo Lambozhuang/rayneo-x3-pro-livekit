@@ -2,6 +2,7 @@
 
     python deploy/backend.py lab openai      the lab PC runs GPT-Live and the vision model
     python deploy/backend.py home gemini     the home machine runs Gemini Live
+    python deploy/backend.py lab realtime    the lab PC runs OpenAI Realtime
     python deploy/backend.py lab down        the lab PC stops all three containers
 
 Over ssh it pulls the server's checkout forward, writes AGENT_BACKEND into
@@ -19,7 +20,7 @@ SERVERS = {  # ssh alias and the repo's path there, relative to the home directo
     "lab": ("ylab-pc", "services/rayneo-x3-pro-livekit"),
     "home": ("lambos-ubuntu", "Workspace/rayneo-x3-pro-livekit"),
 }
-ACTIONS = ("openai", "gemini", "down")
+ACTIONS = ("openai", "gemini", "realtime", "down")
 
 if len(sys.argv) != 3 or sys.argv[1] not in SERVERS or sys.argv[2] not in ACTIONS:
     sys.exit(f"usage: python deploy/backend.py {{{'|'.join(SERVERS)}}} {{{'|'.join(ACTIONS)}}}")

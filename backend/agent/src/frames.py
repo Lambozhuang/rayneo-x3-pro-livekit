@@ -1,9 +1,10 @@
 """What a model gets to see of the camera: the crop each path uses, and the GPT path's tap on the frames.
 
-`bottom_square` cuts the picture the brain gets on the GPT path, the table in
-front of the wearer; `center_square` cuts the one Gemini gets, the middle of
-the view; `to_frame` turns an image back into a video frame for a realtime
-model (the Gemini sampler pushes it). `FrameTap` is the GPT path's
+`bottom_square` cuts the picture the brain gets on the GPT path and the model
+gets on the Realtime path, the table in front of the wearer; `center_square`
+cuts the one Gemini gets, the middle of the view; `to_frame` turns an image
+back into a video frame for a realtime model (the Gemini and Realtime samplers
+push it). `FrameTap` is the GPT path's
 AgentSession `video_sampler`: it always answers "drop", so the framework never
 forwards video to the speech model, and keeps the newest frame for the code
 instead: `latest` (at the glasses' ~15 a second, at most a few tens of
