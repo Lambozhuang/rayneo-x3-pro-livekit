@@ -1,10 +1,12 @@
-"""The GPT path: GPT-Live speaks, the brain looks when it is asked to.
+"""The GPT path: GPT-Live speaks, the brain looks by itself and when it is asked to.
 
     glasses --audio--> SFU --> this process --ws--> gpt-live-1 (knows every step)
             --video-->     --> FrameTap (frames kept for the brain, none to the voice)
     gpt-live-1 --delegation (id + the wearer's words)--> brain: next frame + the call so far
                                                          --> one vision call --> a reply, maybe set_progress
             <--commentary on that delegation-- brain (the voice says it in its own words)
+    brain, between delegations: a frame every few seconds --> one vision call --> nothing, or a note
+            <--thinking (the note) or commentary (say it now, the progress moved)-- brain
             <--audio-- SFU <-- this process <-- gpt-live-1
             <--step list (participant attributes)-- this process (the step is the brain's)
 
@@ -34,7 +36,7 @@ from livekit.agents.metrics import RealtimeModelMetrics
 
 from env import language, require_env
 from frames import FrameTap
-from gpt.brain import TOOLS, Brain, make_model
+from gpt.brain import ASK_TOOLS, WATCH_TOOLS, Brain, make_model
 from gpt.config import Settings, build_live_model
 from gpt.prompts import voice_persona
 from guide import Build, picked_guide, publish_build
@@ -60,12 +62,14 @@ async def rayneo_assistant(ctx: JobContext) -> None:
     tap = FrameTap(on_first=lambda f: record.event("camera", first_frame=f"{f.width}x{f.height}"))
     build = Build(guide=guide, run=ctx.room.name)
     session = AgentSession(video_sampler=tap, llm=build_live_model(settings))
-    model = make_model(settings.brain_provider, settings.brain_model, settings.brain_effort, settings.brain_detail)
-    brain = Brain(session, build, tap, model, settings.brain_side, lang, settings.brain_timeout, record)
+    model = make_model(settings.brain_provider, settings.brain_model, settings.brain_detail)
+    brain = Brain(session, build, tap, model, settings.brain_effort, settings.brain_side, settings.brain_watch_side,
+                  settings.brain_watch_every, lang, settings.brain_timeout, record)
     persona = voice_persona(guide, lang)
     record.text("brain.txt", brain.instructions)
-    record.text("brain-tools.json", json.dumps([{"name": n, "description": d, "input_schema": p} for n, d, p in TOOLS],
-                                               indent=2))
+    record.text("brain-tools.json", json.dumps(
+        {kind: [{"name": n, "description": d, "input_schema": p} for n, d, p in tools]
+         for kind, tools in (("delegation", ASK_TOOLS), ("watch", WATCH_TOOLS))}, indent=2))
     record.text("voice.txt", persona)
 
     # Two bills. The voice model is priced by the second and reports cumulative
@@ -82,6 +86,7 @@ async def rayneo_assistant(ctx: JobContext) -> None:
         record.event("closed", reason=str(getattr(ev.reason, "value", ev.reason)), error=str(ev.error) if ev.error else None)
 
     async def _log_usage() -> None:
+        brain.stop_watching()
         logger.info("usage: %s camera_frames=%d", session.usage, tap.count)
         record.event("end", voice_s=sum(getattr(u, "session_duration", 0) for u in session.usage.model_usage),
                      camera_frames=tap.count)
@@ -222,6 +227,7 @@ async def rayneo_assistant(ctx: JobContext) -> None:
     record.event("build", started=True, steps=len(guide.steps))
     record.event("step", done=None, now=1)
     await publish_build(build)
+    brain.start_watching()
 
     # generate_reply on GPT-Live is commentary: a request the model may decline.
     handle = session.generate_reply(

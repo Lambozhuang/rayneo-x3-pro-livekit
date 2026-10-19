@@ -203,14 +203,16 @@ def outcome(look: dict) -> str:
     return "done" if back.get("done") or back.get("progress") is not None else "not"  # done: records before set_progress
 
 
-def timeline(events: list[dict], looks: dict[int, dict], end: float, one_model: bool, ears: dict | None) -> str:
+def timeline(events: list[dict], looks: dict[int, dict], watches: dict[int, dict], end: float, one_model: bool,
+             ears: dict | None) -> str:
     width = int(end * PX) + 80
     # a GPT-Live call: who speaks, the brain's looks, the steps; a one-model call has no brain: the frames shown to
     # the model and its tool calls instead, and a wearer lane only when the record has the wearer's state (Realtime;
     # Gemini has no local VAD). With the glasses' log: the wearer's voice at the microphone above what the model
     # heard, the agent's voice as it reached the glasses below it.
     wearer = not one_model or any(e["kind"] == "state" and e.get("who") == "wearer" for e in events)
-    lanes = (["wearer"] if wearer else []) + (["voice", "frames", "tool", "steps"] if one_model else ["voice", "brain", "steps"])
+    lanes = (["wearer"] if wearer else []) + (["voice", "frames", "tool", "steps"] if one_model else
+                                              ["voice", "brain"] + (["watch"] if watches else []) + ["steps"])
     if ears:
         v = lanes.index("voice") + 1
         lanes = (["mic"] if wearer else []) + lanes[:v] + ["heard"] + lanes[v:]
@@ -245,7 +247,8 @@ def timeline(events: list[dict], looks: dict[int, dict], end: float, one_model: 
                 colour = "#d44" if e.get("ignored") else "#c93" if e.get("unchanged") else "#5b5"
                 svg.append(f'<a href="#tool{e["n"]}"><rect x="{x(e["t"]) - 2:.1f}" y="{y("tool") + 4}" width="5" height="{LANE - 8}" '
                            f'fill="{colour}"><title>#{e["n"]} set_progress({e.get("done")}) at {mmss(e["t"])}</title></rect></a>')
-    colours = {"done": "#5b5", "not": "#c93", "failed": "#d44", "dropped": "#555"}
+    colours = {"done": "#5b5", "not": "#c93", "failed": "#d44", "dropped": "#555",
+                 "unfinished": "#555"}
     for n, look in looks.items():
         d = look.get("delegation")
         if d is None:
@@ -260,6 +263,17 @@ def timeline(events: list[dict], looks: dict[int, dict], end: float, one_model: 
         if v is not None:
             svg.append(f'<line x1="{x(v["t"]):.1f}" y1="{y("voice") + 1}" x2="{x(v["t"]):.1f}" y2="{y("voice") + LANE - 1}" stroke="#9cf" '
                        f'stroke-width="2"><title>voice starts answer #{n}</title></line>')
+    for w, look in watches.items():
+        sent = look.get("watch_sent")
+        if sent is None:
+            continue
+        stop = (look.get("watch_back") or look.get("watch_failed") or look.get("watch_dropped") or {}).get("t", sent["t"])
+        o = watch_outcome(look)
+        what = " ".join(f'{k}: {look[k]["text"]}' for k in ("note", "say") if k in look)
+        tip = f"watch {w} {o} {mmss(sent['t'])}-{mmss(stop)} {what}"
+        bar = (f'<rect x="{x(sent["t"]):.1f}" y="{y("watch") + 4}" width="{max((stop - sent["t"]) * PX, 2):.1f}" '
+               f'height="{LANE - 8}" fill="{WATCH_COLOURS[o]}" stroke="#111"><title>{esc(tip)}</title></rect>')
+        svg.append(bar if o == "nothing" else f'<a href="#watch{w}">{bar}</a>')
     for e in events:
         if e["kind"] == "live" and e.get("type") == "delegation.created" and not any(
                 (lk.get("delegation") or {}).get("id") == e.get("id") for lk in looks.values()):
@@ -273,13 +287,67 @@ def timeline(events: list[dict], looks: dict[int, dict], end: float, one_model: 
 
 
 def sent_input(sent: dict) -> str:
-    """The messages after the system prompt, one turn per paragraph (records before the turns format: one text)."""
+    """The messages after the system prompt, one turn per paragraph (records before the turns format: one text;
+    records with the call so far: one message, its parts one per paragraph)."""
     if "input" in sent:
         return sent["input"]
+    if "said" in sent:
+        return "\n\n".join(["[photo]" if sent.get("photo") else "[no photo]", sent["said"], sent["notice"], sent["words"]])
     turn = lambda role, text: role + ": " + text.replace("\n", "\n    ")  # noqa: E731
     last = ["[photo]" if sent.get("photo") or sent.get("frame") is not None else "[no photo]", sent["notice"],
             sent["words"]]
     return "\n\n".join([turn(r, t) for r, t in sent.get("turns", [])] + [turn("user", "\n".join(last))])
+
+
+def watch_outcome(look: dict) -> str:
+    """What a watch look came to: failed, dropped (a delegation came while it ran), unfinished (the call ended while
+    it ran), progress, say, note or nothing."""
+    if "watch_failed" in look:
+        return "failed"
+    back = look.get("watch_back")
+    if back is None:
+        return "dropped" if "watch_dropped" in look else "unfinished"
+    if back.get("progress") is not None:
+        return "progress"
+    return "say" if "say" in look else "note" if "note" in look else "nothing"
+
+
+WATCH_COLOURS = {"progress": "#5b5", "say": "#a6d", "note": "#69c", "nothing": "#444", "failed": "#d44", "dropped": "#555",
+                 "unfinished": "#555"}
+
+
+def watch_card(w: int, look: dict) -> str:
+    """A watch look that did something or went wrong: its photo, what it wrote, what went to the voice."""
+    sent, back, o = look.get("watch_sent"), look.get("watch_back"), watch_outcome(look)
+    out = [f'<div class="card {"failed" if o == "failed" else "done" if o == "progress" else "not"}" id="watch{w}">']
+    if sent and sent.get("photo"):
+        out.append(f'<a href="{esc(sent["photo"])}"><img src="{esc(sent["photo"])}"></a>')
+    out.append(f'<div class="body"><b>watch {w}</b> {mmss((sent or {}).get("t"))} &nbsp; {o}<br>')
+    if sent:
+        out.append(f'step {sent["step"]} &middot; frame {sent["frame"]} ({sent["frame_size"]} at {sent["side"]} px, '
+                   f'{sent["frame_age_ms"]} ms old), {sent["photo_kb"]} KB<br>')
+    for kind in ("note", "say"):
+        if kind in look:
+            out.append(f'<p>{kind}: {esc(look[kind]["text"])}</p>')
+    if back:
+        u = back.get("usage") or {}
+        calls = ", ".join(f"{c}({json.dumps(a)})" for c, a in back.get("calls", [])) or "no tool call"
+        out.append(f'<span class="tag">{esc(calls)}</span>'
+                   + (f' <span class="bad">ignored: {esc(back["ignored_progress"])} is not a number of steps</span>'
+                      if back.get("ignored_progress") is not None else "") + "<br>")
+        out.append(f'<span class="dim">model {back["model_ms"]} ms, total {back["total_ms"]} ms &middot; in {u.get("in")} '
+                   f'(cached {u.get("cached")}, written {u.get("written")}) out {u.get("out")} stop {esc(u.get("stop"))}'
+                   f'</span><br>')
+    if "watch_failed" in look:
+        out.append(f'<span class="bad">{esc(look["watch_failed"]["error"])}</span><br>')
+    c = look.get("commentary")
+    if c:
+        out.append(f'<details><summary>to the voice at {mmss(c["t"])}' + (" (it was speaking)" if c.get("voice_speaking") else "")
+                   + f'</summary><pre>{esc(c["text"])}</pre></details>')
+    if sent:
+        out.append(f'<details><summary>input as sent</summary><pre>{esc(sent_input(sent))}</pre></details>')
+    out.append('</div><div class="clear"></div></div>')
+    return "".join(out)
 
 
 def card(n: int, look: dict, thinking: list[str]) -> str:
@@ -368,6 +436,8 @@ def problems(events: list[dict], looks: dict[int, dict]) -> list[str]:
             out.append(f'<a href="#look{e["n"]}">#{e["n"]}</a> {t} confirm_step_correct({e["ignored_confirm"]}) ignored')
         elif k == "look_back" and e.get("ignored_progress") is not None:
             out.append(f'<a href="#look{e["n"]}">#{e["n"]}</a> {t} set_progress({e["ignored_progress"]}) ignored')
+        elif k == "watch_failed":
+            out.append(f'<a href="#watch{e["w"]}">watch {e["w"]}</a> {t} failed: {esc(e["error"])}')
         elif k == "voice_silent":
             out.append(f'<a href="#look{e["n"]}">#{e["n"]}</a> {t} voice {esc(e["why"])}')
         elif k == "live" and e.get("type") == "error":
@@ -391,8 +461,12 @@ def report(d: str) -> str:
     call = next((e for e in events if e["kind"] == "call"), {})
     looks: dict[int, dict] = {}
     thinking: dict[int, list[str]] = {}
+    watches: dict[int, dict] = {}
     last_back = None
     for e in events:
+        if e["kind"] in ("watch_sent", "watch_back", "watch_failed", "watch_dropped", "note", "say",
+                         "commentary") and e.get("w"):
+            watches.setdefault(e["w"], {})[e["kind"]] = e
         if e["kind"] in ("delegation", "look_sent", "look_back", "look_failed", "look_dropped", "commentary",
                          "voice_started", "voice_silent") and e.get("n"):
             looks.setdefault(e["n"], {})[e["kind"]] = e
@@ -440,10 +514,14 @@ def report(d: str) -> str:
                                                         if outcomes.count(o))),
                ("brain model / total (min / median / max)", f"{stats(model_ms)} &nbsp; / &nbsp; {stats(total_ms)}"),
                ("hand-over to voice speaking", stats(wait_ms)),
+               ("watch looks", f"{len(watches)}: " + ", ".join(
+                   f"{n} {o}" for o in WATCH_COLOURS if (n := sum(1 for lk in watches.values() if watch_outcome(lk) == o)))),
+               ("watch model (min / median / max)", stats([lk["watch_back"]["model_ms"] for lk in watches.values()
+                                                            if "watch_back" in lk])),
                ("GPT-Live billed", f"{billed} s" if billed is not None else "-"),
                ("camera frames", end_ev.get("camera_frames", "-"))]
     kv += [(k, v) for k, v in (call.get("settings") or {}).items()]
-    out += [f"<tr><td>{esc(k)}</td><td>{v if k.startswith(('looks', 'brain', 'hand', 'model', 'set_progress', 'build')) else esc(v)}</td></tr>" for k, v in kv]
+    out += [f"<tr><td>{esc(k)}</td><td>{v if k.startswith(('looks', 'brain', 'hand', 'model', 'set_progress', 'build', 'watch')) else esc(v)}</td></tr>" for k, v in kv]
     texts = [(f, label) for f, label in (("brain.txt", "brain instructions"), ("brain-tools.json", "brain tools"),
                                          ("voice.txt", "voice persona"), ("instructions.txt", "instructions"))
              if os.path.exists(os.path.join(d, f))]
@@ -459,14 +537,15 @@ def report(d: str) -> str:
                               " The wearer's speech is not recorded on this path (no local VAD).") + "</p>" if one_model else
               "<p class='dim'>brain bars run from the hand-over to the reply: green = progress set, orange = progress unchanged, "
               "red = failed, grey = dropped; click one for its card. Blue tick on the voice lane = the voice starts that "
-              "answer. Red tick on the brain lane = GPT-Live delegated and nothing arrived. Numbers on the steps lane = "
-              "step done.</p>")
+              "answer. Red tick on the brain lane = GPT-Live delegated and nothing arrived. Watch bars run from a watch "
+              "look to its reply: green = progress set, purple = say, blue = note, dark = nothing, red = failed, grey = "
+              "dropped for a hand-over; click one for its card. Numbers on the steps lane = step done.</p>")
     if ears:
         legend = legend[:-4] + (" Mic lane = the wearer's voice at the microphone, heard lane = the agent's voice decoded on "
                                 "the glasses, both from glasses.log placed with clock.json.</p>")
     else:
         legend = legend[:-4] + " No glasses.log, clock.json or wall_ms beside the record: the glasses' side is not shown.</p>"
-    out.append("<h2>Timeline</h2>" + timeline(events, looks, end, one_model, ears) + legend)
+    out.append("<h2>Timeline</h2>" + timeline(events, looks, watches, end, one_model, ears) + legend)
     if not one_model:
         out.append("<h2>Where the wait goes, per hand-over</h2>" + stage_chart(stages(looks, ears)))
 
@@ -486,6 +565,8 @@ def report(d: str) -> str:
             cut = " [interrupted]" if e.get("interrupted") else ""
             out.append(f'<div class="row">{t}<span class="{e["who"]}">{e["who"]}: {esc(e["text"])}'
                        f'<span class="dim">{spoke}{cut}</span></span></div>')
+        elif k in ("watch_back", "watch_failed") and watch_outcome(watches[e["w"]]) in ("progress", "say", "note", "failed"):
+            out.append(f'<div class="row">{t}<div style="flex:1">{watch_card(e["w"], watches[e["w"]])}</div></div>')
         elif k == "delegation":
             out.append(f'<div class="row">{t}<div style="flex:1">{card(e["n"], looks[e["n"]], thinking.get(e["n"], []))}</div></div>')
         elif k == "step":
