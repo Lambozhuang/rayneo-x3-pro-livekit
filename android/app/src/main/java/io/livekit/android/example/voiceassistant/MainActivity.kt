@@ -40,9 +40,11 @@ class MainActivity : ComponentActivity() {
         LiveKit.loggingLevel = LoggingLevel.DEBUG
 
         // Lets `adb shell am start ... -e token_endpoint <url>` retarget the app
-        // without a rebuild (TokenEndpoint), and `-e task <name>` preselect a build (Tasks).
+        // without a rebuild (TokenEndpoint), `-e task <name>` preselect a build (Tasks),
+        // and `--ez record true` record the calls (Recording; off on any launch without it).
         TokenEndpoint.applyIntent(this, intent)
         Tasks.applyIntent(this, intent)
+        Recording.applyIntent(intent)
 
         // The glasses' screen-off timeout is 30 s and cannot be raised by an
         // app. When it fires, SystemUI puts a clock overlay over everything,
@@ -90,7 +92,7 @@ class MainActivity : ComponentActivity() {
      * says singleTop. With the default launch mode Android just brings the
      * task forward and drops the intent, even for the task's root activity.
      * Launching again means the same as launching fresh: take any new endpoint
-     * and build pick, and (on the connect screen) fetch the list again.
+     * and build pick, recording on or off, and (on the connect screen) fetch the list again.
      */
     override fun onNewIntent(intent: Intent) {
         super.onNewIntent(intent)
@@ -98,6 +100,7 @@ class MainActivity : ComponentActivity() {
         Log.i(TAG, "new intent, on connect screen=$onConnect")
         TokenEndpoint.applyIntent(this, intent)
         Tasks.applyIntent(this, intent)
+        Recording.applyIntent(intent)
         if (onConnect) lifecycleScope.launch { Tasks.load(this@MainActivity, TokenEndpoint.get(this@MainActivity)) }
     }
 

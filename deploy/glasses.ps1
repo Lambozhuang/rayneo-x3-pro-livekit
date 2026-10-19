@@ -4,6 +4,8 @@
 #   .\deploy\glasses.ps1 -Ip 192.168.50.147       point at another backend
 #   .\deploy\glasses.ps1 -Install                 build the debug APK and install it first
 #   .\deploy\glasses.ps1 -Task flag               preselect a build in the picker (swipe changes it)
+#   .\deploy\glasses.ps1 -Record                  record the calls of this launch on the glasses (Recording.kt);
+#                                                 any launch without it turns recording off
 #   .\deploy\glasses.ps1 -Log                     after launching, tail the touchpad/gesture log (Ctrl+C to stop)
 #   .\deploy\glasses.ps1 -Stop                    kill the app on the glasses (same as double-tapping out of it)
 #   .\deploy\glasses.ps1 -RestoreSleep            put RayNeo's deep suspend back (launch turns it off, see below)
@@ -20,6 +22,7 @@ param(
     [string]$Port,                # api port; default: API_PORT from backend\.env, else 3000
     [string]$Credential = "",     # AUTH_STATIC_TOKEN when the api runs with AUTH_MODE=static
     [string]$Task = "",           # a build's name (backend/agent/guides/<name>) to preselect
+    [switch]$Record,              # record every call of this launch: camera at 30 fps, mic, agent voice
     [switch]$Install,
     [switch]$Log,
     [switch]$Stop,
@@ -101,8 +104,9 @@ if ((& adb shell settings get global wifi_on).Trim() -ne "1") {
 $extras = @("-e", "token_endpoint", $Endpoint)
 if ($Credential) { $extras += @("-e", "credential", $Credential) }
 if ($Task) { $extras += @("-e", "task", $Task) }
+if ($Record) { $extras += @("--ez", "record", "true") }
 & adb shell am start -n $Activity @extras | Select-Object -Last 1
-Write-Host "launched -> $Endpoint"
+Write-Host "launched -> $Endpoint$(if ($Record) { ', recording' })"
 
 if ($Log) {
     # The LiveKit SDK logs at DEBUG and rolls the default 256 KB buffer in

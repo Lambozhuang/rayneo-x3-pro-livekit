@@ -38,6 +38,7 @@ import io.livekit.android.compose.state.rememberSessionMessages
 import io.livekit.android.compose.state.rememberSpeakingParticipants
 import io.livekit.android.example.voiceassistant.FrameDump
 import io.livekit.android.example.voiceassistant.LinkStatsLog
+import io.livekit.android.example.voiceassistant.Recording
 import io.livekit.android.example.voiceassistant.SpeechEdgeLog
 import io.livekit.android.room.track.LocalAudioTrack
 import io.livekit.android.room.track.LocalVideoTrack
@@ -160,6 +161,7 @@ fun VoiceAssistant(
         DisposableEffect(Unit) {
             onDispose {
                 Log.i(CALL_TAG, "call ends room=${room.name} at=${System.currentTimeMillis()}")
+                room.name?.let { Recording.end(it) }
                 session.end()
             }
         }
@@ -228,6 +230,24 @@ fun VoiceAssistant(
             val edges = if (agentAudio != null) SpeechEdgeLog("agent", threshold = 500) else null
             if (edges != null) agentAudio!!.addSink(edges)
             onDispose { if (edges != null) agentAudio!!.removeSink(edges) }
+        }
+
+        // The call to disk when the app was launched with --ez record true: the camera, the mic and the
+        // agent's voice, each from its track as it is attached. See Recording.
+        DisposableEffect(cameraTrack) {
+            val rec = cameraTrack?.let { room.name?.let { r -> Recording.forCall(context, r, viewModel.eglContext) } }
+            if (rec != null) cameraTrack!!.addRenderer(rec.video)
+            onDispose { if (rec != null) cameraTrack!!.removeRenderer(rec.video) }
+        }
+        DisposableEffect(micTrack) {
+            val rec = micTrack?.let { room.name?.let { r -> Recording.forCall(context, r, viewModel.eglContext) } }
+            if (rec != null) micTrack!!.addSink(rec.mic)
+            onDispose { if (rec != null) micTrack!!.removeSink(rec.mic) }
+        }
+        DisposableEffect(agentAudio) {
+            val rec = agentAudio?.let { room.name?.let { r -> Recording.forCall(context, r, viewModel.eglContext) } }
+            if (rec != null) agentAudio!!.addSink(rec.agent)
+            onDispose { if (rec != null) agentAudio!!.removeSink(rec.agent) }
         }
 
         // Debug only: raw frames to disk when the marker file exists. See FrameDump.

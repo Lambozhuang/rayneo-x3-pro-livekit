@@ -3,14 +3,17 @@
     python deploy/pull_run.py            the newest call
     python deploy/pull_run.py <call>     that one (a directory name under backend/runs)
 
-Writes logs/<call>/report.html (report.py). With the glasses on adb it also writes two more files:
+Writes logs/<call>/report.html (report.py). With the glasses on adb it also writes two more files, and pulls the
+call's recording when the app was launched with -Record:
 
-    glasses.log   the app's call, link and speech lines (rayneo-call bounds each call with its room name;
-                  LinkStatsLog.kt, SpeechEdgeLog.kt) from the device's log buffer, which holds every call since
+    glasses.log   the app's call, link, speech and recording lines (rayneo-call bounds each call with its room name;
+                  LinkStatsLog.kt, SpeechEdgeLog.kt, Recording.kt) from the device's log buffer, which holds every call since
                   the glasses were last launched by glasses.ps1; each line carries the glasses' wall clock
     clock.json    how far the glasses' clock is ahead of the server's, in ms, so those lines can be put on the
                   record's time axis: this PC asks both for the time over adb (USB) and ssh (LAN), neither of
                   which crosses the link under test, several times, and keeps the quickest exchange of each
+    recording/    the glasses' recording of the call (Recording.kt: video.mp4, mic.wav, agent.wav, their timing
+                  csv files, meta.json), when there is one for the call's room
 
 Without the glasses it says so and leaves both out. logs/ is not in git.
 """
@@ -22,6 +25,7 @@ import time
 from pathlib import Path
 
 HOST = "ylab-pc"  # ssh alias of the lab PC
+RECORDINGS = "/sdcard/Android/data/com.rayneo.x3pro.assistant/files/recordings"  # Recording.kt, one directory per room
 RUNS = "services/rayneo-x3-pro-livekit/backend/runs"  # RUN_DIR there, relative to the home directory
 
 root = Path(__file__).resolve().parent.parent
@@ -52,7 +56,7 @@ def clock_ahead_ms(cmd: list[str], tries: int = 5) -> dict:
 devices = subprocess.run(["adb", "devices"], capture_output=True, text=True).stdout.splitlines()[1:]
 if any(line.strip().endswith("device") for line in devices):
     with open(logs / call / "glasses.log", "w", encoding="utf-8") as f:
-        subprocess.run(["adb", "logcat", "-d", "-v", "time", "-s", "rayneo-call", "rayneo-link", "rayneo-speech"], check=True, stdout=f)
+        subprocess.run(["adb", "logcat", "-d", "-v", "time", "-s", "rayneo-call", "rayneo-link", "rayneo-speech", "rayneo-record"], check=True, stdout=f)
     print(logs / call / "glasses.log")
     glasses = clock_ahead_ms(["adb", "shell", "date", "+%s%N"])
     server = clock_ahead_ms(["ssh", HOST, "date +%s%N"])
@@ -60,6 +64,12 @@ if any(line.strip().endswith("device") for line in devices):
              "measured_at_ms": round(time.time() * 1000), "glasses": glasses, "server": server}
     (logs / call / "clock.json").write_text(json.dumps(clock, indent=1), encoding="utf-8")
     print(f"{logs / call / 'clock.json'}: glasses clock {clock['glasses_ahead_of_server_ms']:+d} ms against the server's")
+    room = call.split("-", 2)[2]  # <UTC date>-<UTC time>-<room>
+    there = subprocess.run(["adb", "shell", f"ls {RECORDINGS}/{room}"], capture_output=True, text=True)
+    if there.returncode == 0:
+        subprocess.run(["adb", "pull", f"{RECORDINGS}/{room}", str(logs / call / "recording")], check=True,
+                       stdout=subprocess.DEVNULL)
+        print(logs / call / "recording")
 else:
     print("no glasses on adb: glasses.log and clock.json not written")
 

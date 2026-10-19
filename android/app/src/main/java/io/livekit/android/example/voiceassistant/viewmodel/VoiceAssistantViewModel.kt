@@ -7,6 +7,7 @@ import androidx.lifecycle.SavedStateHandle
 import androidx.navigation.toRoute
 import io.livekit.android.LiveKit
 import io.livekit.android.LiveKitOverrides
+import io.livekit.android.example.voiceassistant.Recording
 import io.livekit.android.example.voiceassistant.screen.VoiceAssistantRoute
 import io.livekit.android.room.participant.VideoTrackPublishDefaults
 import io.livekit.android.room.track.LocalVideoTrackOptions
@@ -35,6 +36,9 @@ class VoiceAssistantViewModel(application: Application, savedStateHandle: SavedS
     // encodes the buffer as captured and lets the rotation ride as metadata.
     private val eglBase: EglBase = EglBase.create()
 
+    /** The context the camera's textures live in, for drawing them into a second encoder (Recording). */
+    val eglContext: EglBase.Context get() = eglBase.eglBaseContext
+
     val room = LiveKit.create(
         application,
         overrides = LiveKitOverrides(
@@ -58,9 +62,11 @@ class VoiceAssistantViewModel(application: Application, savedStateHandle: SavedS
         // too soft to count the studs on a brick, and 720p was still too soft
         // for a human. So: one layer, 1080p, resolution held, frame rate cut
         // to what the encoder can sustain at full size. The sensor is mounted
-        // sideways, so these arrive at the agent as 1080x1920 portrait.
+        // sideways, so these arrive at the agent as 1080x1920 portrait. A
+        // recorded call (Recording) captures at 30 for its own copy; the
+        // encoder's maxFps below still holds the call itself to 15.
         videoTrackCaptureDefaults = LocalVideoTrackOptions(
-            captureParams = VideoCaptureParameter(1920, 1080, 15),
+            captureParams = VideoCaptureParameter(1920, 1080, if (Recording.armed) Recording.FPS else 15),
         )
         videoTrackPublishDefaults = VideoTrackPublishDefaults(
             videoEncoding = VideoEncoding(maxBitrate = 4_000_000, maxFps = 15),
