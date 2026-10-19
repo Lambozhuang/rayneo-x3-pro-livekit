@@ -27,7 +27,7 @@ SANS = "Segoe UI, Inter, Helvetica Neue, Arial, sans-serif"
 # model APIs
 THEME = dict(
     background="#ffffff", card="#ffffff", frame="#f8fafc", edge="#cbd5e1", text="#0f172a", body="#334155",
-    muted="#64748b", accent="#0369a1", band="#0369a1", cloud="#0d8a6a", python="#3776AB",
+    muted="#64748b", accent="#0369a1", band="#0369a1", cloud="#0d8a6a", python="#3776AB", livekit="#000000",
 )
 
 # type scale ----------------------------------------------------------------
@@ -47,7 +47,9 @@ LINK = 172                                       # from a card to its model API 
 GX, GW = PAD, 132                                # glasses card
 BX1 = GX + GW + GAP                              # the WebRTC hop under test
 BX2 = BX1 + 172
-FX, FY = BX2 + GAP, 104                          # agent frame
+LX, LW = BX2 + GAP, 150                          # livekit-server: every connection to the glasses goes through it
+LOOP = 92                                        # livekit-server to the agent frame: loopback on our server
+FX, FY = LX + LW + LOOP, 104                     # agent frame
 CX, CW = FX + INSET, 504                         # session and brain cards
 FW = CW + 2 * INSET
 INDENT = 16                                      # the rows sit this far in from the card's name
@@ -186,13 +188,30 @@ def build(t: dict) -> str:
     tag(X_COM + 12, ym, "commentary", ["spoken: answers,", "corrections, progress"])
     tag(X_THK + 12, ym, "thinking", ["notes, not spoken"])
 
-    # glasses <-> agent
-    gx1, cx0 = GX + GW + 4, CX - 6
-    lx = (gx1 + cx0) / 2
+    # livekit-server, the SFU between the glasses and the agent: it forwards the media and the attributes as they
+    # are, and holds a WebRTC connection of its own to each side
+    box(LX, GY, LW, GH)
+    lcx = LX + LW / 2
+    add(place("livekit", lcx, GY + GH / 2 - 60, 40, f'fill="{t["livekit"]}"'))
+    text(lcx, GY + GH / 2 + 18, "livekit-server", T_ROW + 2, weight=600)
+    text(lcx, GY + GH / 2 + 44, "SFU: forwards", T_LABEL, colour=t["body"])
+    text(lcx, GY + GH / 2 + 64, "without decoding", T_LABEL, colour=t["body"])
+    loop_cx = (LX + LW + CX) / 2
+    text(loop_cx, (SY + SH + RY) / 2 + 2, "WebRTC", T_LABEL, colour=t["muted"], weight=600)
+    text(loop_cx, (SY + SH + RY) / 2 + 22, "loopback", T_LABEL, colour=t["muted"])
+
+    # glasses <-> livekit-server <-> agent: each connection in two legs, labelled on the one under test
+    gx1, lx0, lx1, cx0 = GX + GW + 4, LX - 4, LX + LW + 4, CX - 6
+    lx = (gx1 + lx0) / 2
     for y, lines, to_agent in ((Y_AUDIO_UP, ["mic audio, Opus"], True), (Y_AUDIO_DOWN, ["agent speech, Opus"], False),
                                (Y_VIDEO, ["video, H.264", "1080x1920, 15 fps"], True),
                                (Y_STEPS, ["step list,", "participant attributes"], False)):
-        wire([(gx1, y), (cx0, y)] if to_agent else [(cx0, y), (gx1, y)], t["accent"], "head")
+        if to_agent:
+            wire([(gx1, y), (lx0, y)], t["accent"], "head")
+            wire([(lx1, y), (cx0, y)], t["muted"], "headm")
+        else:
+            wire([(cx0, y), (lx1, y)], t["muted"], "headm")
+            wire([(lx0, y), (gx1, y)], t["accent"], "head")
         label(lx, y, lines)
 
     # model APIs
