@@ -131,7 +131,7 @@ class OpenAIModel:
             "cached": u.input_tokens_details.cached_tokens if u and u.input_tokens_details else 0,
             "written": 0,  # OpenAI caches by itself and reports no writes
             "thinking": getattr(out_details, "reasoning_tokens", None) if out_details is not None else None,
-            "stop": resp.status,
+            "stop": resp.status, "ttft_ms": None,  # not streamed
         }
 
 
@@ -167,8 +167,10 @@ class AnthropicModel:
         if effort and effort != "none":
             kw = {"thinking": {"type": "adaptive"}, "output_config": {"effort": effort}}
         # the photo first (Anthropic: images before text work best), then each part of the input in a block of its
-        # own (Anthropic's Haiku 5.5 guide)
-        resp = await self._client.messages.create(
+        # own (Anthropic's Haiku 5.5 guide). Streamed only to time the first output (ttft: the way there, the
+        # API's queue and its reading of the input, apart from the writing); the reply is used once complete.
+        t0, ttft = time.perf_counter(), None
+        async with self._client.messages.stream(
             model=self._model, max_tokens=4096, **kw,
             tools=[{"name": n, "description": d, "input_schema": p, "strict": True} for n, d, p in tools],
             system=[{"type": "text", "text": instructions, "cache_control": {"type": "ephemeral"}}],
@@ -176,7 +178,11 @@ class AnthropicModel:
                 {"type": "image", "source": {"type": "base64", "media_type": "image/jpeg",
                                              "data": base64.b64encode(photo).decode()}}] if photo else []) + [
                 {"type": "text", "text": t} for t in texts]}],
-        )
+        ) as stream:
+            async for event in stream:
+                if ttft is None and event.type == "content_block_start":
+                    ttft = time.perf_counter() - t0
+            resp = await stream.get_final_message()
         u = resp.usage
         text_out = " ".join(b.text for b in resp.content if b.type == "text").strip()
         calls = [(b.name, b.input or {}) for b in resp.content if b.type == "tool_use"]
@@ -186,7 +192,7 @@ class AnthropicModel:
             "out": u.output_tokens, "cached": u.cache_read_input_tokens or 0,
             "written": u.cache_creation_input_tokens or 0,
             "thinking": getattr(details, "thinking_tokens", None) if details is not None else None,
-            "stop": resp.stop_reason,
+            "stop": resp.stop_reason, "ttft_ms": round(ttft * 1000) if ttft is not None else None,
         }
 
 
@@ -264,8 +270,11 @@ class Brain:
         self._watcher = asyncio.create_task(self._watch_loop(), name="watch")
 
     def stop_watching(self) -> None:
+        """Stop the watch, the look running included (it is a task of its own)."""
         if self._watcher is not None:
             self._watcher.cancel()
+        if self._look is not None:
+            self._look.cancel()
 
     async def _watch_loop(self) -> None:
         """One watch look after the other while no delegation runs, each starting at least watch_every after the
@@ -411,9 +420,10 @@ class Brain:
                            prep_ms=round((t_sent - t0) * 1000), said=said, notice=texts[1], words=last)
         reply, calls, u = await self._model.ask(self._instructions, texts, photo, tools, effort, build.run)
         t_back = time.perf_counter()
-        logger.info("brain: %s #%d reply after %.0f ms (model %.0f ms): in=%d (cached %d, written %d) out=%d "
-                    "(thinking %s) stop=%s frame=%s reply: %s",
-                    name, n, (t_back - t0) * 1000, (t_back - t_sent) * 1000, u["in"], u["cached"], u.get("written", 0),
+        logger.info("brain: %s #%d reply after %.0f ms (model %.0f ms, first output %s ms): in=%d (cached %d, "
+                    "written %d) out=%d (thinking %s) stop=%s frame=%s reply: %s",
+                    name, n, (t_back - t0) * 1000, (t_back - t_sent) * 1000, u.get("ttft_ms"), u["in"], u["cached"],
+                    u.get("written", 0),
                     u["out"], u.get("thinking"), u.get("stop"), saved or "-", reply)
         # one line per tool call the brain made, and what came of it
         allowed = {t[0] for t in tools}

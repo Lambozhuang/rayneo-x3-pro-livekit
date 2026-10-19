@@ -83,6 +83,7 @@ async def rayneo_assistant(ctx: JobContext) -> None:
 
     @session.on("close")
     def _log_close(ev) -> None:
+        brain.stop_watching()  # the call is over: no more looks at a camera that has stopped sending
         record.event("closed", reason=str(getattr(ev.reason, "value", ev.reason)), error=str(ev.error) if ev.error else None)
 
     async def _log_usage() -> None:

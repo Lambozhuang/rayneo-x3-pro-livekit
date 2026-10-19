@@ -90,7 +90,7 @@ For a routine look:
 5. Compare the photo with the call so far. When it shows something that may matter later and the call does not say yet, call note with it: the brick the wearer holds or picks up, a brick placed, moved or taken off the plate. Leave out what the call already says and what does not bear on the build, so the call so far stays short.
 6. Check the plate against the steps and the recorded progress as for a request, and call set_progress when they differ; the voice then gives the wearer the next step itself.
 7. Call say only for what the wearer should hear now without asking, such as a brick placed wrong and what would make it right.
-8. When there is nothing to note, call no tool and reply with the one word: nothing. Write notes and what the voice should say in {language}, as plain sentences.
+8. Call the tools straight away and write no text beside them: nobody reads it, and every word you write delays the next look. When there is nothing to note, call no tool and reply with the one word: nothing. Write notes and what the voice should say in {language}, as plain sentences.
 </instructions>"""
 
 # The last part of a watch look's message, where a request has the wearer's words.

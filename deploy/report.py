@@ -299,6 +299,11 @@ def sent_input(sent: dict) -> str:
     return "\n\n".join([turn(r, t) for r, t in sent.get("turns", [])] + [turn("user", "\n".join(last))])
 
 
+def ttft(usage: dict) -> str:
+    """", first output after N ms" when the request was streamed (Anthropic, from 2026-10-19), else nothing."""
+    return f', first output after {usage["ttft_ms"]} ms' if usage.get("ttft_ms") is not None else ""
+
+
 def watch_outcome(look: dict) -> str:
     """What a watch look came to: failed, dropped (a delegation came while it ran), unfinished (the call ended while
     it ran), progress, say, note or nothing."""
@@ -335,7 +340,7 @@ def watch_card(w: int, look: dict) -> str:
         out.append(f'<span class="tag">{esc(calls)}</span>'
                    + (f' <span class="bad">ignored: {esc(back["ignored_progress"])} is not a number of steps</span>'
                       if back.get("ignored_progress") is not None else "") + "<br>")
-        out.append(f'<span class="dim">model {back["model_ms"]} ms, total {back["total_ms"]} ms &middot; in {u.get("in")} '
+        out.append(f'<span class="dim">model {back["model_ms"]} ms{ttft(u)}, total {back["total_ms"]} ms &middot; in {u.get("in")} '
                    f'(cached {u.get("cached")}, written {u.get("written")}) out {u.get("out")} stop {esc(u.get("stop"))}'
                    f'</span><br>')
     if "watch_failed" in look:
@@ -377,7 +382,7 @@ def card(n: int, look: dict, thinking: list[str]) -> str:
                       if back.get("ignored_confirm") is not None else "")
                    + (f' <span class="bad">ignored: {esc(back["ignored_progress"])} is not a number of steps</span>'
                       if back.get("ignored_progress") is not None else "") + "<br>")
-        out.append(f'<span class="dim">model {back["model_ms"]} ms, total {back["total_ms"]} ms &middot; in {u.get("in")} '
+        out.append(f'<span class="dim">model {back["model_ms"]} ms{ttft(u)}, total {back["total_ms"]} ms &middot; in {u.get("in")} '
                    f'(cached {u.get("cached")}, written {u.get("written")}) out {u.get("out")} (thinking {u.get("thinking")}) '
                    f'stop {esc(u.get("stop"))}</span><br>')
     if "look_failed" in look:
