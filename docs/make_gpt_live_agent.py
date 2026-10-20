@@ -23,11 +23,11 @@ ICONS = HERE / "icons"
 
 SANS = "Segoe UI, Inter, Helvetica Neue, Arial, sans-serif"
 
-# one palette for both figures: dark text, slate lines and borders, blue for the link under test, green for the
-# model APIs
+# one palette for both figures: dark text, slate lines and borders, blue for the link under test; every hop
+# between machines sits on a band of its own, blue for the one under test, grey for the others
 THEME = dict(
     background="#ffffff", card="#ffffff", frame="#f8fafc", edge="#cbd5e1", text="#0f172a", body="#334155",
-    muted="#64748b", accent="#0369a1", band="#0369a1", cloud="#0d8a6a", python="#3776AB", livekit="#000000",
+    muted="#64748b", accent="#0369a1", band="#0369a1", hop="#64748b", api="#475569", api_edge="#94a3b8", python="#3776AB", livekit="#000000",
 )
 
 # type scale ----------------------------------------------------------------
@@ -42,13 +42,14 @@ ROW_GAP = 8                      # added between rows
 PAD = 28
 GAP = 8                                          # around the band: glasses | band | agent
 INSET = 16                                       # inside the agent frame
-LINK = 172                                       # from a card to its model API card
+LINK = 204                                       # from a card to its model API card
 
 GX, GW = PAD, 132                                # glasses card
 BX1 = GX + GW + GAP                              # the WebRTC hop under test
 BX2 = BX1 + 172
 LX, LW = BX2 + GAP, 150                          # livekit-server: every connection to the glasses goes through it
 LOOP = 92                                        # livekit-server to the agent frame: loopback on our server
+NET = GAP                                        # the internet band stands this far off the frame and the API cards
 FX, FY = LX + LW + LOOP, 104                     # agent frame
 CX, CW = FX + INSET, 504                         # session and brain cards
 FW = CW + 2 * INSET
@@ -143,7 +144,7 @@ def build(t: dict) -> str:
         f'viewBox="0 0 {W} {H}" font-family="{SANS}">')
     add(f'<rect width="{W}" height="{H}" fill="{t["background"]}"/>')
     add('<defs>')
-    for mid, colour in (("head", t["accent"]), ("headm", t["muted"]), ("headv", t["cloud"])):
+    for mid, colour in (("head", t["accent"]), ("headm", t["muted"]), ("headv", t["api"])):
         add(f'''  <marker id="{mid}" viewBox="0 0 10 10" refX="9" refY="5"
           markerWidth="5.5" markerHeight="5.5" orient="auto-start-reverse">
     <path d="M0 0.8 L9.2 5 L0 9.2 Z" fill="{colour}"/>
@@ -196,7 +197,9 @@ def build(t: dict) -> str:
     text(lcx, GY + GH / 2 + 18, "livekit-server", T_ROW + 2, weight=600)
     text(lcx, GY + GH / 2 + 44, "SFU: forwards", T_LABEL, colour=t["body"])
     text(lcx, GY + GH / 2 + 64, "without decoding", T_LABEL, colour=t["body"])
-    loop_cx = (LX + LW + CX) / 2
+    lb1, lb2 = LX + LW + GAP, FX - GAP
+    add(f'<rect x="{lb1}" y="{GY}" width="{lb2 - lb1}" height="{GH}" rx="6" fill="{t["hop"]}" fill-opacity="0.08"/>')
+    loop_cx = (lb1 + lb2) / 2
     text(loop_cx, (SY + SH + RY) / 2 + 2, "WebRTC", T_LABEL, colour=t["muted"], weight=600)
     text(loop_cx, (SY + SH + RY) / 2 + 22, "loopback", T_LABEL, colour=t["muted"])
 
@@ -214,20 +217,24 @@ def build(t: dict) -> str:
             wire([(lx0, y), (gx1, y)], t["accent"], "head")
         label(lx, y, lines)
 
-    # model APIs
+    # model APIs, across the internet
+    nb1, nb2 = FX + FW + NET, KX - NET
+    add(f'<rect x="{nb1}" y="{GY}" width="{nb2 - nb1}" height="{GH}" rx="6" fill="{t["hop"]}" fill-opacity="0.08"/>')
+    ncx = (nb1 + nb2) / 2
+    text(ncx, (SY + SH + RY) / 2 + 10, "internet", T_LABEL, colour=t["muted"], weight=600)
     for line_y, name, size, title, sub, above, below in (
         (SY + SH / 2, "openai", 30, "gpt-live-1", "OpenAI", ["audio, session events"], "WebSocket"),
         (RY + RH / 2, "anthropic", 26, "Claude Sonnet 5.5", "Anthropic", ["frame, transcript", "and notes"],
          "HTTPS, one per look"),
     ):
         y, h = line_y - KH / 2, KH
-        box(KX, y, KW, h, t["cloud"], width=1.5)
-        add(place(name, KX + 32, y + h / 2 - size / 2, size, f'fill="{t["cloud"]}"'))
+        box(KX, y, KW, h, t["api_edge"], width=1.5)
+        add(place(name, KX + 32, y + h / 2 - size / 2, size, f'fill="{t["text"]}"'))
         text(KX + 60, y + h / 2 - 4, title, T_ROW + 2, "start", weight=600)
         text(KX + 60, y + h / 2 + 19, sub, T_LABEL, "start", t["body"])
-        wire([(CX + CW + 6, line_y), (KX - 6, line_y)], t["cloud"], "headv", both=True)
-        label((CX + CW + KX) / 2, line_y, above)
-        text((CX + CW + KX) / 2, line_y + 22, below, T_LABEL, colour=t["muted"])
+        wire([(CX + CW + 6, line_y), (KX - 6, line_y)], t["api"], "headv", both=True)
+        label(ncx, line_y, above)
+        text(ncx, line_y + 22, below, T_LABEL, colour=t["muted"])
 
     add("</svg>")
     return "\n".join(out)

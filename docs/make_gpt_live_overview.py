@@ -29,7 +29,7 @@ SANS = "Segoe UI, Inter, Helvetica Neue, Arial, sans-serif"
 # the palette of make_gpt_live_agent.py
 THEME = dict(
     background="#ffffff", card="#ffffff", frame="#f8fafc", edge="#cbd5e1", text="#0f172a", body="#334155",
-    muted="#64748b", accent="#0369a1", cloud="#0d8a6a", livekit="#000000", python="#3776AB",
+    muted="#64748b", accent="#0369a1", hop="#64748b", api="#475569", api_edge="#94a3b8", livekit="#000000", python="#3776AB",
 )
 
 # type scale: the agent figure's, sized for a slide ------------------------
@@ -47,7 +47,7 @@ SX1 = GLX + CW + 170             # our server: room for the Wi-Fi link's label
 LKX = SX1 + INSET                # livekit-server
 AGX = LKX + CW + 92              # the agent
 SX2 = AGX + CW + INSET
-KX = SX2 + 140                   # the model APIs
+KX = SX2 + 176                   # the model APIs
 K1, K2 = RC - 54, RC + 54        # their centre lines
 W, H = int(KX + CW + PAD), int(K2 + CH / 2 + 24)
 
@@ -86,6 +86,11 @@ def build(t: dict) -> str:
         text(x + 64, cy - 4, title, T_CARD, "start", weight=600)
         text(x + 64, cy + 20, sub, T_LABEL, "start", t["body"])
 
+    def band(x1, x2, y1, y2, colour):
+        """The ground under one hop between machines."""
+        add(f'<rect x="{x1}" y="{y1}" width="{x2 - x1}" height="{y2 - y1}" rx="6" fill="{colour}" '
+            f'fill-opacity="{0.06 if colour == t["accent"] else 0.08}"/>')
+
     def link(points, colour, marker, above, below, below_colour=None):
         """A two-way connection: the protocol above its last stretch, the network it crosses below, one line
         each or several."""
@@ -101,7 +106,7 @@ def build(t: dict) -> str:
         f'viewBox="0 0 {W} {H}" font-family="{SANS}">')
     add(f'<rect width="{W}" height="{H}" fill="{t["background"]}"/>')
     add('<defs>')
-    for mid, colour in (("head", t["accent"]), ("headm", t["muted"]), ("headv", t["cloud"])):
+    for mid, colour in (("head", t["accent"]), ("headm", t["muted"]), ("headv", t["api"])):
         add(f'''  <marker id="{mid}" viewBox="0 0 10 10" refX="9" refY="5"
           markerWidth="5.5" markerHeight="5.5" orient="auto-start-reverse">
     <path d="M0 0.8 L9.2 5 L0 9.2 Z" fill="{colour}"/>
@@ -116,21 +121,27 @@ def build(t: dict) -> str:
                'stroke-linecap="round" stroke-linejoin="round"')
     component(GLX, RC, "glasses", glasses, 36, "Glasses", "RayNeo X3 Pro")
 
-    box(SX1, RC - CH / 2 - 44, SX2 - SX1, CH + 44 + INSET, fill=t["frame"])
+    # each hop between machines on a band: blue for the one under test, grey for the others
+    xf = SX2 + 32                # where the agent's two links fork
+    ftop, fbot = RC - CH / 2 - 44, RC + CH / 2 + INSET
+    band(GLX + CW + 8, SX1 - 8, ftop, fbot, t["accent"])
+    band(SX2 + 8, KX - 8, ftop, fbot, t["hop"])
+    text((xf + KX) / 2, RC + 6, "internet", T_LABEL, colour=t["muted"], weight=600)
+    box(SX1, ftop, SX2 - SX1, fbot - ftop, fill=t["frame"])
+    band(LKX + CW + 8, AGX - 8, RC - CH / 2, RC + CH / 2, t["hop"])
     text(SX1 + INSET, RC - CH / 2 - 16, "Our server · lab PC", T_LABEL, "start", t["muted"], 600)
     component(LKX, RC, "livekit", f'fill="{t["livekit"]}"', 28, "livekit-server", "SFU, relays the media")
     component(AGX, RC, "python", f'fill="{t["python"]}"', 30, "Python agent", "LiveKit Agents")
 
-    component(KX, K1, "openai", f'fill="{t["cloud"]}"', 30, "gpt-live-1", "OpenAI", t["cloud"])
-    component(KX, K2, "anthropic", f'fill="{t["cloud"]}"', 26, "Claude Sonnet 5.5", "Anthropic", t["cloud"])
+    component(KX, K1, "openai", f'fill="{t["text"]}"', 30, "gpt-live-1", "OpenAI", t["api_edge"])
+    component(KX, K2, "anthropic", f'fill="{t["text"]}"', 26, "Claude Sonnet 5.5", "Anthropic", t["api_edge"])
 
     link([(GLX + CW + 6, RC), (LKX - 6, RC)], t["accent"], "head", "WebRTC over Wi-Fi", "the link under test", t["accent"])
     link([(LKX + CW + 6, RC), (AGX - 6, RC)], t["muted"], "headm", "WebRTC", "loopback")
-    xf = SX2 + 26
-    link([(AGX + CW + 6, RC - 16), (xf, RC - 16), (xf, K1), (KX - 6, K1)], t["cloud"], "headv",
-         "WebSocket", "internet")
-    link([(AGX + CW + 6, RC + 16), (xf, RC + 16), (xf, K2), (KX - 6, K2)], t["cloud"], "headv",
-         "HTTPS", "internet")
+    link([(AGX + CW + 6, RC - 16), (xf, RC - 16), (xf, K1), (KX - 6, K1)], t["api"], "headv",
+         "WebSocket", [])
+    link([(AGX + CW + 6, RC + 16), (xf, RC + 16), (xf, K2), (KX - 6, K2)], t["api"], "headv",
+         "HTTPS", [])
 
     add("</svg>")
     return "\n".join(out)
