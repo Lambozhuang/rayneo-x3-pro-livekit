@@ -46,7 +46,7 @@ LINK = 204                                       # from a card to its model API 
 
 GX, GW = PAD, 132                                # glasses card
 BX1 = GX + GW + GAP                              # the WebRTC hop under test
-BX2 = BX1 + 172
+BX2 = BX1 + 190
 LX, LW = BX2 + GAP, 150                          # livekit-server: every connection to the glasses goes through it
 LOOP = 92                                        # livekit-server to the agent frame: loopback on our server
 NET = GAP                                        # the internet band stands this far off the frame and the API cards
@@ -82,7 +82,7 @@ GY, GH = SY, RY + RH - SY                        # the glasses card is as tall a
 X_DEL, X_COM, X_THK = CX + 30, CX + 200, CX + 372   # the three wires between them
 KX, KW, KH = CX + CW + LINK, 236, 88             # model API cards
 W, H = int(KX + KW + PAD), int(FY + FH + 24)
-Y_AUDIO_UP, Y_AUDIO_DOWN = SY + SH / 2 - 28, SY + SH / 2 + 40
+Y_AUDIO_UP, Y_AUDIO_DOWN = SY + SH / 2 - 18, SY + SH / 2 + 66
 Y_VIDEO, Y_STEPS = RY + RH / 2 - 28, RY + RH / 2 + 40
 
 
@@ -206,8 +206,12 @@ def build(t: dict) -> str:
     # glasses <-> livekit-server <-> agent: each connection in two legs, labelled on the one under test
     gx1, lx0, lx1, cx0 = GX + GW + 4, LX - 4, LX + LW + 4, CX - 6
     lx = (gx1 + lx0) / 2
-    for y, lines, to_agent in ((Y_AUDIO_UP, ["mic audio, Opus"], True), (Y_AUDIO_DOWN, ["agent speech, Opus"], False),
-                               (Y_VIDEO, ["video, H.264", "1080x1920, 15 fps"], True),
+    # bitrates on the wire, headers included, from the 2026-10-16 captures (traffic/summary.md): both voices are
+    # Opus with RED, each packet carrying the one before, and sent only while someone speaks (DTX), as LiveKit's SDKs
+    # publish them by default; the video's 4 Mbps cap is ours and not settled yet
+    for y, lines, to_agent in ((Y_AUDIO_UP, ["mic audio, Opus + RED", "LiveKit default", "~75 kbps while speaking"], True),
+                               (Y_AUDIO_DOWN, ["agent speech, Opus + RED", "LiveKit default", "~125 kbps while speaking"], False),
+                               (Y_VIDEO, ["video, H.264", "1080x1920, 15 fps", "~4 Mbps (TBD)"], True),
                                (Y_STEPS, ["step list,", "participant attributes"], False)):
         if to_agent:
             wire([(gx1, y), (lx0, y)], t["accent"], "head")
