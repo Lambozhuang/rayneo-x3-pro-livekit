@@ -13,6 +13,11 @@
 
 ### 重要
 
+- [ ] **最重要**：延迟打点重做（2026-10-20 定）。要量的是不管有没有委托，佩戴者说完最后一个字到 Live 开口的沉默，再切成上行、模型、下行三段。现在的量法不对：report.py 的分段以 delegation.created 为终点，只覆盖委托回合；起点用眼镜日志 `wearer sound stops`，其阈值 1000 比真实尾音高，边沿早 0.2–1.5 s，2026-10-19 四次运行据此算出的"讲完到委托 3.2 s"实为约 2.7 s，直接回答的回合按录音量是约 1 s。GPT-Live 不发 VAD 事件，能用的只有 `input_transcript.delta` 的 end_ms、`delegation.created` 的 offset_ms（同一时间轴，原点未明，对墙钟三分钟漂 1.5 s）和第一块 `output_audio.delta` 的到达时刻。
+  - 四个点，每个回合一行，全部 wall clock，眼镜的经 clock.json 对到服务端轴：T1 眼镜麦克风轨最后一个响帧（SpeechEdgeLog，阈值降到约 500，hangover 提到 800 ms，和插件一致）；T2 agent 端输入音频转安静的时刻（插件已算 quiet_ms，记最后一个响帧）；T3 该回合第一块 output_audio.delta 到达 agent 的时刻；T4 眼镜 agent 音轨第一个响帧（现有阈值 500，已对录音验证准）。T4−T1 是佩戴者经历的沉默，T2−T1 上行，T3−T2 GPT-Live，T4−T3 下行。
+  - 眼镜的两个点是主量，agent 的两个点是拆分：netem 整形的是眼镜到 livekit-server 这一跳，agent 侧的 T3−T2 在任何网络条件下都不变，只靠它看不到网络的影响。两端用同一套判定（RMS 阈值加 hangover），差值才干净地等于网络加抖动缓冲。句中停顿把一句切成几段不影响，取 Live 开口前最后一个停止边沿即可。
+  - 另记 delegation.created 给回合打标签，input_transcript.delta 的 end_ms 和 delegation 的 offset_ms 作模型内部时间的参考。report.py 对每个回合而不只是委托算一行，有录音时用录音校验，正式实验不录音。
+  - visual frame age 拆两段：agent 持有（帧到 FrameTap 到 look_sent，已有）；眼镜到 agent 不逐帧量，Python SDK 的 timestamp_us 是接收侧时间，用眼镜每 5 s 的 rtt 和编码器状态加 agent 端接收统计的 jitterBufferDelay 估，netem 加的延迟是已知量。逐帧精确只能靠录音的 video.csv。
 - [x] Gemini 路径真机跑通（2026-10-13 实验室四次运行，见下节）
 - [ ] 系统性测试：Gemini Live 一体化 vs GPT-Live 配合不同后端模型，看整体的响应时间和效果，50% pre 时展示
 
@@ -47,6 +52,7 @@
 
 ### 部署
 
+- [ ] 正式实验前关掉 livekit-server 的 ICE-TCP（`deploy/livekit.lab.yaml` 的 `tcp_port: 7881`，2026-10-20 定）。netem 整形的是眼镜到服务器这一跳，丢包大到 ICE 判 UDP 断了时会悄悄切到 TCP，测到的就成了 TCP 重传而不是丢包，日志里也不显眼。眼镜 SDK 没限制传输类型，UDP 和 TCP 候选都出。关掉后 UDP 不通就直接断，当一次失败的 trial。没有 TURN 和 TLS，不用动。
 - [ ] 丢包注入由网络侧软件做并自带记录，本系统对它是黑箱；眼镜端每 5 s 记链路实测（RTT、丢包、编码器状态、下行 jitter buffer）和语音起止的 wall clock，pull_run.py 拉成 glasses.log，并经 adb 和 ssh 量出眼镜对服务器的时钟偏移写进 clock.json
 - [ ] 结束后 app 偶尔自动重连开新会话（疑似误触），留意
 
