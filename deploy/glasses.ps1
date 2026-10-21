@@ -6,6 +6,8 @@
 #   .\deploy\glasses.ps1 -Task flag               preselect a build in the picker (swipe changes it)
 #   .\deploy\glasses.ps1 -Record                  record the calls of this launch on the glasses (Recording.kt);
 #                                                 any launch without it turns recording off
+#   .\deploy\glasses.ps1 -Mock                    open the app on the mock call screen (MockScreen.kt): the ladder at
+#                                                 step 3 with a fixed conversation, no server needed; double tap leaves
 #   .\deploy\glasses.ps1 -Log                     after launching, tail the touchpad/gesture log (Ctrl+C to stop)
 #   .\deploy\glasses.ps1 -Stop                    kill the app on the glasses (same as double-tapping out of it)
 #   .\deploy\glasses.ps1 -RestoreSleep            put RayNeo's deep suspend back (launch turns it off, see below)
@@ -23,6 +25,7 @@ param(
     [string]$Credential = "",     # AUTH_STATIC_TOKEN when the api runs with AUTH_MODE=static
     [string]$Task = "",           # a build's name (backend/agent/guides/<name>) to preselect
     [switch]$Record,              # record every call of this launch: camera at 30 fps, mic, agent voice
+    [switch]$Mock,                # open on the static mock of the call screen instead of the build picker
     [switch]$Install,
     [switch]$Log,
     [switch]$Stop,
@@ -105,8 +108,13 @@ $extras = @("-e", "token_endpoint", $Endpoint)
 if ($Credential) { $extras += @("-e", "credential", $Credential) }
 if ($Task) { $extras += @("-e", "task", $Task) }
 if ($Record) { $extras += @("--ez", "record", "true") }
+if ($Mock) {
+    # The start screen is chosen in onCreate, so a running instance has to go first.
+    & adb shell am force-stop $Pkg
+    $extras += @("--ez", "mock", "true")
+}
 & adb shell am start -n $Activity @extras | Select-Object -Last 1
-Write-Host "launched -> $Endpoint$(if ($Record) { ', recording' })"
+Write-Host "launched -> $(if ($Mock) { 'mock call screen' } else { $Endpoint })$(if ($Record) { ', recording' })"
 
 if ($Log) {
     # The LiveKit SDK logs at DEBUG and rolls the default 256 KB buffer in

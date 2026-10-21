@@ -4,7 +4,6 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Text
@@ -15,6 +14,7 @@ import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import io.livekit.android.compose.types.ReceivedMessage
@@ -55,6 +55,12 @@ import io.livekit.android.room.participant.Participant
 @Composable
 fun AgentLines(messages: List<ReceivedMessage>, wearerIdentity: Participant.Identity?, modifier: Modifier = Modifier) {
     val recent = split(messages, wearerIdentity, rememberCuts()).filter { !it.wearer }.takeLast(MAX_ITEMS)
+    AgentLinesView(recent.map { it.text }, modifier)
+}
+
+/** The agent's lines as text, laid out as [AgentLines] lays them out; the mock screen feeds it fixed lines. */
+@Composable
+fun AgentLinesView(lines: List<String>, modifier: Modifier = Modifier) {
     val scroll = rememberScrollState()
     // Whenever the content grows (a new line, a longer one), go to the bottom.
     LaunchedEffect(scroll) {
@@ -68,10 +74,10 @@ fun AgentLines(messages: List<ReceivedMessage>, wearerIdentity: Participant.Iden
                 .verticalScroll(scroll, enabled = false),
             verticalArrangement = Arrangement.spacedBy(8.dp),
         ) {
-            recent.forEachIndexed { i, line ->
-                val newest = i == recent.lastIndex
+            lines.forEachIndexed { i, line ->
+                val newest = i == lines.lastIndex
                 Text(
-                    text = line.text,
+                    text = line,
                     color = if (newest) Color(0xFFEEEEEE) else Color(0xFF8A8A8A),
                     fontSize = if (newest) 22.sp else 18.sp,
                     lineHeight = if (newest) 30.sp else 24.sp,
@@ -86,19 +92,21 @@ fun AgentLines(messages: List<ReceivedMessage>, wearerIdentity: Participant.Iden
  * recognition breaks a hesitant sentence into several segments, and showing
  * each as its own line scrolled the agent's words away; here the segments
  * that arrive between two agent lines are joined into the one line, and the
- * first segment after the agent has spoken replaces it. The line shows its
- * tail, since the newest words are there; it is empty until the wearer has
- * been heard.
+ * first segment after the agent has spoken replaces it. Too long for the
+ * line, it keeps its tail, since the newest words are there, and starts with
+ * an ellipsis; it is empty until the wearer has been heard.
  */
 @Composable
 fun WearerLine(messages: List<ReceivedMessage>, wearerIdentity: Participant.Identity?, modifier: Modifier = Modifier) {
     val lines = split(messages, wearerIdentity, rememberCuts())
     val text = lines.takeLastWhile { it.wearer }.ifEmpty { lines.dropLastWhile { !it.wearer }.takeLastWhile { it.wearer } }
         .joinToString(" ") { it.text }
-    val scroll = rememberScrollState()
-    LaunchedEffect(scroll) {
-        snapshotFlow { scroll.maxValue }.collect { scroll.scrollTo(it) }
-    }
+    WearerLineView(text, modifier)
+}
+
+/** The wearer's line as text, laid out as [WearerLine] lays it out; the mock screen feeds it a fixed line. */
+@Composable
+fun WearerLineView(text: String, modifier: Modifier = Modifier) {
     Text(
         text = if (text.isEmpty()) " " else text,
         color = Color(0xFF8CE99A),
@@ -106,7 +114,8 @@ fun WearerLine(messages: List<ReceivedMessage>, wearerIdentity: Participant.Iden
         lineHeight = 30.sp,
         maxLines = 1,
         softWrap = false,
-        modifier = modifier.horizontalScroll(scroll, enabled = false),
+        overflow = TextOverflow.StartEllipsis,
+        modifier = modifier,
     )
 }
 

@@ -20,6 +20,8 @@ import androidx.navigation.compose.rememberNavController
 import io.livekit.android.LiveKit
 import io.livekit.android.example.voiceassistant.screen.ConnectRoute
 import io.livekit.android.example.voiceassistant.screen.ConnectScreen
+import io.livekit.android.example.voiceassistant.screen.MockRoute
+import io.livekit.android.example.voiceassistant.screen.MockScreen
 import io.livekit.android.example.voiceassistant.screen.VoiceAssistantRoute
 import io.livekit.android.example.voiceassistant.screen.VoiceAssistantScreen
 import io.livekit.android.example.voiceassistant.ui.theme.LiveKitVoiceAssistantExampleTheme
@@ -57,6 +59,8 @@ class MainActivity : ComponentActivity() {
 
         // The app opens on the connect screen, which is the build picker: swipe
         // to choose, tap to start. The call returns there when it ends.
+        // `--ez mock true` opens it on the mock call screen instead (MockScreen), to look at the layout without a server.
+        val mock = intent.getBooleanExtra("mock", false)
         setContent {
             val navController = rememberNavController().also { this.navController = it }
             LiveKitVoiceAssistantExampleTheme {
@@ -69,8 +73,9 @@ class MainActivity : ComponentActivity() {
                 // each eye and none of the inner one. The pair would stop being
                 // mirror-symmetric. Per-eye margins belong to Eyes, which
                 // applies them to each panel evenly.
-                NavHost(navController, startDestination = ConnectRoute) {
+                NavHost(navController, startDestination = if (mock) MockRoute else ConnectRoute) {
                     composable<ConnectRoute> { ConnectScreen() }
+                    composable<MockRoute> { MockScreen() }
 
                     composable<VoiceAssistantRoute> {
                         val viewModel = viewModel<VoiceAssistantViewModel>()
@@ -123,7 +128,7 @@ class MainActivity : ComponentActivity() {
      * from the docs: single tap confirms, double tap goes back / exits.
      *
      *   tap           connect screen: start the call with the picked build. In the call: nothing (yet).
-     *   double tap    in the call: end it. Connect screen: leave the app.
+     *   double tap    in the call: end it. Connect screen and mock screen: leave the app.
      *   swipe         connect screen: move the build pick (+x or down: next, -x or up: previous). In the call: logged only
      *
      * A swipe is a travel of more than [SWIPE_PX] along X, or [SWIPE_PX_Y] along Y, between down and up,
@@ -182,9 +187,10 @@ class MainActivity : ComponentActivity() {
         Log.i(TAG, "action: $g")
         val nav = navController ?: return
         val onConnect = nav.currentDestination?.hasRoute(ConnectRoute::class) == true
+        val onMock = nav.currentDestination?.hasRoute(MockRoute::class) == true
         when (g) {
             Gesture.CLICK -> if (onConnect && Tasks.pick != null) nav.navigate(savedRoute())
-            Gesture.DOUBLE_CLICK -> if (onConnect) finish() else nav.navigateUp()
+            Gesture.DOUBLE_CLICK -> if (onConnect || onMock) finish() else nav.navigateUp()
         }
     }
 
