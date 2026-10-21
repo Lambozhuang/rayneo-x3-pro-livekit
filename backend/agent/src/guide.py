@@ -15,6 +15,7 @@ from __future__ import annotations
 
 import json
 import logging
+import re
 import time
 import tomllib
 from dataclasses import dataclass, field
@@ -27,9 +28,15 @@ class Step:
     name: str  # one line for the list on the glasses
     brick: str  # which brick, e.g. "purple 2x4"
     place: str  # where it goes, against the bricks before it; the models get `brick` and `place`
-    # The brick's footprint as drawn on the sheet, [col0, row0, col1, row1] inclusive, columns left to right and rows
-    # from the far edge; for drawings, never sent to a model.
-    cells: tuple[int, int, int, int] | None = None
+    # The brick as the glasses draw it, never sent to a model: its colour as tasks/sheet.html draws it, "#rrggbb", and
+    # its footprint as drawn on the sheet, [col0, row0, col1, row1] inclusive, columns left to right and rows from the
+    # far edge. A round plate covers its square but not the corners; the glasses draw it as a disc.
+    color: str
+    cells: tuple[int, int, int, int]
+
+    @property
+    def round(self) -> bool:
+        return "round plate" in self.brick
 
 
 @dataclass(frozen=True)
@@ -49,12 +56,18 @@ def load_guide(path: str) -> Guide:
     toml = p / "task.toml" if p.is_dir() else p
     with toml.open("rb") as f:
         data = tomllib.load(f)
-    steps = tuple(
-        Step(name=s["name"], brick=s["brick"], place=s["place"], cells=tuple(s["cells"]) if "cells" in s else None)
-        for s in data["steps"]
-    )
+    steps = []
+    for i, s in enumerate(data["steps"], 1):
+        try:
+            step = Step(name=s["name"], brick=s["brick"], place=s["place"], color=s["color"], cells=tuple(s["cells"]))
+        except KeyError as e:
+            raise ValueError(f"{toml}: step {i} has no {e.args[0]}") from None
+        if not re.fullmatch(r"#[0-9a-f]{6}", step.color) or len(step.cells) != 4:
+            raise ValueError(f"{toml}: step {i} has a bad color or cells")
+        steps.append(step)
     if not steps:
         raise ValueError(f"{toml}: guide has no steps")
+    steps = tuple(steps)
     return Guide(name=p.stem, title=data["title"], steps=steps, plate=int(data.get("plate", 16)))
 
 
@@ -87,14 +100,19 @@ class Build:
         return self.step >= len(self.guide.steps)
 
     def attributes(self) -> dict[str, str]:
-        """The run as participant attributes, for the list on the glasses:
-        every step's name, newline-separated, and the index of the current
-        one (equal to the count once finished). Attributes ride the signalling
-        channel and are re-sent after a reconnect, which a data message is
-        not, so a wearer who dropped out for a while still sees the right step."""
+        """The run as participant attributes, for the list and the step's picture on the glasses: the title, every
+        step's name, newline-separated, every step's brick as drawn, one per line as `#rrggbb col0 row0 col1 row1` with
+        `round` appended for a round plate, the plate's side in studs, and the index of the current step (equal to the
+        count once finished). Only the index changes during a call; the glasses draw the bricks up to it. Attributes
+        ride the signalling channel and are re-sent after a reconnect, which a data message is not, so a wearer who
+        dropped out for a while still sees the right step."""
         return {
             "rayneo.build.title": self.guide.title,
             "rayneo.build.steps": "\n".join(s.name for s in self.guide.steps),
+            "rayneo.build.bricks": "\n".join(
+                " ".join([s.color, *map(str, s.cells)] + (["round"] if s.round else [])) for s in self.guide.steps
+            ),
+            "rayneo.build.plate": str(self.guide.plate),
             "rayneo.build.step": str(self.step),
         }
 

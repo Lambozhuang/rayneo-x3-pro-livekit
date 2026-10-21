@@ -269,8 +269,6 @@ fun VoiceAssistant(
             CallLayout(
                 progress = buildProgress,
                 phase = phase,
-                // Nothing publishes the current step's picture yet; the square keeps its outline.
-                picture = null,
                 agentLines = { m -> AgentLines(messages = sessionMessages.messages, wearerIdentity = wearerIdentity, modifier = m) },
                 wearerLine = { m -> WearerLine(messages = sessionMessages.messages, wearerIdentity = wearerIdentity, modifier = m) },
                 modifier = modifier,

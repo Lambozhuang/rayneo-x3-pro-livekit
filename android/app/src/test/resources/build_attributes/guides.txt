@@ -1,0 +1,13 @@
+airplane
+cat
+crane
+dog
+fish
+flag
+flower
+gate
+key
+ladder
+letter-e
+mushroom
+snowman

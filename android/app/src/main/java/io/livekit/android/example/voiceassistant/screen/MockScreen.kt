@@ -8,7 +8,6 @@ import io.livekit.android.example.voiceassistant.ui.BuildProgress
 import io.livekit.android.example.voiceassistant.ui.CallLayout
 import io.livekit.android.example.voiceassistant.ui.Eyes
 import io.livekit.android.example.voiceassistant.ui.Phase
-import io.livekit.android.example.voiceassistant.ui.StepPicture
 import io.livekit.android.example.voiceassistant.ui.WearerLineView
 import kotlinx.serialization.Serializable
 
@@ -32,13 +31,14 @@ fun MockScreen() {
             "Aqua 1x4, bottom rung",
         ),
         current = 2,
-    )
-    val bricks = listOf(
-        Brick(Color(0xFFD9C89B), 5, 5, 5, 10),
-        Brick(Color(0xFFF2F2F2), 10, 5, 10, 10),
-        Brick(Color(0xFFF2C20A), 6, 5, 9, 5),
-        Brick(Color(0xFF1E5BC6), 6, 7, 9, 7),
-        Brick(Color(0xFFA8E0DC), 6, 9, 9, 9),
+        plate = 16,
+        bricks = listOf(
+            Brick(Color(0xFFD9C89B), 5, 5, 5, 10),
+            Brick(Color(0xFFF2F2F2), 10, 5, 10, 10),
+            Brick(Color(0xFFF2C20A), 6, 5, 9, 5),
+            Brick(Color(0xFF1E5BC6), 6, 7, 9, 7),
+            Brick(Color(0xFFA8E0DC), 6, 9, 9, 9),
+        ),
     )
     val agentLines = listOf(
         "Both rails are in place. Next, find the yellow 1x4 brick.",
@@ -51,7 +51,6 @@ fun MockScreen() {
         CallLayout(
             progress = progress,
             phase = Phase.SPEAKING,
-            picture = { m -> StepPicture(plate = 16, bricks = bricks, current = 2, modifier = m) },
             agentLines = { m -> AgentLinesView(agentLines, m) },
             wearerLine = { m -> WearerLineView(wearerLine, m) },
         )

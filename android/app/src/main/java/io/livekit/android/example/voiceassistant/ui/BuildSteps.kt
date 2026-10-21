@@ -25,28 +25,56 @@ import io.livekit.android.room.participant.Participant
 import io.livekit.android.util.flow
 
 /**
- * Where the build stands: every step by name, the current one bright.
+ * Where the build stands: every step by name, the current one bright, and the bricks to draw its picture from.
  *
  * The agent process owns the position (guide.py) and publishes it as its own
  * participant attributes, `rayneo.build.title` (the build's name),
- * `rayneo.build.steps` (step names, one per line) and `rayneo.build.step`
+ * `rayneo.build.steps` (step names, one per line), `rayneo.build.bricks` (one line per step,
+ * `#rrggbb col0 row0 col1 row1`, with `round` appended for a round plate), `rayneo.build.plate`
+ * (the plate's side in studs) and `rayneo.build.step`
  * (index of the current step; equal to the count once the build is done). Attributes travel on the signalling channel and are re-sent
  * after a reconnect, so this list is right again as soon as the connection is.
  *
  * @param current index of the step being built, or null when nothing has
  * been published yet; `steps.size` once finished.
+ * @param bricks one per step, in step order; empty when the agent published none, and then there is no picture.
  */
-data class BuildProgress(val title: String, val steps: List<String>, val current: Int?) {
+data class BuildProgress(
+    val title: String,
+    val steps: List<String>,
+    val current: Int?,
+    val plate: Int = 16,
+    val bricks: List<Brick> = emptyList(),
+) {
     companion object {
         val NONE = BuildProgress("", emptyList(), null)
 
         fun of(attributes: Map<String, String>): BuildProgress {
             val steps = attributes[KEY_STEPS]?.split('\n')?.filter { it.isNotBlank() } ?: return NONE
-            return BuildProgress(attributes[KEY_TITLE] ?: "", steps, attributes[KEY_STEP]?.toIntOrNull())
+            val bricks = attributes[KEY_BRICKS]?.split('\n')?.filter { it.isNotBlank() }?.map { brick(it) } ?: emptyList()
+            return BuildProgress(
+                title = attributes[KEY_TITLE] ?: "",
+                steps = steps,
+                current = attributes[KEY_STEP]?.toIntOrNull(),
+                plate = attributes[KEY_PLATE]?.toIntOrNull() ?: 16,
+                bricks = bricks,
+            )
+        }
+
+        /** One line of `rayneo.build.bricks`, as guide.py writes it. */
+        private fun brick(line: String): Brick {
+            val f = line.trim().split(' ')
+            return Brick(
+                color = Color(0xFF000000L or f[0].removePrefix("#").toLong(16)),
+                col0 = f[1].toInt(), row0 = f[2].toInt(), col1 = f[3].toInt(), row1 = f[4].toInt(),
+                round = f.getOrNull(5) == "round",
+            )
         }
 
         private const val KEY_TITLE = "rayneo.build.title"
         private const val KEY_STEPS = "rayneo.build.steps"
+        private const val KEY_BRICKS = "rayneo.build.bricks"
+        private const val KEY_PLATE = "rayneo.build.plate"
         private const val KEY_STEP = "rayneo.build.step"
     }
 }

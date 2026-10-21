@@ -1,10 +1,12 @@
 # A gate: a blue and a dark grey 2x6 for the posts, a dark red 2x6 across the top, a white and a tan 1x6 for the ground. From tasks/sheet.html, task 7.
 #
 # Each step: `name` for the step list on the glasses; `brick`, which brick; `place`, where it goes, against the bricks
-# before it (step 1 only roughly on the plate). Both models get `brick` and `place`. `cells` is the brick's footprint
-# as drawn on the sheet, [col0, row0, col1, row1] inclusive, columns 1..16 left to right, rows 1..16 from the far
-# edge; it goes to no model. Directions: the plate as a picture lying in front of the wearer, up = the far
-# edge; vertical = the long side runs up and down.
+# before it (step 1 only roughly on the plate). Both models get `brick` and `place`. `color` and `cells` draw the step's
+# picture on the glasses and go to no model: `color` is the brick's colour as tasks/sheet.html draws it; `cells` is the
+# brick's footprint as drawn on the sheet, [col0, row0, col1, row1] inclusive, columns 1..16 left to right, rows 1..16
+# from the far edge; a brick named `round plate` covers its 4x4 square but not the corners and is drawn as a disc.
+# Directions: the plate as a picture lying in front of the wearer, up = the far edge; vertical = the long side runs up
+# and down.
 
 title = "LEGO gate on a baseplate"
 plate = 16
@@ -13,29 +15,34 @@ number = 7
 [[steps]]
 name = "Blue 2x6, left post"
 brick = "blue 2x6"
+color = "#1e5bc6"
 place = "vertical, roughly in the middle of the plate, a little left of centre"
 cells = [5, 5, 6, 10]
 
 [[steps]]
 name = "Dark grey 2x6, right post"
 brick = "dark grey 2x6"
+color = "#555555"
 place = "vertical, right of the blue brick, level with it, two empty columns between them"
 cells = [9, 5, 10, 10]
 
 [[steps]]
 name = "Dark red 2x6, top"
 brick = "dark red 2x6"
+color = "#7a1f2b"
 place = "horizontal, touching the top ends of the blue and dark grey bricks, its ends lined up with their outer sides"
 cells = [5, 3, 10, 4]
 
 [[steps]]
 name = "White 1x6, ground left"
 brick = "white 1x6"
+color = "#f2f2f2"
 place = "horizontal, touching the bottom end of the blue brick, its right end one column past the blue brick's right side"
 cells = [2, 11, 7, 11]
 
 [[steps]]
 name = "Tan 1x6, ground right"
 brick = "tan 1x6"
+color = "#d9c89b"
 place = "horizontal, touching the right end of the white brick, in the same row"
 cells = [8, 11, 13, 11]

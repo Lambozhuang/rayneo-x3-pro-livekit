@@ -1,10 +1,12 @@
 # A snowman: a blue and a dark grey 4x4 round plate, a light aqua and a yellow 1x4 for the arms, a white 1x6 to stand on. From tasks/sheet.html, task 4.
 #
 # Each step: `name` for the step list on the glasses; `brick`, which brick; `place`, where it goes, against the bricks
-# before it (step 1 only roughly on the plate). Both models get `brick` and `place`. `cells` is the brick's footprint
-# as drawn on the sheet, [col0, row0, col1, row1] inclusive, columns 1..16 left to right, rows 1..16 from the far
-# edge; a round plate covers its 4x4 square but not the corners; it goes to no model. Directions: the plate as a picture lying in front of the wearer, up = the far
-# edge; vertical = the long side runs up and down.
+# before it (step 1 only roughly on the plate). Both models get `brick` and `place`. `color` and `cells` draw the step's
+# picture on the glasses and go to no model: `color` is the brick's colour as tasks/sheet.html draws it; `cells` is the
+# brick's footprint as drawn on the sheet, [col0, row0, col1, row1] inclusive, columns 1..16 left to right, rows 1..16
+# from the far edge; a brick named `round plate` covers its 4x4 square but not the corners and is drawn as a disc.
+# Directions: the plate as a picture lying in front of the wearer, up = the far edge; vertical = the long side runs up
+# and down.
 
 title = "LEGO snowman on a baseplate"
 plate = 16
@@ -13,29 +15,34 @@ number = 4
 [[steps]]
 name = "Blue round, head"
 brick = "blue 4x4 round plate"
+color = "#1e5bc6"
 place = "in the upper half of the plate, centred left to right"
 cells = [7, 3, 10, 6]
 
 [[steps]]
 name = "Dark grey round, body"
 brick = "dark grey 4x4 round plate"
+color = "#555555"
 place = "below the blue round plate, touching it, in the same columns"
 cells = [7, 7, 10, 10]
 
 [[steps]]
 name = "Aqua 1x4, left arm"
 brick = "light aqua 1x4"
+color = "#a8e0dc"
 place = "horizontal, touching the left side of the dark grey round plate, in its second row from the top"
 cells = [3, 8, 6, 8]
 
 [[steps]]
 name = "Yellow 1x4, right arm"
 brick = "yellow 1x4"
+color = "#f2c20a"
 place = "horizontal, touching the right side of the dark grey round plate, in the same row as the light aqua brick"
 cells = [11, 8, 14, 8]
 
 [[steps]]
 name = "White 1x6, ground"
 brick = "white 1x6"
+color = "#f2f2f2"
 place = "horizontal, below the dark grey round plate, touching it, one column sticking out on each side"
 cells = [6, 11, 11, 11]

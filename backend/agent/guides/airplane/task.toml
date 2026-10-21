@@ -1,10 +1,12 @@
 # An airplane: a tan 2x6 body, a red and a blue 2x4 for the wings, a purple 2x4 tail, a dark grey 2x6 tail wing. From tasks/sheet.html, task 10.
 #
 # Each step: `name` for the step list on the glasses; `brick`, which brick; `place`, where it goes, against the bricks
-# before it (step 1 only roughly on the plate). Both models get `brick` and `place`. `cells` is the brick's footprint
-# as drawn on the sheet, [col0, row0, col1, row1] inclusive, columns 1..16 left to right, rows 1..16 from the far
-# edge; it goes to no model. Directions: the plate as a picture lying in front of the wearer, up = the far
-# edge; vertical = the long side runs up and down.
+# before it (step 1 only roughly on the plate). Both models get `brick` and `place`. `color` and `cells` draw the step's
+# picture on the glasses and go to no model: `color` is the brick's colour as tasks/sheet.html draws it; `cells` is the
+# brick's footprint as drawn on the sheet, [col0, row0, col1, row1] inclusive, columns 1..16 left to right, rows 1..16
+# from the far edge; a brick named `round plate` covers its 4x4 square but not the corners and is drawn as a disc.
+# Directions: the plate as a picture lying in front of the wearer, up = the far edge; vertical = the long side runs up
+# and down.
 
 title = "LEGO airplane on a baseplate"
 plate = 16
@@ -13,29 +15,34 @@ number = 10
 [[steps]]
 name = "Tan 2x6, body"
 brick = "tan 2x6"
+color = "#d9c89b"
 place = "vertical, near the top of the plate, centred left to right"
 cells = [8, 3, 9, 8]
 
 [[steps]]
 name = "Red 2x4, left wing"
 brick = "red 2x4"
+color = "#c8102e"
 place = "horizontal, touching the left side of the tan brick, its bottom edge one row above the tan brick's bottom end"
 cells = [4, 6, 7, 7]
 
 [[steps]]
 name = "Blue 2x4, right wing"
 brick = "blue 2x4"
+color = "#1e5bc6"
 place = "horizontal, touching the right side of the tan brick, in the same rows as the red brick"
 cells = [10, 6, 13, 7]
 
 [[steps]]
 name = "Purple 2x4, tail"
 brick = "purple 2x4"
+color = "#5a2d91"
 place = "vertical, below the tan brick, touching its bottom end, in the same columns"
 cells = [8, 9, 9, 12]
 
 [[steps]]
 name = "Dark grey 2x6, tail wing"
 brick = "dark grey 2x6"
+color = "#555555"
 place = "horizontal, below the purple brick, touching it, two columns sticking out on each side"
 cells = [6, 13, 11, 14]

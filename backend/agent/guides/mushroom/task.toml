@@ -1,10 +1,12 @@
 # A mushroom: a dark red 2x6 and a blue 2x4 for the cap, a white 2x4 stem, a tan 1x6 and a light aqua 1x4 for the ground. From tasks/sheet.html, task 5.
 #
 # Each step: `name` for the step list on the glasses; `brick`, which brick; `place`, where it goes, against the bricks
-# before it (step 1 only roughly on the plate). Both models get `brick` and `place`. `cells` is the brick's footprint
-# as drawn on the sheet, [col0, row0, col1, row1] inclusive, columns 1..16 left to right, rows 1..16 from the far
-# edge; it goes to no model. Directions: the plate as a picture lying in front of the wearer, up = the far
-# edge; vertical = the long side runs up and down.
+# before it (step 1 only roughly on the plate). Both models get `brick` and `place`. `color` and `cells` draw the step's
+# picture on the glasses and go to no model: `color` is the brick's colour as tasks/sheet.html draws it; `cells` is the
+# brick's footprint as drawn on the sheet, [col0, row0, col1, row1] inclusive, columns 1..16 left to right, rows 1..16
+# from the far edge; a brick named `round plate` covers its 4x4 square but not the corners and is drawn as a disc.
+# Directions: the plate as a picture lying in front of the wearer, up = the far edge; vertical = the long side runs up
+# and down.
 
 title = "LEGO mushroom on a baseplate"
 plate = 16
@@ -13,29 +15,34 @@ number = 5
 [[steps]]
 name = "Dark red 2x6, cap"
 brick = "dark red 2x6"
+color = "#7a1f2b"
 place = "horizontal, roughly in the middle of the plate, a little above centre"
 cells = [5, 6, 10, 7]
 
 [[steps]]
 name = "Blue 2x4, top of cap"
 brick = "blue 2x4"
+color = "#1e5bc6"
 place = "horizontal, above the dark red brick, touching it, one dark red column free at each end"
 cells = [6, 4, 9, 5]
 
 [[steps]]
 name = "White 2x4, stem"
 brick = "white 2x4"
+color = "#f2f2f2"
 place = "vertical, below the dark red brick, touching it, two dark red columns free on each side"
 cells = [7, 8, 8, 11]
 
 [[steps]]
 name = "Tan 1x6, ground left"
 brick = "tan 1x6"
+color = "#d9c89b"
 place = "horizontal, touching the bottom end of the white brick, its right end lined up with the white brick's right side"
 cells = [3, 12, 8, 12]
 
 [[steps]]
 name = "Aqua 1x4, ground right"
 brick = "light aqua 1x4"
+color = "#a8e0dc"
 place = "horizontal, touching the right end of the tan brick, in the same row"
 cells = [9, 12, 12, 12]

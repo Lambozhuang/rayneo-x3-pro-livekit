@@ -1,10 +1,12 @@
 # A key: a tan 2x6 shaft, a blue 4x4 round bow, a red and a purple 2x4 for the teeth, a pink 2x4 under the bow. From tasks/sheet.html, task 8.
 #
 # Each step: `name` for the step list on the glasses; `brick`, which brick; `place`, where it goes, against the bricks
-# before it (step 1 only roughly on the plate). Both models get `brick` and `place`. `cells` is the brick's footprint
-# as drawn on the sheet, [col0, row0, col1, row1] inclusive, columns 1..16 left to right, rows 1..16 from the far
-# edge; a round plate covers its 4x4 square but not the corners; it goes to no model. Directions: the plate as a picture lying in front of the wearer, up = the far
-# edge; vertical = the long side runs up and down.
+# before it (step 1 only roughly on the plate). Both models get `brick` and `place`. `color` and `cells` draw the step's
+# picture on the glasses and go to no model: `color` is the brick's colour as tasks/sheet.html draws it; `cells` is the
+# brick's footprint as drawn on the sheet, [col0, row0, col1, row1] inclusive, columns 1..16 left to right, rows 1..16
+# from the far edge; a brick named `round plate` covers its 4x4 square but not the corners and is drawn as a disc.
+# Directions: the plate as a picture lying in front of the wearer, up = the far edge; vertical = the long side runs up
+# and down.
 
 title = "LEGO key on a baseplate"
 plate = 16
@@ -13,29 +15,34 @@ number = 8
 [[steps]]
 name = "Tan 2x6, shaft"
 brick = "tan 2x6"
+color = "#d9c89b"
 place = "horizontal, roughly in the middle of the plate, a little right of centre"
 cells = [7, 7, 12, 8]
 
 [[steps]]
 name = "Blue round, bow"
 brick = "blue 4x4 round plate"
+color = "#1e5bc6"
 place = "touching the left end of the tan brick, reaching one row above it and one row below it"
 cells = [3, 6, 6, 9]
 
 [[steps]]
 name = "Red 2x4, tooth"
 brick = "red 2x4"
+color = "#c8102e"
 place = "vertical, below the tan brick, touching it, its right side lined up with the tan brick's right end"
 cells = [11, 9, 12, 12]
 
 [[steps]]
 name = "Purple 2x4, tooth"
 brick = "purple 2x4"
+color = "#5a2d91"
 place = "vertical, below the tan brick, touching it, one empty column between it and the red brick"
 cells = [8, 9, 9, 12]
 
 [[steps]]
 name = "Pink 2x4, under the bow"
 brick = "pink 2x4"
+color = "#f5a1c8"
 place = "horizontal, below the blue round plate, touching it, in the same columns"
 cells = [3, 10, 6, 11]

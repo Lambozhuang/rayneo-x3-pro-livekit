@@ -16,7 +16,7 @@ The agent has three architectures: GPT-Live with a separate vision model, which 
 
 There are two machines: the glasses, and a server on the same Wi-Fi network. The glasses talk only to the server; only the server talks to the model APIs (OpenAI, Anthropic, Google).
 
-The glasses run the app in `android/`: it sends the mic and camera to the server, plays the assistant's speech and shows the steps. It holds no model keys.
+The glasses run the app in `android/`: it sends the mic and camera to the server, plays the assistant's speech and shows the steps and a picture of the build at the current step. It holds no model keys.
 
 The server runs three programs:
 
@@ -126,7 +126,7 @@ python deploy/backend.py lab down
 | `watch.py` | prints the call as it happens, from the agent's log: what each side said, the progress, the timings, the warnings | `docker compose logs -f --no-log-prefix agent \| python3 ../deploy/watch.py [-v]`; `-v` also shows the lines it drops |
 | `pull_run.py` | copies a call's record from the lab PC into `logs/` and runs `report.py` on it | `python deploy/pull_run.py [<call>]`; the newest call without an argument |
 | `report.py` | writes a call's record as one web page, `report.html` in the record's directory | `python deploy/report.py logs/<call>` |
-| `glasses.ps1` | builds, installs, launches or stops the app on the glasses | `.\deploy\glasses.ps1 -Ip <server LAN IP> [-Install] [-Task <build>] [-Record] [-Stop] [-RestoreSleep]` |
+| `glasses.ps1` | builds, installs, launches or stops the app on the glasses; `-Mock` opens it on a fixed call screen, the ladder at step 3, to look at the layout without a server | `.\deploy\glasses.ps1 -Ip <server LAN IP> [-Install] [-Task <build>] [-Record] [-Mock] [-Stop] [-RestoreSleep]` |
 
 ## Media and network settings
 
@@ -198,7 +198,7 @@ logs/                   records pulled from the lab (not in git)
 
 **backend/agent/src/gemini/**: `prompts.py` is the prompt; `sampler.py` picks which frames the model gets and saves each to the record; `config.py` reads the settings and makes the model; `agent.py` wires the session and the logs.
 
-**Task file** (`backend/agent/guides/<task>/task.toml`): each step has a name for the list on the glasses, the brick, where it goes against the bricks before it, and the cells it covers as drawn on the sheet (used to draw the sheet, never sent to a model). Each file's `number` is its task on `tasks/sheet.html`.
+**Task file** (`backend/agent/guides/<task>/task.toml`): each step has a name for the list on the glasses, the brick, where it goes against the bricks before it, and the brick's colour and the cells it covers as drawn on the sheet, from which the glasses draw the picture of the build at the current step (`StepPicture.kt`); the colour and cells go to no model. The agent publishes all of it once as participant attributes (`guide.py`), and during the call only the index of the current step changes. Each file's `number` is its task on `tasks/sheet.html`.
 
 **android/**: the panel is 640x480 per eye, reported as one 1280x480 display at density 160, so every screen draws its content twice through `ui/Eyes.kt`:
 

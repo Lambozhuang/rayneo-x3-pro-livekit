@@ -17,17 +17,16 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 
 /**
- * One eye of the call: above the band, the build on the left (the step's picture, the build's title, the steps) and
- * the agent's lines on the right; the band along the bottom says who has the floor and what the model heard the wearer
- * say. VoiceAssistantScreen fills it from the room, MockScreen from fixed data, so the two look the same.
- *
- * @param picture the current step's picture, drawn into the square kept for it; null leaves the square's outline.
+ * One eye of the call: above the band, the build on the left (the current step's picture, the build's title, the
+ * steps) and the agent's lines on the right; the band along the bottom says who has the floor and what the model heard
+ * the wearer say. VoiceAssistantScreen fills it from the room, MockScreen from fixed data, so the two look the same.
+ * The picture is drawn from the bricks the agent published (BuildProgress); until it has published any, or on a path
+ * without a build, the square keeps its outline.
  */
 @Composable
 fun CallLayout(
     progress: BuildProgress,
     phase: Phase,
-    picture: (@Composable (Modifier) -> Unit)?,
     agentLines: @Composable (Modifier) -> Unit,
     wearerLine: @Composable (Modifier) -> Unit,
     modifier: Modifier = Modifier,
@@ -39,7 +38,12 @@ fun CallLayout(
         ) {
             Column(modifier = Modifier.width(LEFT_WIDTH).fillMaxHeight()) {
                 val square = Modifier.size(DIAGRAM_SIDE)
-                if (picture != null) picture(square) else Box(modifier = square.border(1.dp, Color(0xFF333333)))
+                val current = progress.current
+                if (progress.bricks.isNotEmpty() && current != null) {
+                    StepPicture(plate = progress.plate, bricks = progress.bricks, current = current, modifier = square)
+                } else {
+                    Box(modifier = square.border(1.dp, Color(0xFF333333)))
+                }
                 BuildTitle(
                     progress = progress,
                     modifier = Modifier.padding(top = 6.dp)
