@@ -33,9 +33,10 @@ import org.json.JSONObject
  * (`glasses.ps1 -Record`); a launch without it turns recording off again, so a formal run is never
  * recorded by accident.
  *
- * While armed the camera captures at [FPS] instead of 15 (VoiceAssistantViewModel); the call's own
- * encoder still sends 15 a second (its maxFps), dropping every other frame, so the call keeps its size
- * and rate but its frames are exposed for at most 1/30 s instead of 1/15 s.
+ * The camera keeps the call's 15 fps (VoiceAssistantViewModel), so the recording holds the same frames the
+ * call's own encoder sees and the call runs as it does unrecorded, apart from the second encoder's load.
+ * (The first version captured at 30 for the recording's sake; the camera fell to 20–25 after about 100 s
+ * and the call's own rate dipped with it, so the extra frames were not worth it.)
  *
  * Per call, under the app's external files dir, `recordings/<room>/`:
  *
@@ -56,7 +57,8 @@ import org.json.JSONObject
  *   adb logcat -v time -s rayneo-record
  */
 object Recording {
-    const val FPS = 30
+    /** The call's capture rate, which the recording follows; the second encoder is told the same. */
+    const val FPS = 15
     private const val BITRATE = 70_000_000
     private const val TAG = "rayneo-record"
     private const val EXTRA = "record"
@@ -67,7 +69,7 @@ object Recording {
 
     fun applyIntent(intent: Intent?) {
         armed = intent?.getBooleanExtra(EXTRA, false) ?: false
-        Log.i(TAG, if (armed) "armed: the next calls are recorded, camera at $FPS fps" else "off")
+        Log.i(TAG, if (armed) "armed: the next calls are recorded" else "off")
     }
 
     private var current: Call? = null

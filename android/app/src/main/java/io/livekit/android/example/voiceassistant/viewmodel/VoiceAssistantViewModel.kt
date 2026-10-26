@@ -63,10 +63,9 @@ class VoiceAssistantViewModel(application: Application, savedStateHandle: SavedS
         // for a human. So: one layer, 1080p, resolution held, frame rate cut
         // to what the encoder can sustain at full size. The sensor is mounted
         // sideways, so these arrive at the agent as 1080x1920 portrait. A
-        // recorded call (Recording) captures at 30 for its own copy; the
-        // encoder's maxFps below still holds the call itself to 15.
+        // recorded call (Recording) takes the same frames and keeps this rate.
         videoTrackCaptureDefaults = LocalVideoTrackOptions(
-            captureParams = VideoCaptureParameter(1920, 1080, if (Recording.armed) Recording.FPS else 15),
+            captureParams = VideoCaptureParameter(1920, 1080, Recording.FPS),
         )
         videoTrackPublishDefaults = VideoTrackPublishDefaults(
             videoEncoding = VideoEncoding(maxBitrate = 4_000_000, maxFps = 15),

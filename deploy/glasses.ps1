@@ -24,7 +24,7 @@ param(
     [string]$Port,                # api port; default: API_PORT from backend\.env, else 3000
     [string]$Credential = "",     # AUTH_STATIC_TOKEN when the api runs with AUTH_MODE=static
     [string]$Task = "",           # a build's name (backend/agent/guides/<name>) to preselect
-    [switch]$Record,              # record every call of this launch: camera at 30 fps, mic, agent voice
+    [switch]$Record,              # record every call of this launch: camera as the call sees it, mic, agent voice
     [switch]$Mock,                # open on the static mock of the call screen instead of the build picker
     [switch]$Install,
     [switch]$Log,
