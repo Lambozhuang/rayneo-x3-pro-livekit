@@ -3,7 +3,7 @@
     uv run python probe.py <pictures> <thinking> [frame id ...]
 
 `pictures` is a directory under out/ with one JPEG per frame, as pick_frames.py and encode.py write them (sq768,
-v2000-768, ...). `thinking` is `none` (no thinking, as the routine look runs) or an effort (`low`, as the hand-over
+v2000-720, ...). `thinking` is `none` (no thinking, as the routine look runs) or an effort (`low`, as the hand-over
 runs). Frame ids restrict the run; by default every frame in out/frames.csv is asked. Replies land in
 out/replies/<pictures>-<thinking>/<id>.json, one per frame, with the parsed object, the raw text, the token counts
 and the timing; a frame whose reply exists is not asked again, so a stopped run can be continued.
