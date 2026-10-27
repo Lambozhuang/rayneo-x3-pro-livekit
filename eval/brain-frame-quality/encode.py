@@ -1,6 +1,6 @@
 """Re-encodes the recording at the study's bitrates and cuts the study's frames from each result.
 
-    uv run python encode.py <recording dir> <side>
+    uv run python encode.py <recording dir> <side> [kbps ...]
 
 Scales the whole frame to <side> wide (720x1280 or 1080x1920, which is the recording as it is) and encodes it with this PC's hardware encoder, h264_amf on the AMD Radeon 860M,
 set as WebRTC sends video: low-latency usage, constant bitrate with a one-second buffer, no B-frames, a keyframe
@@ -26,7 +26,7 @@ from pathlib import Path
 
 from PIL import Image
 
-KBPS = (2000, 1000, 500)
+KBPS = tuple(int(k) for k in sys.argv[3:]) or (2000, 1000, 500)  # the study's three, or the ones named
 QUALITY = 85
 
 here = Path(__file__).resolve().parent

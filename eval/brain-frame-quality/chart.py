@@ -2,8 +2,9 @@
 
     uv run python chart.py
 
-Each panel is one score as a share, whole frames, bricks found and sizes right, against the four pictures of a frame
-side: not encoded, then 2, 1 and 0.5 Mbps. One line per condition: a side (1080p, 720p) run without thinking (solid)
+Each panel is one score as a share, whole frames, bricks found and sizes right, against the pictures of a frame
+side: not encoded, then 2, 1, 0.5 and 0.25 Mbps (the last run at 1080 without thinking only, so the other lines stop
+at 0.5). One line per condition: a side (1080p, 720p) run without thinking (solid)
 or with thinking at effort low (dashed), which produced no thinking and so is a second run of the same call. The sides
 768, 512 and 384 not encoded, the rest of the pixel group, are grey dots under the not-encoded point. The numbers come
 from score.py.
@@ -18,7 +19,8 @@ import score
 
 matplotlib.use("Agg")
 
-STEPS = [("sq{side}", "not encoded"), ("v2000-{side}", "2 Mbps"), ("v1000-{side}", "1 Mbps"), ("v500-{side}", "0.5 Mbps")]
+STEPS = [("sq{side}", "not encoded"), ("v2000-{side}", "2 Mbps"), ("v1000-{side}", "1 Mbps"), ("v500-{side}", "0.5 Mbps"),
+         ("v250-{side}", "0.25 Mbps")]  # a line stops where a condition was not run
 LINES = [("1080", "none", "1080p, no thinking", "#2a78d6", "-"), ("1080", "low", "1080p, thinking low", "#1baf7a", "--"),
          ("720", "none", "720p, no thinking", "#e34948", "-"), ("720", "low", "720p, thinking low", "#eda100", "--")]
 REFS = [("sq768-none", "768 px"), ("sq768-low", "768 px, low"), ("sq512-none", "512 px"), ("sq384-none", "384 px")]
@@ -32,7 +34,11 @@ out = here / "out"
 
 
 def pct(cond: str, value) -> float:
-    k, n = value(score.score(cond)[0])
+    """The score as a percentage, or NaN for a condition with no replies, which leaves a gap in the line."""
+    t = score.score(cond)[0]
+    if not t["frames"]:
+        return float("nan")
+    k, n = value(t)
     return 100 * k / n
 
 
@@ -71,8 +77,9 @@ names.append("other sides, not encoded")
 fig.legend(handles, names, loc="upper left", bbox_to_anchor=(0.04, 0.9), ncol=5, frameon=False, fontsize=11)
 fig.suptitle("What the brain's model reads off the plate, by frame side and video bitrate", x=0.045, y=0.99,
              ha="left", fontsize=15, fontweight="bold", color=INK)
-fig.text(0.045, 0.945, "39 frames of the 2026-10-22 call, Claude Sonnet 5.5, one call per frame per condition, each condition "
-         "run once. Thinking at effort low produced no thinking in any call.", fontsize=10.5, color=MUTED, va="top")
+fig.text(0.045, 0.945, f"{len(score.labels)} frames of the material in labels.toml, Claude Sonnet 5.5, one call per frame per "
+         "condition. Thinking at effort low produced no thinking in any call, so the dashed lines are second runs.",
+         fontsize=10.5, color=MUTED, va="top")
 fig.tight_layout(rect=(0.03, 0, 1, 0.85), w_pad=3)
 fig.savefig(out / "chart.png", dpi=150)
 print(out / "chart.png")

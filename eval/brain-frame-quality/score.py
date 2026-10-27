@@ -3,8 +3,10 @@
     uv run python score.py <pictures-thinking> [...]
 
 A reply is the JSON object probe.py asked for: bricks with colour, size, orientation and position, and hands. Bricks
-are matched to the label by colour (the five bricks of the flag have five colours, and the model's words for them
-are mapped in COLOURS). One rule for every frame:
+are matched to the label by colour (the five bricks of the flag have five colours, and the model's words for every
+colour in the two builds are mapped in COLOURS); when a frame has two bricks of one colour, as the ladder does while a
+white 1x4 stands in for the aqua rung, each labelled one takes the reply entry that agrees with it on more items.
+One rule for every frame:
 
 - a labelled brick the reply has no entry for is missed, unless every item of its label is can't tell, when leaving
   it out is right; a brick labelled held (the hand holds it on the plate) also counts as found when its colour is
@@ -34,22 +36,31 @@ out = here / "out"
 labels = tomllib.load(open(here / "labels.toml", "rb"))["frame"]
 
 UNREAD = "can't tell"
-COLOURS = {  # what the model may call each brick's colour
+COLOURS = {  # what the model may call each brick's colour; the flag's five, then the ladder's three others
     "white": ("white",),
     "tan": ("tan", "beige", "cream", "sand", "light yellow", "pale yellow", "khaki", "light brown", "yellowish",
             "light orange"),
     "red": ("red",),
+    # Under the lab's warm light at -6 the pale aqua brick reads as light grey or a pale green and the yellow one as
+    # orange at every side; those are its colour's names here, and plain green (the plate's colour) is not.
+    "light aqua": ("light aqua", "aqua", "light blue", "pale blue", "light turquoise", "turquoise", "light teal",
+                   "teal", "mint", "mint green", "seafoam", "light cyan", "cyan", "sky blue", "baby blue",
+                   "light grey", "light gray", "pale grey", "pale gray", "light green", "pale green", "pale teal",
+                   "pale cyan", "light blue-green", "pale aqua"),
     "blue": ("blue",),
+    "yellow": ("yellow", "bright yellow", "orange", "yellow/orange", "orange-yellow", "yellow-orange", "amber",
+               "golden yellow"),
     "dark grey": ("dark grey", "dark gray", "grey", "gray", "dark bluish grey", "dark bluish gray", "black"),
 }
 
 
-def colour_of(text: str) -> str:
+def colour_of(text: str, present: set = frozenset()) -> str:
+    """The label's name for the model's colour word. A word both lists claim ("light grey" is the aqua brick's name
+    here and ends in grey) goes to a colour the frame's label has, `present`, else to the first list that claims it."""
     t = re.sub(r"\s*\([^)]*\)", "", text).lower().strip()
-    for name, words in COLOURS.items():
-        if any(t == w or t.endswith(" " + w) or t.startswith(w) for w in words):
-            return name
-    return t
+    names = [name for name, words in COLOURS.items()
+             if any(t == w or t.endswith(" " + w) or t.startswith(w) for w in words)]
+    return next((n for n in names if n in present), names[0] if names else t)
 
 
 def norm_size(size: str) -> str:
@@ -65,10 +76,22 @@ def norm_orient(orient: str) -> str:
     return UNREAD if "tell" in o or "unclear" in o or "unknown" in o else o
 
 
-def bricks_of(reply: dict) -> dict:
-    """The reply's bricks by colour, each {size, orientation}, values normalised."""
-    return {colour_of(b["colour"]): {"size": norm_size(b["size"]), "orientation": norm_orient(b["orientation"])}
-            for b in reply.get("bricks", [])}
+def bricks_of(reply: dict, present: set) -> list:
+    """The reply's bricks, each {colour, size, orientation}, values normalised, colours read against the frame's."""
+    return [{"colour": colour_of(b["colour"], present), "size": norm_size(b["size"]), "orientation": norm_orient(b["orientation"])}
+            for b in reply.get("bricks", [])]
+
+
+def take(got: list, b: dict) -> dict | None:
+    """Removes and returns the reply's brick of the label's colour, or None. When the reply has two of one colour (the
+    ladder's white rail beside the white 1x4 that stood in for the aqua rung), the one agreeing with the label on more
+    of size and orientation is taken, the first on a tie, so each labelled brick is judged against its own entry."""
+    same = [g for g in got if g["colour"] == b["colour"]]
+    if not same:
+        return None
+    best = max(same, key=lambda g: (g["size"] == norm_size(b["size"])) + (g["orientation"] == norm_orient(b["orientation"])))
+    got.remove(best)
+    return best
 
 
 def all_unread(b: dict) -> bool:
@@ -91,12 +114,12 @@ def score(cond: str) -> tuple[dict, dict]:
         if not isinstance(r.get("parsed"), dict):
             marks[fr["id"]] = "!"
             continue
-        got = bricks_of(r["parsed"])
+        got = bricks_of(r["parsed"], {b["colour"] for b in fr["bricks"]})
         hands = r["parsed"].get("hands", "").lower()
         flags = set()
         for b in fr["bricks"]:
             tot["bricks"] += 1
-            g = got.pop(b["colour"], None)
+            g = take(got, b)
             if g is None:
                 if all_unread(b) and b.get("relation") == UNREAD:
                     tot["found"] += 1  # a brick with every item can't tell is rightly left out
@@ -119,7 +142,7 @@ def score(cond: str) -> tuple[dict, dict]:
                     tot[key] += 1
                 else:
                     flags.add(flag)
-        extras = [c for c, g in got.items() if not all_unread(g)]
+        extras = [g for g in got if not all_unread(g)]
         if extras:
             tot["extra"] += len(extras)
             flags.add("x")
@@ -142,9 +165,9 @@ def by_size(cond: str) -> dict:
         r = json.loads(p.read_text(encoding="utf-8"))
         if not isinstance(r.get("parsed"), dict):
             continue
-        got = bricks_of(r["parsed"])
+        got = bricks_of(r["parsed"], {b["colour"] for b in fr["bricks"]})
         for b in fr["bricks"]:
-            g = got.get(b["colour"])
+            g = take(got, b)
             if g and b["size"] in by:
                 by[b["size"]][1] += 1
                 by[b["size"]][0] += g["size"] == norm_size(b["size"])

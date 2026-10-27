@@ -1,0 +1,361 @@
+# What each study frame shows, read by a person from the 1080 square (out/sq1080), in the probe's own words.
+#
+# The rule for every frame: a label says only what this frame shows. A brick's size, orientation or relation that a
+# hand covers is "can't tell", and the right reply writes hidden there too; a definite value for a hidden item is a guess
+# and counts as wrong even when it happens to match the brick. A brick wholly under a hand has no line, and a reply
+# that gives it one with definite values is marked down. A brick the hand still holds on the plate is marked
+# held = true; a reply may list it among the bricks or mention it in its Hands line.
+#
+# hands: none = no hand on or over the plate (a hand elsewhere in the picture does not count); over = a hand above
+# the plate; on = a hand on the plate or on a brick. hidden says in words what the hands cover; the sheet shows it as
+# the Hands line of the expected reply.
+# relation uses the direction words of the probe: up is the far edge, vertical is the long side up and down. Counts
+# of empty rows and columns are read off a photo taken at an angle and are good to about one stud.
+#
+# f00, the recording's first frame, is left out: the camera had not yet set its exposure and the frame is dark
+# (mean luminance 22 against about 100 for the rest). The wearer first placed a white 1x4, the wrong brick, and
+# swapped it for the 1x6 at about 65 s; the dark grey base was first placed about two studs too far right (f33–f35)
+# and moved at about 210 s.
+
+[[frame]]
+id = "f01"
+hands = "none"
+bricks = []
+
+[[frame]]
+id = "f02"
+hands = "none"
+bricks = []
+
+[[frame]]
+id = "f03"
+hands = "over"
+hidden = "the upper edge of the plate, under the bag both hands hold; the plate is empty"
+bricks = []
+
+[[frame]]
+id = "f04"
+hands = "on"
+hidden = "nothing; the left hand holds the white brick down on the plate"
+bricks = [
+  { colour = "white", size = "1x4", orientation = "horizontal", relation = "upper left; about 1 empty row above it, 3 to 4 empty columns on its left", held = true },
+]
+
+[[frame]]
+id = "f05"
+hands = "on"
+hidden = "nothing; the left hand holds the white brick down on the plate"
+bricks = [
+  { colour = "white", size = "1x4", orientation = "horizontal", relation = "upper left; about 1 empty row above it, 5 to 6 empty columns on its left", held = true },
+]
+
+[[frame]]
+id = "f06"
+hands = "on"
+hidden = "the white brick, under both hands in the upper left; two of its studs show between the fingers"
+bricks = [
+  { colour = "white", size = "can't tell", orientation = "can't tell", relation = "can't tell" },
+]
+
+[[frame]]
+id = "f07"
+hands = "none"
+bricks = [
+  { colour = "white", size = "1x4", orientation = "vertical", relation = "upper left; about 3 empty rows above it, 4 empty columns on its left" },
+]
+
+[[frame]]
+id = "f08"
+hands = "none"
+bricks = [
+  { colour = "white", size = "1x4", orientation = "vertical", relation = "upper left; about 4 empty rows above it, 4 empty columns on its left" },
+]
+
+[[frame]]
+id = "f09"
+hands = "none"
+bricks = [
+  { colour = "white", size = "1x4", orientation = "vertical", relation = "upper left; about 4 empty rows above it, 4 empty columns on its left" },
+]
+
+[[frame]]
+id = "f10"
+hands = "on"
+hidden = "most of the plate, under both hands; no brick can be seen"
+bricks = []
+
+[[frame]]
+id = "f11"
+hands = "on"
+hidden = "the upper left corner of the plate, under the left hand; the right hand holds a white brick off the plate, to the right"
+bricks = []
+
+[[frame]]
+id = "f12"
+hands = "none"
+bricks = [
+  { colour = "white", size = "1x6", orientation = "vertical", relation = "upper left; about 1 empty row above it, 4 to 5 empty columns on its left" },
+]
+
+[[frame]]
+id = "f13"
+hands = "none"
+bricks = [
+  { colour = "white", size = "1x6", orientation = "vertical", relation = "upper left; about 1 empty row above it, 4 to 5 empty columns on its left" },
+]
+
+[[frame]]
+id = "f14"
+hands = "none"
+bricks = [
+  { colour = "white", size = "1x6", orientation = "vertical", relation = "upper left; about 1 empty row above it, 4 to 5 empty columns on its left" },
+]
+
+[[frame]]
+id = "f15"
+hands = "none"
+hidden = "nothing; the right hand is in the bag to the right of the plate"
+bricks = [
+  { colour = "white", size = "1x6", orientation = "vertical", relation = "upper left; about 1 empty row above it, 4 to 5 empty columns on its left" },
+]
+
+[[frame]]
+id = "f16"
+hands = "over"
+hidden = "the upper half of the plate, under both hands and the bag; no brick can be seen"
+bricks = []
+
+[[frame]]
+id = "f17"
+hands = "on"
+hidden = "the left part of the plate, under the left hand; the right hand holds a tan 1x6 off the plate, to the right"
+bricks = [
+  { colour = "white", size = "1x6", orientation = "vertical", relation = "upper left; about 1 empty row above it, 4 to 5 empty columns on its left" },
+]
+
+[[frame]]
+id = "f18"
+hands = "none"
+bricks = [
+  { colour = "white", size = "1x6", orientation = "vertical", relation = "upper left; about 1 empty row above it, 4 empty columns on its left" },
+  { colour = "tan", size = "1x6", orientation = "vertical", relation = "below the white brick, touching its bottom end, in the same column" },
+]
+
+[[frame]]
+id = "f19"
+hands = "none"
+bricks = [
+  { colour = "white", size = "1x6", orientation = "vertical", relation = "upper left; about 1 empty row above it, 4 empty columns on its left" },
+  { colour = "tan", size = "1x6", orientation = "vertical", relation = "below the white brick, touching its bottom end, in the same column" },
+]
+
+[[frame]]
+id = "f20"
+hands = "none"
+hidden = "nothing; the left hand is beside the plate, the right in the bag"
+bricks = [
+  { colour = "white", size = "1x6", orientation = "vertical", relation = "upper left; about 1 empty row above it, 4 empty columns on its left" },
+  { colour = "tan", size = "1x6", orientation = "vertical", relation = "below the white brick, touching its bottom end, in the same column" },
+]
+
+[[frame]]
+id = "f21"
+hands = "on"
+hidden = "nothing that matters; the left hand rests on the left part of the plate"
+bricks = [
+  { colour = "white", size = "1x6", orientation = "vertical", relation = "upper left; about 1 empty row above it, 4 empty columns on its left" },
+  { colour = "tan", size = "1x6", orientation = "vertical", relation = "below the white brick, touching its bottom end, in the same column" },
+]
+
+[[frame]]
+id = "f22"
+hands = "none"
+hidden = "nothing; the right hand holds a red 2x4 off the plate, above right"
+bricks = [
+  { colour = "white", size = "1x6", orientation = "vertical", relation = "upper left; about 1 empty row above it, 4 empty columns on its left" },
+  { colour = "tan", size = "1x6", orientation = "vertical", relation = "below the white brick, touching its bottom end, in the same column" },
+]
+
+[[frame]]
+id = "f23"
+hands = "none"
+bricks = [
+  { colour = "white", size = "1x6", orientation = "vertical", relation = "upper left; about 1 empty row above it, 4 empty columns on its left" },
+  { colour = "tan", size = "1x6", orientation = "vertical", relation = "below the white brick, touching its bottom end, in the same column" },
+  { colour = "red", size = "2x4", orientation = "horizontal", relation = "touching the right side of the white brick, its top edge level with the white brick's top end" },
+]
+
+[[frame]]
+id = "f24"
+hands = "none"
+bricks = [
+  { colour = "white", size = "1x6", orientation = "vertical", relation = "upper left; about 1 empty row above it, 4 empty columns on its left" },
+  { colour = "tan", size = "1x6", orientation = "vertical", relation = "below the white brick, touching its bottom end, in the same column" },
+  { colour = "red", size = "2x4", orientation = "horizontal", relation = "touching the right side of the white brick, its top edge level with the white brick's top end" },
+]
+
+[[frame]]
+id = "f25"
+hands = "none"
+hidden = "nothing; the right arm reaches into the bag to the right of the plate"
+bricks = [
+  { colour = "white", size = "1x6", orientation = "vertical", relation = "upper left; about 1 empty row above it, 4 empty columns on its left" },
+  { colour = "tan", size = "1x6", orientation = "vertical", relation = "below the white brick, touching its bottom end, in the same column" },
+  { colour = "red", size = "2x4", orientation = "horizontal", relation = "touching the right side of the white brick, its top edge level with the white brick's top end" },
+]
+
+[[frame]]
+id = "f26"
+hands = "none"
+hidden = "nothing; the right hand is in the bag to the right of the plate"
+bricks = [
+  { colour = "white", size = "1x6", orientation = "vertical", relation = "upper left; about 1 empty row above it, 4 empty columns on its left" },
+  { colour = "tan", size = "1x6", orientation = "vertical", relation = "below the white brick, touching its bottom end, in the same column" },
+  { colour = "red", size = "2x4", orientation = "horizontal", relation = "touching the right side of the white brick, its top edge level with the white brick's top end" },
+]
+
+[[frame]]
+id = "f27"
+hands = "none"
+hidden = "nothing; the right hand holds a blue 2x4 off the plate, upper right"
+bricks = [
+  { colour = "white", size = "1x6", orientation = "vertical", relation = "upper left; about 1 empty row above it, 4 empty columns on its left" },
+  { colour = "tan", size = "1x6", orientation = "vertical", relation = "below the white brick, touching its bottom end, in the same column" },
+  { colour = "red", size = "2x4", orientation = "horizontal", relation = "touching the right side of the white brick, its top edge level with the white brick's top end" },
+]
+
+[[frame]]
+id = "f28"
+hands = "none"
+bricks = [
+  { colour = "white", size = "1x6", orientation = "vertical", relation = "upper left; about 1 empty row above it, 4 empty columns on its left" },
+  { colour = "tan", size = "1x6", orientation = "vertical", relation = "below the white brick, touching its bottom end, in the same column" },
+  { colour = "red", size = "2x4", orientation = "horizontal", relation = "touching the right side of the white brick, its top edge level with the white brick's top end" },
+  { colour = "blue", size = "2x4", orientation = "horizontal", relation = "below the red brick, touching it, in the same columns; its left end touches the white brick" },
+]
+
+[[frame]]
+id = "f29"
+hands = "none"
+bricks = [
+  { colour = "white", size = "1x6", orientation = "vertical", relation = "upper left; about 1 empty row above it, 4 empty columns on its left" },
+  { colour = "tan", size = "1x6", orientation = "vertical", relation = "below the white brick, touching its bottom end, in the same column" },
+  { colour = "red", size = "2x4", orientation = "horizontal", relation = "touching the right side of the white brick, its top edge level with the white brick's top end" },
+  { colour = "blue", size = "2x4", orientation = "horizontal", relation = "below the red brick, touching it, in the same columns; its left end touches the white brick" },
+]
+
+[[frame]]
+id = "f30"
+hands = "none"
+hidden = "nothing; the right hand is in the bag to the right of the plate"
+bricks = [
+  { colour = "white", size = "1x6", orientation = "vertical", relation = "upper left; about 1 empty row above it, 4 empty columns on its left" },
+  { colour = "tan", size = "1x6", orientation = "vertical", relation = "below the white brick, touching its bottom end, in the same column" },
+  { colour = "red", size = "2x4", orientation = "horizontal", relation = "touching the right side of the white brick, its top edge level with the white brick's top end" },
+  { colour = "blue", size = "2x4", orientation = "horizontal", relation = "below the red brick, touching it, in the same columns; its left end touches the white brick" },
+]
+
+[[frame]]
+id = "f31"
+hands = "over"
+hidden = "the right part of the plate, under the right hand, which holds a dark grey 2x6 above the plate, not on it"
+bricks = [
+  { colour = "white", size = "1x6", orientation = "vertical", relation = "upper left; about 1 empty row above it, 4 empty columns on its left" },
+  { colour = "tan", size = "1x6", orientation = "vertical", relation = "below the white brick, touching its bottom end, in the same column" },
+  { colour = "red", size = "2x4", orientation = "horizontal", relation = "touching the right side of the white brick, its top edge level with the white brick's top end" },
+  { colour = "blue", size = "2x4", orientation = "horizontal", relation = "below the red brick, touching it, in the same columns; its left end touches the white brick" },
+]
+
+[[frame]]
+id = "f32"
+hands = "on"
+hidden = "the right end of the dark grey brick, under the right hand as it is placed; the left hand rests on the upper left of the plate beside the white brick"
+bricks = [
+  { colour = "white", size = "1x6", orientation = "vertical", relation = "upper left; about 1 empty row above it, 4 empty columns on its left" },
+  { colour = "tan", size = "1x6", orientation = "vertical", relation = "below the white brick, touching its bottom end, in the same column" },
+  { colour = "red", size = "2x4", orientation = "horizontal", relation = "touching the right side of the white brick, its top edge level with the white brick's top end" },
+  { colour = "blue", size = "2x4", orientation = "horizontal", relation = "below the red brick, touching it, in the same columns; its left end touches the white brick" },
+  { colour = "dark grey", size = "can't tell", orientation = "horizontal", relation = "at the bottom edge, below the tan brick's bottom end; the rest can't be told" },
+]
+
+[[frame]]
+id = "f33"
+hands = "none"
+hidden = "nothing; the left hand is beside the plate"
+bricks = [
+  { colour = "white", size = "1x6", orientation = "vertical", relation = "upper left; about 1 empty row above it, 4 empty columns on its left" },
+  { colour = "tan", size = "1x6", orientation = "vertical", relation = "below the white brick, touching its bottom end, in the same column" },
+  { colour = "red", size = "2x4", orientation = "horizontal", relation = "touching the right side of the white brick, its top edge level with the white brick's top end" },
+  { colour = "blue", size = "2x4", orientation = "horizontal", relation = "below the red brick, touching it, in the same columns; its left end touches the white brick" },
+  { colour = "dark grey", size = "2x6", orientation = "horizontal", relation = "at the bottom edge, its top long side touching the tan brick's bottom end; 1 to 2 of its columns left of the tan brick and 3 to 4 right" },
+]
+
+[[frame]]
+id = "f34"
+hands = "none"
+hidden = "nothing; the left hand is beside the plate"
+bricks = [
+  { colour = "white", size = "1x6", orientation = "vertical", relation = "upper left; about 1 empty row above it, 4 empty columns on its left" },
+  { colour = "tan", size = "1x6", orientation = "vertical", relation = "below the white brick, touching its bottom end, in the same column" },
+  { colour = "red", size = "2x4", orientation = "horizontal", relation = "touching the right side of the white brick, its top edge level with the white brick's top end" },
+  { colour = "blue", size = "2x4", orientation = "horizontal", relation = "below the red brick, touching it, in the same columns; its left end touches the white brick" },
+  { colour = "dark grey", size = "2x6", orientation = "horizontal", relation = "at the bottom edge, its top long side touching the tan brick's bottom end; 1 to 2 of its columns left of the tan brick and 3 to 4 right" },
+]
+
+[[frame]]
+id = "f35"
+hands = "none"
+hidden = "nothing; the left hand is beside the plate"
+bricks = [
+  { colour = "white", size = "1x6", orientation = "vertical", relation = "upper left; about 1 empty row above it, 4 empty columns on its left" },
+  { colour = "tan", size = "1x6", orientation = "vertical", relation = "below the white brick, touching its bottom end, in the same column" },
+  { colour = "red", size = "2x4", orientation = "horizontal", relation = "touching the right side of the white brick, its top edge level with the white brick's top end" },
+  { colour = "blue", size = "2x4", orientation = "horizontal", relation = "below the red brick, touching it, in the same columns; its left end touches the white brick" },
+  { colour = "dark grey", size = "2x6", orientation = "horizontal", relation = "at the bottom edge, its top long side touching the tan brick's bottom end; 1 to 2 of its columns left of the tan brick and 3 to 4 right" },
+]
+
+[[frame]]
+id = "f36"
+hands = "on"
+hidden = "the right end of the dark grey brick, under the right hand as it is moved; the left hand's fingers rest on the top end of the white brick"
+bricks = [
+  { colour = "white", size = "can't tell", orientation = "vertical", relation = "upper left; its top end under the fingers" },
+  { colour = "tan", size = "1x6", orientation = "vertical", relation = "below the white brick, touching its bottom end, in the same column" },
+  { colour = "red", size = "2x4", orientation = "horizontal", relation = "touching the right side of the white brick, its top edge level with the white brick's top end" },
+  { colour = "blue", size = "2x4", orientation = "horizontal", relation = "below the red brick, touching it, in the same columns; its left end touches the white brick" },
+  { colour = "dark grey", size = "can't tell", orientation = "horizontal", relation = "at the bottom edge, below the tan brick's bottom end; the rest can't be told" },
+]
+
+[[frame]]
+id = "f37"
+hands = "on"
+hidden = "the lower right of the plate and the right end of the dark grey brick, under the right hand"
+bricks = [
+  { colour = "white", size = "1x6", orientation = "vertical", relation = "upper left; about 1 empty row above it, 4 empty columns on its left" },
+  { colour = "tan", size = "1x6", orientation = "vertical", relation = "below the white brick, touching its bottom end, in the same column" },
+  { colour = "red", size = "2x4", orientation = "horizontal", relation = "touching the right side of the white brick, its top edge level with the white brick's top end" },
+  { colour = "blue", size = "2x4", orientation = "horizontal", relation = "below the red brick, touching it, in the same columns; its left end touches the white brick" },
+  { colour = "dark grey", size = "can't tell", orientation = "horizontal", relation = "at the bottom edge below the tan brick's bottom end, its left end near the plate's left edge; the rest can't be told" },
+]
+
+[[frame]]
+id = "f38"
+hands = "none"
+bricks = [
+  { colour = "white", size = "1x6", orientation = "vertical", relation = "upper left; about 1 empty row above it, 4 empty columns on its left" },
+  { colour = "tan", size = "1x6", orientation = "vertical", relation = "below the white brick, touching its bottom end, in the same column" },
+  { colour = "red", size = "2x4", orientation = "horizontal", relation = "touching the right side of the white brick, its top edge level with the white brick's top end" },
+  { colour = "blue", size = "2x4", orientation = "horizontal", relation = "below the red brick, touching it, in the same columns; its left end touches the white brick" },
+  { colour = "dark grey", size = "2x6", orientation = "horizontal", relation = "at the bottom edge, its top long side touching the tan brick's bottom end; 3 to 4 of its columns left of the tan brick and 1 to 2 right, its left end at or near the plate's left edge" },
+]
+
+[[frame]]
+id = "f39"
+hands = "none"
+bricks = [
+  { colour = "white", size = "1x6", orientation = "vertical", relation = "upper left; about 1 empty row above it, 4 empty columns on its left" },
+  { colour = "tan", size = "1x6", orientation = "vertical", relation = "below the white brick, touching its bottom end, in the same column" },
+  { colour = "red", size = "2x4", orientation = "horizontal", relation = "touching the right side of the white brick, its top edge level with the white brick's top end" },
+  { colour = "blue", size = "2x4", orientation = "horizontal", relation = "below the red brick, touching it, in the same columns; its left end touches the white brick" },
+  { colour = "dark grey", size = "2x6", orientation = "horizontal", relation = "at the bottom edge, its top long side touching the tan brick's bottom end; 3 to 4 of its columns left of the tan brick and 1 to 2 right, its left end at or near the plate's left edge" },
+]
