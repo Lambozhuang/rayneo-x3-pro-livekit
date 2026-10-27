@@ -20,6 +20,8 @@ import androidx.navigation.compose.rememberNavController
 import io.livekit.android.LiveKit
 import io.livekit.android.example.voiceassistant.screen.ConnectRoute
 import io.livekit.android.example.voiceassistant.screen.ConnectScreen
+import io.livekit.android.example.voiceassistant.screen.ExposureRoute
+import io.livekit.android.example.voiceassistant.screen.ExposureScreen
 import io.livekit.android.example.voiceassistant.screen.MockRoute
 import io.livekit.android.example.voiceassistant.screen.MockScreen
 import io.livekit.android.example.voiceassistant.screen.VoiceAssistantRoute
@@ -43,10 +45,14 @@ class MainActivity : ComponentActivity() {
 
         // Lets `adb shell am start ... -e token_endpoint <url>` retarget the app
         // without a rebuild (TokenEndpoint), `-e task <name>` preselect a build (Tasks),
-        // and `--ez record true` record the calls (Recording; off on any launch without it).
+        // `--ez record true` record the calls (Recording; off on any launch without it), and `--ei exposure <n>`
+        // set the camera's exposure compensation (Exposure; the camera's own 0 without it).
         TokenEndpoint.applyIntent(this, intent)
         Tasks.applyIntent(this, intent)
         Recording.applyIntent(intent)
+        Exposure.applyIntent(intent)
+        // The camera opens through CameraX from here on, so the compensation can be set on it; before any track.
+        Exposure.install(this)
 
         // The glasses' screen-off timeout is 30 s and cannot be raised by an
         // app. When it fires, SystemUI puts a clock overlay over everything,
@@ -59,8 +65,10 @@ class MainActivity : ComponentActivity() {
 
         // The app opens on the connect screen, which is the build picker: swipe
         // to choose, tap to start. The call returns there when it ends.
-        // `--ez mock true` opens it on the mock call screen instead (MockScreen), to look at the layout without a server.
+        // `--ez mock true` opens it on the mock call screen instead (MockScreen), to look at the layout without a server;
+        // `--ez exposure_sweep true` on the exposure sweep (ExposureScreen), which photographs the desk and leaves.
         val mock = intent.getBooleanExtra("mock", false)
+        val sweep = intent.getBooleanExtra(Exposure.EXTRA_SWEEP, false)
         setContent {
             val navController = rememberNavController().also { this.navController = it }
             LiveKitVoiceAssistantExampleTheme {
@@ -73,9 +81,11 @@ class MainActivity : ComponentActivity() {
                 // each eye and none of the inner one. The pair would stop being
                 // mirror-symmetric. Per-eye margins belong to Eyes, which
                 // applies them to each panel evenly.
-                NavHost(navController, startDestination = if (mock) MockRoute else ConnectRoute) {
+                val start: Any = if (sweep) ExposureRoute else if (mock) MockRoute else ConnectRoute
+                NavHost(navController, startDestination = start) {
                     composable<ConnectRoute> { ConnectScreen() }
                     composable<MockRoute> { MockScreen() }
+                    composable<ExposureRoute> { ExposureScreen(onDone = { finish() }) }
 
                     composable<VoiceAssistantRoute> {
                         val viewModel = viewModel<VoiceAssistantViewModel>()
@@ -106,6 +116,7 @@ class MainActivity : ComponentActivity() {
         TokenEndpoint.applyIntent(this, intent)
         Tasks.applyIntent(this, intent)
         Recording.applyIntent(intent)
+        Exposure.applyIntent(intent)
         if (onConnect) lifecycleScope.launch { Tasks.load(this@MainActivity, TokenEndpoint.get(this@MainActivity)) }
     }
 

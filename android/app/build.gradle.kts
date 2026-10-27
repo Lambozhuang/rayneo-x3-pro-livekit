@@ -71,6 +71,7 @@ dependencies {
 
     implementation(libs.livekit.lib)
     implementation(libs.livekit.components)
+    implementation(libs.livekit.camerax)
 
     implementation(libs.accompanist.permissions)
     implementation(libs.androidx.core.ktx)

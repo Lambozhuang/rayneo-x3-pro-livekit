@@ -24,6 +24,7 @@ import io.livekit.android.compose.state.rememberLocalMedia
 import io.livekit.android.compose.state.rememberSession
 import io.livekit.android.compose.state.rememberSessionMessages
 import io.livekit.android.compose.state.rememberSpeakingParticipants
+import io.livekit.android.example.voiceassistant.Exposure
 import io.livekit.android.example.voiceassistant.FrameDump
 import io.livekit.android.example.voiceassistant.LinkStatsLog
 import io.livekit.android.example.voiceassistant.Recording
@@ -110,12 +111,26 @@ fun VoiceAssistant(
 
     SessionScope(session = session) { session ->
 
-        // Start the session when we have at least microphone permissions.
+        val room = requireRoom()
+
+        // The camera first, the room second. The camera is opened here, before anything connects, so that its
+        // exposure has settled and this launch's compensation is on it (Exposure.apply) by the time the agent sees
+        // a frame; the track is published once the room is connected, below. A compensation set while the
+        // camera comes up is taken against its dark start (Exposure).
+        var cameraTrack by remember { mutableStateOf<LocalVideoTrack?>(null) }
+
+        // Start the session when we have the permissions.
         // Permission removals kill the app, so this is a one-way transition.
-        LaunchedEffect(canEnableMic) {
-            if (!canEnableMic) {
+        LaunchedEffect(canEnableMic, canEnableVideo) {
+            if (!canEnableMic || !canEnableVideo) {
                 return@LaunchedEffect
             }
+
+            val track = room.localParticipant.createVideoTrack(options = room.localParticipant.videoTrackCaptureDefaults)
+            track.startCapture()
+            cameraTrack = track
+            Exposure.apply(track)
+            Log.i(CALL_TAG, "camera ready at=${System.currentTimeMillis()}")
 
             // No ICE overrides here on purpose. `adb reverse` cannot carry WebRTC
             // media at all, and ICE-TCP does not rescue it — see the README section
@@ -136,10 +151,10 @@ fun VoiceAssistant(
             if (result.isFailure) {
                 Toast.makeText(context, "Error connecting to the session.", Toast.LENGTH_SHORT).show()
                 onEndCall()
+                return@LaunchedEffect
             }
+            room.localParticipant.publishVideoTrack(track)
         }
-
-        val room = requireRoom()
 
         // End the session when leaving the screen. This is also where every call
         // ends in the glasses' log, whichever side ended it: a double tap leaves
@@ -148,6 +163,7 @@ fun VoiceAssistant(
             onDispose {
                 Log.i(CALL_TAG, "call ends room=${room.name} at=${System.currentTimeMillis()}")
                 room.name?.let { Recording.end(it) }
+                cameraTrack?.let { runCatching { it.stopCapture() } }  // opened before the room, so closed by hand too
                 session.end()
             }
         }
@@ -166,11 +182,10 @@ fun VoiceAssistant(
         }
         val localMedia = rememberLocalMedia()
 
-        // Neither of these starts capture until the session is fully connected:
+        // The mic does not start until the session is fully connected:
         // `waitUntilConnected()` does not return while the peer connections are
-        // still negotiating, so with an unreachable SFU both effects park here
-        // forever and the mic and camera are never opened. See the README
-        // section on capture on the glasses.
+        // still negotiating, so with an unreachable SFU it parks here forever
+        // and the mic is never opened. See the README section on capture on the glasses.
         //
         // The mic additionally waits for the agent to report "listening", so
         // that nothing said reaches a room nobody is subscribed to. Until then
@@ -185,18 +200,12 @@ fun VoiceAssistant(
             localMedia.setMicrophoneEnabled(canEnableMic)
         }
 
-        LaunchedEffect(canEnableVideo) {
-            session.waitUntilConnected()
-            localMedia.setCameraEnabled(canEnableVideo)
-        }
-
-        val cameraTrack = localMedia.cameraTrack?.publication?.track as? LocalVideoTrack
         val micTrack = localMedia.microphoneTrack?.publication?.track as? LocalAudioTrack
         val agentAudio = agent.audioTrack?.publication?.track as? RemoteAudioTrack
 
         // The link as WebRTC measures it here, one line per stream every few seconds. See LinkStatsLog.
         LaunchedEffect(cameraTrack) {
-            if (cameraTrack != null) LinkStatsLog.upVideo(cameraTrack)
+            cameraTrack?.let { LinkStatsLog.upVideo(it) }
         }
         LaunchedEffect(micTrack) {
             if (micTrack != null) LinkStatsLog.upAudio(micTrack)
@@ -219,9 +228,11 @@ fun VoiceAssistant(
         }
 
         // The call to disk when the app was launched with --ez record true: the camera, the mic and the
-        // agent's voice, each from its track as it is attached. See Recording.
-        DisposableEffect(cameraTrack) {
-            val rec = cameraTrack?.let { room.name?.let { r -> Recording.forCall(context, r, viewModel.eglContext) } }
+        // agent's voice, each from its track as it is attached. See Recording. The camera track exists before
+        // the room is connected and has a name, so its effect also waits for the connection.
+        val connected = session.isConnected
+        DisposableEffect(cameraTrack, connected) {
+            val rec = if (connected) cameraTrack?.let { room.name?.let { r -> Recording.forCall(context, r, viewModel.eglContext) } } else null
             if (rec != null) cameraTrack!!.addRenderer(rec.video)
             onDispose { if (rec != null) cameraTrack!!.removeRenderer(rec.video) }
         }

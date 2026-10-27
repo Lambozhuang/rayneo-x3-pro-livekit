@@ -5,6 +5,7 @@ import android.graphics.ImageFormat
 import android.graphics.Rect
 import android.graphics.YuvImage
 import android.util.Log
+import java.io.ByteArrayOutputStream
 import java.io.File
 import java.io.FileOutputStream
 import java.util.concurrent.Executors
@@ -60,22 +61,7 @@ class FrameDump private constructor(private val dir: File) : VideoSink {
         for (row in 0 until h) { i420.dataY.position(row * i420.strideY); i420.dataY.get(raw, r, w); r += w }
         for (row in 0 until ch0) { i420.dataU.position(row * i420.strideU); i420.dataU.get(raw, r, cw0); r += cw0 }
         for (row in 0 until ch0) { i420.dataV.position(row * i420.strideV); i420.dataV.get(raw, r, cw0); r += cw0 }
-        val nv21 = ByteArray(w * h * 3 / 2)
-        // Y plane, honouring stride.
-        for (row in 0 until h) {
-            i420.dataY.position(row * i420.strideY)
-            i420.dataY.get(nv21, row * w, w)
-        }
-        // NV21 is interleaved VU at quarter size.
-        val cw = (w + 1) / 2
-        val ch = (h + 1) / 2
-        var o = w * h
-        for (row in 0 until ch) {
-            for (col in 0 until cw) {
-                nv21[o++] = i420.dataV.get(row * i420.strideV + col)
-                nv21[o++] = i420.dataU.get(row * i420.strideU + col)
-            }
-        }
+        val nv21 = nv21Of(i420)
         i420.release()
         io.execute {
             val file = File(dir, "%03d-%dx%d-rot%d.jpg".format(n, w, h, rotation))
@@ -104,4 +90,42 @@ class FrameDump private constructor(private val dir: File) : VideoSink {
             return FrameDump(dir)
         }
     }
+}
+
+/** The planes of an I420 buffer as NV21, the layout [YuvImage] compresses: Y honouring the stride, then VU interleaved. */
+private fun nv21Of(i420: VideoFrame.I420Buffer): ByteArray {
+    val w = i420.width
+    val h = i420.height
+    val nv21 = ByteArray(w * h * 3 / 2)
+    for (row in 0 until h) {
+        i420.dataY.position(row * i420.strideY)
+        i420.dataY.get(nv21, row * w, w)
+    }
+    val cw = (w + 1) / 2
+    val ch = (h + 1) / 2
+    var o = w * h
+    for (row in 0 until ch) {
+        for (col in 0 until cw) {
+            nv21[o++] = i420.dataV.get(row * i420.strideV + col)
+            nv21[o++] = i420.dataU.get(row * i420.strideU + col)
+        }
+    }
+    return nv21
+}
+
+/**
+ * The frame's buffer as a JPEG through the I420 conversion, unrotated; the caller keeps the rotation. Call it while the
+ * frame is alive. On the X3 Pro with the CameraX capturer (Exposure) this conversion smears the frame along one axis
+ * while drawing the same texture through GL is right, so a picture that has to be true to the call is drawn, as
+ * Exposure.sweep does.
+ */
+fun VideoFrame.toJpeg(quality: Int): ByteArray {
+    val i420 = buffer.toI420() ?: error("the frame has no I420 view")
+    val w = i420.width
+    val h = i420.height
+    val nv21 = nv21Of(i420)
+    i420.release()
+    return ByteArrayOutputStream().also {
+        YuvImage(nv21, ImageFormat.NV21, w, h, null).compressToJpeg(Rect(0, 0, w, h), quality, it)
+    }.toByteArray()
 }

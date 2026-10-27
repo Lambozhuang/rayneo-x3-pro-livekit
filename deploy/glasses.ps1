@@ -8,6 +8,10 @@
 #                                                 any launch without it turns recording off
 #   .\deploy\glasses.ps1 -Mock                    open the app on the mock call screen (MockScreen.kt): the ladder at
 #                                                 step 3 with a fixed conversation, no server needed; double tap leaves
+#   .\deploy\glasses.ps1 -Exposure -6             set the camera's exposure compensation for this launch's calls, in
+#                                                 sixths of an EV, -12..12 (Exposure.kt); a launch without it uses 0
+#   .\deploy\glasses.ps1 -ExposureSweep           record the desk as -Record would, 5 s at each of the compensations
+#                                                 0, -2, -4 and -6, and pull it into logs\exposure-<time>\; no server
 #   .\deploy\glasses.ps1 -Log                     after launching, tail the touchpad/gesture log (Ctrl+C to stop)
 #   .\deploy\glasses.ps1 -Stop                    kill the app on the glasses (same as double-tapping out of it)
 #   .\deploy\glasses.ps1 -RestoreSleep            put RayNeo's deep suspend back (launch turns it off, see below)
@@ -26,6 +30,8 @@ param(
     [string]$Task = "",           # a build's name (backend/agent/guides/<name>) to preselect
     [switch]$Record,              # record every call of this launch: camera as the call sees it, mic, agent voice
     [switch]$Mock,                # open on the static mock of the call screen instead of the build picker
+    [int]$Exposure = [int]::MinValue,  # exposure compensation index for the calls, -12..12; unset leaves the camera at 0
+    [switch]$ExposureSweep,       # record the desk at several compensations, pull the recording, then leave
     [switch]$Install,
     [switch]$Log,
     [switch]$Stop,
@@ -108,13 +114,34 @@ $extras = @("-e", "token_endpoint", $Endpoint)
 if ($Credential) { $extras += @("-e", "credential", $Credential) }
 if ($Task) { $extras += @("-e", "task", $Task) }
 if ($Record) { $extras += @("--ez", "record", "true") }
-if ($Mock) {
+if ($Exposure -ne [int]::MinValue) {
+    if ($Exposure -lt -12 -or $Exposure -gt 12) { throw "-Exposure takes -12..12 (sixths of an EV)" }
+    $extras += @("--ei", "exposure", $Exposure)
+}
+if ($Mock -or $ExposureSweep) {
     # The start screen is chosen in onCreate, so a running instance has to go first.
     & adb shell am force-stop $Pkg
-    $extras += @("--ez", "mock", "true")
+    # The last sweep's done marker would end the wait below before this sweep has begun.
+    if ($ExposureSweep) { & adb shell rm -rf "/sdcard/Android/data/$Pkg/files/exposure" }
+    $extras += if ($Mock) { @("--ez", "mock", "true") } else { @("--ez", "exposure_sweep", "true") }
 }
 & adb shell am start -n $Activity @extras | Select-Object -Last 1
-Write-Host "launched -> $(if ($Mock) { 'mock call screen' } else { $Endpoint })$(if ($Record) { ', recording' })"
+Write-Host "launched -> $(if ($Mock) { 'mock call screen' } elseif ($ExposureSweep) { 'exposure sweep' } else { $Endpoint })$(if ($Record) { ', recording' })$(if ($Exposure -ne [int]::MinValue) { ", exposure $Exposure" })"
+
+if ($ExposureSweep) {
+    # The app writes exposure/done when the recording is closed; the sweep holds each of four compensations 5 s.
+    $remote = "/sdcard/Android/data/$Pkg/files/exposure"
+    $deadline = (Get-Date).AddSeconds(150)
+    while ((& adb shell "ls $remote/done 2>/dev/null") -notmatch "done") {
+        if ((Get-Date) -gt $deadline) { throw "the sweep did not finish in 150 s; see adb logcat -s rayneo-camera" }
+        Start-Sleep -Seconds 2
+    }
+    # The storage is behind FUSE: a listing right after the marker appears has been seen without the newest files.
+    Start-Sleep -Seconds 2
+    $local = Join-Path $Root ("logs\exposure-" + (Get-Date -Format "yyyyMMdd-HHmmss"))
+    & adb pull $remote $local | Select-Object -Last 1
+    Write-Host "recording in $local (video.mp4; camera.txt says which second each compensation starts at)"
+}
 
 if ($Log) {
     # The LiveKit SDK logs at DEBUG and rolls the default 256 KB buffer in
