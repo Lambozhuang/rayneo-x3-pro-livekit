@@ -4,11 +4,11 @@ white background.
 Hand-laid-out SVG (no diagram engine), sized tight around its content so it can
 be dropped onto a slide at any scale. Same look as make_gpt_live_agent.py.
 
-Icons come from docs/icons/, fetched from simple-icons (brand marks, CC0) and
+Icons come from docs/diagrams/icons/, fetched from simple-icons (brand marks, CC0) and
 lucide (the glasses glyph, ISC); their inner markup is inlined so the SVG is
 self-contained.
 
-    python docs/make_gpt_live_overview.py
+    python docs/diagrams/make_gpt_live_overview.py
 
 The PNG is a headless-Chrome screenshot, so it renders identically everywhere;
 README links it and keeps the SVG as source.

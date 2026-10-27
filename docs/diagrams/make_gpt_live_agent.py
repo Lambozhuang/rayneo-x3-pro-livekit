@@ -8,7 +8,7 @@ against the figure's width and long explanations wrap rather than widen it. Same
 make_gpt_live_overview.py (hand-laid-out SVG, headless-Chrome 2x PNG); the helpers are copied rather than
 imported because that script renders on import.
 
-    python docs/make_gpt_live_agent.py
+    python docs/diagrams/make_gpt_live_agent.py
 """
 
 import os
