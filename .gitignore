@@ -20,5 +20,8 @@ docs/papers/
 # scratch: PoC scripts and their output, not part of the project
 tmp/
 
+# what a small study generates from logs/; its code, labels and written result stay in git (eval/README.md)
+eval/*/out/
+
 # packet captures taken on the lab's netem bridge and the scripts that read them, kept on this machine only
 traffic/

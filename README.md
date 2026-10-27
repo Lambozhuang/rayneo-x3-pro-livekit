@@ -201,6 +201,7 @@ tasks/                  the task sheet (sheet.html) and its bricks
 deploy/                 setup.sh, backend.py, livekit.lab.yaml, glasses.ps1, watch.py, pull_run.py, report.py
 docs/                   TASK.md (the experiment task), TODO.md, notes-gpt-live-official.md,
                         research/, the figures and their scripts
+eval/                   small offline studies, one directory per question (eval/README.md)
 logs/                   records pulled from the lab (not in git)
 ```
 
