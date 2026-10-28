@@ -79,12 +79,12 @@ fun VoiceAssistantScreen(
  * chat box, control bar, screenshare and camera-flip are gone, and what is
  * left is what a wearer actually needs while talking:
  *
- *   top           who has the floor (you / listening / thinking / speaking)
- *   left half     what the camera sees, or the step's picture the wearer asked for, then the build's steps,
- *                 the current one highlighted and kept in view
- *   right half    the conversation, newest at the bottom, what the model heard in green
- * Each half scrolls on its own when it is longer than the screen, driven by
- * the content (the current step, the newest line): the glasses have no pointer.
+ *   top           the build's title
+ *   left column   the steps, all five in view, the current one highlighted; what the camera sees at the bottom
+ *   right column  who has the floor (you / listening / thinking / speaking) in a framed head, the agent's
+ *                 lines, newest at the bottom and shown whole or not at all, the agent's picture when the
+ *                 wearer asked for one, and what the model heard the wearer say along the bottom
+ * Nothing scrolls: the glasses have no pointer, so what does not fit is left out, never half shown.
  *
  * Mic and camera are always on. Toggling them was the starter's idea of a
  * feature; here it is a way to silently break the assistant. The camera's view

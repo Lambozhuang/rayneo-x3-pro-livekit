@@ -16,7 +16,7 @@ The agent has three architectures: GPT-Live with a separate vision model, which 
 
 There are two machines: the glasses, and a server on the same Wi-Fi network. The glasses talk only to the server; only the server talks to the model APIs (OpenAI, Anthropic, Google).
 
-The glasses run the app in `android/`: it sends the mic and camera to the server, plays the assistant's speech and shows the steps, what the camera sees (the bottom square of the frame, which is what the vision model gets) and, when the wearer asks for one, a picture the agent sends in the camera's place. It holds no model keys.
+The glasses run the app in `android/`: it sends the mic and camera to the server, plays the assistant's speech and shows the steps, what the camera sees (the bottom square of the frame, which is what the vision model gets) and, when the wearer asks for one, a picture the agent sends, under the assistant's words. It holds no model keys.
 
 The server runs three programs:
 
@@ -126,7 +126,7 @@ python deploy/backend.py lab down
 | `watch.py` | prints the call as it happens, from the agent's log: what each side said, the progress, the timings, the warnings | `docker compose logs -f --no-log-prefix agent \| python3 ../deploy/watch.py [-v]`; `-v` also shows the lines it drops |
 | `pull_run.py` | copies a call's record from the lab PC into `logs/` and runs `report.py` on it | `python deploy/pull_run.py [<call>]`; the newest call without an argument |
 | `report.py` | writes a call's record as one web page, `report.html` in the record's directory | `python deploy/report.py logs/<call>` |
-| `glasses.ps1` | builds, installs, launches or stops the app on the glasses; `-Mock` opens it on a fixed call screen, the ladder at step 3, to look at the layout without a server | `.\deploy\glasses.ps1 -Ip <server LAN IP> [-Install] [-Task <build>] [-Record] [-Mock] [-Stop] [-RestoreSleep]` |
+| `glasses.ps1` | builds, installs, launches or stops the app on the glasses; `-Mock` opens it on a fixed call screen, the gate at step 3 with a picture coming and going, to look at the layout without a server | `.\deploy\glasses.ps1 -Ip <server LAN IP> [-Install] [-Task <build>] [-Record] [-Mock] [-Stop] [-RestoreSleep]` |
 
 ## Media and network settings
 

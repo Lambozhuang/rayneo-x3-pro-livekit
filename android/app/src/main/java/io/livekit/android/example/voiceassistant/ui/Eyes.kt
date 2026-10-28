@@ -36,8 +36,11 @@ import androidx.compose.ui.unit.dp
  *
  * The inset is RayNeo's: they ask for a black margin of at least 16-30 px
  * around the edges, because the outer edges of each panel distort and the
- * parallax there is uncomfortable to fuse. Black is not a cosmetic choice
- * either — see the theme.
+ * parallax there is uncomfortable to fuse. It is kept at the top and the
+ * bottom only: looked at on the glasses on 2026-10-28, the left and right
+ * edges show no edge at all, and the width is what the layout is short of, so
+ * the content runs to the sides. Black is not a cosmetic choice either — see
+ * the theme.
  *
  * One thing to know when checking work with `adb shell screencap`: the capture
  * is not the surface we laid out. Measured on device, each half comes back
@@ -63,7 +66,7 @@ fun Eyes(content: @Composable () -> Unit) {
                 modifier = Modifier
                     .weight(1f)
                     .fillMaxHeight()
-                    .padding(EYE_MARGIN)
+                    .padding(vertical = EYE_MARGIN)
             ) {
                 content()
             }
@@ -71,5 +74,5 @@ fun Eyes(content: @Composable () -> Unit) {
     }
 }
 
-/** Middle of RayNeo's recommended 16-30 px safe-area margin. */
+/** Middle of RayNeo's recommended 16-30 px safe-area margin, above and below the content. */
 private val EYE_MARGIN = 24.dp

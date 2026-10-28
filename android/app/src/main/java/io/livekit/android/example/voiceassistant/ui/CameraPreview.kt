@@ -1,14 +1,11 @@
 package io.livekit.android.example.voiceassistant.ui
 
-import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Box
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clipToBounds
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.layout
 import androidx.compose.ui.unit.Constraints
-import androidx.compose.ui.unit.dp
 import io.livekit.android.compose.ui.RendererType
 import io.livekit.android.compose.ui.ScaleType
 import io.livekit.android.compose.ui.VideoTrackView
@@ -19,7 +16,8 @@ import io.livekit.android.room.track.LocalVideoTrack
  * wearer (frames.py `bottom_square`). The whole frame is drawn at the square's width, 16:9 tall, with its bottom edge
  * on the square's bottom edge and the rest clipped, so the wall and the far desk in the upper part fall outside. The
  * renderer is a TextureView: Compose cannot clip a SurfaceView. Eyes composes this twice, so two renderers draw the
- * same track; each binds to it on its own. Until the camera track exists the square keeps its outline.
+ * same track; each binds to it on its own. Until the camera track exists the square stays empty inside the frame
+ * CallLayout draws around it.
  *
  * The placing is done in a layout modifier, not with `requiredSize` and an alignment: a child that reports a size
  * larger than its constraints is coerced to them and centred by Compose whatever alignment it was given, which
@@ -32,7 +30,7 @@ import io.livekit.android.room.track.LocalVideoTrack
 @Composable
 fun CameraPreview(track: LocalVideoTrack?, modifier: Modifier = Modifier) {
     if (track == null) {
-        Box(modifier = modifier.border(1.dp, Color(0xFF333333)))
+        Box(modifier = modifier)
         return
     }
     Box(modifier = modifier.clipToBounds()) {

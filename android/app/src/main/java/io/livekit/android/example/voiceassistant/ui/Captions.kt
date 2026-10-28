@@ -1,18 +1,13 @@
 package io.livekit.android.example.voiceassistant.ui
 
-import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.snapshotFlow
-import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clipToBounds
+import androidx.compose.ui.layout.Layout
+import androidx.compose.ui.layout.Placeable
+import androidx.compose.ui.unit.Constraints
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -44,11 +39,12 @@ import io.livekit.android.room.participant.Participant
 
 /**
  * The agent's lines, newest at the bottom and brightest. Every line is shown
- * whole. Short, the column sits at the bottom of its space; longer than the
- * space, it scrolls and stays pinned to the newest line as it grows (there
- * is no pointer, so no one scrolls back). The scroll position is per eye
- * (Eyes composes this twice); both copies follow the same bottom, so they
- * agree. At most [MAX_ITEMS] lines are kept.
+ * whole or not at all: the newest sits at the bottom of the space, the older
+ * ones stack up above it as long as they fit, and the first that would be
+ * cut is left out, so no line is ever half visible; only the newest line, when
+ * it alone is taller than the space, is cut at its top, since its newest words
+ * are at its bottom. Nothing scrolls (there is no pointer, so no one scrolls
+ * back). At most [MAX_ITEMS] lines are kept.
  *
  * @param wearerIdentity the local participant; everything else is the agent.
  */
@@ -61,31 +57,44 @@ fun AgentLines(messages: List<ReceivedMessage>, wearerIdentity: Participant.Iden
 /** The agent's lines as text, laid out as [AgentLines] lays them out; the mock screen feeds it fixed lines. */
 @Composable
 fun AgentLinesView(lines: List<String>, modifier: Modifier = Modifier) {
-    val scroll = rememberScrollState()
-    // Whenever the content grows (a new line, a longer one), go to the bottom.
-    LaunchedEffect(scroll) {
-        snapshotFlow { scroll.maxValue }.collect { scroll.scrollTo(it) }
-    }
-    Box(modifier = modifier) {
-        Column(
-            modifier = Modifier
-                .align(Alignment.BottomStart)
-                .fillMaxWidth()
-                .verticalScroll(scroll, enabled = false),
-            verticalArrangement = Arrangement.spacedBy(8.dp),
-        ) {
+    Layout(
+        modifier = modifier.clipToBounds(),
+        content = {
             lines.forEachIndexed { i, line ->
                 val newest = i == lines.lastIndex
                 Text(
                     text = line,
                     color = if (newest) Color(0xFFEEEEEE) else Color(0xFF8A8A8A),
-                    fontSize = if (newest) 22.sp else 18.sp,
-                    lineHeight = if (newest) 30.sp else 24.sp,
+                    fontSize = if (newest) 20.sp else 16.sp,
+                    lineHeight = if (newest) 26.sp else 22.sp,
                 )
+            }
+        },
+    ) { measurables, constraints ->
+        val gap = LINE_GAP.roundToPx()
+        val placeables = measurables.map { it.measure(constraints.copy(minHeight = 0, maxHeight = Constraints.Infinity)) }
+        // From the newest upward: the newest always, each older one only if it fits whole.
+        val shown = mutableListOf<Placeable>()
+        var used = 0
+        for (p in placeables.asReversed()) {
+            val need = p.height + if (shown.isEmpty()) 0 else gap
+            if (shown.isNotEmpty() && used + need > constraints.maxHeight) break
+            used += need
+            shown.add(p)
+        }
+        layout(constraints.maxWidth, constraints.maxHeight) {
+            var y = constraints.maxHeight
+            for (p in shown) {
+                y -= p.height
+                p.placeRelative(0, y)
+                y -= gap
             }
         }
     }
 }
+
+/** Space between two of the agent's lines. */
+private val LINE_GAP = 8.dp
 
 /**
  * What the model heard the wearer say, on one line, in green. Speech
@@ -110,8 +119,8 @@ fun WearerLineView(text: String, modifier: Modifier = Modifier) {
     Text(
         text = if (text.isEmpty()) " " else text,
         color = Color(0xFF8CE99A),
-        fontSize = 22.sp,
-        lineHeight = 30.sp,
+        fontSize = 20.sp,
+        lineHeight = 26.sp,
         maxLines = 1,
         softWrap = false,
         overflow = TextOverflow.StartEllipsis,
