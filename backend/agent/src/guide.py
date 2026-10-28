@@ -94,6 +94,7 @@ class Build:
     step: int = 0  # index of the current step; len(steps) once finished
     started: float = field(default_factory=time.monotonic)
     step_started: float = field(default_factory=time.monotonic)
+    picture: int = 0  # the step whose picture the glasses show, numbered as the wearer counts; 0 shows the camera
 
     @property
     def finished(self) -> bool:
@@ -102,10 +103,11 @@ class Build:
     def attributes(self) -> dict[str, str]:
         """The run as participant attributes, for the list and the step's picture on the glasses: the title, every
         step's name, newline-separated, every step's brick as drawn, one per line as `#rrggbb col0 row0 col1 row1` with
-        `round` appended for a round plate, the plate's side in studs, and the index of the current step (equal to the
-        count once finished). Only the index changes during a call; the glasses draw the bricks up to it. Attributes
-        ride the signalling channel and are re-sent after a reconnect, which a data message is not, so a wearer who
-        dropped out for a while still sees the right step."""
+        `round` appended for a round plate, the plate's side in studs, the index of the current step (equal to the
+        count once finished), and the number of the step whose picture the glasses show (0: none, the square shows
+        the camera). Only the index and the picture change during a call; the glasses draw the bricks up to the
+        picture's step. Attributes ride the signalling channel and are re-sent after a reconnect, which a data
+        message is not, so a wearer who dropped out for a while still sees the right step."""
         return {
             "rayneo.build.title": self.guide.title,
             "rayneo.build.steps": "\n".join(s.name for s in self.guide.steps),
@@ -114,23 +116,30 @@ class Build:
             ),
             "rayneo.build.plate": str(self.guide.plate),
             "rayneo.build.step": str(self.step),
+            "rayneo.build.picture": str(self.picture),
         }
 
     def where(self) -> str:
-        """The recorded progress, as a model is told it."""
+        """The recorded progress and what the glasses show, as a model is told it."""
         total = len(self.guide.steps)
+        glasses = (f"the glasses show the picture of step {self.picture}" if self.picture else
+                   "the glasses show the camera's view, no picture")
         if self.finished:
-            return f"all {total} steps recorded as done"
+            return f"all {total} steps recorded as done; {glasses}"
         return (f"{self.step} of {total} steps recorded as done; the wearer is on step {self.step + 1} "
-                f"({self.guide.steps[self.step].brick})")
+                f"({self.guide.steps[self.step].brick}); {glasses}")
 
     def set_step(self, step: int) -> bool:
         """Move to step index `step` (0-based; len(steps) = finished) because a
         model judged the build to be there. Every step passed is logged with
-        its time. Returns whether anything changed."""
+        its time, and a picture on the glasses goes away: it was about the step
+        just left. Returns whether anything changed."""
         step = max(0, min(step, len(self.guide.steps)))
         if step == self.step:
             return False
+        if self.picture:
+            logger.info("picture of step %d taken off the glasses: the progress moved", self.picture)
+            self.picture = 0
         n, total = self.step + 1, len(self.guide.steps)
         if step > self.step:
             for k in range(self.step, step):
@@ -145,6 +154,15 @@ class Build:
         else:
             self._log_step_start()
         return True
+
+    def show(self, step: int) -> None:
+        """Put the picture of step `step` (numbered as the wearer counts, 1 to the count) on the glasses, or take
+        the picture away (0), because a model was asked to."""
+        if step:
+            logger.info("picture of step %d/%d put on the glasses", step, len(self.guide.steps))
+        else:
+            logger.info("picture of step %d taken off the glasses", self.picture)
+        self.picture = step
 
     def start(self) -> None:
         """The task begins now: the wearer is in the call. The time it takes is counted from here, not from

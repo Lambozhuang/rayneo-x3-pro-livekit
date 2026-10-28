@@ -11,18 +11,24 @@ or Anthropic's Messages API (BRAIN_PROVIDER), that looks in two ways:
   commentary on no delegation, sent once the next look calls say too), moves the
   build (set_progress), or does nothing, which leaves no trace in its context.
 - A delegation: when the wearer says something that needs eyes ("is this right?",
-  "where does it go?", "what is this?"), GPT-Live delegates; the plugin emits
-  `delegation_created` with an id and, sometimes, the wearer's words not yet in the
-  history. The brain answers from the newest frame scaled to BRAIN_SIDE, at
-  BRAIN_EFFORT, and the reply goes to GPT-Live as commentary on that id
-  ("Camera: ..."), which says it in its own words. A watch look still running is
-  cancelled, and the watch goes on once the answer is out.
+  "where does it go?", "what is this?") or asks to see a step's picture, GPT-Live
+  delegates; the plugin emits `delegation_created` with an id and, sometimes, the
+  wearer's words not yet in the history. The brain answers from the newest frame
+  scaled to BRAIN_SIDE, at BRAIN_EFFORT, and the reply goes to GPT-Live as
+  commentary on that id ("Camera: ..."), which says it in its own words. A watch
+  look still running is cancelled, and the watch goes on once the answer is out.
+
+The picture of a step on the glasses (show) is given only in a delegation, so it
+always follows the wearer's words: they asked for it, or took the voice up on an
+offer the brain made from a watch look (say), as a helper standing beside them
+would offer before pointing at the instructions. It goes away when the progress
+moves (Build.set_step) or when the brain is asked to take it away (show 0).
 
 Both send one request built the same way:
 
-    tools         set_progress(done); a watch look also note(text) and say(text)
+    tools         set_progress(done); a delegation also show(step), a watch look note(text) and say(text)
     instructions  rules for both + the whole task file          fixed, so the prompt cache hits
-    one message   the frame's bottom square, the call so far, the progress recorded, and
+    one message   the frame's bottom square, the call so far, the progress recorded and what the glasses show, and
                   the wearer's latest words (a delegation) or "routine look" (a watch)
 
 The call so far is one line per entry with its time into the call: the wearer's
@@ -30,8 +36,9 @@ and the voice's lines from the chat history, and what the brain wrote earlier
 (its notes, what it had the voice say, its answers to delegations). Photos are
 never kept: what an earlier look saw survives only as what the brain wrote of it.
 Nothing goes back to the model: tool calls are executed here. Only a set_progress
-call moves the build, forward or back (published to the glasses, told to GPT-Live
-in the same commentary); no call, nothing moves.
+call moves the build, forward or back, and only a show call changes the picture
+(both published to the glasses, told to GPT-Live in the same commentary); no call,
+nothing moves.
 
 The newest delegation wins: a call still running when the next arrives is
 cancelled. A delegation that fails or takes longer than BRAIN_TIMEOUT answers "the helper could
@@ -94,7 +101,19 @@ SAY = (
     {"type": "object", "properties": {"text": {"type": "string",
                                                "description": "one or two short sentences of plain facts"}},
      "required": ["text"], "additionalProperties": False})
-ASK_TOOLS = [SET_PROGRESS]
+SHOW = (
+    "show",
+    "Puts the picture of one step on the wearer's glasses, in the square that otherwise shows what the camera sees: "
+    "the plate from above with the bricks of the steps up to that one, the step's own brick outlined. Call it when "
+    "the wearer asks to see a picture or accepts the voice's offer of one, with the step they are on or the step "
+    "their question is about; call it with 0 when they say they do not need it any more. The picture stays until "
+    "the progress moves or you take it away. Your reply should say what to look at in it, since the voice points "
+    "the wearer to the picture in your words.",
+    {"type": "object", "properties": {"step": {"type": "integer",
+                                               "description": "the step's number as the wearer counts them, from "
+                                                              "1; 0 takes the picture away"}},
+     "required": ["step"], "additionalProperties": False})
+ASK_TOOLS = [SET_PROGRESS, SHOW]
 WATCH_TOOLS = [SET_PROGRESS, NOTE, SAY]
 
 # who wrote a line in the call so far, as the brain reads it
@@ -402,6 +421,8 @@ class Brain:
         parts = [f"Camera: {out['text']}"] if out["text"] else []
         if out["progress"] is not None:
             parts.append(await self._move(out["progress"]))
+        if out["picture"] is not None:  # after the move, which takes any picture away
+            parts.append(await self._show(out["picture"], n))
         self._commentary(" ".join(parts) or "Camera: nothing to add.", delegation_id, n, t_asked)
         self._publish_looking(False)
 
@@ -415,12 +436,22 @@ class Brain:
         asyncio.create_task(get_job_context().room.local_participant.set_attributes(attributes), name="looking")
 
     async def _ask(self, words: str, n: int) -> dict:
-        """One look for delegation n: {text, calls, progress}; progress = the steps done by a set_progress call that
-        changes it, else None."""
+        """One look for delegation n: {text, calls, progress, picture}; progress = the steps done by a set_progress
+        call that changes it, else None; picture = the step of a show call, 0 to take the picture away, else None."""
         said, words = call_so_far(self._session.history, self._written, self._record, words)
         words = words or "(the wearer's words have not come through yet)"
         reply, calls, _, progress = await self._look_once("look", n, self._side, said, words, ASK_TOOLS, self._effort)
-        return {"text": reply, "calls": calls, "progress": progress}
+        picture = None
+        for call, args in calls:
+            if call != "show":
+                continue
+            step = args.get("step")
+            if isinstance(step, int) and 0 <= step <= len(self._build.guide.steps):
+                picture = step
+            else:
+                logger.warning("brain: delegation #%d tool call show(%s): ignored, not between 0 and %d", n,
+                               json.dumps(args), len(self._build.guide.steps))
+        return {"text": reply, "calls": calls, "progress": progress, "picture": picture}
 
     # ------------------------------------------------------------------ one look, either kind
 
@@ -506,6 +537,18 @@ class Brain:
         return (f"Progress: all {total} steps are done, the build is finished." if build.finished else
                 f"Progress: {build.step} of {total} steps done; the wearer is now on step {build.step + 1} "
                 f"({build.guide.steps[build.step].brick}).")
+
+    async def _show(self, step: int, n: int) -> str:
+        """Put the picture of step `step` on the glasses (0: take it away), record and publish it; returns the line
+        that tells the voice."""
+        build = self._build
+        before = build.picture
+        build.show(step)
+        self._record.event("picture", n=n, step=step or None, before=before or None)
+        await publish_build(build)
+        if not step:
+            return "Picture: the glasses show the camera again, no picture."
+        return f"Picture: the glasses now show the picture of step {step} ({build.guide.steps[step - 1].brick})."
 
     # ------------------------------------------------------------------ to the voice
 

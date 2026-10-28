@@ -37,6 +37,7 @@ import io.livekit.android.example.voiceassistant.rememberCanEnableMic
 import io.livekit.android.example.voiceassistant.requirePermissions
 import io.livekit.android.example.voiceassistant.ui.AgentLines
 import io.livekit.android.example.voiceassistant.ui.CallLayout
+import io.livekit.android.example.voiceassistant.ui.CameraPreview
 import io.livekit.android.example.voiceassistant.ui.WearerLine
 import io.livekit.android.example.voiceassistant.ui.Eyes
 import io.livekit.android.example.voiceassistant.ui.Phase
@@ -78,15 +79,16 @@ fun VoiceAssistantScreen(
  * left is what a wearer actually needs while talking:
  *
  *   top           who has the floor (you / listening / thinking / speaking)
- *   left half     the build's steps, the current one highlighted and kept in view
+ *   left half     what the camera sees, or the step's picture the wearer asked for, then the build's steps,
+ *                 the current one highlighted and kept in view
  *   right half    the conversation, newest at the bottom, what the model heard in green
  * Each half scrolls on its own when it is longer than the screen, driven by
  * the content (the current step, the newest line): the glasses have no pointer.
  *
  * Mic and camera are always on. Toggling them was the starter's idea of a
- * feature; here it is a way to silently break the assistant. There is no
- * camera self-preview either: the wearer is looking at the scene directly,
- * and the picture would only compete with the steps and the captions.
+ * feature; here it is a way to silently break the assistant. The camera's view
+ * is shown so that the wearer knows what the assistant can see and can bring
+ * a brick into it; it is the same square the brain gets (CameraPreview).
  */
 @OptIn(Beta::class, ExperimentalPermissionsApi::class)
 @Composable
@@ -280,6 +282,7 @@ fun VoiceAssistant(
             CallLayout(
                 progress = buildProgress,
                 phase = phase,
+                preview = { m -> CameraPreview(track = cameraTrack, modifier = m) },
                 agentLines = { m -> AgentLines(messages = sessionMessages.messages, wearerIdentity = wearerIdentity, modifier = m) },
                 wearerLine = { m -> WearerLine(messages = sessionMessages.messages, wearerIdentity = wearerIdentity, modifier = m) },
                 modifier = modifier,

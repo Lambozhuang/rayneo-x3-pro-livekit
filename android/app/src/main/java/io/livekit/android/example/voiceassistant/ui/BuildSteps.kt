@@ -31,13 +31,16 @@ import io.livekit.android.util.flow
  * participant attributes, `rayneo.build.title` (the build's name),
  * `rayneo.build.steps` (step names, one per line), `rayneo.build.bricks` (one line per step,
  * `#rrggbb col0 row0 col1 row1`, with `round` appended for a round plate), `rayneo.build.plate`
- * (the plate's side in studs) and `rayneo.build.step`
- * (index of the current step; equal to the count once the build is done). Attributes travel on the signalling channel and are re-sent
- * after a reconnect, so this list is right again as soon as the connection is.
+ * (the plate's side in studs), `rayneo.build.step`
+ * (index of the current step; equal to the count once the build is done) and `rayneo.build.picture` (the number of the
+ * step whose picture the glasses show, as the wearer counts them; 0 for none). Attributes travel on the signalling
+ * channel and are re-sent after a reconnect, so this list is right again as soon as the connection is.
  *
  * @param current index of the step being built, or null when nothing has
  * been published yet; `steps.size` once finished.
  * @param bricks one per step, in step order; empty when the agent published none, and then there is no picture.
+ * @param picture the step whose picture is shown, 1 to `steps.size`, or null when the square shows the camera; the
+ * agent sets it when the wearer asked for a picture (brain.py `show`) and clears it when the progress moves.
  */
 data class BuildProgress(
     val title: String,
@@ -45,6 +48,7 @@ data class BuildProgress(
     val current: Int?,
     val plate: Int = 16,
     val bricks: List<Brick> = emptyList(),
+    val picture: Int? = null,
 ) {
     companion object {
         val NONE = BuildProgress("", emptyList(), null)
@@ -58,6 +62,7 @@ data class BuildProgress(
                 current = attributes[KEY_STEP]?.toIntOrNull(),
                 plate = attributes[KEY_PLATE]?.toIntOrNull() ?: 16,
                 bricks = bricks,
+                picture = attributes[KEY_PICTURE]?.toIntOrNull()?.takeIf { it in 1..bricks.size },
             )
         }
 
@@ -76,6 +81,7 @@ data class BuildProgress(
         private const val KEY_BRICKS = "rayneo.build.bricks"
         private const val KEY_PLATE = "rayneo.build.plate"
         private const val KEY_STEP = "rayneo.build.step"
+        private const val KEY_PICTURE = "rayneo.build.picture"
     }
 }
 

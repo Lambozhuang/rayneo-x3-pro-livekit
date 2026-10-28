@@ -589,6 +589,9 @@ def report(d: str) -> str:
         elif k == "build":
             what = f"build started, {e['steps']} steps" if e.get("started") else f"build finished in {e['took_s']:.0f} s"
             out.append(f'<div class="row">{t}<b class="ok">{what}</b></div>')
+        elif k == "picture":
+            what = f"picture of step {e['step']} on the glasses" if e.get("step") else "picture off the glasses, the camera again"
+            out.append(f'<div class="row">{t}<span class="ok">{what}</span></div>')
         elif k in ("wearer", "quality", "camera", "closed", "end") or (
                 k == "live" and e.get("type") in ("error", "session.started", "session.closed")):
             body = {key: v for key, v in e.items() if key not in ("t", "kind")}
