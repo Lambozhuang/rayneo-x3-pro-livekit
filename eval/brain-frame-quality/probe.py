@@ -1,12 +1,18 @@
 """Asks the model to describe the plate in every frame of one condition, and keeps each reply.
 
-    uv run python probe.py <pictures> <thinking> [frame id ...]
+    uv run python probe.py <pictures> <thinking> [frame id ...] [--model=<id>] [--base-url=<url>]
 
 `pictures` is a directory under out/ with one JPEG per frame, as pick_frames.py and encode.py write them (sq768,
 v2000-720, ...). `thinking` is `none` (no thinking, as the routine look runs) or an effort (`low`, as the hand-over
 runs). Frame ids restrict the run; by default every frame in out/frames.csv is asked. Replies land in
 out/replies/<pictures>-<thinking>/<id>.json, one per frame, with the parsed object, the raw text, the token counts
 and the timing; a frame whose reply exists is not asked again, so a stopped run can be continued.
+
+`--model` asks another model the same question, to compare it with the brain's: a `claude-*` id goes to Anthropic as
+below; any other id goes to an OpenAI-compatible chat completion, at OpenAI with OPENAI_API_KEY from backend/.env, or at
+`--base-url` (an LM Studio server, say, one call at a time) with no key, the same prompt as the system message, the
+photo as a data URL, the reply as a strict JSON schema, `thinking` as the reasoning effort. Its replies land in
+out/replies/<pictures>-<thinking>-<model's last path part>/ so the brain's own stay where they are.
 
 The model and the way it is called are the brain's (backend/agent/src/gpt/brain.py AnthropicModel): the same
 model, the photo first and the text after it, the instructions as a cached system prompt, the reply streamed to
@@ -29,8 +35,9 @@ import time
 from pathlib import Path
 
 from anthropic import AsyncAnthropic
+from openai import AsyncOpenAI
 
-MODEL = "claude-sonnet-5-5"
+MODEL = "claude-sonnet-5-5"  # the brain's model, asked unless --model says another
 PARALLEL = 8
 
 PROMPT = """You look through the camera of a pair of AR glasses at a LEGO baseplate on the table in front of the wearer. Describe the bricks on the plate from this one photo, exactly as it shows them, so that someone who cannot see could check a build against it.
@@ -71,17 +78,19 @@ here = Path(__file__).resolve().parent
 out = here / "out"
 
 
-def load_key() -> None:
+def load_key(name: str) -> None:
     env = here.parent.parent / "backend" / ".env"
     for line in env.read_text(encoding="utf-8").splitlines():
-        if line.startswith("ANTHROPIC_API_KEY="):
-            os.environ["ANTHROPIC_API_KEY"] = line.split("=", 1)[1].strip()
+        if line.startswith(f"{name}="):
+            os.environ[name] = line.split("=", 1)[1].strip()
             return
-    sys.exit(f"no ANTHROPIC_API_KEY in {env}")
+    sys.exit(f"no {name} in {env}")
 
 
 class Probe:
-    def __init__(self, thinking: str) -> None:
+    def __init__(self, model: str, thinking: str) -> None:
+        self.model = model
+        load_key("ANTHROPIC_API_KEY")
         self._client = AsyncAnthropic()
         # Sonnet 5.5 rejects {"type": "disabled"} and names between_tools as its way of not thinking; with no tools
         # in the call that is simply no thinking
@@ -92,7 +101,7 @@ class Probe:
     async def ask(self, photo: bytes) -> dict:
         t0, ttft = time.perf_counter(), None
         async with self._client.messages.stream(
-            model=MODEL, max_tokens=8192, **self._kw,
+            model=self.model, max_tokens=8192, **self._kw,
             system=[{"type": "text", "text": PROMPT, "cache_control": {"type": "ephemeral"}}],
             messages=[{"role": "user", "content": [
                 {"type": "image", "source": {"type": "base64", "media_type": "image/jpeg",
@@ -121,16 +130,70 @@ class Probe:
         }
 
 
+class OpenAIProbe:
+    """The same question through an OpenAI-compatible chat completion: OpenAI's own models, or a local server."""
+
+    def __init__(self, model: str, thinking: str, base_url: str | None) -> None:
+        self.model = model
+        if base_url:
+            self._client = AsyncOpenAI(base_url=base_url, api_key="none")
+        else:
+            load_key("OPENAI_API_KEY")
+            self._client = AsyncOpenAI()
+        self._effort = thinking  # "none" asks for no reasoning; an effort asks for that much
+
+    async def ask(self, photo: bytes) -> dict:
+        t0, ttft, chunks, usage, stop = time.perf_counter(), None, [], None, None
+        async with await self._client.chat.completions.create(
+            model=self.model, stream=True, stream_options={"include_usage": True}, max_completion_tokens=8192,
+            reasoning_effort=self._effort,
+            response_format={"type": "json_schema", "json_schema": {"name": "plate", "schema": SCHEMA, "strict": True}},
+            messages=[{"role": "system", "content": PROMPT},
+                      {"role": "user", "content": [
+                          {"type": "image_url", "image_url": {"url": "data:image/jpeg;base64," + base64.b64encode(photo).decode()}},
+                          {"type": "text", "text": ASK}]}],
+        ) as stream:
+            async for ev in stream:
+                if ev.usage:
+                    usage = ev.usage
+                if ev.choices:
+                    if ev.choices[0].finish_reason:
+                        stop = ev.choices[0].finish_reason
+                    if ev.choices[0].delta and ev.choices[0].delta.content:
+                        if ttft is None:
+                            ttft = time.perf_counter() - t0
+                        chunks.append(ev.choices[0].delta.content)
+        text = "".join(chunks).strip()
+        try:
+            parsed = json.loads(text)
+        except json.JSONDecodeError:
+            parsed = None
+        details = getattr(usage, "completion_tokens_details", None) if usage else None
+        prompt = getattr(usage, "prompt_tokens_details", None) if usage else None
+        return {
+            "parsed": parsed, "text": text,
+            "model_ms": round((time.perf_counter() - t0) * 1000),
+            "ttft_ms": round(ttft * 1000) if ttft else None,
+            "in": usage.prompt_tokens if usage else None, "out": usage.completion_tokens if usage else None,
+            "cached": (getattr(prompt, "cached_tokens", 0) or 0) if prompt else 0,
+            "thinking": getattr(details, "reasoning_tokens", None) if details else None,
+            "stop": stop, "thinking_mode": {"reasoning_effort": self._effort},
+        }
+
+
 async def main() -> None:
-    pictures, thinking, ids = sys.argv[1], sys.argv[2], sys.argv[3:]
-    load_key()
+    args = [a for a in sys.argv[1:] if not a.startswith("--")]
+    opts = dict(a[2:].split("=", 1) for a in sys.argv[1:] if a.startswith("--"))
+    pictures, thinking, ids = args[0], args[1], args[2:]
+    model, base_url = opts.get("model", MODEL), opts.get("base-url")
     frames = [r["id"] for r in csv.DictReader(open(out / "frames.csv"))]
     if ids:
         frames = [f for f in frames if f in ids]
-    dest = out / "replies" / f"{pictures}-{thinking}"
+    cond = f"{pictures}-{thinking}" + ("" if model == MODEL else f"-{model.rsplit('/', 1)[-1]}")
+    dest = out / "replies" / cond
     dest.mkdir(parents=True, exist_ok=True)
-    probe = Probe(thinking)
-    gate = asyncio.Semaphore(PARALLEL)
+    probe = Probe(model, thinking) if model.startswith("claude-") else OpenAIProbe(model, thinking, base_url)
+    gate = asyncio.Semaphore(1 if base_url else PARALLEL)  # a local server answers one call at a time
 
     async def one(fid: str) -> None:
         target = dest / f"{fid}.json"
@@ -139,7 +202,7 @@ async def main() -> None:
         photo = (out / pictures / f"{fid}.jpg").read_bytes()
         async with gate:
             r = await probe.ask(photo)
-        r.update({"id": fid, "pictures": pictures, "photo_kb": len(photo) // 1024, "model": MODEL})
+        r.update({"id": fid, "pictures": pictures, "photo_kb": len(photo) // 1024, "model": model})
         target.write_text(json.dumps(r, ensure_ascii=False, indent=1), encoding="utf-8")
         print(f"{fid} {r['model_ms']} ms, ttft {r['ttft_ms']} ms, in {r['in']} out {r['out']}"
               + (f" thinking {r['thinking']}" if r["thinking"] else "") + ("" if r["parsed"] is not None else " NOT JSON"))
