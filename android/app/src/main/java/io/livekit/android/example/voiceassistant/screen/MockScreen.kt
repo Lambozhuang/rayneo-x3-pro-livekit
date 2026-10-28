@@ -30,7 +30,7 @@ fun MockScreen() {
             "White 1x6, right side",
             "Yellow 1x4, top rung",
             "Blue 1x4, middle rung",
-            "Aqua 1x4, bottom rung",
+            "Lime 1x4, bottom rung",
         ),
         current = 2,
         picture = 3,
@@ -40,7 +40,7 @@ fun MockScreen() {
             Brick(Color(0xFFF2F2F2), 10, 5, 10, 10),
             Brick(Color(0xFFF2C20A), 6, 5, 9, 5),
             Brick(Color(0xFF1E5BC6), 6, 7, 9, 7),
-            Brick(Color(0xFFA8E0DC), 6, 9, 9, 9),
+            Brick(Color(0xFF9CCC3C), 6, 9, 9, 9),
         ),
     )
     val agentLines = listOf(

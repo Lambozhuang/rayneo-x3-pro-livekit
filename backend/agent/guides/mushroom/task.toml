@@ -1,4 +1,4 @@
-# A mushroom: a dark red 2x6 and a blue 2x4 for the cap, a white 2x4 stem, a tan 1x6 and a light aqua 1x4 for the ground. From tasks/sheet.html, task 5.
+# A mushroom: a dark red 2x6 and a blue 2x4 for the cap, a white 2x4 stem, a tan 1x6 and a lime 1x4 for the ground. From tasks/sheet.html, task 5.
 #
 # Each step: `name` for the step list on the glasses; `brick`, which brick; `place`, where it goes, against the bricks
 # before it (step 1 only roughly on the plate). Both models get `brick` and `place`. `color` and `cells` draw the step's
@@ -41,8 +41,8 @@ place = "horizontal, touching the bottom end of the white brick, its right end l
 cells = [3, 12, 8, 12]
 
 [[steps]]
-name = "Aqua 1x4, ground right"
-brick = "light aqua 1x4"
-color = "#a8e0dc"
+name = "Lime 1x4, ground right"
+brick = "lime 1x4"
+color = "#9ccc3c"
 place = "horizontal, touching the right end of the tan brick, in the same row"
 cells = [9, 12, 12, 12]

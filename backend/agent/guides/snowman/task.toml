@@ -1,4 +1,4 @@
-# A snowman: a blue and a dark grey 4x4 round plate, a light aqua and a yellow 1x4 for the arms, a white 1x6 to stand on. From tasks/sheet.html, task 4.
+# A snowman: a blue and a dark grey 4x4 round plate, a lime and a yellow 1x4 for the arms, a white 1x6 to stand on. From tasks/sheet.html, task 4.
 #
 # Each step: `name` for the step list on the glasses; `brick`, which brick; `place`, where it goes, against the bricks
 # before it (step 1 only roughly on the plate). Both models get `brick` and `place`. `color` and `cells` draw the step's
@@ -27,9 +27,9 @@ place = "below the blue round plate, touching it, in the same columns"
 cells = [7, 7, 10, 10]
 
 [[steps]]
-name = "Aqua 1x4, left arm"
-brick = "light aqua 1x4"
-color = "#a8e0dc"
+name = "Lime 1x4, left arm"
+brick = "lime 1x4"
+color = "#9ccc3c"
 place = "horizontal, touching the left side of the dark grey round plate, in its second row from the top"
 cells = [3, 8, 6, 8]
 
@@ -37,7 +37,7 @@ cells = [3, 8, 6, 8]
 name = "Yellow 1x4, right arm"
 brick = "yellow 1x4"
 color = "#f2c20a"
-place = "horizontal, touching the right side of the dark grey round plate, in the same row as the light aqua brick"
+place = "horizontal, touching the right side of the dark grey round plate, in the same row as the lime brick"
 cells = [11, 8, 14, 8]
 
 [[steps]]

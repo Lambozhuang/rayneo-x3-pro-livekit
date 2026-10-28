@@ -62,7 +62,7 @@ SESSION = [
     ("Hand-off", ["sends a delegation when an answer", "needs the camera"]),
 ]
 BRAIN = [
-    ("Watch", ["looks at the newest frame by itself,", "at most every 2 s; 768 px, no thinking"]),
+    ("Watch", ["looks at the newest frame by itself,", "at most every 2 s; BRAIN_WATCH_SIDE px,", "no thinking"]),
     ("Answer", ["looks at the newest frame for each", "delegation; 1080 px, with thinking"]),
     ("Progress", ["records how many steps are built right", "(set_progress), updates the step list"]),
     ("Context", ["every look sends the call's transcript and", "its own earlier notes, no old images"]),

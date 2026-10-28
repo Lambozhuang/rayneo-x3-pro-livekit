@@ -1,4 +1,4 @@
-# A dog: a red 2x4 head, a tan 2x6 body, a blue 1x4 tail, a yellow and a light aqua 1x4 for the legs. From tasks/sheet.html, task 11.
+# A dog: a red 2x4 head, a tan 2x6 body, a blue 1x4 tail, a yellow and a white 1x4 for the legs. From tasks/sheet.html, task 11.
 #
 # Each step: `name` for the step list on the glasses; `brick`, which brick; `place`, where it goes, against the bricks
 # before it (step 1 only roughly on the plate). Both models get `brick` and `place`. `color` and `cells` draw the step's
@@ -41,8 +41,8 @@ place = "vertical, below the left end of the tan brick, touching it, lined up wi
 cells = [6, 9, 6, 12]
 
 [[steps]]
-name = "Aqua 1x4, back leg"
-brick = "light aqua 1x4"
-color = "#a8e0dc"
+name = "White 1x4, back leg"
+brick = "white 1x4"
+color = "#f2f2f2"
 place = "vertical, below the right end of the tan brick, touching it, lined up with the tan brick's right end"
 cells = [11, 9, 11, 12]

@@ -1,4 +1,4 @@
-# The letter E: a dark grey 2x6 spine, a blue and a tan 2x6 for the top and bottom bars, a white and a light aqua 1x4 for the middle bar. From tasks/sheet.html, task 13.
+# The letter E: a dark grey 2x6 spine, a blue and a tan 2x6 for the top and bottom bars, a white and a lime 1x4 for the middle bar. From tasks/sheet.html, task 13.
 #
 # Each step: `name` for the step list on the glasses; `brick`, which brick; `place`, where it goes, against the bricks
 # before it (step 1 only roughly on the plate). Both models get `brick` and `place`. `color` and `cells` draw the step's
@@ -34,9 +34,9 @@ place = "horizontal, touching the right side of the dark grey brick, two empty r
 cells = [7, 7, 10, 7]
 
 [[steps]]
-name = "Aqua 1x4, below white"
-brick = "light aqua 1x4"
-color = "#a8e0dc"
+name = "Lime 1x4, below white"
+brick = "lime 1x4"
+color = "#9ccc3c"
 place = "horizontal, below the white brick, touching it, in the same columns"
 cells = [7, 8, 10, 8]
 

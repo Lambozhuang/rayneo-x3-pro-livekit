@@ -1,4 +1,4 @@
-# A ladder: a tan and a white 1x6 for the rails, three 1x4 rungs between them. From tasks/sheet.html, task 1.
+# A ladder: a tan and a white 1x6 for the rails, three 1x4 rungs between them, yellow, blue and lime. From tasks/sheet.html, task 1.
 #
 # Each step: `name` for the step list on the glasses; `brick`, which brick; `place`, where it goes, against the bricks
 # before it (step 1 only roughly on the plate). Both models get `brick` and `place`. `color` and `cells` draw the step's
@@ -41,8 +41,8 @@ place = "horizontal, between the tan and white bricks, touching both, one empty 
 cells = [6, 7, 9, 7]
 
 [[steps]]
-name = "Aqua 1x4, bottom rung"
-brick = "light aqua 1x4"
-color = "#a8e0dc"
+name = "Lime 1x4, bottom rung"
+brick = "lime 1x4"
+color = "#9ccc3c"
 place = "horizontal, between the tan and white bricks, touching both, one empty row between it and the blue brick"
 cells = [6, 9, 9, 9]

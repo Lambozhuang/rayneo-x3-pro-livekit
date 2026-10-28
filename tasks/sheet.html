@@ -10,26 +10,26 @@ ol{margin:8px 0 0;padding-left:20px;font-size:13px;line-height:1.45}
 p.note{font-size:13px;color:#555;max-width:900px}
 </style></head><body>
 <h2>5-step tasks · shortlist (16×16 plate, one layer, bricks from bricks.jpg)</h2>
-<p class="note">Pieces: 2×4 and 2×6 bricks, 4×4 round plates, 1×4 and 1×6 bricks. Not used: 1×2, the red slope, green/dark green (green plate). Yellow and lime never in the same task. Numbers = build order. Five different colours per task, so no same-colour neighbours.</p>
+<p class="note">Pieces: 2×4 and 2×6 bricks, 4×4 round plates, 1×4 and 1×6 bricks. Not used: 1×2, the red slope, green/dark green (green plate), the light aqua 1×4 (the camera reads it as white, 2026-10-28). Yellow and lime may share a task: the camera tells them apart. Numbers = build order. Five different colours per task, so no same-colour neighbours.</p>
 <div class="grid" id="g"></div>
 <script>
 const C={blue:'#1e5bc6',red:'#c8102e',dred:'#7a1f2b',pink:'#f5a1c8',purple:'#5a2d91',lav:'#a06bd1',teal:'#0f8a8a',tan:'#d9c89b',white:'#f2f2f2',dgrey:'#555',brown:'#4a2a1a',yellow:'#f2c20a',lime:'#9ccc3c',aqua:'#a8e0dc',lgrey:'#b8b8b8',dgreen:'#1f4d2e'};
 const N={blue:'blue',red:'red',dred:'dark red',pink:'pink',purple:'purple',lav:'lavender',teal:'dark teal',tan:'tan',white:'white',dgrey:'dark grey',brown:'dark brown',yellow:'yellow',lime:'lime',aqua:'light aqua',lgrey:'light grey',dgreen:'dark green'};
 // [colour, r, c, h, w] ; w=0 => 4x4 round plate
 const T=[
-['Ladder',[['tan',5,5,6,1],['white',5,10,6,1],['yellow',5,6,1,4],['blue',7,6,1,4],['aqua',9,6,1,4]]],
+['Ladder',[['tan',5,5,6,1],['white',5,10,6,1],['yellow',5,6,1,4],['blue',7,6,1,4],['lime',9,6,1,4]]],
 ['Flag',[['white',3,5,6,1],['tan',9,5,6,1],['red',3,6,2,4],['blue',5,6,2,4],['dgrey',15,2,2,6]]],
 ['Crane',[['dgrey',13,4,2,6],['tan',7,6,6,1],['white',6,6,1,6],['yellow',7,11,4,1],['red',11,10,2,4]]],
-['Snowman',[['blue',3,7,4,0],['dgrey',7,7,4,0],['aqua',8,3,1,4],['yellow',8,11,1,4],['white',11,6,1,6]]],
-['Mushroom',[['dred',6,5,2,6],['blue',4,6,2,4],['white',8,7,4,2],['tan',12,3,1,6],['aqua',12,9,1,4]]],
+['Snowman',[['blue',3,7,4,0],['dgrey',7,7,4,0],['lime',8,3,1,4],['yellow',8,11,1,4],['white',11,6,1,6]]],
+['Mushroom',[['dred',6,5,2,6],['blue',4,6,2,4],['white',8,7,4,2],['tan',12,3,1,6],['lime',12,9,1,4]]],
 ['Fish',[['blue',7,7,2,6],['dgrey',6,3,4,0],['red',6,13,4,2],['pink',5,8,2,4],['lav',9,8,2,4]]],
 ['Gate',[['blue',5,5,6,2],['dgrey',5,9,6,2],['dred',3,5,2,6],['white',11,2,1,6],['tan',11,8,1,6]]],
 ['Key',[['tan',7,7,2,6],['blue',6,3,4,0],['red',9,11,4,2],['purple',9,8,4,2],['pink',10,3,2,4]]],
 ['Flower',[['brown',7,8,4,2],['red',3,7,4,0],['dgreen',7,4,2,4],['teal',9,10,2,4],['tan',11,6,2,6]]],
 ['Airplane',[['tan',3,8,6,2],['red',6,4,2,4],['blue',6,10,2,4],['purple',9,8,4,2],['dgrey',13,6,2,6]]],
-['Dog',[['red',5,4,4,2],['tan',7,6,2,6],['blue',5,12,4,1],['yellow',9,6,4,1],['aqua',9,11,4,1]]],
+['Dog',[['red',5,4,4,2],['tan',7,6,2,6],['blue',5,12,4,1],['yellow',9,6,4,1],['white',9,11,4,1]]],
 ['Cat',[['tan',8,5,2,6],['purple',6,11,4,2],['white',3,4,6,1],['blue',10,5,4,1],['yellow',10,10,4,1]]],
-['Letter E',[['dgrey',5,5,6,2],['blue',3,5,2,6],['white',7,7,1,4],['aqua',8,7,1,4],['tan',11,5,2,6]]],
+['Letter E',[['dgrey',5,5,6,2],['blue',3,5,2,6],['white',7,7,1,4],['lime',8,7,1,4],['tan',11,5,2,6]]],
 ];
 function svg(b){
  let s='<svg viewBox="0 0 16 16"><rect width="16" height="16" fill="#3fa84a"/>';
