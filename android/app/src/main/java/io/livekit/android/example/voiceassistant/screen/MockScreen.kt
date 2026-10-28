@@ -1,14 +1,13 @@
 package io.livekit.android.example.voiceassistant.screen
 
 import androidx.compose.runtime.Composable
-import androidx.compose.ui.graphics.Color
 import io.livekit.android.example.voiceassistant.ui.AgentLinesView
-import io.livekit.android.example.voiceassistant.ui.Brick
 import io.livekit.android.example.voiceassistant.ui.BuildProgress
 import io.livekit.android.example.voiceassistant.ui.CallLayout
 import io.livekit.android.example.voiceassistant.ui.CameraPreview
 import io.livekit.android.example.voiceassistant.ui.Eyes
 import io.livekit.android.example.voiceassistant.ui.Phase
+import io.livekit.android.example.voiceassistant.ui.Picture
 import io.livekit.android.example.voiceassistant.ui.WearerLineView
 import kotlinx.serialization.Serializable
 
@@ -18,8 +17,8 @@ object MockRoute
 /**
  * The call screen with nothing behind it, for looking at the layout on the glasses without a server: the ladder
  * (backend/agent/guides/ladder/task.toml) at its third step, the yellow top rung, with a conversation about it as
- * GPT-Live would have transcribed it, the agent speaking, and the picture of the step on the glasses as if the wearer
- * had asked for it (there is no camera to preview here). `glasses.ps1 -Mock` opens the app on it; a double tap leaves.
+ * GPT-Live would have transcribed it, the agent speaking. The square keeps its outline: there is no camera to preview
+ * and no agent to send a picture. `glasses.ps1 -Mock` opens the app on it; a double tap leaves.
  */
 @Composable
 fun MockScreen() {
@@ -33,15 +32,6 @@ fun MockScreen() {
             "Lime 1x4, bottom rung",
         ),
         current = 2,
-        picture = 3,
-        plate = 16,
-        bricks = listOf(
-            Brick(Color(0xFFD9C89B), 5, 5, 5, 10),
-            Brick(Color(0xFFF2F2F2), 10, 5, 10, 10),
-            Brick(Color(0xFFF2C20A), 6, 5, 9, 5),
-            Brick(Color(0xFF1E5BC6), 6, 7, 9, 7),
-            Brick(Color(0xFF9CCC3C), 6, 9, 9, 9),
-        ),
     )
     val agentLines = listOf(
         "Both rails are in place. Next, find the yellow 1x4 brick.",
@@ -54,6 +44,7 @@ fun MockScreen() {
         CallLayout(
             progress = progress,
             phase = Phase.SPEAKING,
+            picture = Picture.None,
             preview = { m -> CameraPreview(track = null, modifier = m) },
             agentLines = { m -> AgentLinesView(agentLines, m) },
             wearerLine = { m -> WearerLineView(wearerLine, m) },

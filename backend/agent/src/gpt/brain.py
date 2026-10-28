@@ -21,8 +21,11 @@ or Anthropic's Messages API (BRAIN_PROVIDER), that looks in two ways:
 The picture of a step on the glasses (show) is given only in a delegation, so it
 always follows the wearer's words: they asked for it, or took the voice up on an
 offer the brain made from a watch look (say), as a helper standing beside them
-would offer before pointing at the instructions. It goes away when the progress
-moves (Build.set_step) or when the brain is asked to take it away (show 0).
+would offer before pointing at the instructions. The picture is a file beside the
+task (render_pictures.py), named in an attribute and then sent to the glasses as a
+byte stream; the glasses show that it is on its way, then the picture itself. It goes away
+when the progress moves (Build.set_step) or when the brain is asked to take it away
+(show 0).
 
 Both send one request built the same way:
 
@@ -61,7 +64,7 @@ from livekit.agents import AgentSession
 
 from frames import FrameTap, bottom_square
 from gpt.prompts import WATCH_ASK, brain_instructions
-from guide import Build, publish_build
+from guide import PICTURE_TOPIC, Build, publish_build
 from livekit.agents import get_job_context
 from runlog import RunLog
 
@@ -540,12 +543,25 @@ class Brain:
 
     async def _show(self, step: int, n: int) -> str:
         """Put the picture of step `step` on the glasses (0: take it away), record and publish it; returns the line
-        that tells the voice."""
+        that tells the voice. The attribute that names the picture goes first, on the signalling channel, so the
+        glasses know a picture is coming and show that it is on its way; the bytes follow as a byte stream on
+        PICTURE_TOPIC over the reliable data channel, late under a slow network rather than missing, and the glasses
+        show the picture once they have it. The time the send took is recorded."""
         build = self._build
         before = build.picture
         build.show(step)
-        self._record.event("picture", n=n, step=step or None, before=before or None)
         await publish_build(build)
+        sent: dict = {}
+        if step:
+            name, data = build.guide.picture_name(step), build.guide.picture(step).read_bytes()
+            t0 = time.perf_counter()
+            writer = await get_job_context().room.local_participant.stream_bytes(
+                name, total_size=len(data), mime_type="image/png", topic=PICTURE_TOPIC)
+            await writer.write(data)
+            await writer.aclose()
+            sent = {"name": name, "bytes": len(data), "send_ms": round((time.perf_counter() - t0) * 1000)}
+            logger.info("picture: %s (%d KB) sent to the glasses in %d ms", name, len(data) // 1024, sent["send_ms"])
+        self._record.event("picture", n=n, step=step or None, before=before or None, **sent)
         if not step:
             return "Picture: the glasses show the camera again, no picture."
         return f"Picture: the glasses now show the picture of step {step} ({build.guide.steps[step - 1].brick})."

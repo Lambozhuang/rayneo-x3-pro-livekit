@@ -8,7 +8,10 @@ the list on the glasses, the brick and where it goes.
 step. The brain on the GPT path, or the model's set_progress call on the
 Realtime path, moves it (`set_step`) when it judges from the camera how many
 steps are built; `publish_build` sends the position to the
-glasses.
+glasses. Each step also has a picture, `step-<n>.png` beside the task file,
+drawn by render_pictures.py from the step's colour and cells; the brain sends
+it to the glasses when the wearer asks to see a step (brain.py `show`), and
+`Build.picture` says which one is on the glasses.
 """
 
 from __future__ import annotations
@@ -28,9 +31,10 @@ class Step:
     name: str  # one line for the list on the glasses
     brick: str  # which brick, e.g. "purple 2x4"
     place: str  # where it goes, against the bricks before it; the models get `brick` and `place`
-    # The brick as the glasses draw it, never sent to a model: its colour as tasks/sheet.html draws it, "#rrggbb", and
-    # its footprint as drawn on the sheet, [col0, row0, col1, row1] inclusive, columns left to right and rows from the
-    # far edge. A round plate covers its square but not the corners; the glasses draw it as a disc.
+    # The brick as render_pictures.py draws it in the step's picture, never sent to a model: its colour as
+    # tasks/sheet.html draws it, "#rrggbb", and its footprint as drawn on the sheet, [col0, row0, col1, row1]
+    # inclusive, columns left to right and rows from the far edge. A round plate covers its square but not the corners
+    # and is drawn as a disc.
     color: str
     cells: tuple[int, int, int, int]
 
@@ -44,12 +48,22 @@ class Guide:
     name: str
     title: str
     steps: tuple[Step, ...]
+    directory: Path  # where the task file and the step pictures are
     plate: int = 16  # studs per side of the baseplate
 
+    def picture_name(self, step: int) -> str:
+        """File name of the picture of step `step`, numbered as the wearer counts; the glasses show it under this name."""
+        return f"step-{step}.png"
 
-def load_guide(path: str) -> Guide:
+    def picture(self, step: int) -> Path:
+        return self.directory / self.picture_name(step)
+
+
+def load_guide(path: str, pictures: bool = True) -> Guide:
     """Read a guide. A relative path is taken from backend/agent, where
-    `guides/` lives both in the checkout and in the container."""
+    `guides/` lives both in the checkout and in the container. Every step's
+    picture has to be there too, unless `pictures` is false, which only
+    render_pictures.py, about to draw them, passes."""
     p = Path(path)
     if not p.is_absolute():
         p = Path(__file__).resolve().parent.parent / p
@@ -68,7 +82,13 @@ def load_guide(path: str) -> Guide:
     if not steps:
         raise ValueError(f"{toml}: guide has no steps")
     steps = tuple(steps)
-    return Guide(name=p.stem, title=data["title"], steps=steps, plate=int(data.get("plate", 16)))
+    guide = Guide(name=p.stem, title=data["title"], steps=steps, directory=toml.parent, plate=int(data.get("plate", 16)))
+    if pictures:
+        missing = [guide.picture_name(n) for n in range(1, len(steps) + 1) if not guide.picture(n).is_file()]
+        if missing:
+            raise ValueError(f"{toml.parent}: no picture {', '.join(missing)}; run `python render_pictures.py` in "
+                             "backend/agent")
+    return guide
 
 
 def picked_guide(metadata: str) -> Guide:
@@ -101,22 +121,17 @@ class Build:
         return self.step >= len(self.guide.steps)
 
     def attributes(self) -> dict[str, str]:
-        """The run as participant attributes, for the list and the step's picture on the glasses: the title, every
-        step's name, newline-separated, every step's brick as drawn, one per line as `#rrggbb col0 row0 col1 row1` with
-        `round` appended for a round plate, the plate's side in studs, the index of the current step (equal to the
-        count once finished), and the number of the step whose picture the glasses show (0: none, the square shows
-        the camera). Only the index and the picture change during a call; the glasses draw the bricks up to the
-        picture's step. Attributes ride the signalling channel and are re-sent after a reconnect, which a data
-        message is not, so a wearer who dropped out for a while still sees the right step."""
+        """The run as participant attributes: the title, every step's name, newline-separated, the index of the
+        current step (equal to the count once finished), for the list on the glasses, and the name of the picture the
+        glasses are to show (PICTURE_ATTRIBUTE, empty when the square is to show the camera), which brain.py sends them
+        right after as a byte stream on PICTURE_TOPIC. Only the index and the picture change during a call. Attributes ride
+        the signalling channel and are re-sent after a reconnect, which a data message is not, so a wearer who
+        dropped out for a while still sees the right step and the right picture."""
         return {
             "rayneo.build.title": self.guide.title,
             "rayneo.build.steps": "\n".join(s.name for s in self.guide.steps),
-            "rayneo.build.bricks": "\n".join(
-                " ".join([s.color, *map(str, s.cells)] + (["round"] if s.round else [])) for s in self.guide.steps
-            ),
-            "rayneo.build.plate": str(self.guide.plate),
             "rayneo.build.step": str(self.step),
-            "rayneo.build.picture": str(self.picture),
+            PICTURE_ATTRIBUTE: self.guide.picture_name(self.picture) if self.picture else "",
         }
 
     def where(self) -> str:
@@ -178,8 +193,14 @@ class Build:
         logger.info("step %d/%d start: %s", self.step + 1, len(self.guide.steps), s.name)
 
 
+# The byte streams that carry a step's picture to the glasses, and the attribute that names the one to show
+# (Pictures.kt reads both). The names are not the build's: the glasses show whatever picture the agent sends.
+PICTURE_TOPIC = "rayneo.picture"
+PICTURE_ATTRIBUTE = "rayneo.picture"
+
+
 async def publish_build(build: Build) -> None:
-    """The run's position to the glasses, as participant attributes (Build.attributes)."""
+    """The run's position and the picture to show to the glasses, as participant attributes (Build.attributes)."""
     from livekit.agents import get_job_context
 
     await get_job_context().room.local_participant.set_attributes(build.attributes())

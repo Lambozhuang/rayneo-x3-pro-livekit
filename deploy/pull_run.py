@@ -6,7 +6,7 @@
 Writes logs/<call>/report.html (report.py). With the glasses on adb it also writes two more files, and pulls the
 call's recording when the app was launched with -Record:
 
-    glasses.log   the app's call, link, speech and recording lines (rayneo-call bounds each call with its room name;
+    glasses.log   the app's call, link, speech, recording and picture lines (rayneo-call bounds each call with its room name;
                   LinkStatsLog.kt, SpeechEdgeLog.kt, Recording.kt) from the device's log buffer, which holds every call since
                   the glasses were last launched by glasses.ps1; each line carries the glasses' wall clock
     clock.json    how far the glasses' clock is ahead of the server's, in ms, so those lines can be put on the
@@ -56,7 +56,7 @@ def clock_ahead_ms(cmd: list[str], tries: int = 5) -> dict:
 devices = subprocess.run(["adb", "devices"], capture_output=True, text=True).stdout.splitlines()[1:]
 if any(line.strip().endswith("device") for line in devices):
     with open(logs / call / "glasses.log", "w", encoding="utf-8") as f:
-        subprocess.run(["adb", "logcat", "-d", "-v", "time", "-s", "rayneo-call", "rayneo-link", "rayneo-speech", "rayneo-record"], check=True, stdout=f)
+        subprocess.run(["adb", "logcat", "-d", "-v", "time", "-s", "rayneo-call", "rayneo-link", "rayneo-speech", "rayneo-record", "rayneo-picture"], check=True, stdout=f)
     print(logs / call / "glasses.log")
     glasses = clock_ahead_ms(["adb", "shell", "date", "+%s%N"])
     server = clock_ahead_ms(["ssh", HOST, "date +%s%N"])

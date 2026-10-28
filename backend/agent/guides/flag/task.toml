@@ -1,8 +1,8 @@
 # A flag: a white and a tan 1x6 for the pole, a red and a blue 2x4 for the flag, a dark grey 2x6 for the base. From tasks/sheet.html, task 2.
 #
 # Each step: `name` for the step list on the glasses; `brick`, which brick; `place`, where it goes, against the bricks
-# before it (step 1 only roughly on the plate). Both models get `brick` and `place`. `color` and `cells` draw the step's
-# picture on the glasses and go to no model: `color` is the brick's colour as tasks/sheet.html draws it; `cells` is the
+# before it (step 1 only roughly on the plate). Both models get `brick` and `place`. `color` and `cells` are what render_pictures.py
+# draws the step's picture from (step-<n>.png beside this file) and go to no model: `color` is the brick's colour as tasks/sheet.html draws it; `cells` is the
 # brick's footprint as drawn on the sheet, [col0, row0, col1, row1] inclusive, columns 1..16 left to right, rows 1..16
 # from the far edge; a brick named `round plate` covers its 4x4 square but not the corners and is drawn as a disc.
 # Directions: the plate as a picture lying in front of the wearer, up = the far edge; vertical = the long side runs up

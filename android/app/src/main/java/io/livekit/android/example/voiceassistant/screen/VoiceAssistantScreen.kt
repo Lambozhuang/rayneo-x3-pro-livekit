@@ -43,6 +43,7 @@ import io.livekit.android.example.voiceassistant.ui.Eyes
 import io.livekit.android.example.voiceassistant.ui.Phase
 import io.livekit.android.example.voiceassistant.ui.rememberBrainLooking
 import io.livekit.android.example.voiceassistant.ui.rememberBuildProgress
+import io.livekit.android.example.voiceassistant.ui.rememberPicture
 import io.livekit.android.example.voiceassistant.ui.rememberEngineState
 import io.livekit.android.example.voiceassistant.viewmodel.VoiceAssistantViewModel
 import kotlinx.serialization.Serializable
@@ -267,6 +268,7 @@ fun VoiceAssistant(
         }
         val engineState by rememberEngineState(room)
         val buildProgress by rememberBuildProgress(agent.agentParticipant)
+        val picture by rememberPicture(room, agent.agentParticipant)
         val brainLooking by rememberBrainLooking(agent.agentParticipant)
         val phase = Phase.of(agent, wearerSpeaking, session, engineState, sawAgent, localMedia.isMicrophoneEnabled, brainLooking)
 
@@ -282,6 +284,7 @@ fun VoiceAssistant(
             CallLayout(
                 progress = buildProgress,
                 phase = phase,
+                picture = picture,
                 preview = { m -> CameraPreview(track = cameraTrack, modifier = m) },
                 agentLines = { m -> AgentLines(messages = sessionMessages.messages, wearerIdentity = wearerIdentity, modifier = m) },
                 wearerLine = { m -> WearerLine(messages = sessionMessages.messages, wearerIdentity = wearerIdentity, modifier = m) },

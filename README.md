@@ -16,7 +16,7 @@ The agent has three architectures: GPT-Live with a separate vision model, which 
 
 There are two machines: the glasses, and a server on the same Wi-Fi network. The glasses talk only to the server; only the server talks to the model APIs (OpenAI, Anthropic, Google).
 
-The glasses run the app in `android/`: it sends the mic and camera to the server, plays the assistant's speech and shows the steps, what the camera sees (the bottom square of the frame, which is what the vision model gets) and, when the wearer asks for one, a picture of the build at a step in the camera's place. It holds no model keys.
+The glasses run the app in `android/`: it sends the mic and camera to the server, plays the assistant's speech and shows the steps, what the camera sees (the bottom square of the frame, which is what the vision model gets) and, when the wearer asks for one, a picture the agent sends in the camera's place. It holds no model keys.
 
 The server runs three programs:
 
@@ -38,7 +38,7 @@ Two models. GPT-Live (`gpt-live-1`) is the voice: it hears the wearer and speaks
 2. What needs eyes, or a brick placed, it hands over to the agent: GPT-Live sends a hand-over (a "delegation") with an id, sometimes with the wearer's words.
 3. The brain sends one request to the vision model: the newest camera frame (bottom square at `BRAIN_SIDE`, thinking at `BRAIN_EFFORT`), the call so far, the progress, the wearer's words.
 4. The brain's reply goes back to GPT-Live as text attached to that id (a "commentary"), and GPT-Live says it in its own words.
-5. When the vision model judges that more or fewer steps are built right, it says so through its tool `set_progress`: the step list on the glasses changes and the same commentary tells GPT-Live. When the wearer asks to see a step's picture, or says yes to an offer of one, GPT-Live hands that over too, and the vision model's tool `show` puts the picture on the glasses in the square that otherwise shows the camera; the picture goes when the progress moves or the wearer says they no longer need it. The picture is never put up unasked.
+5. When the vision model judges that more or fewer steps are built right, it says so through its tool `set_progress`: the step list on the glasses changes and the same commentary tells GPT-Live. When the wearer asks to see a step's picture, or says yes to an offer of one, GPT-Live hands that over too, and the vision model's tool `show` names the step's picture in an attribute and sends it, a PNG drawn from the task file, to the glasses as a LiveKit byte stream; the square that otherwise shows the camera says the picture is on its way, shows it when it arrives, or says it did not arrive so the wearer can ask again; the picture goes when the progress moves or the wearer says they no longer need it. The picture is never put up unasked.
 6. While no hand-over runs, the brain also looks by itself, one look after the other, at most one every `BRAIN_WATCH_EVERY` seconds, on the newest frame at `BRAIN_WATCH_SIDE` without thinking. Nobody asked, so the vision model decides what to do: `note` writes down what may matter later and passes it to GPT-Live silently (a "thinking"), unless it is about what the photo does not let the model tell, `say` has GPT-Live tell the wearer something now (a commentary on no hand-over) once the next look calls `say` too, since GPT-Live cannot take back what it was told, `set_progress` moves the build and tells GPT-Live in a commentary on no hand-over, `say` is also how the brain, seeing the wearer stuck, has GPT-Live offer them the step's picture, and no tool at all leaves no trace. A hand-over cancels the look running and the watch goes on after it.
 
 The call so far, in every request, is one line per entry with its time into the call: what the wearer and GPT-Live said, and what the brain itself noted, had GPT-Live say, or answered. No photo is kept from one request to the next.
@@ -151,7 +151,8 @@ What the agent sends the glasses travels three ways, and each meets loss on the 
 |---|---|---|---|
 | the agent's voice | RTP media | UDP | covered by RED's copy of the packet before, else lost |
 | both sides' captions | a LiveKit text stream on topic `lk.transcription` (room_io also sends the legacy transcription packets, which the app's components do not read) | the WebRTC data channel, reliable (SCTP over DTLS over UDP) | resent, so a caption arrives late rather than not at all |
-| the step list, the step's picture and "Thinking" | participant attributes (`guide.py` `publish_build`, `gpt/brain.py`) | the signalling WebSocket, TCP | resent, and what follows waits behind it |
+| the step list, the name of the picture to show and "Thinking" | participant attributes (`guide.py` `publish_build`, `gpt/brain.py`) | the signalling WebSocket, TCP | resent, and what follows waits behind it |
+| the step's picture | a LiveKit byte stream on topic `rayneo.picture` (`gpt/brain.py` `_show`), a PNG of a few KB | the WebRTC data channel, reliable | resent, so the picture arrives late rather than not at all |
 
 The two voices share a ceiling of about 50 kbps of Opus, measured from the RED payload sizes in the 2026-10-16 capture: the agent's synthesised speech sits near it, while the glasses' microphone, gated by the platform's echo cancelling and noise suppression, often runs far under it, so the agent's voice takes more bandwidth down than the wearer's up (`traffic/summary.md` has the bitrates on the wire).
 
@@ -211,7 +212,7 @@ logs/                   records pulled from the lab (not in git)
 
 **backend/agent/src/gemini/**: `prompts.py` is the prompt; `sampler.py` picks which frames the model gets and saves each to the record; `config.py` reads the settings and makes the model; `agent.py` wires the session and the logs.
 
-**Task file** (`backend/agent/guides/<task>/task.toml`): each step has a name for the list on the glasses, the brick, where it goes against the bricks before it, and the brick's colour and the cells it covers as drawn on the sheet, from which the glasses draw the picture of the build at a step (`StepPicture.kt`) when the wearer has asked for it; the colour and cells go to no model. The agent publishes all of it once as participant attributes (`guide.py`), and during the call only the index of the current step and the number of the step whose picture is shown change. Each file's `number` is its task on `tasks/sheet.html`.
+**Task file** (`backend/agent/guides/<task>/task.toml`): each step has a name for the list on the glasses, the brick, where it goes against the bricks before it, and the brick's colour and the cells it covers as drawn on the sheet, from which `render_pictures.py` draws the picture of the build at each step (`step-<n>.png` beside the task file; run it after changing a task file, the agent refuses a guide whose pictures are missing), sent to the glasses when the wearer asks for it; the colour and cells go to no model. The agent publishes the title, the step names and the index of the current step once as participant attributes (`guide.py`), and during the call only that index and the name of the picture shown change. Each file's `number` is its task on `tasks/sheet.html`.
 
 **android/**: the panel is 640x480 per eye, reported as one 1280x480 display at density 160, so every screen draws its content twice through `ui/Eyes.kt`:
 
