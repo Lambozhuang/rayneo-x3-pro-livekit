@@ -16,6 +16,7 @@ backend/runs/
 # papers and standards, downloaded, not ours to redistribute
 docs/*.pdf
 docs/papers/
+docs/feedback/
 
 # scratch: PoC scripts and their output, not part of the project
 tmp/
