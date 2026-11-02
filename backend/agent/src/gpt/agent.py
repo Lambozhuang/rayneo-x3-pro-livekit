@@ -92,6 +92,9 @@ async def rayneo_assistant(ctx: JobContext) -> None:
     def _log_close(ev) -> None:
         brain.stop_watching()  # the call is over: no more looks at a camera that has stopped sending
         record.event("closed", reason=str(getattr(ev.reason, "value", ev.reason)), error=str(ev.error) if ev.error else None)
+        # The call is over when the session is: end the job now, not when livekit-server closes the room, which is
+        # 20 s after the glasses leave (departure_timeout), so the record closes and reaches the console at once.
+        ctx.shutdown(reason=f"session closed: {getattr(ev.reason, 'value', ev.reason)}")
 
     async def _log_usage() -> None:
         brain.stop_watching()
