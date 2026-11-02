@@ -35,6 +35,8 @@ import org.json.JSONObject
  *                same list the debug picker shows, training and experiment alike. The call starts with it, and the
  *                token request carries the run's identity and the console's address for the agent (VoiceAssistantRoute),
  *                which reports the call's record to the console when the call ends (backend/agent/src/qoe.py).
+ *                A start_task during a task means the console has reset that run: the call is left without a
+ *                report and the new task starts.
  *   end_task     the call ends. The wearer may also end it first with a double tap, as the contract allows.
  *   clock        answered at once with this clock, for the console's offset.
  *
@@ -121,11 +123,14 @@ object Lab {
     }
 
     /**
-     * The call screen is gone: if a run was on, report it. `stepsDone` is the agent's current step index, which equals
-     * `stepsTotal` once the build is finished (guide.py); null when the agent never published a build.
+     * The call screen of the run `sid`/`runId` is gone: if that run is still on, report it; a run the console has
+     * replaced in the meantime is not. `stepsDone` is the agent's current step index, which equals `stepsTotal` once the
+     * build is finished (guide.py); null when the agent never published a build. The log goes only when start_task
+     * asked for one, as the contract says.
      */
-    fun callEnded(room: String?, stepsDone: Int?, stepsTotal: Int) {
+    fun callEnded(sid: String, runId: Int, room: String?, stepsDone: Int?, stepsTotal: Int) {
         val r = run ?: return
+        if (r.sid != sid || r.runId != runId) return
         run = null
         val log = JSONObject()
             .put("room", room ?: JSONObject.NULL)
@@ -137,7 +142,7 @@ object Lab {
             .put("ended_by", if (r.endedByConsole) "console" else "glasses")
         Log.i(TAG, "task ended: sid=${r.sid} run_id=${r.runId} room=$room steps=$stepsDone/$stepsTotal by=${if (r.endedByConsole) "console" else "glasses"}")
         status = "task ${r.taskNumber} ended; reporting"
-        enqueue(report(r.sid, r.runId, r.startedAt, System.currentTimeMillis(), log))
+        enqueue(report(r.sid, r.runId, r.startedAt, System.currentTimeMillis(), if (r.wantsLog) log else null))
     }
 
     private val reconnect = Runnable { connect() }
@@ -253,9 +258,9 @@ object Lab {
         val sid = data.getString("sid")
         val runId = data.getInt("run_id")
         val number = data.getInt("task_number")
-        if (run != null) {
-            Log.w(TAG, "start_task while a task is in progress; ignored: $data")
-            return
+        run?.let {  // the contract: the console has reset that run; the call goes, unreported, and the new task starts
+            Log.w(TAG, "start_task during sid=${it.sid} run_id=${it.runId}: that run is abandoned without a report")
+            run = null
         }
         val task = Tasks.list.firstOrNull { it.number == number }
         if (task == null) {
@@ -289,11 +294,12 @@ object Lab {
      * A report as the contract has it, with the console it is for; `sent_at` is added at each attempt. `outcome` is
      * "failed" for a task that could not run; left out, the console takes the run as completed.
      */
-    private fun report(sid: String, runId: Int, startedAt: Long, endedAt: Long, log: JSONObject, outcome: String? = null) = JSONObject()
+    private fun report(sid: String, runId: Int, startedAt: Long, endedAt: Long, log: JSONObject?, outcome: String? = null) = JSONObject()
         .put("console", console)
         .put("body", JSONObject()
-            .put("sid", sid).put("run_id", runId).put("role", "target").put("outcome", outcome)  // a null value leaves the key out
-            .put("started_at", startedAt).put("ended_at", endedAt).put("log", log))
+            .put("sid", sid).put("run_id", runId).put("role", "target")
+            .put("started_at", startedAt).put("ended_at", endedAt)
+            .put("outcome", outcome).put("log", log))  // a null value leaves the key out
 
     private fun enqueue(report: JSONObject) {
         save(pending().put(report))

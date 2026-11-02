@@ -81,6 +81,8 @@ class MainActivity : ComponentActivity() {
         Lab.screens = object : Lab.Screens {
             override fun startCall(run: Lab.Run): Boolean {
                 val nav = navController ?: return false
+                // A task on screen that the console has reset: its screen goes first, and reports nothing (Lab.callEnded).
+                if (nav.currentDestination?.hasRoute(VoiceAssistantRoute::class) == true) nav.navigateUp()
                 if (nav.currentDestination?.hasRoute(LabRoute::class) != true) {
                     Log.w(TAG, "start_task while not on the lab screen")
                     return false

@@ -286,7 +286,7 @@ fun VoiceAssistant(
         var lastBuild by remember { mutableStateOf(BuildProgress.NONE) }
         LaunchedEffect(buildProgress) { if (buildProgress.steps.isNotEmpty()) lastBuild = buildProgress }
         DisposableEffect(Unit) {
-            onDispose { Lab.callEnded(room.name, lastBuild.current, lastBuild.steps.size) }
+            onDispose { Lab.callEnded(viewModel.route.sid, viewModel.route.runId, room.name, lastBuild.current, lastBuild.steps.size) }
         }
 
         // Both sides. The agent's lines are its own transcript; the wearer's

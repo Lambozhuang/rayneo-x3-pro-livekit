@@ -81,9 +81,10 @@ class VoiceAssistantViewModel(application: Application, savedStateHandle: SavedS
     }
 
     val tokenSource: TokenSource
+    /** What this call was opened with; the lab run in it is what the screen reports as ended (Lab). */
+    val route: VoiceAssistantRoute = savedStateHandle.toRoute<VoiceAssistantRoute>()
 
     init {
-        val route = savedStateHandle.toRoute<VoiceAssistantRoute>()
 
         // One token path on purpose. The upstream starter falls back to LiveKit's
         // public homepage agent when its Cloud config is missing, which would
