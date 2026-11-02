@@ -7,5 +7,6 @@ A study's README says, in order: the question, the material used (which run, whi
 | study | question |
 |---|---|
 | `brain-frame-quality/` | how few pixels and how low a video bitrate the brain's model (Claude Sonnet 5.5) can judge a build from, measured on frames of a recorded call |
+| `brain-frame-codec/` | what the video's bitrate costs the brain's model when the video is encoded as the glasses encode it, in H.264 and in H.265, on the second material of `brain-frame-quality/` |
 | `structured-output-replay/` | whether asking the brain's model for one JSON object instead of tool calls changes what it decides, by replaying a recorded call's looks |
 | `brain-thread-replay/` | whether the brain, keeping one conversation of its own (2026-10-29), holds the progress where the plate says it is, by replaying the looks of the 2026-10-28 call in which it flipped eight times |
