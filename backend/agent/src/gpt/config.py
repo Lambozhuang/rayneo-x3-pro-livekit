@@ -26,7 +26,8 @@ class Settings:
     live_model: str
     voice: str
     # The brain (brain.py): who serves the vision model that answers what GPT-Live delegates (openai or
-    # anthropic), the model, its reasoning effort (none = no reasoning), the image detail (openai only), and
+    # anthropic), the model, its reasoning effort for every look (none = no reasoning), the image detail
+    # (openai only), and
     # the longest side in px the camera frame is scaled to, and how long an answer may take.
     brain_provider: str
     brain_model: str

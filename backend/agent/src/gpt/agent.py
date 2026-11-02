@@ -2,11 +2,13 @@
 
     glasses --audio--> SFU --> this process --ws--> gpt-live-1 (knows every step)
             --video-->     --> FrameTap (frames kept for the brain, none to the voice)
-    gpt-live-1 --delegation (id + the wearer's words)--> brain: next frame + the call so far
-                                                         --> one vision call --> a reply, maybe set_progress
+    gpt-live-1 --delegation (id + the user's words)--> brain: its own conversation + the lines since its last
+                                                       look + the newest frame --> one vision call --> a reply,
+                                                       maybe set_progress or show
             <--commentary on that delegation-- brain (the voice says it in its own words)
-    brain, between delegations: a frame every few seconds --> one vision call --> nothing, or a note
-            <--thinking (the note) or commentary (say it now, the progress moved)-- brain
+    brain, between delegations: a frame every few seconds --> one vision call --> what it sees, maybe set_progress
+                                or say
+            <--thinking (what it sees) or commentary (say: the user hears it now; the progress moved)-- brain
             <--audio-- SFU <-- this process <-- gpt-live-1
             <--step list (participant attributes)-- this process (the step is the brain's)
 

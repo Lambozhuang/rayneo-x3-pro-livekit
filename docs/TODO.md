@@ -24,6 +24,8 @@
 ### GPT 路径（大脑）
 
 - [x] 主动观察（watch）：没有委托时大脑一张接一张看，最少间隔 BRAIN_WATCH_EVERY=2 s，768 不思考；工具 note（记进大脑的时间线，to_voice 时以 thinking 给 Live）、say（下一次 watch 也调 say 才以 commentary 让 Live 说）、set_progress；不调工具就什么都不留。委托来时取消正在跑的 watch。2026-10-19 实验室跑了三轮，用户认为弥补了之前的问题
+- [x] 大脑的上下文改成它自己的一条线程（2026-10-29）。此前每次 look 由我们按时间戳把 Live 的历史和大脑的 note/say 拼成 transcript，大脑自己的 set_progress 不在里面，hold 又把同一次 look 的笔记扣住，于是 2026-10-28 的 gate 一轮（logs/20261028-162315-glasses-795c9128）里进度在 4、5、6 之间一分钟内翻了八次，每次都是模型看到进度和自己笔记矛盾就改回去。现在每次 look 追加一条消息（上次 look 以来的 User:/Assistant: 行加照片，委托时末尾 "The assistant hands this to you."），模型回复和工具调用按 provider 原样保留，每个调用一条结果（"Recorded: 3 of 5 steps done ..."），旧照片回完即去；note 和 say 的两次确认删除，常规一看的回复整句作为 thinking 给 Live；watch 和委托同用 BRAIN_EFFORT；prompt 用 OpenAI 的 "You are helping an assistant in a live voice conversation"，称呼只有 you、the assistant、the user。依据 tmp/2026-10-29 的调研：OpenAI 官方把后端当帮助助手的第二方并给它带标签的转录，Pipecat 的 BackendLLMWorker 是同样的持久线程加转录增量。用户 10-11 就定过不用时间戳重建上下文，10-19 的 watch 提交违反了它
+- [ ] 新线程第一轮真机要看：token 随 look 的增长（watch_sent.looks 对 usage.in 和 cached）；每两秒一条 thinking 对 Live 说话的影响；委托后约 1.9 s 的那句垫话还在不在（thinking 会取消待发的自动应答，watch 在委托期间停，应该不受影响）；进度翻转是否消失；去掉 hold 后有没有对着还在按的砖过早纠正
 - [ ] 保留意见：委托来时如果 watch 发出不到 1 s，不取消，让它的结论带上委托 id 当回答（watch 不知道问题，可能答不上）
 - [ ] 端到端延迟的最后一段：记录里已有委托 → 大脑回复 → Live 开口，还缺眼镜播出，要在眼镜本地按真实声音计时
 - [ ] 对比模型和图片尺寸对延迟的影响

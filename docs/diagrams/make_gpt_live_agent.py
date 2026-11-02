@@ -62,10 +62,10 @@ SESSION = [
     ("Hand-off", ["sends a delegation when an answer", "needs the camera"]),
 ]
 BRAIN = [
-    ("Watch", ["looks at the newest frame by itself,", "at most every 2 s; BRAIN_WATCH_SIDE px,", "no thinking"]),
-    ("Answer", ["looks at the newest frame for each", "delegation; 1080 px, with thinking"]),
+    ("Watch", ["looks at the newest frame by itself,", "at most every 2 s; BRAIN_WATCH_SIDE px"]),
+    ("Answer", ["looks at the newest frame for each", "delegation; BRAIN_SIDE px"]),
     ("Progress", ["records how many steps are built right", "(set_progress), updates the step list"]),
-    ("Context", ["every look sends the call's transcript and", "its own earlier notes, no old images"]),
+    ("Context", ["one conversation of its own: every look,", "its replies and tool results; newest photo only"]),
 ]
 
 
@@ -187,7 +187,7 @@ def build(t: dict) -> str:
     wire([(X_THK, y2), (X_THK, y1)], t["muted"], "headm")
     tag(X_DEL + 12, ym, "delegation", ["a question that", "needs the camera"])
     tag(X_COM + 12, ym, "commentary", ["spoken: answers,", "corrections, progress"])
-    tag(X_THK + 12, ym, "thinking", ["notes, not spoken"])
+    tag(X_THK + 12, ym, "thinking", ["what it sees, not spoken"])
 
     # livekit-server, the SFU between the glasses and the agent: it forwards the media and the attributes as they
     # are, and holds a WebRTC connection of its own to each side
@@ -228,7 +228,7 @@ def build(t: dict) -> str:
     text(ncx, (SY + SH + RY) / 2 + 10, "internet", T_LABEL, colour=t["muted"], weight=600)
     for line_y, name, size, title, sub, above, below in (
         (SY + SH / 2, "openai", 30, "gpt-live-1", "OpenAI", ["audio, session events"], "WebSocket"),
-        (RY + RH / 2, "anthropic", 26, "Claude Sonnet 5.5", "Anthropic", ["frame, transcript", "and notes"],
+        (RY + RH / 2, "anthropic", 26, "Claude Sonnet 5.5", "Anthropic", ["its conversation and", "the newest frame"],
          "HTTPS, one per look"),
     ):
         y, h = line_y - KH / 2, KH

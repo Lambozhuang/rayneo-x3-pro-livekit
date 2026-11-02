@@ -291,6 +291,9 @@ def sent_input(sent: dict) -> str:
     records with the call so far: one message, its parts one per paragraph)."""
     if "input" in sent:
         return sent["input"]
+    if "lines" in sent:  # records from 2026-10-29: the brain's own conversation, this look's message last
+        return "\n\n".join(["[photo]" if sent.get("photo") else "[no photo]", sent["lines"],
+                            f"(look {sent['looks']} of the brain's conversation)"])
     if "said" in sent:
         return "\n\n".join(["[photo]" if sent.get("photo") else "[no photo]", sent["said"], sent["notice"], sent["words"]])
     turn = lambda role, text: role + ": " + text.replace("\n", "\n    ")  # noqa: E731
@@ -315,7 +318,7 @@ def watch_outcome(look: dict) -> str:
     if back.get("progress") is not None:
         return "progress"
     return ("say" if "say" in look else "held" if "say_held" in look else "note" if "note" in look
-            else "nothing")
+            else "nothing")  # held and note: records before 2026-10-29
 
 
 WATCH_COLOURS = {"progress": "#5b5", "say": "#a6d", "held": "#d8b", "note": "#69c", "nothing": "#444", "failed": "#d44", "dropped": "#555",
@@ -332,6 +335,8 @@ def watch_card(w: int, look: dict) -> str:
     if sent:
         out.append(f'step {sent["step"]} &middot; frame {sent["frame"]} ({sent["frame_size"]} at {sent["side"]} px, '
                    f'{sent["frame_age_ms"]} ms old), {sent["photo_kb"]} KB<br>')
+    if back and back.get("reply"):
+        out.append(f'<p>{esc(back["reply"])}</p>')
     for kind in ("note", "say"):
         if kind in look:
             out.append(f'<p>{kind}: {esc(look[kind]["text"])}</p>')

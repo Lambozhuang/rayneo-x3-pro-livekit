@@ -1,54 +1,62 @@
-"""The brain: it looks at the camera by itself every few seconds, and answers what GPT-Live hands over.
+"""The brain: the vision model that helps GPT-Live, which talks with the user and cannot see.
 
-GPT-Live cannot see. The brain is one vision model, behind OpenAI's Responses API
-or Anthropic's Messages API (BRAIN_PROVIDER), that looks in two ways:
+The brain is one vision model, behind OpenAI's Responses API or Anthropic's
+Messages API (BRAIN_PROVIDER), that keeps one conversation of its own for the
+whole call and is called in two ways, both at BRAIN_EFFORT:
 
 - A watch look runs whenever no delegation does, one after the other, at most one
   every BRAIN_WATCH_EVERY seconds, on the newest camera frame scaled to
-  BRAIN_WATCH_SIDE, without thinking. Nobody asked: the brain writes down what may
-  matter later (note, which also goes to GPT-Live as silent thinking unless it is
-  about what the photo does not let it tell), has GPT-Live say something now (say,
-  commentary on no delegation, sent once the next look calls say too), moves the
-  build (set_progress), or does nothing, which leaves no trace in its context.
-- A delegation: when the wearer says something that needs eyes ("is this right?",
+  BRAIN_WATCH_SIDE. Nobody asked: what the brain writes goes to GPT-Live as
+  thinking, silent context for when the user asks; set_progress moves the build
+  and say has GPT-Live tell the user something now, both as commentary.
+- A delegation: when the user says something that needs eyes ("is this right?",
   "where does it go?", "what is this?") or asks to see a step's picture, GPT-Live
   delegates; the plugin emits `delegation_created` with an id and, sometimes, the
-  wearer's words not yet in the history. The brain answers from the newest frame
-  scaled to BRAIN_SIDE, at BRAIN_EFFORT, and the reply goes to GPT-Live as
-  commentary on that id ("Camera: ..."), which says it in its own words. A watch
-  look still running is cancelled, and the watch goes on once the answer is out.
+  user's words not yet in the history. The brain answers from the newest frame
+  scaled to BRAIN_SIDE, and the reply goes to GPT-Live as commentary on that id
+  ("Camera: ..."), which says it in its own words. A watch look still running is
+  cancelled and the watch waits until the answer is out: GPT-Live says a few words
+  by itself when a delegation takes a moment, and any thinking or commentary
+  appended meanwhile cancels those words, so nothing is appended while a
+  delegation runs.
+
+The brain's conversation (Look, one per request) is a chat with tools as a model
+is used anywhere: a user message per look, with the lines the user and the
+assistant said since the look before ("User: ...", "Assistant: ...") and the
+photo; the model's reply, text and tool calls, in the provider's own items; and
+one result per tool call, what carrying it out did. Nothing is dropped or
+rewritten, except that the photo is taken out of a look once the model has
+answered on it: images are too large to keep (about 1500 tokens each, a look
+every two seconds), and what the model wrote of the photo is what it keeps of
+it. So the model reads its own earlier observations and actions, and the
+progress it knows is the one its last set_progress result told it. For the
+prompt cache every request is the one before plus one look, the photo of the
+look before taken out.
 
 The picture of a step on the glasses (show) is given only in a delegation, so it
-always follows the wearer's words: they asked for it, or took the voice up on an
-offer the brain made from a watch look (say), as a helper standing beside them
-would offer before pointing at the instructions. The picture is a file beside the
-task (render_pictures.py), named in an attribute and then sent to the glasses as a
-byte stream; the glasses show that it is on its way, then the picture itself. It goes away
-when the progress moves (Build.set_step) or when the brain is asked to take it away
-(show 0).
+always follows the user's words: they asked for it, or took the assistant up on
+an offer the brain made from a watch look (say), as a helper standing beside
+them would offer before pointing at the instructions. The picture is a file
+beside the task (render_pictures.py), named in an attribute and then sent to the
+glasses as a byte stream; the glasses show that it is on its way, then the
+picture itself. It goes away when the progress moves (Build.set_step) or when
+the brain is asked to take it away (show 0).
 
-Both send one request built the same way:
+Both kinds of request are built the same way:
 
-    tools         set_progress(done); a delegation also show(step), a watch look note(text) and say(text)
+    tools         set_progress(done); a delegation also show(step), a watch look say(text)
     instructions  rules for both + the whole task file          fixed, so the prompt cache hits
-    one message   the frame's bottom square, the call so far, the progress recorded and what the glasses show, and
-                  the wearer's latest words (a delegation) or "routine look" (a watch)
-
-The call so far is one line per entry with its time into the call: the wearer's
-and the voice's lines from the chat history, and what the brain wrote earlier
-(its notes, what it had the voice say, its answers to delegations). Photos are
-never kept: what an earlier look saw survives only as what the brain wrote of it.
-Nothing goes back to the model: tool calls are executed here. Only a set_progress
-call moves the build, forward or back, and only a show call changes the picture
-(both published to the glasses, told to GPT-Live in the same commentary); no call,
-nothing moves.
+    conversation  every look so far, the newest with its photo and ending with "The assistant hands this
+                  to you." when it is a delegation
 
 The newest delegation wins: a call still running when the next arrives is
-cancelled. A delegation that fails or takes longer than BRAIN_TIMEOUT answers "the helper could
-not answer, say it again"; with no camera frame yet the model is asked without a photo.
-A watch look that fails is logged and the next one follows; with no frame yet none is made.
-Every step of a look goes into the call's record (runlog.py): the photo and the whole
-input as sent, the reply, the timings.
+cancelled. A delegation that fails or takes longer than BRAIN_TIMEOUT answers "the
+helper could not answer, say it again"; with no camera frame yet the model is asked
+without a photo. A watch look that fails is logged and the next one follows; with
+no frame yet none is made. A look that gets no answer (cancelled, failed, timed
+out) is not kept, and the lines it carried come again with the next look. Every
+step of a look goes into the call's record (runlog.py): the photo and the message
+as sent, the reply, the timings.
 """
 
 from __future__ import annotations
@@ -59,11 +67,12 @@ import io
 import json
 import logging
 import time
+from dataclasses import dataclass, field
 
 from livekit.agents import AgentSession
 
 from frames import FrameTap, bottom_square
-from gpt.prompts import WATCH_ASK, brain_instructions
+from gpt.prompts import HANDED, NO_ONE_SPOKE, NO_PHOTO, NO_WORDS_YET, brain_instructions
 from guide import PICTURE_TOPIC, Build, publish_build
 from livekit.agents import get_job_context
 from runlog import RunLog
@@ -78,50 +87,58 @@ SET_PROGRESS = (
     "set_progress",
     "Records how far the build is: the number of steps, counted from step 1, that the photo shows built right, from 0 "
     "to the number of the last step. It can go up by more than one, or down when an earlier step turns out wrong. The "
-    "step list on the glasses and the voice follow it, so your reply should say the same, and progress recorded "
-    "higher than the plate shows leaves the wearer building on a mistake. Call it only when the photo lets you tell "
-    "and the number differs from the progress given in the input; leave it out when part of the build is hidden or "
-    "too small to judge, and when the wearer only says they are done without the photo showing it.",
+    "step list on the glasses and the assistant follow it, so what you write should say the same, and progress "
+    "recorded higher than the plate shows leaves the user building on a mistake. Call it only when the photo lets "
+    "you tell and the number differs from the progress recorded, which the result of your last call told you; leave "
+    "it out when part of the build is hidden or too small to judge, and when the user only says they are done "
+    "without the photo showing it.",
     {"type": "object", "properties": {"done": {"type": "integer",
                                                "description": "how many steps, from step 1, are built right"}},
      "required": ["done"], "additionalProperties": False})
-NOTE = (
-    "note",
-    "Writes down what the photo shows that may matter later and the call so far does not say yet. It goes into the "
-    "call so far, so later looks and requests read it, and, unless to_voice is false, silently to the voice, which "
-    "uses it when the wearer asks and does not read it out.",
-    {"type": "object", "properties": {
-        "text": {"type": "string", "description": "one short sentence of plain facts"},
-        "to_voice": {"type": "boolean",
-                     "description": "false when the note is about what the photo does not let you tell yet (a hand "
-                                    "covers it, it is blurred, it is out of the picture): such a note stays in the "
-                                    "call so far for your later looks, and the voice, which cannot look again, is "
-                                    "not told something it might pass on as a doubt"}},
-     "required": ["text", "to_voice"], "additionalProperties": False})
 SAY = (
     "say",
-    "Has the voice tell the wearer something now, unasked, in its own words. It also goes into the call so far.",
+    "Has the assistant tell the user something now, without their asking, in its own words. Everything else you "
+    "write reaches the assistant silently, for when the user asks.",
     {"type": "object", "properties": {"text": {"type": "string",
                                                "description": "one or two short sentences of plain facts"}},
      "required": ["text"], "additionalProperties": False})
 SHOW = (
     "show",
-    "Puts the picture of one step on the wearer's glasses, in the square that otherwise shows what the camera sees: "
+    "Puts the picture of one step on the user's glasses, in the square that otherwise shows what the camera sees: "
     "the plate from above with the bricks of the steps up to that one, the step's own brick outlined. Call it when "
-    "the wearer asks to see a picture or accepts the voice's offer of one, with the step they are on or the step "
+    "the user asks to see a picture or accepts the assistant's offer of one, with the step they are on or the step "
     "their question is about; call it with 0 when they say they do not need it any more. The picture stays until "
-    "the progress moves or you take it away. Your reply should say what to look at in it, since the voice points "
-    "the wearer to the picture in your words.",
+    "the progress moves or you take it away. Write what to look at in it, since the assistant points the user to "
+    "the picture in your words.",
     {"type": "object", "properties": {"step": {"type": "integer",
-                                               "description": "the step's number as the wearer counts them, from "
+                                               "description": "the step's number as the user counts them, from "
                                                               "1; 0 takes the picture away"}},
      "required": ["step"], "additionalProperties": False})
 ASK_TOOLS = [SET_PROGRESS, SHOW]
-WATCH_TOOLS = [SET_PROGRESS, NOTE, SAY]
+WATCH_TOOLS = [SET_PROGRESS, SAY]
 
-# who wrote a line in the call so far, as the brain reads it
-WHO = {"user": "wearer", "assistant": "voice", "noted": "you noted", "said": "you had the voice say",
-       "answered": "you answered the voice"}
+# how a line of the chat history is labelled in a look's message
+WHO = {"user": "User", "assistant": "Assistant"}
+
+# the result of a tool call the look did not get to carry out (a delegation came while it was being done)
+NOT_DONE = "Not carried out: a request from the assistant came first."
+
+
+@dataclass
+class Look:
+    """One look, as a turn of the brain's conversation: its message, the model's reply and the tools' results.
+
+    `text` is what the message says besides the photo: the lines said since the look before, and whether the
+    assistant handed the user's words over. `photo` is the frame's bottom square as a JPEG until the model has
+    answered on it, then None. `output` is the model's reply in the provider's own items, passed back as they
+    came, and `calls` the tool calls in it as (call id, name, arguments). `results` is what carrying each call
+    out did, by call id, written as each is done; a call still without one when the next look is sent gets
+    NOT_DONE."""
+    text: str
+    photo: bytes | None
+    output: list = field(default_factory=list)
+    calls: list[tuple[str, str, dict]] = field(default_factory=list)
+    results: dict[str, str] = field(default_factory=dict)
 
 
 def _jpeg(frame, side: int) -> bytes:
@@ -131,8 +148,15 @@ def _jpeg(frame, side: int) -> bytes:
     return buf.getvalue()
 
 
+def _data_url(photo: bytes) -> str:
+    return "data:image/jpeg;base64," + base64.b64encode(photo).decode()
+
+
 class OpenAIModel:
-    """Responses API; the prompt cache is automatic (prompt_cache_key keeps one call's requests together)."""
+    """Responses API, the conversation managed here: every request carries all the looks as input items
+    (`store=False`), the model's output items passed back as they came, its reasoning included as encrypted
+    content so a later request can read it. The prompt cache is automatic; prompt_cache_key keeps one call's
+    requests together."""
 
     def __init__(self, model: str, detail: str) -> None:
         from openai import AsyncOpenAI
@@ -140,21 +164,35 @@ class OpenAIModel:
         self._client = AsyncOpenAI()
         self._model, self._detail = model, detail
 
-    async def ask(self, instructions: str, texts: list[str], photo: bytes | None, tools: list, effort: str,
-                  key: str) -> tuple[str, list, dict]:
+    def _render(self, looks: list[Look]) -> list:
+        items: list = []
+        for look in looks:
+            content: list = []
+            if look.photo is not None:
+                content.append({"type": "input_image", "image_url": _data_url(look.photo), "detail": self._detail})
+            content.append({"type": "input_text", "text": look.text})
+            items.append({"role": "user", "content": content})
+            items.extend(look.output)
+            for call_id, _, _ in look.calls:
+                items.append({"type": "function_call_output", "call_id": call_id,
+                              "output": look.results.get(call_id, NOT_DONE)})
+        return items
+
+    async def ask(self, instructions: str, looks: list[Look], tools: list, effort: str, key: str
+                  ) -> tuple[str, list[tuple[str, str, dict]], list, dict]:
+        """Answers the newest look. Returns the reply text, the tool calls, the output items to keep, the usage."""
         kw = {"reasoning": {"effort": effort}} if effort else {}
         resp = await self._client.responses.create(
-            model=self._model, instructions=instructions,
-            input=[{"role": "user", "content": ([
-                {"type": "input_image", "image_url": "data:image/jpeg;base64," + base64.b64encode(photo).decode(),
-                 "detail": self._detail}] if photo else []) + [{"type": "input_text", "text": t} for t in texts]}],
+            model=self._model, instructions=instructions, input=self._render(looks),
             tools=[{"type": "function", "name": n, "description": d, "parameters": p, "strict": True} for n, d, p in tools],
-            prompt_cache_key=key, **kw,
+            store=False, include=["reasoning.encrypted_content"], prompt_cache_key=key, **kw,
         )
-        calls = [(o.name, json.loads(o.arguments or "{}")) for o in resp.output if o.type == "function_call"]
+        if not resp.output:
+            raise RuntimeError("the model returned no output")
+        calls = [(o.call_id, o.name, json.loads(o.arguments or "{}")) for o in resp.output if o.type == "function_call"]
         u = resp.usage
         out_details = getattr(u, "output_tokens_details", None) if u else None
-        return resp.output_text, calls, {
+        return resp.output_text, calls, list(resp.output), {
             "in": u.input_tokens if u else 0, "out": u.output_tokens if u else 0,
             "cached": u.input_tokens_details.cached_tokens if u and u.input_tokens_details else 0,
             "written": 0,  # OpenAI caches by itself and reports no writes
@@ -164,8 +202,11 @@ class OpenAIModel:
 
 
 class AnthropicModel:
-    """Messages API; the instructions carry an explicit cache breakpoint (nothing is cached otherwise).
-    Effort none = thinking disabled; any other value = adaptive thinking at that effort."""
+    """Messages API, the conversation managed here: every request carries all the looks as messages, a user
+    message per look (the results of the look before first, then the photo, then the text) and the model's
+    content blocks passed back as they came, thinking blocks included. The instructions carry an explicit cache
+    breakpoint (nothing is cached otherwise). Effort none = thinking disabled; any other value = adaptive thinking
+    at that effort."""
 
     def __init__(self, model: str) -> None:
         from anthropic import AsyncAnthropic
@@ -176,36 +217,49 @@ class AnthropicModel:
         # thinking), which the API's error names; switched once, on the first such error
         self._off = {"type": "disabled"}
 
-    async def ask(self, instructions: str, texts: list[str], photo: bytes | None, tools: list, effort: str,
-                  key: str) -> tuple[str, list, dict]:
+    @staticmethod
+    def _render(looks: list[Look]) -> list:
+        messages: list = []
+        results: list = []  # the tool results of the look before, which open the next user message
+        for look in looks:
+            content: list = list(results)
+            if look.photo is not None:
+                content.append({"type": "image", "source": {"type": "base64", "media_type": "image/jpeg",
+                                                            "data": base64.b64encode(look.photo).decode()}})
+            content.append({"type": "text", "text": look.text})
+            messages.append({"role": "user", "content": content})
+            if look.output:
+                messages.append({"role": "assistant", "content": look.output})
+            results = [{"type": "tool_result", "tool_use_id": call_id, "content": look.results.get(call_id, NOT_DONE)}
+                       for call_id, _, _ in look.calls]
+        return messages
+
+    async def ask(self, instructions: str, looks: list[Look], tools: list, effort: str, key: str
+                  ) -> tuple[str, list[tuple[str, str, dict]], list, dict]:
         from anthropic import BadRequestError
 
         try:
-            return await self._ask(instructions, texts, photo, tools, effort)
+            return await self._ask(instructions, looks, tools, effort)
         except BadRequestError as e:
             if self._off["type"] != "disabled" or "between_tools" not in str(e):
                 raise
             logger.info("brain: %s takes no disabled thinking, using between_tools", self._model)
             self._off = {"type": "between_tools"}
-            return await self._ask(instructions, texts, photo, tools, effort)
+            return await self._ask(instructions, looks, tools, effort)
 
-    async def _ask(self, instructions: str, texts: list[str], photo: bytes | None, tools: list,
-                   effort: str) -> tuple[str, list, dict]:
+    async def _ask(self, instructions: str, looks: list[Look], tools: list, effort: str
+                   ) -> tuple[str, list[tuple[str, str, dict]], list, dict]:
         kw: dict = {"thinking": self._off}
         if effort and effort != "none":
             kw = {"thinking": {"type": "adaptive"}, "output_config": {"effort": effort}}
-        # the photo first (Anthropic: images before text work best), then each part of the input in a block of its
-        # own (Anthropic's Haiku 5.5 guide). Streamed only to time the first output (ttft: the way there, the
-        # API's queue and its reading of the input, apart from the writing); the reply is used once complete.
+        # Streamed only to time the first output (ttft: the way there, the API's queue and its reading of the
+        # input, apart from the writing); the reply is used once complete.
         t0, ttft = time.perf_counter(), None
         async with self._client.messages.stream(
             model=self._model, max_tokens=4096, **kw,
             tools=[{"name": n, "description": d, "input_schema": p, "strict": True} for n, d, p in tools],
             system=[{"type": "text", "text": instructions, "cache_control": {"type": "ephemeral"}}],
-            messages=[{"role": "user", "content": ([
-                {"type": "image", "source": {"type": "base64", "media_type": "image/jpeg",
-                                             "data": base64.b64encode(photo).decode()}}] if photo else []) + [
-                {"type": "text", "text": t} for t in texts]}],
+            messages=self._render(looks),
         ) as stream:
             async for event in stream:
                 if ttft is None and event.type == "content_block_start":
@@ -213,47 +267,19 @@ class AnthropicModel:
             resp = await stream.get_final_message()
         u = resp.usage
         text_out = " ".join(b.text for b in resp.content if b.type == "text").strip()
-        calls = [(b.name, b.input or {}) for b in resp.content if b.type == "tool_use"]
+        calls = [(b.id, b.name, b.input or {}) for b in resp.content if b.type == "tool_use"]
+        # an empty text block is refused when passed back, so it is not kept
+        output = [b.model_dump(exclude_none=True) for b in resp.content if not (b.type == "text" and not b.text.strip())]
+        if not output:
+            raise RuntimeError("the model returned no output")
         details = getattr(u, "output_tokens_details", None)
-        return text_out, calls, {
+        return text_out, calls, output, {
             "in": u.input_tokens + (u.cache_read_input_tokens or 0) + (u.cache_creation_input_tokens or 0),
             "out": u.output_tokens, "cached": u.cache_read_input_tokens or 0,
             "written": u.cache_creation_input_tokens or 0,
             "thinking": getattr(details, "thinking_tokens", None) if details is not None else None,
             "stop": resp.stop_reason, "ttft_ms": round(ttft * 1000) if ttft is not None else None,
         }
-
-
-def call_so_far(history, written: list[tuple[float, str, str]], record: RunLog, words: str | None = None
-                ) -> tuple[str, str]:
-    """The call so far as one line per entry, in time order, each with its time into the call: the wearer's and the
-    voice's lines from the chat history (stamped when the line closed, so they trail the speech) and what the brain
-    wrote (`written`: wall time, who, text). With words (a delegation), the wearer's lines after the voice's last
-    move out and join them, so the request's own words go last."""
-    chat = []
-    for item in history.items:
-        if item.type != "message" or item.role not in ("user", "assistant"):
-            continue
-        text = " ".join((item.text_content or "").split())
-        if text:
-            chat.append((item.created_at, item.role, text))
-    last = []
-    if words is not None:
-        while chat and chat[-1][1] == "user":
-            last.insert(0, chat.pop()[2])
-    entries = sorted(chat + written, key=lambda e: e[0])
-    lines = []
-    for at, who, text in entries:
-        s = max(0, round(record.t(at)))
-        lines.append(f"[{s // 60}:{s % 60:02d}] {WHO[who]}: {text}")
-    said = "\n".join(lines) or "(nothing yet)"
-    if words is None:
-        return said, ""
-    last_words = "\n".join(last)
-    # the words that came with the delegation may have reached the history by now: then they go once
-    if last_words and words and (words in last_words or last_words in words):
-        return said, max(last_words, words, key=len)
-    return said, "\n".join(w for w in (last_words, words) if w)
 
 
 def make_model(provider: str, model: str, detail: str):
@@ -278,7 +304,10 @@ class Brain:
         self._watch_side = watch_side
         self._watch_every = watch_every
         self._instructions = brain_instructions(build.guide, language)
-        self._written: list[tuple[float, str, str]] = []  # what the brain wrote: (wall time, who, text)
+        self._looks: list[Look] = []  # the conversation: every look the model answered, in order
+        self._seen: set[str] = set()  # ids of the chat history items already in a kept look
+        self._pending: str | None = None  # a delegation's words put in a look before the history had them
+        self._turn = asyncio.Lock()  # one look is built, sent and kept at a time
         self._task: asyncio.Task | None = None  # the delegation running, if any
         self._task_n = 0
         self._asks = 0
@@ -287,9 +316,6 @@ class Brain:
         self._watcher: asyncio.Task | None = None
         self._look: asyncio.Task | None = None  # the watch look running, if any
         self._look_w = 0
-        # A watch look's say, and the notes that came with it, waiting for the next look to say something too
-        # (_watch_look): {"w", "says", "notes"}, or None.
-        self._held: dict | None = None
 
     @property
     def instructions(self) -> str:
@@ -331,51 +357,17 @@ class Brain:
             self._record.event("watch_failed", w=w, error=f"{type(e).__name__}: {e}"[:500])
 
     async def _watch_look(self, w: int) -> None:
-        """One watch look and what comes of it. A say goes out only when the next look calls say too: GPT-Live
-        cannot take back what it was told, so a correction made from one photo, often of a brick still being
-        pressed down, would be spoken even once the next look sees it right. Until then the say and the notes of
-        its look are held, out of the call so far as well, so the next look judges afresh; they are dropped when
-        the next look calls no say, or a delegation comes. Progress is never held."""
-        said, _ = call_so_far(self._session.history, self._written, self._record)
-        reply, calls, u, progress = await self._look_once("watch", w, self._watch_side, said, WATCH_ASK, WATCH_TOOLS,
-                                                          "none")
-        now = time.time()
-        notes, says = [], []
-        for name, args in calls:
-            text = " ".join(str(args.get("text") or "").split())
-            if name == "note" and text:
-                notes.append((text, args.get("to_voice") is not False))
-            elif name == "say" and text:
-                says.append(text)
-        held, self._held = self._held, None
-        if says and held is None:
-            self._held = {"w": w, "says": says, "notes": notes}
-            logger.info("watch: #%d say held until the next look: %s", w, " ".join(says))
-            self._record.event("say_held", w=w, text=" ".join(says))
-            notes, says = [], []
-        elif says:
-            logger.info("watch: #%d confirms the say of #%d", w, held["w"])
-            self._record.event("say_confirmed", w=held["w"], by=w)
-        elif held is not None:
-            logger.info("watch: #%d calls no say, the say of #%d is dropped", w, held["w"])
-            self._record.event("say_dropped", w=held["w"], by=w)
-        speak = []
-        for text, to_voice in notes:
-            self._written.append((now, "noted", text))
-            self._record.event("note", w=w, text=text, to_voice=to_voice)
-            if to_voice:
-                self._session.current_agent.duplex_session.append_thinking(f"Camera: {text}")
-        for text in says:
-            self._written.append((now, "said", text))
-            self._record.event("say", w=w, text=text)
-            speak.append(f"Camera: {text}")
-        if progress is not None:
-            speak.append(await self._move(progress))
+        """One watch look and what comes of it: the reply goes to GPT-Live as thinking, a say and a progress
+        moved as one commentary."""
+        text, calls, look = await self._look_once("watch", w, self._watch_side, None, WATCH_TOOLS)
+        if text:
+            self._session.current_agent.duplex_session.append_thinking(f"Camera: {text}")
+        speak = await self._carry_out(look, calls, "watch", w)
         if speak:
-            text = " ".join(speak)
-            self._record.event("commentary", w=w, id=None, text=text,
+            line = " ".join(speak)
+            self._record.event("commentary", w=w, id=None, text=line,
                                voice_speaking=self._session.agent_state == "speaking")
-            self._session.current_agent.duplex_session.append_commentary(text)
+            self._session.current_agent.duplex_session.append_commentary(line)
 
     # ------------------------------------------------------------------ delegations
 
@@ -383,13 +375,9 @@ class Brain:
         """GPT-Live handed something over; answer it, dropping any older one still running and the watch look."""
         self._asks += 1
         words = d.pending_transcript.strip()  # the turn not yet in the history; often empty
-        logger.info("delegation: %s #%d wearer: %s", d.id, self._asks, words or "(no words came with it)")
+        logger.info("delegation: %s #%d user: %s", d.id, self._asks, words or "(no words came with it)")
         self._record.event("delegation", n=self._asks, id=d.id, words=words)
         self._free.clear()
-        if self._held is not None:
-            logger.info("watch: the say of #%d is dropped for delegation #%d", self._held["w"], self._asks)
-            self._record.event("say_dropped", w=self._held["w"], by_delegation=self._asks)
-            self._held = None
         if self._look is not None and not self._look.done():
             logger.info("watch: #%d dropped for delegation #%d", self._look_w, self._asks)
             self._record.event("watch_dropped", w=self._look_w, by=self._asks)
@@ -409,23 +397,19 @@ class Brain:
 
     async def _answer(self, delegation_id: str, words: str, n: int, t_asked: float | None = None) -> None:
         try:
-            out = await asyncio.wait_for(self._ask(words, n), self._timeout)
+            text, calls, look = await asyncio.wait_for(
+                self._look_once("look", n, self._side, words, ASK_TOOLS), self._timeout)
         except asyncio.CancelledError:
             raise
         except Exception as e:
-            logger.warning("brain: #%d failed (%s: %s), asking the wearer to repeat", n, type(e).__name__, str(e)[:200])
+            logger.warning("brain: #%d failed (%s: %s), asking the user to repeat", n, type(e).__name__, str(e)[:200])
             self._record.event("look_failed", n=n, error=f"{type(e).__name__}: {e}"[:500])
-            self._commentary("The helper could not answer this time. Ask the wearer to say it again.",
+            self._commentary("The helper could not answer this time. Ask the user to say it again.",
                              delegation_id, n, t_asked)
             self._publish_looking(False)
             return
-        if out["text"]:
-            self._written.append((time.time(), "answered", " ".join(out["text"].split())))
-        parts = [f"Camera: {out['text']}"] if out["text"] else []
-        if out["progress"] is not None:
-            parts.append(await self._move(out["progress"]))
-        if out["picture"] is not None:  # after the move, which takes any picture away
-            parts.append(await self._show(out["picture"], n))
+        parts = [f"Camera: {text}"] if text else []
+        parts += await self._carry_out(look, calls, "look", n)
         self._commentary(" ".join(parts) or "Camera: nothing to add.", delegation_id, n, t_asked)
         self._publish_looking(False)
 
@@ -438,97 +422,147 @@ class Brain:
         attributes = {LOOKING_ATTRIBUTE: "1" if looking else ""}
         asyncio.create_task(get_job_context().room.local_participant.set_attributes(attributes), name="looking")
 
-    async def _ask(self, words: str, n: int) -> dict:
-        """One look for delegation n: {text, calls, progress, picture}; progress = the steps done by a set_progress
-        call that changes it, else None; picture = the step of a show call, 0 to take the picture away, else None."""
-        said, words = call_so_far(self._session.history, self._written, self._record, words)
-        words = words or "(the wearer's words have not come through yet)"
-        reply, calls, _, progress = await self._look_once("look", n, self._side, said, words, ASK_TOOLS, self._effort)
-        picture = None
-        for call, args in calls:
-            if call != "show":
-                continue
-            step = args.get("step")
-            if isinstance(step, int) and 0 <= step <= len(self._build.guide.steps):
-                picture = step
-            else:
-                logger.warning("brain: delegation #%d tool call show(%s): ignored, not between 0 and %d", n,
-                               json.dumps(args), len(self._build.guide.steps))
-        return {"text": reply, "calls": calls, "progress": progress, "picture": picture}
-
     # ------------------------------------------------------------------ one look, either kind
 
-    async def _look_once(self, kind: str, n: int, side: int, said: str, last: str, tools: list, effort: str
-                         ) -> tuple[str, list, dict, int | None]:
+    def _message(self, words: str | None) -> tuple[str, list[str], str | None]:
+        """The text of the next look's message, the ids of the chat history items it takes, and the delegation's
+        words it put in before the history had them, if any; both kept once the look is. The text is the lines the
+        user and the assistant said since the look before, in the history's order, each labelled; for a delegation
+        (`words` given, maybe empty) the words that came with it when the history does not have them yet, and
+        HANDED last. With nothing new, NO_ONE_SPOKE. The history's own line for words put in earlier is taken as
+        seen when it comes, so the user is not read as saying it twice."""
+        lines, ids, pending = [], [], self._pending
+        for item in self._session.history.items:
+            if item.type != "message" or item.role not in ("user", "assistant") or item.id in self._seen:
+                continue
+            text = " ".join((item.text_content or "").split())
+            if not text:
+                continue  # a turn still being transcribed: taken once it has words
+            ids.append(item.id)
+            if item.role == "user" and pending and (pending in text or text in pending):
+                pending = None
+                continue
+            lines.append(f"{WHO[item.role]}: {text}")
+        if words is None:
+            return "\n".join(lines) or NO_ONE_SPOKE, ids, pending
+        users = [line[len("User: "):] for line in lines if line.startswith("User: ")]
+        if words and not any(words in u or u in words for u in users):
+            lines.append(f"User: {words}")
+            pending = words
+        elif not words and not users:
+            lines.append(NO_WORDS_YET)
+        lines.append(HANDED)
+        return "\n".join(lines), ids, pending
+
+    async def _look_once(self, kind: str, n: int, side: int, words: str | None, tools: list
+                         ) -> tuple[str, list[tuple[str, str, dict]], Look]:
         """Send one request on the newest frame and log and record it as `kind` (look: a delegation, watch: a watch
-        look) number n. Returns the reply, the tool calls, the usage, and the steps done if a set_progress call
-        changes them, else None; the build itself is moved by the caller."""
-        name = "delegation" if kind == "look" else "watch"
-        num = "n" if kind == "look" else "w"
-        t0 = time.perf_counter()
-        frame, seq = self._tap.latest, self._tap.count  # the newest frame (~15 a second) and its number in this call
-        age_ms = (time.monotonic() - self._tap.latest_at) * 1000 if frame is not None else None
-        photo = await asyncio.to_thread(_jpeg, frame, side) if frame is not None else None
+        look) number n. Returns the reply, the tool calls, and the Look, kept in the conversation with its output;
+        the calls are carried out by the caller (_carry_out), which writes their results into the Look. A look
+        the model does not answer (cancelled, failed) is taken out again."""
+        async with self._turn:
+            name = "delegation" if kind == "look" else "watch"
+            num = "n" if kind == "look" else "w"
+            t0 = time.perf_counter()
+            frame, seq = self._tap.latest, self._tap.count  # the newest frame (~15 a second) and its number in this call
+            age_ms = (time.monotonic() - self._tap.latest_at) * 1000 if frame is not None else None
+            photo = await asyncio.to_thread(_jpeg, frame, side) if frame is not None else None
+            text, ids, pending = self._message(words)
+            if photo is None:
+                text = f"{NO_PHOTO}\n{text}"
+            look = Look(text=text, photo=photo)
+            self._looks.append(look)
+            build = self._build
+            total = len(build.guide.steps)
+            t_sent = time.perf_counter()
+            prefix = "ask" if kind == "look" else "watch"
+            saved = self._record.photo(photo, f"{prefix}{n}-s{build.step + 1}") if photo else None
+            if frame is not None:
+                logger.info("brain: %s #%d frame %d (%dx%d, %.0f ms old); request sent %.0f ms after the start: jpeg "
+                            "%d KB at %d px, look %d of the conversation, %d new lines, step %d", name, n, seq,
+                            frame.width, frame.height, age_ms, (t_sent - t0) * 1000, len(photo) // 1024, side,
+                            len(self._looks), len(ids), build.step + 1)
+            else:
+                logger.warning("brain: %s #%d no camera frame this call; request sent without a photo, step %d", name,
+                               n, build.step + 1)
+            self._record.event(f"{kind}_sent", **{num: n}, step=build.step + 1, frame=seq if frame is not None else None,
+                               frame_size=f"{frame.width}x{frame.height}" if frame is not None else None,
+                               frame_age_ms=round(age_ms) if age_ms is not None else None, side=side,
+                               photo=saved, photo_kb=len(photo) // 1024 if photo else None,
+                               prep_ms=round((t_sent - t0) * 1000), lines=text, looks=len(self._looks), words=words)
+            try:
+                reply, calls, output, u = await self._model.ask(self._instructions, self._looks, tools, self._effort,
+                                                                build.run)
+            except BaseException:
+                self._looks.remove(look)  # no answer: not kept, and its lines come again with the next look
+                raise
+            look.photo, look.output, look.calls = None, output, calls
+            self._seen.update(ids)
+            self._pending = pending
+            t_back = time.perf_counter()
+            logger.info("brain: %s #%d reply after %.0f ms (model %.0f ms, first output %s ms): in=%d (cached %d, "
+                        "written %d) out=%d (thinking %s) stop=%s frame=%s reply: %s",
+                        name, n, (t_back - t0) * 1000, (t_back - t_sent) * 1000, u.get("ttft_ms"), u["in"], u["cached"],
+                        u.get("written", 0), u["out"], u.get("thinking"), u.get("stop"), saved or "-", reply)
+            # what the set_progress call, if any, will do, for the record; _carry_out does it
+            progress, ignored = None, None
+            for _, call, args in calls:
+                if call != "set_progress":
+                    logger.info("brain: %s #%d tool call %s(%s)", name, n, call, json.dumps(args))
+                    continue
+                done = args.get("done")
+                if not isinstance(done, int) or not 0 <= done <= total:
+                    ignored = done
+                    logger.warning("brain: %s #%d tool call set_progress(%s): ignored, not between 0 and %d", name, n,
+                                   json.dumps(args), total)
+                elif done == build.step:
+                    logger.info("brain: %s #%d tool call set_progress(%s): unchanged, %d done", name, n,
+                                json.dumps(args), done)
+                else:
+                    progress = done
+                    logger.info("brain: %s #%d tool call set_progress(%s): %d done -> %d done", name, n,
+                                json.dumps(args), build.step, done)
+            if not calls:
+                logger.info("brain: %s #%d no tool call", name, n)
+            self._record.event(f"{kind}_back", **{num: n}, model_ms=round((t_back - t_sent) * 1000),
+                               total_ms=round((t_back - t0) * 1000), reply=reply, calls=[[c, a] for _, c, a in calls],
+                               progress=progress, ignored_progress=ignored, usage=u)
+            return reply, calls, look
+
+    async def _carry_out(self, look: Look, calls: list[tuple[str, str, dict]], kind: str, n: int) -> list[str]:
+        """Carry out the look's tool calls, write each result into the look, and return the lines GPT-Live is to
+        say now as commentary. set_progress goes before show, since a move takes any picture away."""
+        speak = []
+        for call_id, name, args in sorted(calls, key=lambda c: c[1] == "show"):
+            if name == "set_progress":
+                result, line = await self._move(args.get("done"))
+            elif name == "show":
+                result, line = await self._show(args.get("step"), n)
+            elif name == "say":
+                said = " ".join(str(args.get("text") or "").split())
+                if said:
+                    self._record.event("say", **{"w" if kind == "watch" else "n": n}, text=said)
+                    result, line = "The assistant says it.", f"Camera: {said}"
+                else:
+                    result, line = "Ignored: nothing to say.", None
+            else:
+                result, line = f"No such tool here: {name}.", None
+            look.results[call_id] = result
+            if line:
+                speak.append(line)
+        return speak
+
+    async def _move(self, done) -> tuple[str, str | None]:
+        """Move the build to `done` steps done, record and publish it. Returns the tool's result and the line that
+        tells the voice, or None when nothing moved."""
         build = self._build
         total = len(build.guide.steps)
-        lead = "The photo above was taken just now." if photo else "No photo came with this request: the camera has sent no picture."
-        texts = [f"{lead}\n<call>\n{said}\n</call>", f"<progress>{build.where()}</progress>", last]
-        t_sent = time.perf_counter()
-        prefix = "ask" if kind == "look" else "watch"
-        saved = self._record.photo(photo, f"{prefix}{n}-s{build.step + 1}") if photo else None
-        if frame is not None:
-            logger.info("brain: %s #%d frame %d (%dx%d, %.0f ms old); request sent %.0f ms after the start: jpeg %d KB "
-                        "at %d px, call so far %d lines, step %d; %s", name, n, seq, frame.width, frame.height, age_ms,
-                        (t_sent - t0) * 1000, len(photo) // 1024, side, said.count("\n") + 1, build.step + 1, last)
-        else:
-            logger.warning("brain: %s #%d no camera frame this call; request sent without a photo, step %d; %s", name, n,
-                           build.step + 1, last)
-        self._record.event(f"{kind}_sent", **{num: n}, step=build.step + 1, frame=seq if frame is not None else None,
-                           frame_size=f"{frame.width}x{frame.height}" if frame is not None else None,
-                           frame_age_ms=round(age_ms) if age_ms is not None else None, side=side,
-                           photo=saved, photo_kb=len(photo) // 1024 if photo else None,
-                           prep_ms=round((t_sent - t0) * 1000), said=said, notice=texts[1], words=last)
-        reply, calls, u = await self._model.ask(self._instructions, texts, photo, tools, effort, build.run)
-        t_back = time.perf_counter()
-        logger.info("brain: %s #%d reply after %.0f ms (model %.0f ms, first output %s ms): in=%d (cached %d, "
-                    "written %d) out=%d (thinking %s) stop=%s frame=%s reply: %s",
-                    name, n, (t_back - t0) * 1000, (t_back - t_sent) * 1000, u.get("ttft_ms"), u["in"], u["cached"],
-                    u.get("written", 0),
-                    u["out"], u.get("thinking"), u.get("stop"), saved or "-", reply)
-        # one line per tool call the brain made, and what came of it
-        allowed = {t[0] for t in tools}
-        progress, ignored = None, None
-        for call, args in calls:
-            if call not in allowed:
-                logger.warning("brain: %s #%d tool call %s(%s): no such tool, ignored", name, n, call, json.dumps(args))
-                continue
-            if call != "set_progress":
-                logger.info("brain: %s #%d tool call %s(%s)", name, n, call, json.dumps(args))
-                continue
-            done = args.get("done")
-            if not isinstance(done, int) or not 0 <= done <= total:
-                ignored = done
-                logger.warning("brain: %s #%d tool call set_progress(%s): ignored, not between 0 and %d", name, n,
-                               json.dumps(args), total)
-            elif done == build.step:
-                logger.info("brain: %s #%d tool call set_progress(%s): unchanged, %d done", name, n, json.dumps(args),
-                            done)
-            else:
-                progress = done
-                logger.info("brain: %s #%d tool call set_progress(%s): %d done -> %d done", name, n, json.dumps(args),
-                            build.step, done)
-        if not calls:
-            logger.info("brain: %s #%d no tool call", name, n)
-        self._record.event(f"{kind}_back", **{num: n}, model_ms=round((t_back - t_sent) * 1000),
-                           total_ms=round((t_back - t0) * 1000), reply=reply, calls=[[c, a] for c, a in calls],
-                           progress=progress, ignored_progress=ignored, usage=u)
-        return reply, calls, u, progress
-
-    async def _move(self, progress: int) -> str:
-        """Move the build to `progress` steps done, record and publish it; returns the line that tells the voice."""
-        build = self._build
-        before = build.step
-        build.set_step(progress)  # index of the step the wearer is on = the number of steps done
+        if not isinstance(done, int) or not 0 <= done <= total:
+            return f"Ignored: done must be a whole number from 0 to {total}.", None
+        if done == build.step:
+            return f"Unchanged: {done} of {total} steps were already recorded as done.", None
+        before, picture = build.step, build.picture
+        build.set_step(done)  # index of the step the user is on = the number of steps done
         if build.step > before:
             self._record.event("step", done=build.step, now=None if build.finished else build.step + 1)
             if build.finished:
@@ -536,18 +570,26 @@ class Brain:
         else:
             self._record.event("step", done=None, reopened=build.step + 1, now=build.step + 1)
         await publish_build(build)
-        total = len(build.guide.steps)
-        return (f"Progress: all {total} steps are done, the build is finished." if build.finished else
-                f"Progress: {build.step} of {total} steps done; the wearer is now on step {build.step + 1} "
-                f"({build.guide.steps[build.step].brick}).")
+        where = (f"all {total} steps done, the build is finished" if build.finished else
+                 f"{build.step} of {total} steps done; the user is on step {build.step + 1} "
+                 f"({build.guide.steps[build.step].brick})")
+        result = f"Recorded: {where}. The assistant is told."
+        if picture:
+            result += " The picture is taken off the glasses."
+        return result, f"Progress: {where}."
 
-    async def _show(self, step: int, n: int) -> str:
-        """Put the picture of step `step` on the glasses (0: take it away), record and publish it; returns the line
-        that tells the voice. The attribute that names the picture goes first, on the signalling channel, so the
-        glasses know a picture is coming and show that it is on its way; the bytes follow as a byte stream on
-        PICTURE_TOPIC over the reliable data channel, late under a slow network rather than missing, and the glasses
-        show the picture once they have it. The time the send took is recorded."""
+    async def _show(self, step, n: int) -> tuple[str, str | None]:
+        """Put the picture of step `step` on the glasses (0: take it away), record and publish it. Returns the
+        tool's result and the line that tells the voice. The attribute that names the picture goes first, on the
+        signalling channel, so the glasses know a picture is coming and show that it is on its way; the bytes
+        follow as a byte stream on PICTURE_TOPIC over the reliable data channel, late under a slow network rather
+        than missing, and the glasses show the picture once they have it. The time the send took is recorded."""
         build = self._build
+        total = len(build.guide.steps)
+        if not isinstance(step, int) or not 0 <= step <= total:
+            logger.warning("brain: delegation #%d tool call show(%s): ignored, not between 0 and %d", n,
+                           json.dumps(step), total)
+            return f"Ignored: step must be a whole number from 0 to {total}.", None
         before = build.picture
         build.show(step)
         await publish_build(build)
@@ -563,8 +605,11 @@ class Brain:
             logger.info("picture: %s (%d KB) sent to the glasses in %d ms", name, len(data) // 1024, sent["send_ms"])
         self._record.event("picture", n=n, step=step or None, before=before or None, **sent)
         if not step:
-            return "Picture: the glasses show the camera again, no picture."
-        return f"Picture: the glasses now show the picture of step {step} ({build.guide.steps[step - 1].brick})."
+            return ("The picture is taken away; the glasses show the camera.",
+                    "Picture: the glasses show the camera again, no picture.")
+        brick = build.guide.steps[step - 1].brick
+        return (f"The glasses show the picture of step {step} ({brick}).",
+                f"Picture: the glasses now show the picture of step {step} ({brick}).")
 
     # ------------------------------------------------------------------ to the voice
 
@@ -578,7 +623,7 @@ class Brain:
 
     async def _time_voice(self, n: int, t_asked: float, t_sent: float, speaking: bool, limit: float = 15.0) -> None:
         """Log when the voice starts saying the answer: ms after the commentary went out and after the delegation
-        (~ the wearer's last word). If the voice was still talking when the answer arrived ("let me look"), the
+        (~ the user's last word). If the voice was still talking when the answer arrived ("let me look"), the
         answer is taken to start with its next speech after a pause, which is approximate."""
         session = self._session
         if speaking:

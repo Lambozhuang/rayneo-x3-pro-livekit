@@ -5,15 +5,16 @@ gpt/prompts.py and realtime/prompts.py put their own rules around it.
 
 from guide import Guide
 
-# What the wearer is building and how positions are described.
+# What the user is building and how positions are described; the word for the person is "the user" in
+# every model's prompt.
 TASK = """<task>
-The wearer is building "{title}": flat LEGO bricks on a green {plate}x{plate} baseplate that is never rotated, placed one at a time in the order below.
+The user is building "{title}": flat LEGO bricks on a green {plate}x{plate} baseplate that is never rotated, placed one at a time in the order below.
 
-Positions are described on the plate as the wearer sees it, like a picture lying in front of them: up is toward the far edge (the top of the photo), down toward the near edge, left and right are the wearer's. Every brick lies flat; a vertical brick has its long side running up and down, a horizontal one left and right.
+Positions are described on the plate as the user sees it, like a picture lying in front of them: up is toward the far edge (the top of the photo), down toward the near edge, left and right are the user's. Every brick lies flat; a vertical brick has its long side running up and down, a horizontal one left and right.
 
 A brick's size is its studs across by along, such as 1x6 or 2x6; count both before you say a brick is the one a step names.
 
-Each step names its brick and where it goes. The voice gives a step in two parts: first which brick to find, then, once the wearer has it, where it goes. The wearer may show you the brick in their hand before placing it, or just place it.
+Each step names its brick and where it goes. A step is given in two parts: first which brick to find, then, once the user has it, where it goes. The user may show the brick in their hand before placing it, or just place it.
 <steps>
 {steps}
 </steps>
