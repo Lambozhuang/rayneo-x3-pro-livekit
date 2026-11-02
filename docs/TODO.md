@@ -18,14 +18,11 @@
   - 眼镜的两个点是主量，agent 的两个点是拆分：netem 整形的是眼镜到 livekit-server 这一跳，agent 侧的 T3−T2 在任何网络条件下都不变，只靠它看不到网络的影响。两端用同一套判定（RMS 阈值加 hangover），差值才干净地等于网络加抖动缓冲。句中停顿把一句切成几段不影响，取 Live 开口前最后一个停止边沿即可。
   - 另记 delegation.created 给回合打标签，input_transcript.delta 的 end_ms 和 delegation 的 offset_ms 作模型内部时间的参考。report.py 对每个回合而不只是委托算一行，有录音时用录音校验，正式实验不录音。
   - visual frame age 拆两段：agent 持有（帧到 FrameTap 到 look_sent，已有）；眼镜到 agent 不逐帧量，Python SDK 的 timestamp_us 是接收侧时间，用眼镜每 5 s 的 rtt 和编码器状态加 agent 端接收统计的 jitterBufferDelay 估，netem 加的延迟是已知量。逐帧精确只能靠录音的 video.csv。
-- [x] Gemini 路径真机跑通（2026-10-13 实验室四次运行，见下节）
 - [ ] 系统性测试：Gemini Live 一体化 vs GPT-Live 配合不同后端模型，看整体的响应时间和效果，50% pre 时展示
 
 ### GPT 路径（大脑）
 
-- [x] 主动观察（watch）：没有委托时大脑一张接一张看，最少间隔 BRAIN_WATCH_EVERY=2 s，768 不思考；工具 note（记进大脑的时间线，to_voice 时以 thinking 给 Live）、say（下一次 watch 也调 say 才以 commentary 让 Live 说）、set_progress；不调工具就什么都不留。委托来时取消正在跑的 watch。2026-10-19 实验室跑了三轮，用户认为弥补了之前的问题
-- [ ] 线程的 prompt cache 修好但没上机（2026-11-02，eval/brain-thread-replay 的 README 有全过程）：gpt-5.6 起只在断点处写缓存，默认一个隐式断点在请求末尾，匹配只认条目不认共享前缀，我们请求末尾是照片，下一次去掉它就什么都对不上。现在每轮文字块带显式断点、请求用 explicit 模式，照片不写缓存；对照实验里第二次请求命中到上一轮文字末尾。下一场看 usage.cached 是否随 in 一起涨
-- [ ] 第四轮以后看：tell 每场多少次、Live 还念不念；token 随 look 的增长（watch_sent.looks 对 usage.in 和 cached）；每两秒一条 thinking 对 Live 说话的影响；委托后约 1.9 s 的那句垫话还在不在（thinking 会取消待发的自动应答，watch 在委托期间停，应该不受影响）；进度翻转是否消失；去掉 hold 后有没有对着还在按的砖过早纠正
+- [ ] 语音重复说同一件事（2026-11-02 第四场 logs/20261102-132502-glasses-ef10b896，111 到 132 s）。brain-v4 暂时接受，用户决定先不改。看到的：(1) 规则 3 的 tell 和规则 4 的 say 单子重叠，"一步放对或放错"两边都命中，大脑同一轮既 tell 又 say（w42），"放对"又和 Progress 重复（w10）；(2) GPT-Live 会念 tell，又不去重 commentary，所以同一事实两条通道各念一遍；(3) 助手的话在一段结束时才进 history，这一段拖了 20 s，大脑 say 时看不见助手正在说什么；(4) 语音说话占这场 71% 的时间，若 watch 等它说完再发，盲区太大；只在上一轮 tell/say 后才等的变体抓不住反应延迟。可选的改法按简单到复杂：tell 和 say 的单子分开，拿错砖归 say，放对不 tell，已 tell/say 过的不再 say；接 GPT-Live 的 output_transcript.delta 让大脑看见正在说的话；定向等待。缓存已验证：未缓存部分稳定在约 1450 token 一轮
 - [ ] 保留意见：委托来时如果 watch 发出不到 1 s，不取消，让它的结论带上委托 id 当回答（watch 不知道问题，可能答不上）
 - [ ] 端到端延迟的最后一段：记录里已有委托 → 大脑回复 → Live 开口，还缺眼镜播出，要在眼镜本地按真实声音计时
 - [ ] 对比模型和图片尺寸对延迟的影响
@@ -46,14 +43,9 @@
 
 ### 眼镜
 
-- [x] 录制（`-Record`）2026-10-19 那次 188 s 的录像（`logs/20261019-164336-…/recording/`）看到的问题，2026-10-22 的处置：
-  - 相机录 30 fps 时前 100 s 稳，之后掉到 20–25 fps（一个 5 s 窗口只有 11 fps），第一路也跟着最差到 11–12 fps。没查原因，改成录制也只用通话的 15 fps，录像就是第一路看到的那些帧。2026-10-22 录了 231 s 验证：相机每个 5 s 窗口都是 15 fps，0 帧跳过；第一路仍有一个窗口 11 fps，和没录时一样，是第一路编码器自己的事。码率 43 Mbps（QP 18–19，帧间隔翻倍所以 P 帧比 30 fps 时大 5 倍），5 分钟约 1.6 GB，眼镜 21 GB 空间够十来轮
-  - `mic.wav` 是系统回声消除、降噪之后 WebRTC 拿到的那份（74% 的采样是 0），不是原始麦克风；决定就要这份，不再另开采集
-  - agent 语音每 60 ms 左右一批 6 块到达，`agent.csv` 的到达时间在一批内差最多 60 ms；按第一块到达时间加采样偏移算，187 s 内和墙钟差不过 0.1 s，已写进 README，不改录制
 - [ ] UI用户自己说的话可以就留一行，一直更新，而不是顶掉上面，这样可以更多保留agent说的话
-- [x] 显示当前步要找的砖和它的摆放位置：2026-10-28 做成按需的步骤图。大脑的 show 工具在委托里放上某一步的图（属性 `rayneo.build.picture`），进度推进或佩戴者说不需要时收回；大脑在 watch 里看到卡住时经 say 让语音先问"要不要给你看看"，不直接给图
-- [ ] 真机验 2026-10-28 的两处改动：相机预览在加法显示上亮不亮、要不要压暗；两个眼各一个渲染器的功耗；大脑提议看图的时机和频率，show 是否该调就调；prompt 改了四处，看委托和回答有没有变差。第一轮（logs/20261028-131200-glasses-f966d2f3，brain gpt-6.1-terra low）：预览和大脑的照片一致；show 两次都按设想来，一次佩戴者自己要的、一次大脑先提议；提议走 say 的两次确认，两次提议被拦掉，决定先不改；亮度和功耗还没看
-- [x] 图走通用通道（2026-10-28 做了）：眼镜 app 是通用 live agent 的入口，乐高只是 agent 的一项外部资料，所以步骤图不再由眼镜照 bricks 属性现画。render_pictures.py 从 task.toml 把每一步渲染成 guides/<task>/step-<n>.png，show 时后端读文件经 LiveKit byte stream（topic `rayneo.picture`，可靠 data channel）发到眼镜，属性 `rayneo.picture` 先点名要显示的那张、再发字节，眼镜在图到之前显示等待、读流失败显示没收到让佩戴者再要一次，图到了名字对上才显示；眼镜只收图、按名显示，`StepPicture.kt` 和 bricks、plate 属性删掉，收到和显示的时刻记在 `rayneo-picture` 下，pull_run.py 一起拉。待真机验：图到达的延迟（record 里 picture 事件的 send_ms 对 glasses.log 的 received/shown）、netem 下晚到时的体验、提示词是否要让语音知道图可能未到
+- [ ] 相机预览在加法显示上亮不亮、要不要压暗；两个眼各一个渲染器的功耗。按需步骤图的行为本身已验（2026-10-28 两场、2026-11-02 四场：要图或答应提议后 0.4 到 2.6 s 到眼镜）
+- [ ] 步骤图在 netem 丢包下晚到时的体验，以及是否要让语音知道图可能未到。好网络下的到达延迟已验：属性公布到眼镜显示 50 到 100 ms（2026-10-28 和 2026-11-02 的 glasses.log）
 - [ ] 音量：通话流扬声器只有 1/15，通话中按音量键调；不够再在 agent 加增益
 - [ ] 功耗：电量日志，跑一次完整通话看续航
 - [ ] 实验结束后 `glasses.ps1 -RestoreSleep`
