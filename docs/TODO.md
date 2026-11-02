@@ -58,6 +58,10 @@
 - [ ] 功耗：电量日志，跑一次完整通话看续航
 - [ ] 实验结束后 `glasses.ps1 -RestoreSleep`
 
+### 记录与分析
+
+- [ ] 日志记录结构和分析脚本要整理（2026-11-02 用户提出，混乱）。现状：runlog 的 events.jsonl 一种事件一种字段（watch_sent/look_sent 带 lines 和 looks，旧记录带 said；say/tell/picture 事件按 w 或 n 挂到 look 上；voice_started 和 voice_joined 两种时序事件），report.py 兼容三代记录格式，分析每次都是临时 python 脚本（本次 session 的时间线、token 增长、thinking 对照都是一次性写的）。要定的：事件和字段的一套命名，一个命令出每场的常规分析（进度轨迹、tell/say/picture、每次 look 的 in/cached/ms、委托到开口的延迟），旧格式要不要再兼容
+
 ### 部署
 
 - [ ] 正式实验前关掉 livekit-server 的 ICE-TCP（`deploy/livekit.lab.yaml` 的 `tcp_port: 7881`，2026-10-20 定）。netem 整形的是眼镜到服务器这一跳，丢包大到 ICE 判 UDP 断了时会悄悄切到 TCP，测到的就成了 TCP 重传而不是丢包，日志里也不显眼。眼镜 SDK 没限制传输类型，UDP 和 TCP 候选都出。关掉后 UDP 不通就直接断，当一次失败的 trial。没有 TURN 和 TLS，不用动。
