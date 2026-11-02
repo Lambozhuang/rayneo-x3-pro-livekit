@@ -79,10 +79,14 @@ class MainActivity : ComponentActivity() {
         // The lab console's start_task opens the call over the lab screen, its end_task leaves it; the call screen
         // itself tells Lab when it is gone (VoiceAssistantScreen), which is when the run is reported.
         Lab.screens = object : Lab.Screens {
-            override fun startCall(run: Lab.Run) {
-                val nav = navController ?: return
-                if (nav.currentDestination?.hasRoute(LabRoute::class) == true) nav.navigate(route(run))
-                else Log.w(TAG, "start_task while not on the lab screen; ignored")
+            override fun startCall(run: Lab.Run): Boolean {
+                val nav = navController ?: return false
+                if (nav.currentDestination?.hasRoute(LabRoute::class) != true) {
+                    Log.w(TAG, "start_task while not on the lab screen")
+                    return false
+                }
+                nav.navigate(route(run))
+                return true
             }
 
             override fun endCall() {

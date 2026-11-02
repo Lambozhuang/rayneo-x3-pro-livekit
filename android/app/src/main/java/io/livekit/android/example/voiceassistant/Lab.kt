@@ -41,8 +41,10 @@ import org.json.JSONObject
  * When the call ends, however it ended, `callEnded` reports the run to the console (`POST /task-ended`) with how far the
  * build got, from the step list the agent published. The report waits in SharedPreferences until the console has taken
  * it, so a restart loses nothing, and the socket is opened only once nothing is waiting, as the contract asks. A socket
- * that drops during a task abandons the task and reports nothing: the console resets that run itself. The console's
- * address comes from the launch (`glasses.ps1 -Lab <ip>`, `-e lab_console http://<ip>:8080`), like the token endpoint.
+ * that drops during a task abandons the task and reports nothing: the console resets that run itself. The console
+ * closes the socket with the reason `replaced` when another device takes the target's one slot; then nothing reconnects,
+ * or the two would take the slot from each other, and the lab screen says so. The console's address comes from the
+ * launch (`glasses.ps1 -Lab <ip>`, `-e lab_console http://<ip>:8080`), like the token endpoint.
  *
  * Process-wide state like Tasks: the screens read it, MainActivity drives it, and the socket outlives any one screen.
  * Everything here runs on the main thread except the network calls.
@@ -65,9 +67,9 @@ object Lab {
         var endedByConsole = false
     }
 
-    /** What MainActivity does when the console speaks: open the call with a run, or leave it. */
+    /** What MainActivity does when the console speaks: open the call with a run (false if it cannot), or leave it. */
     interface Screens {
-        fun startCall(run: Run)
+        fun startCall(run: Run): Boolean
         fun endCall()
     }
 
@@ -105,7 +107,6 @@ object Lab {
         if (active) return
         active = true
         backoffS = 1
-        scope.launch { Tasks.load(app, TokenEndpoint.get(app)) }
         connect()
     }
 
@@ -153,6 +154,21 @@ object Lab {
             flush()
             return
         }
+        if (Tasks.list.isEmpty()) {  // the task list first, so that a start_task can be answered with a call
+            status = "loading the task list from ${host(TokenEndpoint.get(app))}"
+            scope.launch {
+                Tasks.load(app, TokenEndpoint.get(app))
+                if (!active) return@launch
+                if (Tasks.list.isNotEmpty()) {
+                    connect()
+                } else {
+                    status = "${Tasks.problem ?: "no task list"}; retrying in $backoffS s"
+                    main.postDelayed(reconnect, backoffS * 1000)
+                    backoffS = minOf(backoffS * 2, 30)
+                }
+            }
+            return
+        }
         val url = base.replaceFirst("http", "ws") + "/participant?role=target&name=" + URLEncoder.encode(NAME, "UTF-8")
         status = "connecting to ${host(base)}"
         Log.i(TAG, "connecting to $url")
@@ -171,8 +187,13 @@ object Lab {
             if (webSocket === socket) handle(webSocket, text)
         }
 
+        // The console closed its side; closing ours completes the handshake, and onClosed follows.
+        override fun onClosing(webSocket: WebSocket, code: Int, reason: String) {
+            webSocket.close(code, reason)
+        }
+
         override fun onClosed(webSocket: WebSocket, code: Int, reason: String) = onMain {
-            if (webSocket === socket) lost("closed $code $reason")
+            if (webSocket === socket) lost("closed $code $reason", replaced = reason == "replaced")
         }
 
         override fun onFailure(webSocket: WebSocket, t: Throwable, response: Response?) = onMain {
@@ -184,7 +205,7 @@ object Lab {
         main.post(block)
     }
 
-    private fun lost(why: String) {
+    private fun lost(why: String, replaced: Boolean = false) {
         socket = null
         Log.w(TAG, "connection lost: $why")
         run?.let {  // the contract: a task whose socket dropped is abandoned and not reported
@@ -193,6 +214,11 @@ object Lab {
             screens?.endCall()
         }
         if (!active) return
+        if (replaced) {
+            active = false
+            status = "another device took the console's target slot; double tap, then enter Lab again to take it back"
+            return
+        }
         status = "no console at ${host(console!!)}: $why; retrying in $backoffS s"
         main.postDelayed(reconnect, backoffS * 1000)
         backoffS = minOf(backoffS * 2, 30)
@@ -246,7 +272,13 @@ object Lab {
         run = r
         status = "task $number, ${task.title}"
         Log.i(TAG, "start_task sid=$sid run_id=$runId ${r.runType} task=${task.name} label=${r.label} log=${r.wantsLog} max_s=${r.maxDurationS}")
-        screens?.startCall(r)
+        if (screens?.startCall(r) != true) {  // not on the lab screen: the run would otherwise stay on for ever
+            run = null
+            Log.w(TAG, "the call could not be opened for sid=$sid run_id=$runId; reported at once")
+            status = "the console started task $number but the call could not be opened"
+            val now = System.currentTimeMillis()
+            enqueue(report(sid, runId, now, now, JSONObject().put("error", "the glasses could not open the call").put("task_number", number)))
+        }
     }
 
     /** A report as the contract has it, with the console it is for; `sent_at` is added at each attempt. */

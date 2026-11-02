@@ -92,8 +92,11 @@ def deliver(path: str, give_up_after_s: float) -> bool:
     deadline = time.monotonic() + give_up_after_s
     wait = 1.0
     while True:
-        with open(path, encoding="utf-8") as f:
-            report = json.load(f)
+        try:
+            with open(path, encoding="utf-8") as f:
+                report = json.load(f)
+        except FileNotFoundError:  # the other process (the call's shutdown, or the agent's sweep) settled it first
+            return True
         body = dict(report["body"], sent_at=round(time.time() * 1000))
         url = report["console"] + "/task-ended"
         request = urllib.request.Request(url, data=json.dumps(body, ensure_ascii=False).encode("utf-8"),
@@ -123,14 +126,19 @@ def deliver(path: str, give_up_after_s: float) -> bool:
 
 
 def deliver_pending(root: str | None) -> None:
-    """Deliver every report left under `root` (RUN_DIR), now and every minute after, in a thread of its own."""
+    """Deliver every report left under `root` (RUN_DIR), now and every minute after, in a thread of its own. A file
+    younger than a minute is left to the call's own shutdown callback, which is still trying."""
     if not root:
         return
 
     def loop() -> None:
         while True:
             for path in sorted(glob.glob(os.path.join(root, "*", PENDING))):
-                deliver(path, give_up_after_s=20)
+                try:
+                    if time.time() - os.path.getmtime(path) > 60:
+                        deliver(path, give_up_after_s=20)
+                except OSError:
+                    logger.exception("qoe: could not deliver %s", path)
             time.sleep(60)
 
     threading.Thread(target=loop, name="qoe-pending", daemon=True).start()

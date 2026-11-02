@@ -9,7 +9,6 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
@@ -38,6 +37,7 @@ import io.livekit.android.example.voiceassistant.rememberCanEnableCamera
 import io.livekit.android.example.voiceassistant.rememberCanEnableMic
 import io.livekit.android.example.voiceassistant.requirePermissions
 import io.livekit.android.example.voiceassistant.ui.AgentLines
+import io.livekit.android.example.voiceassistant.ui.BuildProgress
 import io.livekit.android.example.voiceassistant.ui.CallLayout
 import io.livekit.android.example.voiceassistant.ui.CameraPreview
 import io.livekit.android.example.voiceassistant.ui.WearerLine
@@ -280,11 +280,13 @@ fun VoiceAssistant(
         val phase = Phase.of(agent, wearerSpeaking, session, engineState, sawAgent, localMedia.isMicrophoneEnabled, brainLooking)
 
         // A lab run ends when this screen goes, whoever ended it: the console's end_task, the wearer's double tap or the
-        // room closing. Lab reports it to the console with how far the build got; a call the glasses started by
+        // room closing. Lab reports it to the console with how far the build got, as last published: when the agent
+        // left first its attributes are gone, and that must not read as no progress. A call the glasses started by
         // themselves has no run and nothing happens.
-        val progress by rememberUpdatedState(buildProgress)
+        var lastBuild by remember { mutableStateOf(BuildProgress.NONE) }
+        LaunchedEffect(buildProgress) { if (buildProgress.steps.isNotEmpty()) lastBuild = buildProgress }
         DisposableEffect(Unit) {
-            onDispose { Lab.callEnded(room.name, progress.current, progress.steps.size) }
+            onDispose { Lab.callEnded(room.name, lastBuild.current, lastBuild.steps.size) }
         }
 
         // Both sides. The agent's lines are its own transcript; the wearer's

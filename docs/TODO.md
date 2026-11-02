@@ -49,7 +49,7 @@
 - [ ] 音量：通话流扬声器只有 1/15，通话中按音量键调；不够再在 agent 加增益
 - [ ] 功耗：电量日志，跑一次完整通话看续航
 - [ ] 实验结束后 `glasses.ps1 -RestoreSleep`
-- [ ] lab 模式上机验证（2026-11-02 写好代码，未上机）：实验室机器上 QoE Lab 的 Settings → Developer tools → Device contract test，Task # 填 7 发 start_task，眼镜应开始 gate 的通话；发 end_task 或双击，通话结束，Event log 里应到两份上报（眼镜的 target、agent 的 service-backend）。先确认机器上装的 1.1.0 是 start_task/end_task 这版合约：CHANGELOG 把它写在 Unreleased，lab-deployment.md 第 3 节还写着 request_rating / request_telemetry
+- [ ] lab 模式 2026-11-02 上机一轮行为对了：控制台 start_task 开通话、双击结束、眼镜和 agent 的两份上报都到（agent 的一份原来晚 20 s，等 livekit-server 关房间，已改成 session 一关就结束 job）。同日按 QoE Lab 那边 agent 的审查改的几处还没再上机：控制台主动关 socket（onClosing）和 replaced 不再重连、start_task 时开不了通话立刻上报、任务表加载完才连 socket、agent 先走时上报最后一次公布的进度、pending 文件两个进程抢
 
 ### 记录与分析
 
