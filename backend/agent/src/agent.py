@@ -16,9 +16,9 @@ All register with livekit-server under AGENT_NAME and wait to be dispatched;
 the api puts that name into every join token it signs, so the agent turns up
 in exactly the rooms the backend created and nowhere else. The glasses see the
 same participant every way: audio and captions, and with the LEGO build the step
-list as participant attributes. frames.py and runlog.py are shared; guide.py
-and prompts.py (the build) serve the GPT and Realtime paths; everything else
-belongs to one architecture.
+list as participant attributes. frames.py, runlog.py and qoe.py (the call's
+record to the lab console) are shared; guide.py and prompts.py (the build)
+serve the GPT and Realtime paths; everything else belongs to one architecture.
 """
 
 import os
@@ -41,4 +41,7 @@ else:
     raise SystemExit(f"AGENT_BACKEND={backend!r}: use gemini, openai or realtime")
 
 if __name__ == "__main__":
+    import qoe
+
+    qoe.deliver_pending(os.environ.get("RUN_DIR"))  # reports to the lab console that earlier calls could not deliver
     agents.cli.run_app(server)

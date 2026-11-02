@@ -49,9 +49,11 @@
 - [ ] 音量：通话流扬声器只有 1/15，通话中按音量键调；不够再在 agent 加增益
 - [ ] 功耗：电量日志，跑一次完整通话看续航
 - [ ] 实验结束后 `glasses.ps1 -RestoreSleep`
+- [ ] lab 模式上机验证（2026-11-02 写好代码，未上机）：实验室机器上 QoE Lab 的 Settings → Developer tools → Device contract test，Task # 填 7 发 start_task，眼镜应开始 gate 的通话；发 end_task 或双击，通话结束，Event log 里应到两份上报（眼镜的 target、agent 的 service-backend）。先确认机器上装的 1.1.0 是 start_task/end_task 这版合约：CHANGELOG 把它写在 Unreleased，lab-deployment.md 第 3 节还写着 request_rating / request_telemetry
 
 ### 记录与分析
 
+- [ ] 给 QoE Lab 的两份上报要过一遍，确保没有信息遗漏（2026-11-02 用户要求）。现状：眼镜的 log 是 {room, task, task_number, steps_done, steps_total, completed, ended_by}；agent 的 log 是整份 events.jsonl 加 brain.txt、voice.txt、brain-tools.json 和 build 终态，照片不传。对照 pull_run.py 拉的 glasses.log（链路、语音起止、录像）和 clock.json 看什么还没进上报，以及控制台那边导出成 CSV 后好不好读
 - [ ] 日志记录结构和分析脚本要整理（2026-11-02 用户提出，混乱）。现状：runlog 的 events.jsonl 一种事件一种字段（watch_sent/look_sent 带 lines 和 looks，旧记录带 said；say/tell/picture 事件按 w 或 n 挂到 look 上；voice_started 和 voice_joined 两种时序事件），report.py 兼容三代记录格式，分析每次都是临时 python 脚本（本次 session 的时间线、token 增长、thinking 对照都是一次性写的）。要定的：事件和字段的一套命名，一个命令出每场的常规分析（进度轨迹、tell/say/picture、每次 look 的 in/cached/ms、委托到开口的延迟），旧格式要不要再兼容
 
 ### 部署
@@ -60,6 +62,3 @@
 - [ ] 丢包注入由网络侧软件做并自带记录，本系统对它是黑箱；眼镜端每 5 s 记链路实测（RTT、丢包、编码器状态、下行 jitter buffer）和语音起止的 wall clock，pull_run.py 拉成 glasses.log，并经 adb 和 ssh 量出眼镜对服务器的时钟偏移写进 clock.json
 - [ ] 结束后 app 偶尔自动重连开新会话（疑似误触），留意
 
-### 搁置
-
-- 任务由另一个 app 经 websocket 和眼镜通信来选（现在是眼镜上的列表）

@@ -3,7 +3,9 @@
 #   .\deploy\glasses.ps1                          launch, pointed at this PC's LAN IP, api port from backend\.env
 #   .\deploy\glasses.ps1 -Ip 192.168.50.147       point at another backend
 #   .\deploy\glasses.ps1 -Install                 build the debug APK and install it first
-#   .\deploy\glasses.ps1 -Task flag               preselect a build in the picker (swipe changes it)
+#   .\deploy\glasses.ps1 -Lab 192.168.50.177      name the QoE Lab console (port 8080 unless given) for the menu's Lab
+#                                                 entry, where the console starts and ends the tasks (Lab.kt)
+#   .\deploy\glasses.ps1 -Task flag               preselect a build in the Debug picker (swipe changes it)
 #   .\deploy\glasses.ps1 -Record                  record the calls of this launch on the glasses (Recording.kt);
 #                                                 any launch without it turns recording off
 #   .\deploy\glasses.ps1 -Mock                    open the app on the mock call screen (MockScreen.kt): the ladder at
@@ -16,8 +18,8 @@
 #   .\deploy\glasses.ps1 -Stop                    kill the app on the glasses (same as double-tapping out of it)
 #   .\deploy\glasses.ps1 -RestoreSleep            put RayNeo's deep suspend back (launch turns it off, see below)
 #
-# The app remembers the last endpoint and build it was given, and opens on the
-# build picker: swipe on the temple to choose, tap to start the call.
+# The app remembers the last endpoint, console and build it was given, and opens
+# on the menu: Lab or Debug; swipe on the temple to choose, tap to enter.
 # Run from the repo root. Needs adb on PATH and the glasses plugged in (USB is
 # for launching and logs only; the call itself is Wi-Fi). -Install builds the
 # debug variant on purpose: it is the one that allows cleartext http:// and
@@ -27,6 +29,7 @@ param(
     [string]$Ip,                  # backend LAN address; default: this PC's
     [string]$Port,                # api port; default: API_PORT from backend\.env, else 3000
     [string]$Credential = "",     # AUTH_STATIC_TOKEN when the api runs with AUTH_MODE=static
+    [string]$Lab = "",            # the QoE Lab console, <ip> or <ip>:<port>; the Lab entry connects there
     [string]$Task = "",           # a build's name (backend/agent/guides/<name>) to preselect
     [switch]$Record,              # record every call of this launch: camera as the call sees it, mic, agent voice
     [switch]$Mock,                # open on the static mock of the call screen instead of the build picker
@@ -112,6 +115,7 @@ if ((& adb shell settings get global wifi_on).Trim() -ne "1") {
 # with "Argument expected"; only pass it when there is one.
 $extras = @("-e", "token_endpoint", $Endpoint)
 if ($Credential) { $extras += @("-e", "credential", $Credential) }
+if ($Lab) { $extras += @("-e", "lab_console", "http://$(if ($Lab -match ':') { $Lab } else { "${Lab}:8080" })") }
 if ($Task) { $extras += @("-e", "task", $Task) }
 if ($Record) { $extras += @("--ez", "record", "true") }
 if ($Exposure -ne [int]::MinValue) {
@@ -126,7 +130,7 @@ if ($Mock -or $ExposureSweep) {
     $extras += if ($Mock) { @("--ez", "mock", "true") } else { @("--ez", "exposure_sweep", "true") }
 }
 & adb shell am start -n $Activity @extras | Select-Object -Last 1
-Write-Host "launched -> $(if ($Mock) { 'mock call screen' } elseif ($ExposureSweep) { 'exposure sweep' } else { $Endpoint })$(if ($Record) { ', recording' })$(if ($Exposure -ne [int]::MinValue) { ", exposure $Exposure" })"
+Write-Host "launched -> $(if ($Mock) { 'mock call screen' } elseif ($ExposureSweep) { 'exposure sweep' } else { $Endpoint })$(if ($Lab) { ", console $Lab" })$(if ($Record) { ', recording' })$(if ($Exposure -ne [int]::MinValue) { ", exposure $Exposure" })"
 
 if ($ExposureSweep) {
     # The app writes exposure/done when the recording is closed; the sweep holds each of four compensations 5 s.

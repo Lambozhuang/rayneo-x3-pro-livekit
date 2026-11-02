@@ -11,7 +11,10 @@ https://docs.livekit.io/frontends/build/authentication/endpoint/
 GET /tasks lists the builds the glasses can pick (the numbered task files under
 GUIDES_DIR); /getToken?task=<name> puts the pick into the agent's dispatch
 metadata, and the agent loads that task for the call. A token request without
-a known task is refused.
+a known task is refused. In a lab run the glasses add the console's run,
+sid=<id>&run_id=<n>&console=<http://host:port>, which goes into the metadata
+as `qoe` for the agent to report the call to (backend/agent/src/qoe.py); the
+three come together or not at all.
 """
 
 from __future__ import annotations
@@ -71,6 +74,12 @@ async def get_token(request: web.Request) -> web.Response:
     task = request.query.get("task") or ""
     if task not in {t["name"] for t in tasks()}:
         raise web.HTTPBadRequest(text=f"no task {task!r}")
+    metadata = {"task": task}
+    lab = {k: request.query.get(k) for k in ("sid", "run_id", "console")}
+    if any(lab.values()):
+        if not all(lab.values()) or not lab["run_id"].isdigit() or not lab["console"].startswith(("http://", "https://")):
+            raise web.HTTPBadRequest(text=f"a lab run needs sid, run_id (a number) and console (an http URL) together, got {lab}")
+        metadata["qoe"] = {"sid": lab["sid"], "run_id": int(lab["run_id"]), "console": lab["console"].rstrip("/")}
 
     # A fresh room per request, named after the user. Explicit dispatch below
     # means the agent only ever joins rooms whose token asked for it, so a
@@ -88,7 +97,7 @@ async def get_token(request: web.Request) -> web.Response:
         .with_room_config(
             api.RoomConfiguration(
                 agents=[api.RoomAgentDispatch(agent_name=require_env("AGENT_NAME"),
-                                              metadata=json.dumps({"task": task}))]
+                                              metadata=json.dumps(metadata))]
             )
         )
         # Only the initial connection checks expiry. Once connected, the server
@@ -104,7 +113,7 @@ async def get_token(request: web.Request) -> web.Response:
         token = token.with_attributes(body["participant_attributes"])
 
     url = require_env("LIVEKIT_PUBLIC_URL")
-    logger.info("issued token: user=%s room=%s url=%s task=%s", user, room, url, task)
+    logger.info("issued token: user=%s room=%s url=%s task=%s lab=%s", user, room, url, task, metadata.get("qoe"))
     return web.json_response(
         {"server_url": url, "participant_token": token.to_jwt()}, status=201
     )

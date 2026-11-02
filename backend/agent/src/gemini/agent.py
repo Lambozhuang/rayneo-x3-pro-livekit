@@ -14,6 +14,7 @@ README's Logs section.
 import asyncio
 import logging
 import os
+import time
 from dataclasses import asdict
 
 from livekit import agents, rtc
@@ -34,6 +35,7 @@ from env import require_env
 from gemini.config import Settings, build_live_model
 from gemini.prompts import INSTRUCTIONS
 from gemini.sampler import FixedRateSampler
+from qoe import LabRun, deliver, write_report
 from runlog import RunLog
 
 logger = logging.getLogger("rayneo-agent")
@@ -47,9 +49,13 @@ server = AgentServer()
 async def rayneo_assistant(ctx: JobContext) -> None:
     settings = Settings.from_env()
     logger.info(settings.experiment_line())
+    # The lab console's run, when the glasses were started by it (qoe.py); the record goes to the console at the end.
+    lab = LabRun.from_metadata(ctx.job.metadata)
     # The call's record (runlog.py): what happened, in order, with every field; deploy/report.py reads it.
     record = RunLog(os.environ.get("RUN_DIR"), ctx.room.name)
-    record.event("call", wall_ms=record.wall_ms, room=ctx.room.name, language="English", commit=os.environ.get("GIT_COMMIT") or None,
+    if lab and not record.dir:
+        raise RuntimeError("a lab run needs RUN_DIR: the record is what goes to the console")
+    record.event("call", wall_ms=record.wall_ms, room=ctx.room.name, lab=asdict(lab) if lab else None, language="English", commit=os.environ.get("GIT_COMMIT") or None,
                  settings=asdict(settings))
     sampler = FixedRateSampler(settings.video_fps, settings.side, record)
     session = AgentSession(video_sampler=sampler, llm=build_live_model(settings))
@@ -87,6 +93,9 @@ async def rayneo_assistant(ctx: JobContext) -> None:
                      out_tokens=sum(getattr(u, "output_tokens", 0) for u in use),
                      camera_frames=sampler.count, frames_to_model=sampler.sent)
         record.close()
+        if lab:
+            path = write_report(lab, record.dir, record.wall_ms, round(time.time() * 1000), None)
+            await asyncio.to_thread(deliver, path, 20)
 
     ctx.add_shutdown_callback(_end)
 

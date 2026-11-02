@@ -36,9 +36,9 @@ import kotlinx.serialization.Serializable
 object ConnectRoute
 
 /**
- * Before a call: which build. The list comes from the backend (Tasks); a swipe
+ * Before a call in debug mode: which build. The list comes from the backend (Tasks); a swipe
  * on the temple moves the pick, a tap starts the call with it, a double tap
- * leaves the app (MainActivity). Nothing here takes a touch: the wearer cannot
+ * goes back to the menu (MainActivity). Nothing here takes a touch: the wearer cannot
  * see their finger. The backend address and credential come from the adb launch
  * (`glasses.ps1`, TokenEndpoint); there is no keyboard to type them on glasses.
  */
@@ -69,7 +69,7 @@ fun ConnectScreen() {
                 else -> TaskList(tasks, selected, Modifier.weight(1f))
             }
             Spacer(Modifier.size(8.dp))
-            Text("swipe: choose · tap: start · double tap: leave", color = Color(0xFF9E9E9E), fontSize = 14.sp)
+            Text("swipe: choose · tap: start · double tap: back", color = Color(0xFF9E9E9E), fontSize = 14.sp)
         }
     }
 }

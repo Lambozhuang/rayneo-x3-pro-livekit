@@ -19,6 +19,7 @@ import org.json.JSONObject
  * swipe on the temple moves the pick (MainActivity), a tap starts the call with
  * it, and the token request carries it (`/getToken?task=<name>`) to the agent.
  * The last pick is kept across launches; `-e task <name>` on an adb launch sets it.
+ * In lab mode the console names a task by its number, looked up in this same list (Lab).
  *
  * Process-wide state on purpose: the screen is composed once per eye (Eyes), and
  * the touchpad is handled in the activity, outside the Compose tree.

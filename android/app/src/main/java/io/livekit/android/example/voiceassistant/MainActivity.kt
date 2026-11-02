@@ -22,6 +22,11 @@ import io.livekit.android.example.voiceassistant.screen.ConnectRoute
 import io.livekit.android.example.voiceassistant.screen.ConnectScreen
 import io.livekit.android.example.voiceassistant.screen.ExposureRoute
 import io.livekit.android.example.voiceassistant.screen.ExposureScreen
+import io.livekit.android.example.voiceassistant.screen.LabRoute
+import io.livekit.android.example.voiceassistant.screen.LabScreen
+import io.livekit.android.example.voiceassistant.screen.Menu
+import io.livekit.android.example.voiceassistant.screen.MenuRoute
+import io.livekit.android.example.voiceassistant.screen.MenuScreen
 import io.livekit.android.example.voiceassistant.screen.MockRoute
 import io.livekit.android.example.voiceassistant.screen.MockScreen
 import io.livekit.android.example.voiceassistant.screen.VoiceAssistantRoute
@@ -44,10 +49,11 @@ class MainActivity : ComponentActivity() {
         LiveKit.loggingLevel = LoggingLevel.DEBUG
 
         // Lets `adb shell am start ... -e token_endpoint <url>` retarget the app
-        // without a rebuild (TokenEndpoint), `-e task <name>` preselect a build (Tasks),
-        // `--ez record true` record the calls (Recording; off on any launch without it), and `--ei exposure <n>`
-        // set the camera's exposure compensation (Exposure; the camera's own 0 without it).
+        // without a rebuild (TokenEndpoint), `-e lab_console <url>` name the lab console (Lab), `-e task <name>`
+        // preselect a build (Tasks), `--ez record true` record the calls (Recording; off on any launch without it),
+        // and `--ei exposure <n>` set the camera's exposure compensation (Exposure; the camera's own 0 without it).
         TokenEndpoint.applyIntent(this, intent)
+        Lab.applyIntent(this, intent)
         Tasks.applyIntent(this, intent)
         Recording.applyIntent(intent)
         Exposure.applyIntent(intent)
@@ -63,12 +69,27 @@ class MainActivity : ComponentActivity() {
         // activity is showing. It costs display power only while in the app.
         window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
 
-        // The app opens on the connect screen, which is the build picker: swipe
-        // to choose, tap to start. The call returns there when it ends.
+        // The app opens on the menu: `Lab` hands the glasses to the lab console, which starts and ends the tasks
+        // (LabScreen, Lab); `Debug` is the build picker, swipe to choose, tap to start (ConnectScreen). The call
+        // returns to whichever it came from when it ends.
         // `--ez mock true` opens it on the mock call screen instead (MockScreen), to look at the layout without a server;
         // `--ez exposure_sweep true` on the exposure sweep (ExposureScreen), which photographs the desk and leaves.
         val mock = intent.getBooleanExtra("mock", false)
         val sweep = intent.getBooleanExtra(Exposure.EXTRA_SWEEP, false)
+        // The lab console's start_task opens the call over the lab screen, its end_task leaves it; the call screen
+        // itself tells Lab when it is gone (VoiceAssistantScreen), which is when the run is reported.
+        Lab.screens = object : Lab.Screens {
+            override fun startCall(run: Lab.Run) {
+                val nav = navController ?: return
+                if (nav.currentDestination?.hasRoute(LabRoute::class) == true) nav.navigate(route(run))
+                else Log.w(TAG, "start_task while not on the lab screen; ignored")
+            }
+
+            override fun endCall() {
+                val nav = navController ?: return
+                if (nav.currentDestination?.hasRoute(VoiceAssistantRoute::class) == true) nav.navigateUp()
+            }
+        }
         setContent {
             val navController = rememberNavController().also { this.navController = it }
             LiveKitVoiceAssistantExampleTheme {
@@ -81,8 +102,10 @@ class MainActivity : ComponentActivity() {
                 // each eye and none of the inner one. The pair would stop being
                 // mirror-symmetric. Per-eye margins belong to Eyes, which
                 // applies them to each panel evenly.
-                val start: Any = if (sweep) ExposureRoute else if (mock) MockRoute else ConnectRoute
+                val start: Any = if (sweep) ExposureRoute else if (mock) MockRoute else MenuRoute
                 NavHost(navController, startDestination = start) {
+                    composable<MenuRoute> { MenuScreen() }
+                    composable<LabRoute> { LabScreen() }
                     composable<ConnectRoute> { ConnectScreen() }
                     composable<MockRoute> { MockScreen() }
                     composable<ExposureRoute> { ExposureScreen(onDone = { finish() }) }
@@ -114,16 +137,21 @@ class MainActivity : ComponentActivity() {
         val onConnect = navController?.currentDestination?.hasRoute(ConnectRoute::class) == true
         Log.i(TAG, "new intent, on connect screen=$onConnect")
         TokenEndpoint.applyIntent(this, intent)
+        Lab.applyIntent(this, intent)
         Tasks.applyIntent(this, intent)
         Recording.applyIntent(intent)
         Exposure.applyIntent(intent)
         if (onConnect) lifecycleScope.launch { Tasks.load(this@MainActivity, TokenEndpoint.get(this@MainActivity)) }
     }
 
-    private fun savedRoute() = VoiceAssistantRoute(
+    /** The call with the build the console named (`run`), or with the one picked on the connect screen. */
+    private fun route(run: Lab.Run?) = VoiceAssistantRoute(
         tokenEndpoint = TokenEndpoint.get(this).trim(),
         credential = TokenEndpoint.getCredential(this).trim(),
-        task = Tasks.pick?.name ?: "",
+        task = run?.task?.name ?: Tasks.pick?.name ?: "",
+        sid = run?.sid ?: "",
+        runId = run?.runId ?: 0,
+        console = if (run != null) Lab.console ?: "" else "",
     )
 
     /**
@@ -138,9 +166,10 @@ class MainActivity : ComponentActivity() {
      * reduction is done here in a few lines. The glasses' convention, also
      * from the docs: single tap confirms, double tap goes back / exits.
      *
-     *   tap           connect screen: start the call with the picked build. In the call: nothing (yet).
-     *   double tap    in the call: end it. Connect screen and mock screen: leave the app.
-     *   swipe         connect screen: move the build pick (+x or down: next, -x or up: previous). In the call: logged only
+     *   tap           menu: enter the pick. Connect screen: start the call with the picked build. Elsewhere: nothing.
+     *   double tap    in the call: end it. Lab screen: leave lab mode, back to the menu. Connect screen: back to the
+     *                 menu. Menu and mock screen: leave the app.
+     *   swipe         menu and connect screen: move the pick (+x or down: next, -x or up: previous). Elsewhere: logged only
      *
      * A swipe is a travel of more than [SWIPE_PX] along X, or [SWIPE_PX_Y] along Y, between down and up,
      * along whichever axis it travelled further;
@@ -166,8 +195,11 @@ class MainActivity : ComponentActivity() {
                 }
                 Log.i(TAG, "gesture: $gesture dx=${dx.toInt()} dy=${dy.toInt()} dt=${dt}ms at x=${ev.x.toInt()} y=${ev.y.toInt()}")
                 if (gesture == "tap") onTap(ev.eventTime)
-                if (gesture.startsWith("swipe") && navController?.currentDestination?.hasRoute(ConnectRoute::class) == true) {
-                    Tasks.move(this, if (gesture.endsWith("+x") || gesture.endsWith("+y")) 1 else -1)
+                if (gesture.startsWith("swipe")) {
+                    val delta = if (gesture.endsWith("+x") || gesture.endsWith("+y")) 1 else -1
+                    val here = navController?.currentDestination
+                    if (here?.hasRoute(ConnectRoute::class) == true) Tasks.move(this, delta)
+                    if (here?.hasRoute(MenuRoute::class) == true) Menu.move(delta)
                 }
             }
         }
@@ -197,11 +229,22 @@ class MainActivity : ComponentActivity() {
     private fun onGesture(g: Gesture) {
         Log.i(TAG, "action: $g")
         val nav = navController ?: return
-        val onConnect = nav.currentDestination?.hasRoute(ConnectRoute::class) == true
-        val onMock = nav.currentDestination?.hasRoute(MockRoute::class) == true
+        val here = nav.currentDestination
+        val onMenu = here?.hasRoute(MenuRoute::class) == true
+        val onLab = here?.hasRoute(LabRoute::class) == true
+        val onConnect = here?.hasRoute(ConnectRoute::class) == true
+        val onMock = here?.hasRoute(MockRoute::class) == true
         when (g) {
-            Gesture.CLICK -> if (onConnect && Tasks.pick != null) nav.navigate(savedRoute())
-            Gesture.DOUBLE_CLICK -> if (onConnect || onMock) finish() else nav.navigateUp()
+            Gesture.CLICK -> when {
+                onMenu && Menu.pick == Menu.Entry.LAB -> { Lab.start(this); nav.navigate(LabRoute) }
+                onMenu -> nav.navigate(ConnectRoute)
+                onConnect && Tasks.pick != null -> nav.navigate(route(null))
+            }
+            Gesture.DOUBLE_CLICK -> when {
+                onMenu || onMock -> finish()
+                onLab -> { Lab.stop(); nav.navigateUp() }
+                else -> nav.navigateUp()
+            }
         }
     }
 

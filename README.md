@@ -21,10 +21,12 @@ The glasses run the app in `android/`: it sends the mic and camera to the server
 The server runs three programs:
 
 - **livekit-server**, LiveKit's media server: the glasses and the agent join the same room on it; it checks their join tokens and passes audio and video between them.
-- **api** (`backend/api/`): lists the builds, and gives the glasses their join token with the build they picked.
+- **api** (`backend/api/`): lists the builds, and gives the glasses their join token with the build they picked and, in a lab run, the console's run.
 - **agent** (`backend/agent/`): joins the room as the assistant, with that build loaded on the GPT and Realtime paths, and holds the model keys. It runs one of the three architectures below, picked by `AGENT_BACKEND`.
 
-A call starts with the glasses asking the api for the builds; the wearer picks one, the glasses get a join token for it and join the room, and the agent joins too. It ends when the wearer ends it on the glasses.
+A call starts with the glasses asking the api for the builds; the wearer picks one or the lab console names one, the glasses get a join token for it and join the room, and the agent joins too. It ends when the wearer ends it on the glasses or the console ends it.
+
+The lab console is QoE Lab, the app that shapes the lab network and runs the experiment's session; its contract for devices is `docs/developer-guide.md` in the qoe-lab repository, Participant Contract. The glasses connect to it as the target device (`Lab.kt`): the console's `start_task` names a task by number, the build with that number on the task sheet, training and experiment alike, and the glasses start the call with it; its `end_task` or the wearer's double tap ends the call, and the glasses report the run to the console with how far the build got, from the step list the agent published. The run's identity and the console's address ride in the token request into the agent's dispatch metadata, and the agent reports the same run with the call's record, photos left out, when the call ends (`qoe.py`); a report the console does not take waits in the record's directory and the agent process sends it again. A call started from the glasses' own list carries no run, and neither side reports anything.
 
 ### GPT-Live and a vision model (`AGENT_BACKEND=openai`, `backend/agent/src/gpt/`)
 
@@ -91,10 +93,10 @@ Start the backend on a server (`lab` or `home`) with an architecture (`openai`, 
 python deploy/backend.py lab openai
 ```
 
-Launch the app on the glasses. Swipe to pick a build, tap to call, double tap to end.
+Launch the app on the glasses. It opens on a menu: `Debug` lists the builds, swipe to pick one and tap to call; `Lab` connects the glasses to the lab console given by `-Lab`, which starts and ends the tasks. A double tap ends a call or goes back.
 
 ```powershell
-.\deploy\glasses.ps1 -Ip <server LAN IP>
+.\deploy\glasses.ps1 -Ip <server LAN IP> -Lab <console IP>
 ```
 
 Follow the call live:
@@ -126,7 +128,7 @@ python deploy/backend.py lab down
 | `watch.py` | prints the call as it happens, from the agent's log: what each side said, the progress, the timings, the warnings | `docker compose logs -f --no-log-prefix agent \| python3 ../deploy/watch.py [-v]`; `-v` also shows the lines it drops |
 | `pull_run.py` | copies a call's record from the lab PC into `logs/` and runs `report.py` on it | `python deploy/pull_run.py [<call>]`; the newest call without an argument |
 | `report.py` | writes a call's record as one web page, `report.html` in the record's directory | `python deploy/report.py logs/<call>` |
-| `glasses.ps1` | builds, installs, launches or stops the app on the glasses; `-Mock` opens it on a fixed call screen, the gate at step 3 with a picture coming and going, to look at the layout without a server | `.\deploy\glasses.ps1 -Ip <server LAN IP> [-Install] [-Task <build>] [-Record] [-Mock] [-Stop] [-RestoreSleep]` |
+| `glasses.ps1` | builds, installs, launches or stops the app on the glasses; `-Lab <ip>` names the lab console for the menu's Lab entry; `-Mock` opens it on a fixed call screen, the gate at step 3 with a picture coming and going, to look at the layout without a server | `.\deploy\glasses.ps1 -Ip <server LAN IP> [-Install] [-Task <build>] [-Record] [-Mock] [-Stop] [-RestoreSleep]` |
 
 ## Media and network settings
 
@@ -176,7 +178,7 @@ The agent writes one JSON line per event (`docker compose logs agent`; `deploy/w
 | `tool:` | Realtime: one `set_progress` call and what came of it: moved, unchanged or ignored |
 | `model:` | Gemini and Realtime: one reply's time to first audio, generation length and tokens, the image tokens spelled out (zero means no video is reaching the model) |
 
-Each call also leaves a record in `backend/runs/<UTC start>-<room>/`: `events.jsonl` (every event with all its fields), the prompts as sent, and the photos: on the GPT path every photo sent to the brain, on the Realtime and Gemini paths every frame shown to the model. `python deploy/pull_run.py [<call>]` copies the newest (or that) record into `logs/`, saves the glasses' `rayneo-call`, `rayneo-link`, `rayneo-speech` and `rayneo-record` lines as `glasses.log` (`rayneo-call` bounds each call with its room name) and the glasses' clock offset against the server's as `clock.json` when the glasses are on adb, pulls the glasses' recording of the call into `recording/` when there is one, and writes `report.html` (timeline, waits, what went wrong, each look with its photo and the input as sent, and on the GPT path each watch look that noted, said, moved the build or failed; for a Realtime or Gemini call the frames shown to the model and the `set_progress` calls). With `glasses.log` and `clock.json` beside the record the timeline also shows both voices as the glasses heard them, and a GPT-Live call gets each hand-over's wait split into its stages (`deploy/report.py` says which). `LinkStatsLog.kt` logs the link as WebRTC measures it on the glasses every 5 s under `rayneo-link`: the encoder's size, frame rate and bitrate and what limits it, the round trip and loss the SFU reports back for video and microphone, and for the agent's voice the loss, jitter, jitter-buffer hold and concealed samples. `SpeechEdgeLog.kt` logs under `rayneo-speech` the wall-clock moment the microphone goes quiet and the moment the agent's voice arrives, the glasses' side of a turn's wait. The container writes records as root; delete them with `docker run --rm -v "$PWD/runs:/r" backend-agent sh -c "rm -rf /r/2026*"` in `backend/`.
+Each call also leaves a record in `backend/runs/<UTC start>-<room>/`: `events.jsonl` (every event with all its fields), the prompts as sent, and the photos: on the GPT path every photo sent to the brain, on the Realtime and Gemini paths every frame shown to the model. In a lab run the `call` event names the console's run, and the directory holds `qoe-pending.json` until the console has taken the report, or `qoe-rejected.json` if it refused it. `python deploy/pull_run.py [<call>]` copies the newest (or that) record into `logs/`, saves the glasses' `rayneo-call`, `rayneo-link`, `rayneo-speech` and `rayneo-record` lines as `glasses.log` (`rayneo-call` bounds each call with its room name) and the glasses' clock offset against the server's as `clock.json` when the glasses are on adb, pulls the glasses' recording of the call into `recording/` when there is one, and writes `report.html` (timeline, waits, what went wrong, each look with its photo and the input as sent, and on the GPT path each watch look that noted, said, moved the build or failed; for a Realtime or Gemini call the frames shown to the model and the `set_progress` calls). With `glasses.log` and `clock.json` beside the record the timeline also shows both voices as the glasses heard them, and a GPT-Live call gets each hand-over's wait split into its stages (`deploy/report.py` says which). `LinkStatsLog.kt` logs the link as WebRTC measures it on the glasses every 5 s under `rayneo-link`: the encoder's size, frame rate and bitrate and what limits it, the round trip and loss the SFU reports back for video and microphone, and for the agent's voice the loss, jitter, jitter-buffer hold and concealed samples. `SpeechEdgeLog.kt` logs under `rayneo-speech` the wall-clock moment the microphone goes quiet and the moment the agent's voice arrives, the glasses' side of a turn's wait. The container writes records as root; delete them with `docker run --rm -v "$PWD/runs:/r" backend-agent sh -c "rm -rf /r/2026*"` in `backend/`.
 
 **Never set the root logger to `DEBUG` in code** (`logging.basicConfig(level=logging.DEBUG)` and the like): the `websockets` logger then prints request headers, API keys included. `--log-level debug` on the agent CLI sets the root logger to `DEBUG` too, but holds `websockets.client` at `WARN`. If a key reached a log, rotate it.
 

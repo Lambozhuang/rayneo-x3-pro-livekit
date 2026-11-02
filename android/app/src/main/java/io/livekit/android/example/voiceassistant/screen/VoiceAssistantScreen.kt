@@ -9,6 +9,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
@@ -26,6 +27,7 @@ import io.livekit.android.compose.state.rememberSessionMessages
 import io.livekit.android.compose.state.rememberSpeakingParticipants
 import io.livekit.android.example.voiceassistant.Exposure
 import io.livekit.android.example.voiceassistant.FrameDump
+import io.livekit.android.example.voiceassistant.Lab
 import io.livekit.android.example.voiceassistant.LinkStatsLog
 import io.livekit.android.example.voiceassistant.Recording
 import io.livekit.android.example.voiceassistant.SpeechEdgeLog
@@ -56,8 +58,13 @@ data class VoiceAssistantRoute(
     val tokenEndpoint: String,
     /** Bearer credential for the token endpoint; empty sends no header. */
     val credential: String = "",
-    /** The build picked on the connect screen (Tasks); empty = the backend's default. */
+    /** The build picked on the connect screen (Tasks), or the one the lab console named (Lab). */
     val task: String = "",
+    /** The lab console's run this call is, and the console's address, for the agent to report the call to (Lab);
+     *  all empty for a call the glasses started themselves. */
+    val sid: String = "",
+    val runId: Int = 0,
+    val console: String = "",
 )
 
 @Composable
@@ -271,6 +278,14 @@ fun VoiceAssistant(
         val picture by rememberPicture(room, agent.agentParticipant)
         val brainLooking by rememberBrainLooking(agent.agentParticipant)
         val phase = Phase.of(agent, wearerSpeaking, session, engineState, sawAgent, localMedia.isMicrophoneEnabled, brainLooking)
+
+        // A lab run ends when this screen goes, whoever ended it: the console's end_task, the wearer's double tap or the
+        // room closing. Lab reports it to the console with how far the build got; a call the glasses started by
+        // themselves has no run and nothing happens.
+        val progress by rememberUpdatedState(buildProgress)
+        DisposableEffect(Unit) {
+            onDispose { Lab.callEnded(room.name, progress.current, progress.steps.size) }
+        }
 
         // Both sides. The agent's lines are its own transcript; the wearer's
         // are what the model heard, published back by the agent under the

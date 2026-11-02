@@ -21,6 +21,7 @@ import asyncio
 import json
 import logging
 import os
+import time
 from dataclasses import asdict
 
 from livekit import agents, rtc
@@ -42,6 +43,7 @@ from gpt.brain import TOOLS, Brain, make_model
 from gpt.config import Settings, build_live_model
 from gpt.prompts import voice_persona
 from guide import Build, picked_guide, publish_build
+from qoe import LabRun, deliver, write_report
 from runlog import RunLog
 
 logger = logging.getLogger("rayneo-agent")
@@ -57,9 +59,13 @@ async def rayneo_assistant(ctx: JobContext) -> None:
     lang = language()
     guide = picked_guide(ctx.job.metadata)
     logger.info(settings.experiment_line(guide.name))
+    # The lab console's run, when the glasses were started by it (qoe.py); the record goes to the console at the end.
+    lab = LabRun.from_metadata(ctx.job.metadata)
     # The call's record (runlog.py): what happened, in order, with every field; deploy/report.py reads it.
     record = RunLog(os.environ.get("RUN_DIR"), ctx.room.name)
-    record.event("call", wall_ms=record.wall_ms, room=ctx.room.name, guide=guide.name, language=lang, commit=os.environ.get("GIT_COMMIT") or None,
+    if lab and not record.dir:
+        raise RuntimeError("a lab run needs RUN_DIR: the record is what goes to the console")
+    record.event("call", wall_ms=record.wall_ms, room=ctx.room.name, lab=asdict(lab) if lab else None, guide=guide.name, language=lang, commit=os.environ.get("GIT_COMMIT") or None,
                  settings=asdict(settings), steps=[s.name for s in guide.steps])
     tap = FrameTap(on_first=lambda f: record.event("camera", first_frame=f"{f.width}x{f.height}"))
     build = Build(guide=guide, run=ctx.room.name)
@@ -93,6 +99,10 @@ async def rayneo_assistant(ctx: JobContext) -> None:
         record.event("end", voice_s=sum(getattr(u, "session_duration", 0) for u in session.usage.model_usage),
                      camera_frames=tap.count)
         record.close()
+        if lab:
+            path = write_report(lab, record.dir, record.wall_ms, round(time.time() * 1000),
+                                {"steps": len(guide.steps), "done": build.step, "finished": build.finished})
+            await asyncio.to_thread(deliver, path, 20)
 
     ctx.add_shutdown_callback(_log_usage)
 
