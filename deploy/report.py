@@ -317,11 +317,11 @@ def watch_outcome(look: dict) -> str:
         return "dropped" if "watch_dropped" in look else "unfinished"
     if back.get("progress") is not None:
         return "progress"
-    return ("say" if "say" in look else "held" if "say_held" in look else "note" if "note" in look
-            else "nothing")  # held and note: records before 2026-10-29
+    return ("say" if "say" in look else "held" if "say_held" in look else "tell" if "tell" in look
+            else "note" if "note" in look else "nothing")  # held and note: records before 2026-10-29
 
 
-WATCH_COLOURS = {"progress": "#5b5", "say": "#a6d", "held": "#d8b", "note": "#69c", "nothing": "#444", "failed": "#d44", "dropped": "#555",
+WATCH_COLOURS = {"progress": "#5b5", "say": "#a6d", "held": "#d8b", "tell": "#69c", "note": "#69c", "nothing": "#444", "failed": "#d44", "dropped": "#555",
                  "unfinished": "#555"}
 
 
@@ -337,7 +337,7 @@ def watch_card(w: int, look: dict) -> str:
                    f'{sent["frame_age_ms"]} ms old), {sent["photo_kb"]} KB<br>')
     if back and back.get("reply"):
         out.append(f'<p>{esc(back["reply"])}</p>')
-    for kind in ("note", "say"):
+    for kind in ("note", "tell", "say"):
         if kind in look:
             out.append(f'<p>{kind}: {esc(look[kind]["text"])}</p>')
     if "say_held" in look:
@@ -482,8 +482,8 @@ def report(d: str) -> str:
     watches: dict[int, dict] = {}
     last_back = None
     for e in events:
-        if e["kind"] in ("watch_sent", "watch_back", "watch_failed", "watch_dropped", "note", "say", "say_held",
-                         "say_confirmed", "say_dropped", "commentary") and e.get("w"):
+        if e["kind"] in ("watch_sent", "watch_back", "watch_failed", "watch_dropped", "note", "tell", "say", "say_held",
+                         "say_confirmed", "say_dropped", "commentary", "picture") and e.get("w"):
             watches.setdefault(e["w"], {})[e["kind"]] = e
         if e["kind"] in ("delegation", "look_sent", "look_back", "look_failed", "look_dropped", "commentary",
                          "voice_started", "voice_silent") and e.get("n"):
@@ -583,7 +583,7 @@ def report(d: str) -> str:
             cut = " [interrupted]" if e.get("interrupted") else ""
             out.append(f'<div class="row">{t}<span class="{e["who"]}">{e["who"]}: {esc(e["text"])}'
                        f'<span class="dim">{spoke}{cut}</span></span></div>')
-        elif k in ("watch_back", "watch_failed") and watch_outcome(watches[e["w"]]) in ("progress", "say", "held", "note", "failed"):
+        elif k in ("watch_back", "watch_failed") and watch_outcome(watches[e["w"]]) in ("progress", "say", "held", "tell", "note", "failed"):
             out.append(f'<div class="row">{t}<div style="flex:1">{watch_card(e["w"], watches[e["w"]])}</div></div>')
         elif k == "delegation":
             out.append(f'<div class="row">{t}<div style="flex:1">{card(e["n"], looks[e["n"]], thinking.get(e["n"], []))}</div></div>')

@@ -6,9 +6,9 @@
                                                        look + the newest frame --> one vision call --> a reply,
                                                        maybe set_progress or show
             <--commentary on that delegation-- brain (the voice says it in its own words)
-    brain, between delegations: a frame every few seconds --> one vision call --> what it sees, maybe set_progress
-                                or say
-            <--thinking (what it sees) or commentary (say: the user hears it now; the progress moved)-- brain
+    brain, between delegations: a frame every few seconds --> one vision call --> what it sees, kept to itself,
+                                maybe tell, say, set_progress or show
+            <--thinking (tell: a fact for later) or commentary (say: the user hears it now; the progress moved)-- brain
             <--audio-- SFU <-- this process <-- gpt-live-1
             <--step list (participant attributes)-- this process (the step is the brain's)
 

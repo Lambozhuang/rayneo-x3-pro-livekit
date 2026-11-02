@@ -6,8 +6,13 @@ whole call and is called in two ways, both at BRAIN_EFFORT:
 
 - A watch look runs whenever no delegation does, one after the other, at most one
   every BRAIN_WATCH_EVERY seconds, on the newest camera frame scaled to
-  BRAIN_WATCH_SIDE. Nobody asked: what the brain writes goes to GPT-Live as
-  thinking, context it may or may not speak from.
+  BRAIN_WATCH_SIDE. Nobody asked: what the brain writes stays in its own
+  conversation, and GPT-Live hears of the look only through a tool: tell gives
+  it a fact silently (thinking, context for what it says next), say has it tell
+  the user something now (commentary). On 2026-11-02 every look's text went to
+  GPT-Live as thinking, 45 lines in 107 s, and GPT-Live read them out, the doubts
+  ("I still can't count") above all; the brain now chooses what the assistant
+  needs, as OpenAI's guidance has it: an update when something useful changes.
 - A delegation: when the user says something that needs eyes ("is this right?",
   "where does it go?", "what is this?"), GPT-Live delegates; the plugin emits
   `delegation_created` with an id and, sometimes, the user's words not yet in the
@@ -19,8 +24,8 @@ whole call and is called in two ways, both at BRAIN_EFFORT:
   so nothing is appended while a delegation runs.
 
 The two kinds differ in nothing else: the same tools (set_progress moves the
-build, say has GPT-Live tell the user something now, show puts a step's picture
-on the glasses, each told to GPT-Live as commentary), the same instructions, the
+build and show puts a step's picture on the glasses, each told to GPT-Live as
+commentary; tell and say reach GPT-Live as above), the same instructions, the
 same conversation; a delegation's message ends with "The assistant hands this to
 you." and that is all the model is told. One tool list keeps the prompt cache's
 prefix the same from one request to the next, and lets the brain put the picture
@@ -51,7 +56,7 @@ the brain is asked to take it away (show 0).
 
 Both kinds of request are built the same way:
 
-    tools         set_progress(done), say(text), show(step), the same for both
+    tools         set_progress(done), tell(text), say(text), show(step), the same for both
     instructions  rules for both + the whole task file          fixed, so the prompt cache hits
     conversation  every look so far, the newest with its photo and ending with "The assistant hands this
                   to you." when it is a delegation
@@ -102,10 +107,19 @@ SET_PROGRESS = (
     {"type": "object", "properties": {"done": {"type": "integer",
                                                "description": "how many steps, from step 1, are built right"}},
      "required": ["done"], "additionalProperties": False})
+TELL = (
+    "tell",
+    "Gives the assistant a fact silently, for what it says next; it does not speak it on its own. The assistant "
+    "cannot see, so tell it what it would otherwise have to ask you for: the brick the user holds, a step placed "
+    "right or wrong, a picture on the glasses. Do not tell it what has not changed since you last told it, what "
+    "it already knows from the conversation, or what you cannot make out; it would pass a doubt on to the user. "
+    "What you write outside this tool stays with you.",
+    {"type": "object", "properties": {"text": {"type": "string",
+                                               "description": "one short sentence of plain facts"}},
+     "required": ["text"], "additionalProperties": False})
 SAY = (
     "say",
-    "Has the assistant tell the user something now, without their asking, in its own words. Everything else you "
-    "write reaches the assistant silently, for when the user asks.",
+    "Has the assistant tell the user something now, without their asking, in its own words.",
     {"type": "object", "properties": {"text": {"type": "string",
                                                "description": "one or two short sentences of plain facts"}},
      "required": ["text"], "additionalProperties": False})
@@ -121,7 +135,7 @@ SHOW = (
                                                "description": "the step's number as the user counts them, from "
                                                               "1; 0 takes the picture away"}},
      "required": ["step"], "additionalProperties": False})
-TOOLS = [SET_PROGRESS, SAY, SHOW]  # the same for every look, so the cached prefix holds
+TOOLS = [SET_PROGRESS, TELL, SAY, SHOW]  # the same for every look, so the cached prefix holds
 
 # how a line of the chat history is labelled in a look's message
 WHO = {"user": "User", "assistant": "Assistant"}
@@ -363,11 +377,9 @@ class Brain:
             self._record.event("watch_failed", w=w, error=f"{type(e).__name__}: {e}"[:500])
 
     async def _watch_look(self, w: int) -> None:
-        """One watch look and what comes of it: the reply goes to GPT-Live as thinking, a say and a progress
-        moved as one commentary."""
+        """One watch look and what comes of it: the reply stays in the brain's conversation; a tell goes to GPT-Live
+        as thinking, a say and a progress moved as one commentary."""
         text, calls, look = await self._look_once("watch", w, self._watch_side, None, TOOLS)
-        if text:
-            self._session.current_agent.duplex_session.append_thinking(f"Camera: {text}")
         speak = await self._carry_out(look, calls, "watch", w)
         if speak:
             line = " ".join(speak)
@@ -551,6 +563,14 @@ class Brain:
                     result, line = "The assistant says it.", f"Camera: {said}"
                 else:
                     result, line = "Ignored: nothing to say.", None
+            elif name == "tell":
+                told = " ".join(str(args.get("text") or "").split())
+                if told:
+                    self._record.event("tell", **{"w" if kind == "watch" else "n": n}, text=told)
+                    self._session.current_agent.duplex_session.append_thinking(f"Camera: {told}")
+                    result, line = "The assistant knows it.", None
+                else:
+                    result, line = "Ignored: nothing to tell.", None
             else:
                 result, line = f"No such tool here: {name}.", None
             look.results[call_id] = result

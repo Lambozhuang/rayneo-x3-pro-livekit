@@ -193,9 +193,7 @@ async def main() -> None:
         t0 = time.perf_counter()
         if look["kind"] == "watch":
             text, calls, kept = await b._look_once("watch", look["n"], settings["brain_watch_side"], None, TOOLS)
-            if text:
-                voice.append_thinking(f"Camera: {text}")
-            speak = await b._carry_out(kept, calls, "watch", look["n"])
+            speak = await b._carry_out(kept, calls, "watch", look["n"])  # a tell appends to the stand-in voice
             if speak:
                 voice.append_commentary(" ".join(speak))
         else:
