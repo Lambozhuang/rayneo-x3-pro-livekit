@@ -407,11 +407,14 @@ def card(n: int, look: dict, thinking: list[str]) -> str:
         out.append(f'<details><summary>to the voice at {mmss(c["t"])}'
                    + (" (it was speaking)" if c.get("voice_speaking") else "") + "</summary>"
                    f'<pre>{esc(c["text"])}' + "".join(f"\nthinking: {esc(t)}" for t in thinking) + "</pre></details>")
-    v, s = look.get("voice_started"), look.get("voice_silent")
+    v, s, j = look.get("voice_started"), look.get("voice_silent"), look.get("voice_joined")
     if v:
         out.append(f'voice started {v["after_commentary_ms"]} ms after the answer, '
                    f'<b>{v["after_delegation_ms"] / 1000:.1f} s</b> after the hand-over'
                    + (" (it was speaking when the answer came)" if v.get("was_speaking") else "") + "<br>")
+    elif j:
+        out.append(f'<span class="dim">the voice was speaking when the answer came, {j["after_delegation_ms"] / 1000:.1f} s '
+                   f'after the hand-over, and went on into it; when it reached the answer is not told apart</span><br>')
     elif s:
         out.append(f'<span class="warn">voice {esc(s["why"])}</span><br>')
     if sent:
@@ -486,7 +489,7 @@ def report(d: str) -> str:
                          "say_confirmed", "say_dropped", "commentary", "picture") and e.get("w"):
             watches.setdefault(e["w"], {})[e["kind"]] = e
         if e["kind"] in ("delegation", "look_sent", "look_back", "look_failed", "look_dropped", "commentary",
-                         "voice_started", "voice_silent") and e.get("n"):
+                         "voice_started", "voice_silent", "voice_joined") and e.get("n"):
             looks.setdefault(e["n"], {})[e["kind"]] = e
         if e["kind"] == "look_back":
             last_back = e["n"]

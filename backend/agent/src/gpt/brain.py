@@ -175,8 +175,17 @@ def _data_url(photo: bytes) -> str:
 class OpenAIModel:
     """Responses API, the conversation managed here: every request carries all the looks as input items
     (`store=False`), the model's output items passed back as they came, its reasoning included as encrypted
-    content so a later request can read it. The prompt cache is automatic; prompt_cache_key keeps one call's
-    requests together."""
+    content so a later request can read it.
+
+    The prompt cache is driven by explicit breakpoints (gpt-5.6 and later): the API writes a cache entry only at a
+    breakpoint, one implicit at the end of the request unless told otherwise, and a later request is matched only
+    against entries, not against any prefix it happens to share. Found out on 2026-11-02: with the photo at the end
+    of every request and gone from the next, no entry ever matched and only the instructions and tools were
+    cached, 1992 tokens of a request grown to 8700. So every look's text block carries an explicit breakpoint and
+    the request runs in explicit mode: the API writes entries at the latest four looks' texts and none at the
+    photo, which is never seen again; the next request matches the entry at the look before and pays for the
+    look's answer, the new lines and the new photo only. The photo goes last, as a user item of its own, so that
+    nothing of it precedes the breakpoint."""
 
     def __init__(self, model: str, detail: str) -> None:
         from openai import AsyncOpenAI
@@ -187,15 +196,15 @@ class OpenAIModel:
     def _render(self, looks: list[Look]) -> list:
         items: list = []
         for look in looks:
-            content: list = []
-            if look.photo is not None:
-                content.append({"type": "input_image", "image_url": _data_url(look.photo), "detail": self._detail})
-            content.append({"type": "input_text", "text": look.text})
-            items.append({"role": "user", "content": content})
+            items.append({"role": "user", "content": [{"type": "input_text", "text": look.text,
+                                                       "prompt_cache_breakpoint": {"mode": "explicit"}}]})
             items.extend(look.output)
             for call_id, _, _ in look.calls:
                 items.append({"type": "function_call_output", "call_id": call_id,
                               "output": look.results.get(call_id, NOT_DONE)})
+            if look.photo is not None:  # only the newest look still has one
+                items.append({"role": "user", "content": [
+                    {"type": "input_image", "image_url": _data_url(look.photo), "detail": self._detail}]})
         return items
 
     async def ask(self, instructions: str, looks: list[Look], tools: list, effort: str, key: str
@@ -205,7 +214,8 @@ class OpenAIModel:
         resp = await self._client.responses.create(
             model=self._model, instructions=instructions, input=self._render(looks),
             tools=[{"type": "function", "name": n, "description": d, "parameters": p, "strict": True} for n, d, p in tools],
-            store=False, include=["reasoning.encrypted_content"], prompt_cache_key=key, **kw,
+            store=False, include=["reasoning.encrypted_content"], prompt_cache_key=key,
+            prompt_cache_options={"mode": "explicit"}, **kw,
         )
         if not resp.output:
             raise RuntimeError("the model returned no output")
@@ -223,10 +233,11 @@ class OpenAIModel:
 
 class AnthropicModel:
     """Messages API, the conversation managed here: every request carries all the looks as messages, a user
-    message per look (the results of the look before first, then the photo, then the text) and the model's
-    content blocks passed back as they came, thinking blocks included. The instructions carry an explicit cache
-    breakpoint (nothing is cached otherwise). Effort none = thinking disabled; any other value = adaptive thinking
-    at that effort."""
+    message per look (the results of the look before first, then the text, then the photo) and the model's content
+    blocks passed back as they came, thinking blocks included. Cache breakpoints are explicit here too: one on the
+    instructions and one on the newest look's text, before the photo, so the next request finds the entry written
+    at this look's text (the API looks back twenty blocks from a breakpoint) and pays for what follows it only.
+    Effort none = thinking disabled; any other value = adaptive thinking at that effort."""
 
     def __init__(self, model: str) -> None:
         from anthropic import AsyncAnthropic
@@ -243,10 +254,11 @@ class AnthropicModel:
         results: list = []  # the tool results of the look before, which open the next user message
         for look in looks:
             content: list = list(results)
-            if look.photo is not None:
+            content.append({"type": "text", "text": look.text}
+                           | ({"cache_control": {"type": "ephemeral"}} if look is looks[-1] else {}))
+            if look.photo is not None:  # only the newest look still has one
                 content.append({"type": "image", "source": {"type": "base64", "media_type": "image/jpeg",
                                                             "data": base64.b64encode(look.photo).decode()}})
-            content.append({"type": "text", "text": look.text})
             messages.append({"role": "user", "content": content})
             if look.output:
                 messages.append({"role": "assistant", "content": look.output})
@@ -650,16 +662,15 @@ class Brain:
 
     async def _time_voice(self, n: int, t_asked: float, t_sent: float, speaking: bool, limit: float = 15.0) -> None:
         """Log when the voice starts saying the answer: ms after the commentary went out and after the delegation
-        (~ the user's last word). If the voice was still talking when the answer arrived ("let me look"), the
-        answer is taken to start with its next speech after a pause, which is approximate."""
+        (~ the user's last word). If the voice was still talking when the answer arrived ("let me look"), GPT-Live
+        goes on from its words into the answer in the same turn, and the record of 2026-11-02 showed that waiting
+        for its next speech after a pause read 9 to 13 s where the answer had been spoken within the turn; so
+        that case is recorded as voice_joined and not timed."""
         session = self._session
         if speaking:
-            while session.agent_state == "speaking":
-                if time.monotonic() - t_sent > limit:
-                    logger.info("voice: #%d still on its earlier speech %.0fs after the commentary", n, limit)
-                    self._record.event("voice_silent", n=n, why=f"still on its earlier speech {limit:.0f} s after")
-                    return
-                await asyncio.sleep(0.02)
+            logger.info("voice: #%d was speaking when the answer came and goes on into it; its start is not timed", n)
+            self._record.event("voice_joined", n=n, after_delegation_ms=round((t_sent - t_asked) * 1000))
+            return
         while session.agent_state != "speaking":
             if time.monotonic() - t_sent > limit:
                 logger.info("voice: #%d not speaking %.0fs after the commentary", n, limit)

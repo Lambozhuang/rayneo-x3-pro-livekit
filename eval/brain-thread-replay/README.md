@@ -32,3 +32,31 @@ The replayed brain read the plate right from w107 on ("three columns too far rig
 Five replies were a tool call with no text (n5's show among them, where the prompt asks for a sentence on what to look at in the picture); the result of each call told the next look what had happened, which is what the conversation is for. The thinking append is one short sentence per look, 4343 characters of message text over the 45 looks. Token counts were not kept in this run (the brain's record was added to the script afterwards); they are the first thing to read off the next replay or the device run.
 
 What the project does with it: the conversation goes to the device as it is; the flipping had its cause in the context, not in the model's eyes, and a limit on set_progress is not added. Still open for the device run: the growth of the input tokens over a whole call, the effect of a thinking append every look on GPT-Live, and whether the filler GPT-Live says after a hand-over survives.
+
+## The prompt cache (2026-11-02)
+
+In the three lab calls of 2026-11-02 OpenAI reported the same cached token count at every look, 1559 then 1992, the size of the instructions and the tools, while the input grew from about 3000 to 8700 tokens: the conversation was not being cached. `cache_probe.py` sends the first six looks of `logs/20261102-123250-glasses-2f7ff24a/` seven ways and reads `cached_tokens`:
+
+| variant | cached tokens at looks 2 to 6 |
+|---|---|
+| as the code is: the photo taken out of a look once answered | 1992 at every look |
+| the photo as a trailing user item of its own, taken out the same way | 1992 at every look |
+| the photo at detail low (about 300 tokens) | 1992 at every look |
+| store=True | 1992 at every look |
+| the reasoning items not passed back | 1992 at every look |
+| no photo at all | 2000, 2053, 2090, 2114, 2173: the whole previous request, to the token |
+| every photo kept in the conversation | 3388, 4812, 6226, 7640, 9090: the whole previous request |
+
+The six-look probes carry only a few hundred tokens of conversation, so one more pair was sent from a checkpoint deep in the call, with the photo last as the code now has it: w61 as the first look, its message carrying every line said in the 165 s before (about 400 tokens), then w62 with that photo gone and its own lines and photo added. The second request shared 2400 tokens with the first, the instructions, the tools and the whole first message, and OpenAI reported 1992 cached: the fixed part and nothing of the conversation. A control sent the same w61 request twice in a row under one prompt_cache_key and then the w62 request: 0, 3808 (the whole request, to within three tokens), 1992. The cache works and the key routes; a request that shares a 2400-token prefix with the one before, without being its extension, gets the fixed part only.
+
+The reason is in the API's own description of prompt caching for gpt-5.6 and later (the SDK's `prompt_cache_options`): a cache entry is written only at a breakpoint, by default one implicit breakpoint at the end of the request, and a later request is matched against entries, not against any prefix it happens to share with an earlier request. Our request ended with the photo, so the only entry written ended with the photo, and the next request, with that photo gone, matched nothing but the instructions and tools. Keeping the photos would have made each request an extension of the one before, at about 1400 tokens a look in the prefix, which is out of the question.
+
+The fix is to say where the reusable prefix ends: every look's text block carries `prompt_cache_breakpoint: {mode: explicit}` and the request runs with `prompt_cache_options: {mode: explicit}`, so the API writes entries at the latest four looks' texts and none at the photo, and the next request matches the entry at the look before. The control run again, with the fix:
+
+| request | in | cached |
+|---|---|---|
+| w61 | 3811 | 0 |
+| w61 again, identical | 3811 | 2415: through the breakpoint on its text, the photo not written |
+| w62, photo 1 gone, look 2 and its photo added | 3952 | 2415: the same entry |
+
+What the project does with it: the brain's requests carry the breakpoints from 2026-11-02 on (brain.py, both providers; the Anthropic path puts `cache_control` on the newest look's text as well as on the instructions, not yet tried in a call). What a look pays for uncached is the look before's answer and tool results, the new lines and the photo, about 1500 tokens, whatever the length of the call. The photo goes last in the request, a user item of its own, so that nothing of it precedes the breakpoint.
