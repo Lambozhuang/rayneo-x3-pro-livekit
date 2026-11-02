@@ -259,12 +259,7 @@ object Lab {
         }
         val task = Tasks.list.firstOrNull { it.number == number }
         if (task == null) {
-            // No frame says no to the console; the report says it, so the run does not wait for one that never comes.
-            val why = if (Tasks.list.isEmpty()) "the glasses have no task list from the backend" else "no task number $number"
-            Log.w(TAG, "start_task task_number=$number: $why; reported at once")
-            status = "the console asked for task $number: $why"
-            val now = System.currentTimeMillis()
-            enqueue(report(sid, runId, now, now, JSONObject().put("error", why).put("task_number", number)))
+            failed(sid, runId, number, if (Tasks.list.isEmpty()) "the glasses have no task list from the backend" else "no task number $number")
             return
         }
         val r = Run(sid, runId, data.optString("run_type"), number, data.optString("label"), data.optBoolean("log"),
@@ -274,18 +269,30 @@ object Lab {
         Log.i(TAG, "start_task sid=$sid run_id=$runId ${r.runType} task=${task.name} label=${r.label} log=${r.wantsLog} max_s=${r.maxDurationS}")
         if (screens?.startCall(r) != true) {  // not on the lab screen: the run would otherwise stay on for ever
             run = null
-            Log.w(TAG, "the call could not be opened for sid=$sid run_id=$runId; reported at once")
-            status = "the console started task $number but the call could not be opened"
-            val now = System.currentTimeMillis()
-            enqueue(report(sid, runId, now, now, JSONObject().put("error", "the glasses could not open the call").put("task_number", number)))
+            failed(sid, runId, number, "the glasses could not open the call")
         }
     }
 
-    /** A report as the contract has it, with the console it is for; `sent_at` is added at each attempt. */
-    private fun report(sid: String, runId: Int, startedAt: Long, endedAt: Long, log: JSONObject) = JSONObject()
+    /**
+     * A task that cannot start is reported at once as failed, with the reason in one sentence: no frame says no to the
+     * console, and the report puts the run back in its queue and shows the operator why, so it does not wait for an end
+     * that never comes. The glasses are idle again for the next start_task.
+     */
+    private fun failed(sid: String, runId: Int, number: Int, why: String) {
+        Log.w(TAG, "start_task task_number=$number sid=$sid run_id=$runId failed: $why; reported at once")
+        status = "the console started task $number: $why"
+        val now = System.currentTimeMillis()
+        enqueue(report(sid, runId, now, now, JSONObject().put("error", why).put("task_number", number), outcome = "failed"))
+    }
+
+    /**
+     * A report as the contract has it, with the console it is for; `sent_at` is added at each attempt. `outcome` is
+     * "failed" for a task that could not run; left out, the console takes the run as completed.
+     */
+    private fun report(sid: String, runId: Int, startedAt: Long, endedAt: Long, log: JSONObject, outcome: String? = null) = JSONObject()
         .put("console", console)
         .put("body", JSONObject()
-            .put("sid", sid).put("run_id", runId).put("role", "target")
+            .put("sid", sid).put("run_id", runId).put("role", "target").put("outcome", outcome)  // a null value leaves the key out
             .put("started_at", startedAt).put("ended_at", endedAt).put("log", log))
 
     private fun enqueue(report: JSONObject) {
