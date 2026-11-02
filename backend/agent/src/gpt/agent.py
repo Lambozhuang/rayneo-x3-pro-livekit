@@ -38,7 +38,7 @@ from livekit.agents.metrics import RealtimeModelMetrics
 
 from env import language, require_env
 from frames import FrameTap
-from gpt.brain import ASK_TOOLS, WATCH_TOOLS, Brain, make_model
+from gpt.brain import TOOLS, Brain, make_model
 from gpt.config import Settings, build_live_model
 from gpt.prompts import voice_persona
 from guide import Build, picked_guide, publish_build
@@ -70,8 +70,7 @@ async def rayneo_assistant(ctx: JobContext) -> None:
     persona = voice_persona(guide, lang)
     record.text("brain.txt", brain.instructions)
     record.text("brain-tools.json", json.dumps(
-        {kind: [{"name": n, "description": d, "input_schema": p} for n, d, p in tools]
-         for kind, tools in (("delegation", ASK_TOOLS), ("watch", WATCH_TOOLS))}, indent=2))
+        [{"name": n, "description": d, "input_schema": p} for n, d, p in TOOLS], indent=2))
     record.text("voice.txt", persona)
 
     # Two bills. The voice model is priced by the second and reports cumulative

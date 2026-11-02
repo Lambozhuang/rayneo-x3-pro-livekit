@@ -38,13 +38,14 @@ root = here.parent.parent
 sys.path.insert(0, str(root / "backend" / "agent" / "src"))
 
 from gpt import brain  # noqa: E402
-from gpt.brain import ASK_TOOLS, WATCH_TOOLS, Brain, make_model  # noqa: E402
+from gpt.brain import TOOLS, Brain, make_model  # noqa: E402
 from guide import Build, load_guide  # noqa: E402
 from runlog import RunLog  # noqa: E402
 
 out = here / "out"
 
-LINE = re.compile(r"^\[(\d+):(\d\d)\] (wearer|voice): (.*)$")
+LINE = re.compile(r"^\[(\d+):(\d\d)\] (wearer|voice): (.*)$")  # records before 2026-10-29: the whole call so far
+LABEL = {"User: ": "user", "Assistant: ": "assistant"}  # records from 2026-10-29: the lines since the look before
 
 
 def load_key(provider: str) -> None:
@@ -72,14 +73,24 @@ def looks(rec: Path) -> list[dict]:
     return [v for v in found.values() if v["back"] is not None and v["sent"].get("photo")]
 
 
-def chat_lines(said: str) -> list[tuple[str, str, str]]:
-    """The user's and the assistant's lines of a record's call-so-far text, as (time, role, text); the brain's own
-    lines (noted, said, answered) are left out, since the replayed brain writes its own."""
+def chat_lines(sent: dict) -> list[tuple[str, str, str]]:
+    """The user's and the assistant's lines a look's record carries, as (key, role, text). A record before
+    2026-10-29 has the whole call so far with a time on every line, the brain's own lines among them, which are
+    left out since the replayed brain writes its own; the time is the key, so a line already added is known. A
+    record from 2026-10-29 has the lines said since the look before, labelled, each new, and the key is the look's
+    own id with the line's number."""
     lines = []
-    for raw in said.splitlines():
-        m = LINE.match(raw)
-        if m:
-            lines.append((f"{m[1]}:{m[2]}", "user" if m[3] == "wearer" else "assistant", m[4]))
+    if "said" in sent:
+        for raw in sent["said"].splitlines():
+            m = LINE.match(raw)
+            if m:
+                lines.append((f"{m[1]}:{m[2]}", "user" if m[3] == "wearer" else "assistant", m[4]))
+        return lines
+    k = "w" if "w" in sent else "n"
+    for i, raw in enumerate(sent["lines"].splitlines()):
+        for label, role in LABEL.items():
+            if raw.startswith(label):
+                lines.append((f"{k}{sent[k]}.{i}", role, raw[len(label):]))
     return lines
 
 
@@ -164,14 +175,15 @@ async def main() -> None:
     summary = [f"{'look':<6}{'record':>8}{'replay':>8}  reply"]
     before = todo[start]["sent"]
     if start:
-        # the record's progress at the first replayed look, and every line said up to it
+        # the record's progress at the first replayed look, and every line said before it
         build.set_step(before["step"] - 1)
-        voice.history.add(chat_lines(before["said"]))
+        for earlier in todo[:start]:
+            voice.history.add(chat_lines(earlier["sent"]))
     print(f"replaying {len(todo[start:stop])} looks of {rec.name} with {settings['brain_model']} at effort "
           f"{settings['brain_effort']}, from {ids[start]} to {ids[stop - 1]}")
     for look in todo[start:stop]:
         s = look["sent"]
-        voice.history.add(chat_lines(s["said"]))  # a delegation's words come as its pending transcript below
+        voice.history.add(chat_lines(s))  # a delegation's words come as its pending transcript below
         photo = (rec / s["photo"]).read_bytes()
         tap.latest = SimpleNamespace(jpeg=photo, width=1080, height=1080)
         tap.count += 1
@@ -180,7 +192,7 @@ async def main() -> None:
         step_before = build.step
         t0 = time.perf_counter()
         if look["kind"] == "watch":
-            text, calls, kept = await b._look_once("watch", look["n"], settings["brain_watch_side"], None, WATCH_TOOLS)
+            text, calls, kept = await b._look_once("watch", look["n"], settings["brain_watch_side"], None, TOOLS)
             if text:
                 voice.append_thinking(f"Camera: {text}")
             speak = await b._carry_out(kept, calls, "watch", look["n"])
@@ -188,7 +200,7 @@ async def main() -> None:
                 voice.append_commentary(" ".join(speak))
         else:
             text, calls, kept = await b._look_once("look", look["n"], settings["brain_side"], s.get("words") or "",
-                                                   ASK_TOOLS)
+                                                   TOOLS)
             parts = [f"Camera: {text}"] if text else []
             parts += await b._carry_out(kept, calls, "look", look["n"])
             voice.append_commentary(" ".join(parts) or "Camera: nothing to add.", "d")

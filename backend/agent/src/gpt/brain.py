@@ -7,18 +7,25 @@ whole call and is called in two ways, both at BRAIN_EFFORT:
 - A watch look runs whenever no delegation does, one after the other, at most one
   every BRAIN_WATCH_EVERY seconds, on the newest camera frame scaled to
   BRAIN_WATCH_SIDE. Nobody asked: what the brain writes goes to GPT-Live as
-  thinking, silent context for when the user asks; set_progress moves the build
-  and say has GPT-Live tell the user something now, both as commentary.
+  thinking, context it may or may not speak from.
 - A delegation: when the user says something that needs eyes ("is this right?",
-  "where does it go?", "what is this?") or asks to see a step's picture, GPT-Live
-  delegates; the plugin emits `delegation_created` with an id and, sometimes, the
-  user's words not yet in the history. The brain answers from the newest frame
-  scaled to BRAIN_SIDE, and the reply goes to GPT-Live as commentary on that id
-  ("Camera: ..."), which says it in its own words. A watch look still running is
-  cancelled and the watch waits until the answer is out: GPT-Live says a few words
-  by itself when a delegation takes a moment, and any thinking or commentary
-  appended meanwhile cancels those words, so nothing is appended while a
-  delegation runs.
+  "where does it go?", "what is this?"), GPT-Live delegates; the plugin emits
+  `delegation_created` with an id and, sometimes, the user's words not yet in the
+  history. The brain answers from the newest frame scaled to BRAIN_SIDE, and the
+  reply goes to GPT-Live as commentary on that id ("Camera: ..."), which says it in
+  its own words. A watch look still running is cancelled and the watch waits until
+  the answer is out: GPT-Live says a few words by itself when a delegation takes a
+  moment, and any thinking or commentary appended meanwhile cancels those words,
+  so nothing is appended while a delegation runs.
+
+The two kinds differ in nothing else: the same tools (set_progress moves the
+build, say has GPT-Live tell the user something now, show puts a step's picture
+on the glasses, each told to GPT-Live as commentary), the same instructions, the
+same conversation; a delegation's message ends with "The assistant hands this to
+you." and that is all the model is told. One tool list keeps the prompt cache's
+prefix the same from one request to the next, and lets the brain put the picture
+up at the look after the user asks for it, whether or not GPT-Live hands the
+request over.
 
 The brain's conversation (Look, one per request) is a chat with tools as a model
 is used anywhere: a user message per look, with the lines the user and the
@@ -33,10 +40,10 @@ progress it knows is the one its last set_progress result told it. For the
 prompt cache every request is the one before plus one look, the photo of the
 look before taken out.
 
-The picture of a step on the glasses (show) is given only in a delegation, so it
-always follows the user's words: they asked for it, or took the assistant up on
-an offer the brain made from a watch look (say), as a helper standing beside
-them would offer before pointing at the instructions. The picture is a file
+The picture of a step on the glasses (show) follows the user's words: they asked
+for it, or took the assistant up on an offer the brain made from a watch look
+(say), as a helper standing beside them would offer before pointing at the
+instructions; the prompt says so, the code does not hold the tool back. The picture is a file
 beside the task (render_pictures.py), named in an attribute and then sent to the
 glasses as a byte stream; the glasses show that it is on its way, then the
 picture itself. It goes away when the progress moves (Build.set_step) or when
@@ -44,7 +51,7 @@ the brain is asked to take it away (show 0).
 
 Both kinds of request are built the same way:
 
-    tools         set_progress(done); a delegation also show(step), a watch look say(text)
+    tools         set_progress(done), say(text), show(step), the same for both
     instructions  rules for both + the whole task file          fixed, so the prompt cache hits
     conversation  every look so far, the newest with its photo and ending with "The assistant hands this
                   to you." when it is a delegation
@@ -114,8 +121,7 @@ SHOW = (
                                                "description": "the step's number as the user counts them, from "
                                                               "1; 0 takes the picture away"}},
      "required": ["step"], "additionalProperties": False})
-ASK_TOOLS = [SET_PROGRESS, SHOW]
-WATCH_TOOLS = [SET_PROGRESS, SAY]
+TOOLS = [SET_PROGRESS, SAY, SHOW]  # the same for every look, so the cached prefix holds
 
 # how a line of the chat history is labelled in a look's message
 WHO = {"user": "User", "assistant": "Assistant"}
@@ -359,7 +365,7 @@ class Brain:
     async def _watch_look(self, w: int) -> None:
         """One watch look and what comes of it: the reply goes to GPT-Live as thinking, a say and a progress
         moved as one commentary."""
-        text, calls, look = await self._look_once("watch", w, self._watch_side, None, WATCH_TOOLS)
+        text, calls, look = await self._look_once("watch", w, self._watch_side, None, TOOLS)
         if text:
             self._session.current_agent.duplex_session.append_thinking(f"Camera: {text}")
         speak = await self._carry_out(look, calls, "watch", w)
@@ -398,7 +404,7 @@ class Brain:
     async def _answer(self, delegation_id: str, words: str, n: int, t_asked: float | None = None) -> None:
         try:
             text, calls, look = await asyncio.wait_for(
-                self._look_once("look", n, self._side, words, ASK_TOOLS), self._timeout)
+                self._look_once("look", n, self._side, words, TOOLS), self._timeout)
         except asyncio.CancelledError:
             raise
         except Exception as e:
@@ -537,7 +543,7 @@ class Brain:
             if name == "set_progress":
                 result, line = await self._move(args.get("done"))
             elif name == "show":
-                result, line = await self._show(args.get("step"), n)
+                result, line = await self._show(args.get("step"), kind, n)
             elif name == "say":
                 said = " ".join(str(args.get("text") or "").split())
                 if said:
@@ -578,7 +584,7 @@ class Brain:
             result += " The picture is taken off the glasses."
         return result, f"Progress: {where}."
 
-    async def _show(self, step, n: int) -> tuple[str, str | None]:
+    async def _show(self, step, kind: str, n: int) -> tuple[str, str | None]:
         """Put the picture of step `step` on the glasses (0: take it away), record and publish it. Returns the
         tool's result and the line that tells the voice. The attribute that names the picture goes first, on the
         signalling channel, so the glasses know a picture is coming and show that it is on its way; the bytes
@@ -587,7 +593,7 @@ class Brain:
         build = self._build
         total = len(build.guide.steps)
         if not isinstance(step, int) or not 0 <= step <= total:
-            logger.warning("brain: delegation #%d tool call show(%s): ignored, not between 0 and %d", n,
+            logger.warning("brain: %s #%d tool call show(%s): ignored, not between 0 and %d", kind, n,
                            json.dumps(step), total)
             return f"Ignored: step must be a whole number from 0 to {total}.", None
         before = build.picture
@@ -603,7 +609,8 @@ class Brain:
             await writer.aclose()
             sent = {"name": name, "bytes": len(data), "send_ms": round((time.perf_counter() - t0) * 1000)}
             logger.info("picture: %s (%d KB) sent to the glasses in %d ms", name, len(data) // 1024, sent["send_ms"])
-        self._record.event("picture", n=n, step=step or None, before=before or None, **sent)
+        self._record.event("picture", **{"w" if kind == "watch" else "n": n}, step=step or None,
+                           before=before or None, **sent)
         if not step:
             return ("The picture is taken away; the glasses show the camera.",
                     "Picture: the glasses show the camera again, no picture.")
