@@ -26,7 +26,8 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 
 /**
- * One eye of the call. The build's title runs along the top over a line. Below it two columns divided by a line. The
+ * One eye of the call. The build's title runs along the top over a line, with the time left of the lab's limit at its
+ * right end during a lab run ([remaining]). Below it two columns divided by a line. The
  * left one is the build's: the step list under its heading, all steps in view, and at the bottom what the camera sees
  * ([preview], CameraPreview). The right one is the agent's: a framed head saying "Assistant" and who has the floor
  * (PhaseHeader), the agent's lines, newest at the bottom, under them the agent's [picture] while it names one
@@ -49,6 +50,7 @@ fun CallLayout(
     preview: @Composable (Modifier) -> Unit,
     agentLines: @Composable (Modifier) -> Unit,
     wearerLine: @Composable (Modifier) -> Unit,
+    remaining: String? = null,
     modifier: Modifier = Modifier,
 ) {
     if (phase == Phase.CONNECTING) {
@@ -56,8 +58,14 @@ fun CallLayout(
         return
     }
     Column(modifier = modifier.fillMaxSize()) {
-        if (progress.title.isNotEmpty()) {
-            BuildTitle(progress = progress, modifier = Modifier.padding(bottom = GAP))
+        if (progress.title.isNotEmpty() || remaining != null) {
+            // The build's title and, at the right end, the time left of the lab's limit (VoiceAssistantScreen).
+            Row(modifier = Modifier.fillMaxWidth().padding(bottom = GAP), verticalAlignment = Alignment.CenterVertically) {
+                BuildTitle(progress = progress, modifier = Modifier.weight(1f))
+                if (remaining != null) {
+                    Text(text = remaining, color = Color(0xFFBDBDBD), fontSize = 20.sp, lineHeight = 26.sp, maxLines = 1)
+                }
+            }
             Hairline(Modifier.fillMaxWidth().height(1.dp))
         }
         Row(modifier = Modifier.fillMaxWidth().weight(1f).padding(top = GAP)) {

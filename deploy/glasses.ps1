@@ -8,10 +8,13 @@
 #   .\deploy\glasses.ps1 -Task flag               preselect a build in the Debug picker (swipe changes it)
 #   .\deploy\glasses.ps1 -Record                  record the calls of this launch on the glasses (Recording.kt);
 #                                                 any launch without it turns recording off
+#   .\deploy\glasses.ps1 -MockLab after            open the app on the lab screen as it looks between tasks, without a
+#                                                 console (Lab.mock); also waiting and problem
 #   .\deploy\glasses.ps1 -Mock                    open the app on the mock call screen (MockScreen.kt): the ladder at
 #                                                 step 3 with a fixed conversation, no server needed; double tap leaves
 #   .\deploy\glasses.ps1 -Exposure -6             set the camera's exposure compensation for this launch's calls, in
-#                                                 sixths of an EV, -12..12 (Exposure.kt); a launch without it uses 0
+#                                                 sixths of an EV, -12..12 (Exposure.kt); a launch without it uses -6,
+#                                                 the lab's value (eval/brain-frame-quality); -Exposure 0 is the camera's own
 #   .\deploy\glasses.ps1 -ExposureSweep           record the desk as -Record would, 5 s at each of the compensations
 #                                                 0, -2, -4 and -6, and pull it into logs\exposure-<time>\; no server
 #   .\deploy\glasses.ps1 -Log                     after launching, tail the touchpad/gesture log (Ctrl+C to stop)
@@ -33,7 +36,8 @@ param(
     [string]$Task = "",           # a build's name (backend/agent/guides/<name>) to preselect
     [switch]$Record,              # record every call of this launch: camera as the call sees it, mic, agent voice
     [switch]$Mock,                # open on the static mock of the call screen instead of the build picker
-    [int]$Exposure = [int]::MinValue,  # exposure compensation index for the calls, -12..12; unset leaves the camera at 0
+    [string]$MockLab,             # open on the lab screen in this stage with no console: waiting, after, problem (Lab.mock)
+    [int]$Exposure = -6,          # exposure compensation index for the calls, -12..12; the lab's -6 unless given
     [switch]$ExposureSweep,       # record the desk at several compensations, pull the recording, then leave
     [switch]$Install,
     [switch]$Log,
@@ -117,12 +121,11 @@ $extras = @("-e", "token_endpoint", $Endpoint)
 if ($Credential) { $extras += @("-e", "credential", $Credential) }
 if ($Lab) { $extras += @("-e", "lab_console", "http://$(if ($Lab -match ':') { $Lab } else { "${Lab}:8080" })") }
 if ($Task) { $extras += @("-e", "task", $Task) }
+if ($MockLab) { $extras += @("--es", "lab_mock", $MockLab) }
 if ($Record) { $extras += @("--ez", "record", "true") }
-if ($Exposure -ne [int]::MinValue) {
-    if ($Exposure -lt -12 -or $Exposure -gt 12) { throw "-Exposure takes -12..12 (sixths of an EV)" }
-    $extras += @("--ei", "exposure", $Exposure)
-}
-if ($Mock -or $ExposureSweep) {
+if ($Exposure -lt -12 -or $Exposure -gt 12) { throw "-Exposure takes -12..12 (sixths of an EV)" }
+$extras += @("--ei", "exposure", $Exposure)
+if ($Mock -or $ExposureSweep -or $MockLab -or $Lab) {
     # The start screen is chosen in onCreate, so a running instance has to go first.
     & adb shell am force-stop $Pkg
     # The last sweep's done marker would end the wait below before this sweep has begun.
@@ -130,7 +133,7 @@ if ($Mock -or $ExposureSweep) {
     $extras += if ($Mock) { @("--ez", "mock", "true") } else { @("--ez", "exposure_sweep", "true") }
 }
 & adb shell am start -n $Activity @extras | Select-Object -Last 1
-Write-Host "launched -> $(if ($Mock) { 'mock call screen' } elseif ($ExposureSweep) { 'exposure sweep' } else { $Endpoint })$(if ($Lab) { ", console $Lab" })$(if ($Record) { ', recording' })$(if ($Exposure -ne [int]::MinValue) { ", exposure $Exposure" })"
+Write-Host "launched -> $(if ($Mock) { 'mock call screen' } elseif ($ExposureSweep) { 'exposure sweep' } else { $Endpoint })$(if ($Lab) { ", console $Lab" })$(if ($Record) { ', recording' }), exposure $Exposure"
 
 if ($ExposureSweep) {
     # The app writes exposure/done when the recording is closed; the sweep holds each of four compensations 5 s.

@@ -29,9 +29,14 @@ import java.nio.ByteOrder
  */
 class SpeechEdgeLog(private val who: String, private val threshold: Int, private val hangover: Long = 400,
                     private val report: Boolean = false) : AudioTrackSink {
-    private var loudUntil = 0L  // wall clock when the current burst counts as over, 0 while silent
-    private var lastLoud = 0L
+    @Volatile private var loudUntil = 0L  // wall clock when the current burst counts as over, 0 while silent
+    /** Wall clock of the last loud frame, 0 before the first; read from the main thread to time the hang-up. */
+    @Volatile var lastLoud = 0L
+        private set
     private var peak = 0
+
+    /** Whether a burst of sound is on right now, hangover included. */
+    val sounding: Boolean get() = loudUntil != 0L
 
     override fun onData(data: ByteBuffer, bitsPerSample: Int, sampleRate: Int, channels: Int, frames: Int, timestamp: Long) {
         if (bitsPerSample != 16) return

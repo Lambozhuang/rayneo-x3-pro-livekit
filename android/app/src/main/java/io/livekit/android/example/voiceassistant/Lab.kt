@@ -41,7 +41,10 @@ import org.json.JSONObject
  *                which reports the call's record to the console when the call ends (backend/agent/src/qoe.py).
  *                A start_task during a task means the console has reset that run: the call is left without a
  *                report and the new task starts.
- *   end_task     the call ends. The wearer may also end it first with a double tap, as the contract allows.
+ *   end_task     the call ends. The call also ends by itself when the agent publishes `rayneo.call.over`, the build
+ *                finished and said so (gpt/agent.py, VoiceAssistantScreen); the wearer's double tap does nothing in
+ *                lab mode (MainActivity), so a task cannot end by mistake. A triple tap, the experimenter's and
+ *                said nowhere on screen, ends a lab call or leaves the lab screen for the menu.
  *   clock        answered at once with this clock, for the console's offset.
  *
  * When the call ends, however it ended, `callEnded` reports the run to the console (`POST /task-ended`) with how far the
@@ -53,6 +56,9 @@ import org.json.JSONObject
  * closes the socket with the reason `replaced` when another device takes the target's one slot; then nothing reconnects,
  * or the two would take the slot from each other, and the lab screen says so. The console's address comes from the
  * launch (`glasses.ps1 -Lab <ip>`, `-e lab_console http://<ip>:8080`), like the token endpoint.
+ *
+ * The participant reads one sentence on the lab screen, `stage` (LabScreen): to wait, to take the build apart and answer
+ * the questionnaire, or to tell the experimenter. The connection's own state is `status`, for the log.
  *
  * Process-wide state like Tasks: the screens read it, MainActivity drives it, and the socket outlives any one screen.
  * Everything here runs on the main thread except the network calls.
@@ -72,7 +78,14 @@ object Lab {
         val task: Tasks.Task,
         val startedAt: Long,
     ) {
-        var endedByConsole = false
+        var endedBy = "glasses"  // "console" after its end_task, "finished" after the agent's rayneo.call.over
+    }
+
+    /** What the participant reads on the lab screen, one sentence for the stage they are in. */
+    enum class Stage(val text: String) {
+        WAITING("Please wait.\nThe experimenter will start the task."),
+        AFTER_TASK("The task is over.\nTake the build apart, then answer the questionnaire.\nPlease wait for the next task."),
+        PROBLEM("Something went wrong.\nPlease tell the experimenter."),
     }
 
     /** What MainActivity does when the console speaks: open the call with a run (false if it cannot), or leave it. */
@@ -89,6 +102,9 @@ object Lab {
         private set
     /** The task in progress, from start_task until the report is queued. */
     var run by mutableStateOf<Run?>(null)
+        private set
+    /** The stage the participant is in, for the lab screen. */
+    var stage by mutableStateOf(Stage.WAITING)
         private set
     var screens: Screens? = null
 
@@ -125,7 +141,28 @@ object Lab {
         socket?.close(1000, "leaving lab mode")
         socket = null
         run = null
+        stage = Stage.WAITING
         status = "off"
+    }
+
+    /** The agent ended the task, the build finished and said so (VoiceAssistantScreen): the report says so. */
+    fun finished(sid: String, runId: Int) {
+        val r = run ?: return
+        if (r.sid == sid && r.runId == runId) r.endedBy = "finished"
+    }
+
+    /**
+     * The lab screen in one of its stages without a console, to look at it on a device or the emulator (glasses.ps1
+     * -MockLab): waiting, after (a task), problem. Nothing connects.
+     */
+    fun mock(state: String) {
+        console = "http://192.168.50.177:8080"
+        status = "mock: $state"
+        stage = when (state) {
+            "after" -> Stage.AFTER_TASK
+            "problem" -> Stage.PROBLEM
+            else -> Stage.WAITING
+        }
     }
 
     /**
@@ -148,9 +185,10 @@ object Lab {
             .put("steps_total", stepsTotal)
             .put("steps_done", stepsDone ?: JSONObject.NULL)
             .put("completed", stepsTotal > 0 && (stepsDone ?: 0) >= stepsTotal)
-            .put("ended_by", if (r.endedByConsole) "console" else "glasses")
+            .put("ended_by", r.endedBy)
             .put("events", timed(events, r.startedAt))
-        Log.i(TAG, "task ended: sid=${r.sid} run_id=${r.runId} room=$room steps=$stepsDone/$stepsTotal by=${if (r.endedByConsole) "console" else "glasses"} events=${events.length()}")
+        Log.i(TAG, "task ended: sid=${r.sid} run_id=${r.runId} room=$room steps=$stepsDone/$stepsTotal by=${r.endedBy} events=${events.length()}")
+        stage = Stage.AFTER_TASK
         status = "task ${r.taskNumber} ended; reporting"
         enqueue(report(r.sid, r.runId, r.startedAt, System.currentTimeMillis(), if (r.wantsLog) log else null))
     }
@@ -174,6 +212,7 @@ object Lab {
         val base = console
         if (base == null) {
             status = "no console address: launch with glasses.ps1 -Lab <ip>"
+            stage = Stage.PROBLEM
             return
         }
         if (pending().length() > 0) {  // the contract: open the socket only when the retry queue is empty
@@ -243,7 +282,8 @@ object Lab {
         if (!active) return
         if (replaced) {
             active = false
-            status = "another device took the console's target slot; double tap, then enter Lab again to take it back"
+            status = "another device took the console's target slot; relaunch to take it back"
+            stage = Stage.PROBLEM
             return
         }
         status = "no console at ${host(console!!)}: $why; retrying in $backoffS s"
@@ -266,7 +306,7 @@ object Lab {
                 val r = run
                 if (r != null && r.sid == data.optString("sid") && r.runId == data.optInt("run_id")) {
                     Log.i(TAG, "end_task sid=${r.sid} run_id=${r.runId}")
-                    r.endedByConsole = true
+                    r.endedBy = "console"
                     screens?.endCall()
                 } else {
                     Log.i(TAG, "end_task for no task in progress: $data")
@@ -295,6 +335,7 @@ object Lab {
         val r = Run(sid, runId, runType, number, data.optString("label"), data.optBoolean("log"),
                     data.optInt("max_duration_s"), task, System.currentTimeMillis())
         run = r
+        stage = Stage.WAITING  // the call screen covers the lab screen while the task runs
         status = "task $number, ${task.title}"
         Log.i(TAG, "start_task sid=$sid run_id=$runId ${r.runType} task_number=$number sheet=$sheet task=${task.name} label=${r.label} log=${r.wantsLog} max_s=${r.maxDurationS}")
         if (screens?.startCall(r) != true) {  // not on the lab screen: the run would otherwise stay on for ever
@@ -311,6 +352,7 @@ object Lab {
     private fun failed(sid: String, runId: Int, number: Int, why: String) {
         Log.w(TAG, "start_task task_number=$number sid=$sid run_id=$runId failed: $why; reported at once")
         status = "the console started task $number: $why"
+        stage = Stage.PROBLEM
         val now = System.currentTimeMillis()
         enqueue(report(sid, runId, now, now, JSONObject().put("error", why).put("task_number", number), outcome = "failed"))
     }

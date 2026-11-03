@@ -76,6 +76,12 @@ class MainActivity : ComponentActivity() {
         // `--ez exposure_sweep true` on the exposure sweep (ExposureScreen), which photographs the desk and leaves.
         val mock = intent.getBooleanExtra("mock", false)
         val sweep = intent.getBooleanExtra(Exposure.EXTRA_SWEEP, false)
+        // A launch that names the console (`-e lab_console`, glasses.ps1 -Lab) opens on the lab screen in lab mode: the
+        // participant never sees the menu. `--es lab_mock waiting|after|problem` opens the lab screen in that stage with
+        // no console (Lab.mock).
+        val labLaunch = intent.getStringExtra("lab_console") != null
+        val labMock = intent.getStringExtra("lab_mock")
+        if (labMock != null) Lab.mock(labMock) else if (labLaunch) Lab.start(this)
         // The lab console's start_task opens the call over the lab screen, its end_task leaves it; the call screen
         // itself tells Lab when it is gone (VoiceAssistantScreen), which is when the run is reported.
         Lab.screens = object : Lab.Screens {
@@ -108,7 +114,7 @@ class MainActivity : ComponentActivity() {
                 // each eye and none of the inner one. The pair would stop being
                 // mirror-symmetric. Per-eye margins belong to Eyes, which
                 // applies them to each panel evenly.
-                val start: Any = if (sweep) ExposureRoute else if (mock) MockRoute else MenuRoute
+                val start: Any = if (sweep) ExposureRoute else if (mock) MockRoute else if (labMock != null || labLaunch) LabRoute else MenuRoute
                 NavHost(navController, startDestination = start) {
                     composable<MenuRoute> { MenuScreen() }
                     composable<LabRoute> { LabScreen() }
@@ -173,14 +179,17 @@ class MainActivity : ComponentActivity() {
      * from the docs: single tap confirms, double tap goes back / exits.
      *
      *   tap           menu: enter the pick. Connect screen: start the call with the picked build. Elsewhere: nothing.
-     *   double tap    in the call: end it. Lab screen: leave lab mode, back to the menu. Connect screen: back to the
-     *                 menu. Menu and mock screen: leave the app.
+     *   double tap    in the call: end it, except in a lab run, which the console or the finished build ends. Lab
+     *                 screen: nothing. Connect screen: back to the menu. Menu and mock screen: leave the app.
+     *   triple tap    the experimenter's way back in lab mode, said nowhere on screen: in a lab call, end it; on the
+     *                 lab screen, leave lab mode for the menu. Elsewhere: nothing.
      *   swipe         menu and connect screen: move the pick (+x or down: next, -x or up: previous). Elsewhere: logged only
      *
      * A swipe is a travel of more than [SWIPE_PX] along X, or [SWIPE_PX_Y] along Y, between down and up,
      * along whichever axis it travelled further;
-     * anything shorter that lifts within [TAP_MS] is a tap, and a second tap
-     * inside [DOUBLE_MS] upgrades the pair to a double tap. The wearer cannot
+     * anything shorter that lifts within [TAP_MS] is a tap; taps that follow each other inside [DOUBLE_MS] count
+     * together, and [DOUBLE_MS] after the last one the count is one gesture: a tap, a double tap or a triple tap, so a
+     * double tap is known a third of a second after it, when no third tap came. The wearer cannot
      * see their finger, so *where* a touch lands is meaningless; nothing on the
      * screens is clickable and no touch is ever passed to the Compose tree.
      */
@@ -216,21 +225,22 @@ class MainActivity : ComponentActivity() {
     private var downY = 0f
     private var downTime = 0L
     private var lastTapTime = 0L
+    private var taps = 0  // taps in the run so far
     private val handler = Handler(Looper.getMainLooper())
-    private val pendingSingleTap = Runnable { onGesture(Gesture.CLICK) }
-
-    private fun onTap(time: Long) {
-        if (time - lastTapTime < DOUBLE_MS) {
-            handler.removeCallbacks(pendingSingleTap)
-            lastTapTime = 0L
-            onGesture(Gesture.DOUBLE_CLICK)
-        } else {
-            lastTapTime = time
-            handler.postDelayed(pendingSingleTap, DOUBLE_MS)
-        }
+    private val pendingTaps = Runnable {
+        val n = taps
+        taps = 0
+        onGesture(if (n >= 3) Gesture.TRIPLE_CLICK else if (n == 2) Gesture.DOUBLE_CLICK else Gesture.CLICK)
     }
 
-    private enum class Gesture { CLICK, DOUBLE_CLICK }
+    private fun onTap(time: Long) {
+        taps = if (time - lastTapTime < DOUBLE_MS) taps + 1 else 1
+        lastTapTime = time
+        handler.removeCallbacks(pendingTaps)
+        handler.postDelayed(pendingTaps, DOUBLE_MS)
+    }
+
+    private enum class Gesture { CLICK, DOUBLE_CLICK, TRIPLE_CLICK }
 
     private fun onGesture(g: Gesture) {
         Log.i(TAG, "action: $g")
@@ -238,6 +248,7 @@ class MainActivity : ComponentActivity() {
         val here = nav.currentDestination
         val onMenu = here?.hasRoute(MenuRoute::class) == true
         val onLab = here?.hasRoute(LabRoute::class) == true
+        val onCall = here?.hasRoute(VoiceAssistantRoute::class) == true
         val onConnect = here?.hasRoute(ConnectRoute::class) == true
         val onMock = here?.hasRoute(MockRoute::class) == true
         when (g) {
@@ -248,8 +259,14 @@ class MainActivity : ComponentActivity() {
             }
             Gesture.DOUBLE_CLICK -> when {
                 onMenu || onMock -> finish()
-                onLab -> { Lab.stop(); nav.navigateUp() }
+                onLab -> Log.i(TAG, "double tap on the lab screen: nothing")
+                onCall && Lab.run != null -> Log.i(TAG, "double tap in a lab run: nothing; the console or the finished build ends it")
                 else -> nav.navigateUp()
+            }
+            Gesture.TRIPLE_CLICK -> when {  // the experimenter's, said nowhere on screen
+                onCall && Lab.run != null -> { Log.i(TAG, "triple tap: the experimenter ends the lab call"); nav.navigateUp() }
+                onLab -> { Log.i(TAG, "triple tap: the experimenter leaves lab mode"); Lab.stop(); if (!nav.navigateUp()) nav.navigate(MenuRoute) }
+                else -> Log.i(TAG, "triple tap: nothing here")
             }
         }
     }

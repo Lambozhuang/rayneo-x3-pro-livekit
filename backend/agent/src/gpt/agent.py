@@ -46,6 +46,9 @@ from runlog import RunLog
 
 logger = logging.getLogger("rayneo-agent")
 
+OVER_QUIET_S = 2.0  # the voice has said the build is done once it has been silent this long after it; it pauses up to a second between sentences
+OVER_CAP_S = 15.0  # the call ends this long after the last step even if the voice said nothing
+
 server = AgentServer()
 
 
@@ -231,6 +234,40 @@ async def rayneo_assistant(ctx: JobContext) -> None:
     record.event("step", done=None, now=1)
     await publish_build(build)
     brain.start_watching()
+
+    # The task ends by itself: once the brain has recorded the last step as done, the voice says so (the Progress
+    # commentary), and when it has stopped speaking the glasses are told to hang up through Build.over in the published
+    # attributes (BuildSteps.kt), so the wearer has nothing to remember to end a task (the pilot of 2026-11-03). The
+    # brain may still move the progress back while the voice speaks; then the wait starts over. The silence is measured
+    # here, at the agent's end of the audio; the glasses wait for a second of silence at their own decoder before they
+    # hang up (VoiceAssistantScreen.kt), so the last words are heard whatever the network's delay. The session closes
+    # as it does whenever the glasses leave.
+    async def _end_when_finished() -> None:
+        while True:
+            while not build.finished:
+                await asyncio.sleep(0.5)
+            t_finished, spoke, quiet_since = time.monotonic(), False, None
+            while build.finished:
+                if session.agent_state == "speaking":
+                    spoke, quiet_since = True, None
+                elif spoke:
+                    quiet_since = quiet_since or time.monotonic()
+                    if time.monotonic() - quiet_since >= OVER_QUIET_S:
+                        break
+                if time.monotonic() - t_finished >= OVER_CAP_S:
+                    break
+                await asyncio.sleep(0.1)
+            else:
+                continue  # the progress moved back before the end: the build is on again
+            build.over = True
+            after = time.monotonic() - t_finished
+            logger.info("build: over, the voice has %s; the glasses are told to hang up %.1f s after the last step",
+                        "said so" if spoke else "said nothing", after)
+            record.event("over", after_finish_s=round(after, 1), spoke=spoke)
+            await publish_build(build)
+            return
+
+    asyncio.create_task(_end_when_finished(), name="end_when_finished")
 
     # generate_reply on GPT-Live is commentary: a request the model may decline.
     handle = session.generate_reply(

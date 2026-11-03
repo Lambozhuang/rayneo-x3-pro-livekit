@@ -7,6 +7,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.State
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
@@ -44,11 +45,11 @@ import io.livekit.android.example.voiceassistant.ui.CameraPreview
 import io.livekit.android.example.voiceassistant.ui.WearerLine
 import io.livekit.android.example.voiceassistant.ui.Eyes
 import io.livekit.android.example.voiceassistant.ui.Phase
-import io.livekit.android.example.voiceassistant.ui.rememberBrainLooking
 import io.livekit.android.example.voiceassistant.ui.rememberBuildProgress
 import io.livekit.android.example.voiceassistant.ui.rememberPicture
 import io.livekit.android.example.voiceassistant.ui.rememberEngineState
 import io.livekit.android.example.voiceassistant.viewmodel.VoiceAssistantViewModel
+import kotlinx.coroutines.delay
 import kotlinx.serialization.Serializable
 
 /** Tag of the two lines that bound a call in the glasses' log; deploy/pull_run.py reads them with the link and speech lines. */
@@ -83,7 +84,8 @@ fun VoiceAssistantScreen(
 /**
  * The call, laid out for glasses. Nothing on this screen is tappable: there is
  * no pointer, no keyboard, and the only control the wearer has is the temple
- * strip, which MainActivity turns into "end the call". So the phone starter's
+ * strip, which MainActivity turns into "end the call" outside lab mode; in lab mode the console and the finished
+ * build end the call (Lab, the agent's `rayneo.call.over`). So the phone starter's
  * chat box, control bar, screenshare and camera-flip are gone, and what is
  * left is what a wearer actually needs while talking:
  *
@@ -239,10 +241,11 @@ fun VoiceAssistant(
             if (edges != null) micTrack!!.addSink(edges)
             onDispose { if (edges != null) micTrack!!.removeSink(edges) }
         }
-        DisposableEffect(agentAudio) {
-            val edges = if (agentAudio != null) SpeechEdgeLog("agent", threshold = 500, report = true) else null
-            if (edges != null) agentAudio!!.addSink(edges)
-            onDispose { if (edges != null) agentAudio!!.removeSink(edges) }
+        // The agent's edges are kept in state: the hang-up on `over` below waits for the agent's voice to fall silent here.
+        val agentEdges = remember(agentAudio) { if (agentAudio != null) SpeechEdgeLog("agent", threshold = 500, report = true) else null }
+        DisposableEffect(agentEdges) {
+            if (agentEdges != null) agentAudio!!.addSink(agentEdges)
+            onDispose { if (agentEdges != null) agentAudio!!.removeSink(agentEdges) }
         }
 
         // The call to disk when the app was launched with --ez record true: the camera, the mic and the
@@ -284,8 +287,8 @@ fun VoiceAssistant(
         val engineState by rememberEngineState(room)
         val buildProgress by rememberBuildProgress(agent.agentParticipant)
         val picture by rememberPicture(room, agent.agentParticipant)
-        val brainLooking by rememberBrainLooking(agent.agentParticipant)
-        val phase = Phase.of(agent, wearerSpeaking, session, engineState, sawAgent, localMedia.isMicrophoneEnabled, brainLooking)
+        val phase = Phase.of(agent, wearerSpeaking, session, engineState, sawAgent, localMedia.isMicrophoneEnabled)
+        val remaining by rememberRemaining(viewModel.route.sid, viewModel.route.runId)
 
         // Every call ends in the glasses' log here, whoever ended it: the console's end_task, the wearer's double tap or
         // the room closing. A lab run is then reported to the console with how far the build got, as last published
@@ -294,6 +297,25 @@ fun VoiceAssistant(
         // nothing more happens.
         var lastBuild by remember { mutableStateOf(BuildProgress.NONE) }
         LaunchedEffect(buildProgress) { if (buildProgress.steps.isNotEmpty()) lastBuild = buildProgress }
+        // The agent ended the task: the build is finished and the voice has said so (gpt/agent.py). The agent judged
+        // the silence at its own end; here the last words may still be on their way, so the call ends once the agent's
+        // voice has been silent at this decoder for OVER_SILENCE_MS, or after OVER_WAIT_MS at most, as a double tap
+        // would end it, and the run is reported as ended by the finished build.
+        LaunchedEffect(buildProgress.over) {
+            if (buildProgress.over) {
+                Log.i(CALL_TAG, "call over: the agent says the build is finished, room=${room.name}")
+                CallLog.add("call", mapOf("what" to "over", "room" to room.name))
+                val t0 = System.currentTimeMillis()
+                while (System.currentTimeMillis() - t0 < OVER_WAIT_MS) {
+                    val e = agentEdges
+                    if (e == null || (!e.sounding && System.currentTimeMillis() - e.lastLoud >= OVER_SILENCE_MS)) break
+                    delay(100)
+                }
+                Log.i(CALL_TAG, "call over: the agent's voice has been silent here; hanging up ${System.currentTimeMillis() - t0} ms after over")
+                Lab.finished(viewModel.route.sid, viewModel.route.runId)
+                onEndCall()
+            }
+        }
         DisposableEffect(Unit) {
             onDispose {
                 val endsAt = System.currentTimeMillis()
@@ -319,8 +341,34 @@ fun VoiceAssistant(
                 preview = { m -> CameraPreview(track = cameraTrack, modifier = m) },
                 agentLines = { m -> AgentLines(messages = sessionMessages.messages, wearerIdentity = wearerIdentity, modifier = m) },
                 wearerLine = { m -> WearerLine(messages = sessionMessages.messages, wearerIdentity = wearerIdentity, modifier = m) },
+                remaining = remaining,
                 modifier = modifier,
             )
         }
     }
+}
+
+/** How long the agent's voice must have been silent at the glasses' decoder before an `over` hangs up, and the longest the hang-up waits. */
+private const val OVER_SILENCE_MS = 1000L
+private const val OVER_WAIT_MS = 5000L
+
+/**
+ * The time left of a lab run's limit, "m:ss", counted down each second from the console's `max_duration_s` and the
+ * task's start (Lab.Run); null for a call without a run or a limit. The participant sees it on the title line, so the
+ * end the console brings does not come as a surprise (the pilot of 2026-11-03).
+ */
+@Composable
+private fun rememberRemaining(sid: String, runId: Int): State<String?> {
+    val state = remember { mutableStateOf<String?>(null) }
+    LaunchedEffect(sid, runId) {
+        while (true) {
+            val r = Lab.run?.takeIf { it.sid == sid && it.runId == runId && it.maxDurationS > 0 }
+            state.value = r?.let {
+                val left = (it.maxDurationS - (System.currentTimeMillis() - it.startedAt) / 1000).coerceAtLeast(0)
+                "%d:%02d".format(left / 60, left % 60)
+            }
+            delay(1000)
+        }
+    }
+    return state
 }

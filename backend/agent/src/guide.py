@@ -115,6 +115,7 @@ class Build:
     started: float = field(default_factory=time.monotonic)
     step_started: float = field(default_factory=time.monotonic)
     picture: int = 0  # the step whose picture the glasses show, numbered as the wearer counts; 0 shows the camera
+    over: bool = False  # the task is over: the glasses hang up on seeing it (gpt/agent.py, VoiceAssistantScreen.kt)
 
     @property
     def finished(self) -> bool:
@@ -126,12 +127,14 @@ class Build:
         glasses are to show (PICTURE_ATTRIBUTE, empty when the square is to show the camera), which brain.py sends them
         right after as a byte stream on PICTURE_TOPIC. Only the index and the picture change during a call. Attributes ride
         the signalling channel and are re-sent after a reconnect, which a data message is not, so a wearer who
-        dropped out for a while still sees the right step and the right picture."""
+        dropped out for a while still sees the right step and the right picture. `rayneo.call.over` is "1" once the
+        task is over (the build finished and the voice has said so, gpt/agent.py): the glasses end the call on it."""
         return {
             "rayneo.build.title": self.guide.title,
             "rayneo.build.steps": "\n".join(s.name for s in self.guide.steps),
             "rayneo.build.step": str(self.step),
             PICTURE_ATTRIBUTE: self.guide.picture_name(self.picture) if self.picture else "",
+            "rayneo.call.over": "1" if self.over else "",
         }
 
     def where(self) -> str:

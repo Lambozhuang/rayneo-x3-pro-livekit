@@ -29,14 +29,18 @@ import io.livekit.android.util.flow
  * (index of the current step; equal to the count once the build is done). Attributes travel on the signalling channel
  * and are re-sent after a reconnect, so this list is right again as soon as the connection is. The picture beside the
  * list is not the build's: the agent sends it as a file and names it in `rayneo.picture` (Pictures.kt).
+ * `rayneo.call.over` is "1" once the agent has ended the task, the build finished and said so; the call screen hangs
+ * up on it (VoiceAssistantScreen).
  *
  * @param current index of the step being built, or null when nothing has
  * been published yet; `steps.size` once finished.
+ * @param over whether the agent has ended the task.
  */
 data class BuildProgress(
     val title: String,
     val steps: List<String>,
     val current: Int?,
+    val over: Boolean = false,
 ) {
     companion object {
         val NONE = BuildProgress("", emptyList(), null)
@@ -47,9 +51,11 @@ data class BuildProgress(
                 title = attributes[KEY_TITLE] ?: "",
                 steps = steps,
                 current = attributes[KEY_STEP]?.toIntOrNull(),
+                over = attributes[KEY_OVER] == "1",
             )
         }
 
+        private const val KEY_OVER = "rayneo.call.over"
         private const val KEY_TITLE = "rayneo.build.title"
         private const val KEY_STEPS = "rayneo.build.steps"
         private const val KEY_STEP = "rayneo.build.step"

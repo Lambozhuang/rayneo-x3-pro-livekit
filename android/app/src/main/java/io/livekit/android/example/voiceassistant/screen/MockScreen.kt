@@ -69,6 +69,7 @@ fun MockScreen() {
             preview = { m -> CameraPreview(track = null, modifier = m) },
             agentLines = { m -> AgentLinesView(agentLines, m) },
             wearerLine = { m -> WearerLineView(wearerLine, m) },
+            remaining = "2:31",
         )
     }
 }
