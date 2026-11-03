@@ -27,6 +27,7 @@ KEEP = (
     ("live:", DIM, "live "),
     ("delegation:", CYAN, "deleg"),
     ("link:", YELLOW, "link "),
+    ("video ", YELLOW, "video"),  # the camera track as published and which decoder runs it (camera.py)
     ("gpt-live:", CYAN, "bill "),
     ("step ", YELLOW, "build"),
     ("build", YELLOW, "build"),
