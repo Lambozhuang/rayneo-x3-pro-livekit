@@ -5,8 +5,8 @@ track is subscribed it asks for the full layer (the glasses send one; this guard
 lower one), logs what was published, and once the first frames have had time to arrive reads the receiver's
 statistics and writes a `decoder` event: the codec on the wire, the decoder libwebrtc picked and the frames decoded
 so far. The glasses send H.265 (VoiceAssistantViewModel.kt), which the agent's libwebrtc decodes only on an NVIDIA
-GPU, NVDEC, where the decoder is named `NvCodec` (the Rust SDK's NvidiaVideoDecoderFactory; it has no software H.265
-decoder). A call on a machine without the GPU therefore has a `decoder` event with no frames, which deploy/report.py
+GPU, NVDEC, where the decoder is named `NVIDIA H265 Decoder` (the Rust SDK's NvidiaVideoDecoderFactory; it has no
+software H.265 decoder). A call on a machine without the GPU therefore has a `decoder` event with no frames, which deploy/report.py
 lists as a problem, and the vision model sees nothing.
 """
 

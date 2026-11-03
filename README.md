@@ -169,7 +169,7 @@ The agent writes one JSON line per event (`docker compose logs agent`; `deploy/w
 | `experiment:` | every setting of the run, with `backend=openai`, `realtime` or `gemini` |
 | `user:` / `assistant:` | what one side said, written when its turn ends; on the Gemini path both lines are Gemini's transcriptions of the audio, in US English |
 | `step`, `build` | GPT-Live and Realtime: a step was done or reopened, the build was finished |
-| `camera:`, `video`, `link:` | the first frame arrived; the glasses' video track as published and, 5 s later, which decoder runs it (`NvCodec` is the GPU; `camera.py`); the glasses joined, left, or changed link quality |
+| `camera:`, `video`, `link:` | the first frame arrived; the glasses' video track as published and, 5 s later, which decoder runs it (`NVIDIA H265 Decoder` is the GPU; `camera.py`); the glasses joined, left, or changed link quality |
 | `usage:` | the speech model's usage so far, about once a minute; at the end, the session's total and how many camera frames arrived |
 | `live:` | GPT-Live: who is speaking; `live: sent` is every event sent to GPT-Live except mic audio, `live: event` is one of GPT-Live's own (a delegation, a receipt, an error). Realtime: who is speaking, the wearer's state from the API's turn detection. Gemini: the model started or stopped speaking |
 | `delegation:` | GPT-Live: it handed a request over, with the wearer's words |
