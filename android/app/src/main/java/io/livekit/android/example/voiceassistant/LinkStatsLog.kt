@@ -25,7 +25,9 @@ import kotlin.coroutines.coroutineContext
  *               held each sample, how many samples were made up to cover gaps
  *
  * Every line carries at=<wall clock ms> so it can be put next to the call's
- * record on the server after the two clocks' offset is known.
+ * record on the server after the two clocks' offset is known. The same numbers
+ * go to CallLog as one `link` event per line, with the stream and the fields
+ * named, for the report to the lab console.
  *
  *   adb logcat -v time -s rayneo-link
  */
@@ -33,45 +35,59 @@ object LinkStatsLog {
     private const val TAG = "rayneo-link"
     private const val PERIOD_MS = 5_000L
 
-    suspend fun upVideo(track: LocalVideoTrack) = every(track) {
+    suspend fun upVideo(track: LocalVideoTrack) = every(track, "up_video") {
         val out = first("outbound-rtp", "video") ?: return@every null
         val back = first("remote-inbound-rtp", "video")
         val m = out.members
-        "up video ${m["frameWidth"]}x${m["frameHeight"]} @${m["framesPerSecond"]}fps " +
-            "sent=${kbps(out, "bytesSent")}kbps target=${(m["targetBitrate"] as? Number)?.toInt()?.div(1000)}kbps " +
-            "limited=${m["qualityLimitationReason"]} qp=${if (m["qpSum"] != null) "reported" else "none"} " +
-            "nack=${delta(out, "nackCount").toInt()} pli=${delta(out, "pliCount").toInt()} " +
-            "rtt=${ms(back?.members?.get("roundTripTime"))}ms lost=${pct(back?.members?.get("fractionLost"))} " +
-            "codec=${codec(out)} encoder=${m["encoderImplementation"]}"
+        val rtt = ms(back?.members?.get("roundTripTime"))
+        val lost = pct(back?.members?.get("fractionLost"))
+        val f = linkedMapOf<String, Any?>(
+            "width" to m["frameWidth"], "height" to m["frameHeight"], "fps" to m["framesPerSecond"],
+            "sent_kbps" to kbps(out, "bytesSent"), "target_kbps" to (m["targetBitrate"] as? Number)?.toInt()?.div(1000),
+            "limited" to m["qualityLimitationReason"], "qp" to (m["qpSum"] != null),
+            "nack" to delta(out, "nackCount").toInt(), "pli" to delta(out, "pliCount").toInt(),
+            "rtt_ms" to rtt, "lost_pct" to lost, "codec" to codec(out), "encoder" to m["encoderImplementation"])
+        f to "${f["width"]}x${f["height"]} @${f["fps"]}fps sent=${f["sent_kbps"]}kbps target=${f["target_kbps"]}kbps " +
+            "limited=${f["limited"]} qp=${if (f["qp"] == true) "reported" else "none"} nack=${f["nack"]} pli=${f["pli"]} " +
+            "rtt=${rtt ?: -1}ms lost=${lostText(lost)} codec=${f["codec"]} encoder=${f["encoder"]}"
     }
 
-    suspend fun upAudio(track: LocalAudioTrack) = every(track) {
+    suspend fun upAudio(track: LocalAudioTrack) = every(track, "up_audio") {
         val out = first("outbound-rtp", "audio") ?: return@every null
         val back = first("remote-inbound-rtp", "audio")
-        "up audio sent=${kbps(out, "bytesSent")}kbps rtt=${ms(back?.members?.get("roundTripTime"))}ms " +
-            "lost=${pct(back?.members?.get("fractionLost"))} codec=${codec(out)}"
+        val rtt = ms(back?.members?.get("roundTripTime"))
+        val lost = pct(back?.members?.get("fractionLost"))
+        val f = linkedMapOf<String, Any?>("sent_kbps" to kbps(out, "bytesSent"), "rtt_ms" to rtt, "lost_pct" to lost, "codec" to codec(out))
+        f to "sent=${f["sent_kbps"]}kbps rtt=${rtt ?: -1}ms lost=${lostText(lost)} codec=${f["codec"]}"
     }
 
-    suspend fun downAudio(track: RemoteAudioTrack) = every(track) {
+    suspend fun downAudio(track: RemoteAudioTrack) = every(track, "down_audio") {
         val inb = first("inbound-rtp", "audio") ?: return@every null
         val m = inb.members
         val held = delta(inb, "jitterBufferDelay")  // seconds, summed over the samples emitted in the period
         val emitted = delta(inb, "jitterBufferEmittedCount")
-        val buffer = if (emitted > 0) (held * 1000 / emitted).toInt() else -1
-        "down audio received=${delta(inb, "packetsReceived").toInt()} lost=${delta(inb, "packetsLost").toInt()} " +
-            "jitter=${ms(m["jitter"])}ms buffer=${buffer}ms " +
-            "concealed=${delta(inb, "concealedSamples").toInt()}/${delta(inb, "totalSamplesReceived").toInt()} " +
-            "codec=${codec(inb)}"
+        val f = linkedMapOf<String, Any?>(
+            "received" to delta(inb, "packetsReceived").toInt(), "lost" to delta(inb, "packetsLost").toInt(),
+            "jitter_ms" to ms(m["jitter"]), "buffer_ms" to if (emitted > 0) (held * 1000 / emitted).toInt() else null,
+            "concealed" to delta(inb, "concealedSamples").toInt(), "samples" to delta(inb, "totalSamplesReceived").toInt(),
+            "codec" to codec(inb))
+        f to "received=${f["received"]} lost=${f["lost"]} jitter=${f["jitter_ms"] ?: -1}ms buffer=${f["buffer_ms"] ?: -1}ms " +
+            "concealed=${f["concealed"]}/${f["samples"]} codec=${f["codec"]}"
     }
 
-    /** Polls the track's stats every PERIOD_MS until the coroutine is cancelled; `line` turns a report into text. */
-    private suspend fun every(track: Track, line: Report.() -> String?) {
+    /**
+     * Polls the track's stats every PERIOD_MS until the coroutine is cancelled; `line` turns a report into the named
+     * fields and their text, which go to CallLog and logcat with the same time.
+     */
+    private suspend fun every(track: Track, stream: String, line: Report.() -> Pair<Map<String, Any?>, String>?) {
         val report = Report()
         while (coroutineContext.isActive) {
             delay(PERIOD_MS)
             report.stats = track.getRTCStats()?.statsMap?.values ?: continue
-            val text = report.line() ?: continue
-            Log.i(TAG, "$text at=${System.currentTimeMillis()}")
+            val (fields, text) = report.line() ?: continue
+            val at = System.currentTimeMillis()
+            Log.i(TAG, "${stream.replace('_', ' ')} $text at=$at")
+            CallLog.add("link", mapOf("stream" to stream) + fields, at)
             report.remember()
         }
     }
@@ -103,7 +119,11 @@ object LinkStatsLog {
         }
     }
 
-    private fun ms(seconds: Any?): Int = ((seconds as? Number)?.toDouble()?.times(1000))?.toInt() ?: -1
+    /** Seconds as whole ms; null when the stats have no such number yet. */
+    private fun ms(seconds: Any?): Int? = (seconds as? Number)?.toDouble()?.times(1000)?.toInt()
 
-    private fun pct(fraction: Any?): String = (fraction as? Number)?.toDouble()?.let { "%.1f%%".format(it * 100) } ?: "-"
+    /** A fraction as a percentage to a tenth; null when the SFU has not reported one. */
+    private fun pct(fraction: Any?): Double? = (fraction as? Number)?.toDouble()?.let { Math.round(it * 1000) / 10.0 }
+
+    private fun lostText(pct: Double?): String = pct?.let { "%.1f%%".format(it) } ?: "-"
 }

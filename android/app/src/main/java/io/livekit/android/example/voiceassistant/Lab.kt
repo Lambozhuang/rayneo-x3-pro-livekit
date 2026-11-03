@@ -41,7 +41,9 @@ import org.json.JSONObject
  *   clock        answered at once with this clock, for the console's offset.
  *
  * When the call ends, however it ended, `callEnded` reports the run to the console (`POST /task-ended`) with how far the
- * build got, from the step list the agent published. The report waits in SharedPreferences until the console has taken
+ * build got, from the step list the agent published, and with what the glasses measured during the call (CallLog): the
+ * link's statistics, the agent's voice arriving, the pictures arriving and showing, the call's bounds, each event timed
+ * in ms from the task's start. The report waits in SharedPreferences until the console has taken
  * it, so a restart loses nothing, and the socket is opened only once nothing is waiting, as the contract asks. A socket
  * that drops during a task abandons the task and reports nothing: the console resets that run itself. The console
  * closes the socket with the reason `replaced` when another device takes the target's one slot; then nothing reconnects,
@@ -125,10 +127,11 @@ object Lab {
     /**
      * The call screen of the run `sid`/`runId` is gone: if that run is still on, report it; a run the console has
      * replaced in the meantime is not. `stepsDone` is the agent's current step index, which equals `stepsTotal` once the
-     * build is finished (guide.py); null when the agent never published a build. The log goes only when start_task
-     * asked for one, as the contract says.
+     * build is finished (guide.py); null when the agent never published a build. `events` is what the glasses measured
+     * during the call (CallLog), each stamped with the glasses' clock, reported as `t_ms` from the task's start. The
+     * log goes only when start_task asked for one, as the contract says.
      */
-    fun callEnded(sid: String, runId: Int, room: String?, stepsDone: Int?, stepsTotal: Int) {
+    fun callEnded(sid: String, runId: Int, room: String?, stepsDone: Int?, stepsTotal: Int, events: JSONArray) {
         val r = run ?: return
         if (r.sid != sid || r.runId != runId) return
         run = null
@@ -140,9 +143,22 @@ object Lab {
             .put("steps_done", stepsDone ?: JSONObject.NULL)
             .put("completed", stepsTotal > 0 && (stepsDone ?: 0) >= stepsTotal)
             .put("ended_by", if (r.endedByConsole) "console" else "glasses")
-        Log.i(TAG, "task ended: sid=${r.sid} run_id=${r.runId} room=$room steps=$stepsDone/$stepsTotal by=${if (r.endedByConsole) "console" else "glasses"}")
+            .put("events", timed(events, r.startedAt))
+        Log.i(TAG, "task ended: sid=${r.sid} run_id=${r.runId} room=$room steps=$stepsDone/$stepsTotal by=${if (r.endedByConsole) "console" else "glasses"} events=${events.length()}")
         status = "task ${r.taskNumber} ended; reporting"
         enqueue(report(r.sid, r.runId, r.startedAt, System.currentTimeMillis(), if (r.wantsLog) log else null))
+    }
+
+    /** The events with their `at`, the glasses' wall clock, turned into `t_ms` from `start`, as the contract advises. */
+    private fun timed(events: JSONArray, start: Long): JSONArray {
+        val out = JSONArray()
+        for (i in 0 until events.length()) {
+            val e = events.getJSONObject(i)
+            val t = JSONObject().put("t_ms", e.getLong("at") - start)
+            for (k in e.keys()) if (k != "at") t.put(k, e.get(k))
+            out.put(t)
+        }
+        return out
     }
 
     private val reconnect = Runnable { connect() }

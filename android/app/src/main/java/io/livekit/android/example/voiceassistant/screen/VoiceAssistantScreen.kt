@@ -24,6 +24,7 @@ import io.livekit.android.compose.state.rememberLocalMedia
 import io.livekit.android.compose.state.rememberSession
 import io.livekit.android.compose.state.rememberSessionMessages
 import io.livekit.android.compose.state.rememberSpeakingParticipants
+import io.livekit.android.example.voiceassistant.CallLog
 import io.livekit.android.example.voiceassistant.Exposure
 import io.livekit.android.example.voiceassistant.FrameDump
 import io.livekit.android.example.voiceassistant.Lab
@@ -122,6 +123,8 @@ fun VoiceAssistant(
     SessionScope(session = session) { session ->
 
         val room = requireRoom()
+        // What the glasses measure during this call, for the report to the lab console; see CallLog.
+        remember { CallLog.begin() }
 
         // The camera first, the room second. The camera is opened here, before anything connects, so that its
         // exposure has settled and this launch's compensation is on it (Exposure.apply) by the time the agent sees
@@ -140,7 +143,9 @@ fun VoiceAssistant(
             track.startCapture()
             cameraTrack = track
             Exposure.apply(track)
-            Log.i(CALL_TAG, "camera ready at=${System.currentTimeMillis()}")
+            val cameraAt = System.currentTimeMillis()
+            Log.i(CALL_TAG, "camera ready at=$cameraAt")
+            CallLog.add("call", mapOf("what" to "camera ready"), cameraAt)
 
             // No ICE overrides here on purpose. `adb reverse` cannot carry WebRTC
             // media at all, and ICE-TCP does not rescue it — see the README section
@@ -166,12 +171,11 @@ fun VoiceAssistant(
             room.localParticipant.publishVideoTrack(track)
         }
 
-        // End the session when leaving the screen. This is also where every call
-        // ends in the glasses' log, whichever side ended it: a double tap leaves
-        // the screen, and a server-side end leaves it through onEndCall below.
+        // End the session when leaving the screen, whichever side ended it: a double tap leaves the screen, and a
+        // server-side end leaves it through onEndCall below. The call's end in the glasses' log is written with the
+        // lab report, further down.
         DisposableEffect(Unit) {
             onDispose {
-                Log.i(CALL_TAG, "call ends room=${room.name} at=${System.currentTimeMillis()}")
                 room.name?.let { Recording.end(it) }
                 cameraTrack?.let { runCatching { it.stopCapture() } }  // opened before the room, so closed by hand too
                 session.end()
@@ -186,7 +190,9 @@ fun VoiceAssistant(
         // (backend/runs/<UTC start>-<room>/), so the two logs pair up by it.
         LaunchedEffect(Unit) {
             session.waitUntilConnected()
-            Log.i(CALL_TAG, "call starts room=${room.name} at=${System.currentTimeMillis()}")
+            val startsAt = System.currentTimeMillis()
+            Log.i(CALL_TAG, "call starts room=${room.name} at=$startsAt")
+            CallLog.add("call", mapOf("what" to "starts", "room" to room.name), startsAt)
             session.waitUntilDisconnected()
             onEndCall()
         }
@@ -225,14 +231,15 @@ fun VoiceAssistant(
         }
 
         // When the wearer's voice stops at the microphone and when the agent's voice arrives, as wall clock
-        // times. See SpeechEdgeLog; the mic's threshold is higher because the room is in it.
+        // times. See SpeechEdgeLog; the mic's threshold is higher because the room is in it. The agent's edges go
+        // into the lab report; the wearer's stay in logcat.
         DisposableEffect(micTrack) {
             val edges = if (micTrack != null) SpeechEdgeLog("wearer", threshold = 1000) else null
             if (edges != null) micTrack!!.addSink(edges)
             onDispose { if (edges != null) micTrack!!.removeSink(edges) }
         }
         DisposableEffect(agentAudio) {
-            val edges = if (agentAudio != null) SpeechEdgeLog("agent", threshold = 500) else null
+            val edges = if (agentAudio != null) SpeechEdgeLog("agent", threshold = 500, report = true) else null
             if (edges != null) agentAudio!!.addSink(edges)
             onDispose { if (edges != null) agentAudio!!.removeSink(edges) }
         }
@@ -279,14 +286,20 @@ fun VoiceAssistant(
         val brainLooking by rememberBrainLooking(agent.agentParticipant)
         val phase = Phase.of(agent, wearerSpeaking, session, engineState, sawAgent, localMedia.isMicrophoneEnabled, brainLooking)
 
-        // A lab run ends when this screen goes, whoever ended it: the console's end_task, the wearer's double tap or the
-        // room closing. Lab reports it to the console with how far the build got, as last published: when the agent
-        // left first its attributes are gone, and that must not read as no progress. A call the glasses started by
-        // themselves has no run and nothing happens.
+        // Every call ends in the glasses' log here, whoever ended it: the console's end_task, the wearer's double tap or
+        // the room closing. A lab run is then reported to the console with how far the build got, as last published
+        // (when the agent left first its attributes are gone, and that must not read as no progress), and with what
+        // the glasses measured during the call (CallLog). A call the glasses started by themselves has no run and
+        // nothing more happens.
         var lastBuild by remember { mutableStateOf(BuildProgress.NONE) }
         LaunchedEffect(buildProgress) { if (buildProgress.steps.isNotEmpty()) lastBuild = buildProgress }
         DisposableEffect(Unit) {
-            onDispose { Lab.callEnded(viewModel.route.sid, viewModel.route.runId, room.name, lastBuild.current, lastBuild.steps.size) }
+            onDispose {
+                val endsAt = System.currentTimeMillis()
+                Log.i(CALL_TAG, "call ends room=${room.name} at=$endsAt")
+                CallLog.add("call", mapOf("what" to "ends", "room" to room.name), endsAt)
+                Lab.callEnded(viewModel.route.sid, viewModel.route.runId, room.name, lastBuild.current, lastBuild.steps.size, CallLog.take())
+            }
         }
 
         // Both sides. The agent's lines are its own transcript; the wearer's

@@ -53,7 +53,7 @@
 
 ### 记录与分析
 
-- [ ] 给 QoE Lab 的两份上报要过一遍，确保没有信息遗漏（2026-11-02 用户要求）。现状：眼镜的 log 是 {room, task, task_number, steps_done, steps_total, completed, ended_by}；agent 的 log 是整份 events.jsonl 加 brain.txt、voice.txt、brain-tools.json 和 build 终态，照片不传。对照 pull_run.py 拉的 glasses.log（链路、语音起止、录像）和 clock.json 看什么还没进上报，以及控制台那边导出成 CSV 后好不好读
+- [ ] 给 QoE Lab 的两份上报 2026-11-03 过了一遍：agent 的 log（整份 events.jsonl 加 brain.txt、voice.txt、brain-tools.json 和 build 终态，照片不传）不缺，时间都是相对 call 开始的 t，不改；眼镜的 log 原来只有总结 {room, task, task_number, steps_done, steps_total, completed, ended_by}，同日加了 events（CallLog.kt：链路统计、agent 声音到达解码器的起止、图片到达和上屏、通话边界，每条 t_ms 相对任务开始），佩戴者侧的麦克风阈值边沿不进上报（噪声多，以服务端 state 事件为准），logcat 行和 pull_run.py 不变。还没上机。待定：服务器时钟和控制台时钟之间没有偏移测量（控制台只测眼镜的），实验室里仍靠 pull_run.py 的 clock.json，要不要进上报
 - [ ] 日志记录结构和分析脚本要整理（2026-11-02 用户提出，混乱）。现状：runlog 的 events.jsonl 一种事件一种字段（watch_sent/look_sent 带 lines 和 looks，旧记录带 said；say/tell/picture 事件按 w 或 n 挂到 look 上；voice_started 和 voice_joined 两种时序事件），report.py 兼容三代记录格式，分析每次都是临时 python 脚本（本次 session 的时间线、token 增长、thinking 对照都是一次性写的）。要定的：事件和字段的一套命名，一个命令出每场的常规分析（进度轨迹、tell/say/picture、每次 look 的 in/cached/ms、委托到开口的延迟），旧格式要不要再兼容
 
 ### 部署

@@ -20,9 +20,15 @@ import java.nio.ByteOrder
  * runs out but carries the time of the last loud frame. The peak RMS of the
  * burst is logged with the stop so the threshold can be judged afterwards.
  *
+ * With `report` the edges also go to CallLog as `sound` events, for the report to
+ * the lab console. The agent's are reported: they are when its voice reached the
+ * ear. The wearer's are not: a threshold on the room's microphone is a poor word
+ * boundary, and the server's record has the model's own turn detection.
+ *
  *   adb logcat -v time -s rayneo-speech
  */
-class SpeechEdgeLog(private val who: String, private val threshold: Int, private val hangover: Long = 400) : AudioTrackSink {
+class SpeechEdgeLog(private val who: String, private val threshold: Int, private val hangover: Long = 400,
+                    private val report: Boolean = false) : AudioTrackSink {
     private var loudUntil = 0L  // wall clock when the current burst counts as over, 0 while silent
     private var lastLoud = 0L
     private var peak = 0
@@ -32,12 +38,16 @@ class SpeechEdgeLog(private val who: String, private val threshold: Int, private
         val rms = rms16(data)
         val now = System.currentTimeMillis()
         if (rms >= threshold) {
-            if (loudUntil == 0L) Log.i(TAG, "$who sound starts at=$now")
+            if (loudUntil == 0L) {
+                Log.i(TAG, "$who sound starts at=$now")
+                if (report) CallLog.add("sound", mapOf("who" to who, "edge" to "starts"), now)
+            }
             loudUntil = now + hangover
             lastLoud = now
             if (rms > peak) peak = rms
         } else if (loudUntil != 0L && now > loudUntil) {
             Log.i(TAG, "$who sound stops at=$lastLoud peak=$peak")
+            if (report) CallLog.add("sound", mapOf("who" to who, "edge" to "stops", "peak" to peak), lastLoud)
             loudUntil = 0L
             peak = 0
         }

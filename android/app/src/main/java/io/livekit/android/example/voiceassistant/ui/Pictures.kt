@@ -15,6 +15,7 @@ import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.graphics.asImageBitmap
+import io.livekit.android.example.voiceassistant.CallLog
 import io.livekit.android.room.Room
 import io.livekit.android.room.participant.Participant
 import io.livekit.android.util.flow
@@ -67,7 +68,9 @@ fun rememberPicture(room: Room, agent: Participant?): State<Picture> {
         room.registerByteStreamHandler(PICTURE_TOPIC) { reader, _ ->
             scope.launch {
                 val name = reader.info.name ?: ""  // the agent names every picture; a nameless one can never be picked
-                Log.i(PICTURE_TAG, "opened name=$name size=${reader.info.totalSize} at=${System.currentTimeMillis()}")
+                val opened = System.currentTimeMillis()
+                Log.i(PICTURE_TAG, "opened name=$name size=${reader.info.totalSize} at=$opened")
+                CallLog.add("picture", mapOf("state" to "opened", "name" to name, "size" to reader.info.totalSize), opened)
                 // A read fails when the agent leaves mid-stream or the room reconnects fully, since what was sent
                 // during the outage is not replayed; the SDK throws.
                 val chunks = try {
@@ -75,6 +78,7 @@ fun rememberPicture(room: Room, agent: Participant?): State<Picture> {
                 } catch (e: Exception) {
                     failed = name
                     Log.w(PICTURE_TAG, "failed name=$name: ${e.message} at=${System.currentTimeMillis()}")
+                    CallLog.add("picture", mapOf("state" to "failed", "name" to name, "error" to e.message))
                     return@launch
                 }
                 val bytes = ByteArray(chunks.sumOf { it.size })
@@ -87,10 +91,12 @@ fun rememberPicture(room: Room, agent: Participant?): State<Picture> {
                 if (bitmap == null) {
                     failed = name
                     Log.w(PICTURE_TAG, "failed name=$name: ${bytes.size} bytes are not an image at=${System.currentTimeMillis()}")
+                    CallLog.add("picture", mapOf("state" to "failed", "name" to name, "error" to "${bytes.size} bytes are not an image"))
                 } else {
                     received = name to bitmap.asImageBitmap()
                     failed = null
                     Log.i(PICTURE_TAG, "received name=$name bytes=${bytes.size} at=${System.currentTimeMillis()}")
+                    CallLog.add("picture", mapOf("state" to "received", "name" to name, "bytes" to bytes.size))
                 }
             }
         }
@@ -105,17 +111,23 @@ fun rememberPicture(room: Room, agent: Participant?): State<Picture> {
         failed == name -> Picture.Failed(name)
         else -> Picture.Waiting(name)
     }
-    // One line per change of state; the first state, nothing named, is not a change.
+    // One line, and one `picture` event for the lab console's report, per change of state; the first state, nothing
+    // named, is not a change.
     var logged by remember { mutableStateOf("") }
-    val key = when (picture) {
+    val state = when (picture) {
         Picture.None -> "cleared"
-        is Picture.Waiting -> "announced name=${picture.name}"
-        is Picture.Failed -> "not shown name=${picture.name}"
-        is Picture.Shown -> "shown name=${picture.name}"
+        is Picture.Waiting -> "announced"
+        is Picture.Failed -> "not shown"
+        is Picture.Shown -> "shown"
     }
+    val key = if (name == null) state else "$state name=$name"
     LaunchedEffect(key) {
         if (key != logged) {
-            if (logged.isNotEmpty() || picture != Picture.None) Log.i(PICTURE_TAG, "$key at=${System.currentTimeMillis()}")
+            if (logged.isNotEmpty() || picture != Picture.None) {
+                val at = System.currentTimeMillis()
+                Log.i(PICTURE_TAG, "$key at=$at")
+                CallLog.add("picture", mapOf("state" to state, "name" to name), at)
+            }
             logged = key
         }
         if (picture == Picture.None) {
