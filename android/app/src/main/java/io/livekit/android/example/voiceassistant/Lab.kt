@@ -31,8 +31,12 @@ import org.json.JSONObject
  * decides which task runs when; its contract is qoe-lab/docs/developer-guide.md, Participant Contract. In lab mode
  * (the menu's `Lab`, MainActivity) the glasses hold one WebSocket to the console and do what it says:
  *
- *   start_task   the console names a task by number; it is the build with that number on the task sheet (Tasks), the
- *                same list the debug picker shows, training and experiment alike. The call starts with it, and the
+ *   start_task   the console names a task by its number within the run's phase, training or experiment, and the
+ *                two phases count separately (the contract). The first TRAINING_TASKS builds of the task sheet
+ *                (Tasks, the same list the debug picker shows) are the training tasks, in sheet order, and the rest
+ *                are the experiment's: training task k is sheet number k, experiment task k is sheet number
+ *                k + TRAINING_TASKS, so a subject never builds in the experiment what they practised on. The call
+ *                starts with that build, and the
  *                token request carries the run's identity and the console's address for the agent (VoiceAssistantRoute),
  *                which reports the call's record to the console when the call ends (backend/agent/src/qoe.py).
  *                A start_task during a task means the console has reset that run: the call is left without a
@@ -138,7 +142,9 @@ object Lab {
         val log = JSONObject()
             .put("room", room ?: JSONObject.NULL)
             .put("task", r.task.name)
-            .put("task_number", r.taskNumber)
+            .put("run_type", r.runType)
+            .put("task_number", r.taskNumber)  // the console's number within the phase
+            .put("sheet_number", r.task.number)  // the build's number on the task sheet
             .put("steps_total", stepsTotal)
             .put("steps_done", stepsDone ?: JSONObject.NULL)
             .put("completed", stepsTotal > 0 && (stepsDone ?: 0) >= stepsTotal)
@@ -273,21 +279,24 @@ object Lab {
     private fun startTask(data: JSONObject) {
         val sid = data.getString("sid")
         val runId = data.getInt("run_id")
+        val runType = data.optString("run_type")
         val number = data.getInt("task_number")
+        val sheet = if (runType == "training") number else number + TRAINING_TASKS  // the build's number on the task sheet
         run?.let {  // the contract: the console has reset that run; the call goes, unreported, and the new task starts
             Log.w(TAG, "start_task during sid=${it.sid} run_id=${it.runId}: that run is abandoned without a report")
             run = null
         }
-        val task = Tasks.list.firstOrNull { it.number == number }
-        if (task == null) {
-            failed(sid, runId, number, if (Tasks.list.isEmpty()) "the glasses have no task list from the backend" else "no task number $number")
+        val task = Tasks.list.firstOrNull { it.number == sheet }
+        if (task == null || (runType == "training" && number > TRAINING_TASKS)) {
+            failed(sid, runId, number, if (Tasks.list.isEmpty()) "the glasses have no task list from the backend"
+                                       else "no $runType task number $number (sheet number $sheet)")
             return
         }
-        val r = Run(sid, runId, data.optString("run_type"), number, data.optString("label"), data.optBoolean("log"),
+        val r = Run(sid, runId, runType, number, data.optString("label"), data.optBoolean("log"),
                     data.optInt("max_duration_s"), task, System.currentTimeMillis())
         run = r
         status = "task $number, ${task.title}"
-        Log.i(TAG, "start_task sid=$sid run_id=$runId ${r.runType} task=${task.name} label=${r.label} log=${r.wantsLog} max_s=${r.maxDurationS}")
+        Log.i(TAG, "start_task sid=$sid run_id=$runId ${r.runType} task_number=$number sheet=$sheet task=${task.name} label=${r.label} log=${r.wantsLog} max_s=${r.maxDurationS}")
         if (screens?.startCall(r) != true) {  // not on the lab screen: the run would otherwise stay on for ever
             run = null
             failed(sid, runId, number, "the glasses could not open the call")
@@ -385,6 +394,8 @@ object Lab {
 
     private fun prefs(context: Context) = context.getSharedPreferences("rayneo", Context.MODE_PRIVATE)
 
+    /** How many builds at the top of the task sheet are the training tasks; the experiment's tasks are the rest (decided 2026-11-03). */
+    const val TRAINING_TASKS = 3
     /** What the console shows for this participant. */
     private const val NAME = "RayNeo X3 Pro"
     private const val KEY = "lab_console"
