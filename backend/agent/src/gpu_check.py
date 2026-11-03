@@ -4,11 +4,12 @@
 
 Loads the two driver libraries libwebrtc opens at run time (libcuda.so.1 and libnvcuvid.so.1, which the nvidia runtime
 mounts when the service has the GPU and the `video` capability, docker-compose.yml), then joins an empty room on the
-local livekit-server, which creates libwebrtc's decoder factories: with the GPU the Rust SDK logs
-"NvidiaVideoDecoderFactory created with 6 supported formats", H.264 and H.265 among them, and without it
-"NVDEC runtime library (libnvcuvid.so.1) not found". The `livekit` logger is set to INFO so that those lines show; the
-agents framework keeps it at WARN in a call, where camera.py records the decoder from the track's statistics instead.
-Exits non-zero when a library is missing, so the deploy can refuse to go on.
+local livekit-server, which creates libwebrtc's decoder factories: the Rust SDK prints "Nvidia Decoder is supported."
+when its check of the CUDA context and the NVDEC library passes, which is what admits the NVDEC factory (H.264 and
+H.265), and without the GPU "NVDEC runtime library (libnvcuvid.so.1) not found". The two lines are libwebrtc's own
+output; its log through the SDK did not reach Python in the check of 2026-11-03, so the `livekit` logger at INFO here
+is for what else the SDK says. In a call camera.py records the decoder from the track's statistics instead. Exits
+non-zero when a library is missing.
 """
 
 import asyncio
