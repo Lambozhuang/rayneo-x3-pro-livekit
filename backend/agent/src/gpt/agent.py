@@ -37,6 +37,7 @@ from livekit.agents import (
 from livekit.agents.llm import ChatMessage
 from livekit.agents.metrics import RealtimeModelMetrics
 
+from camera import watch_camera
 from env import language, require_env
 from frames import FrameTap
 from gpt.brain import TOOLS, Brain, make_model
@@ -122,18 +123,8 @@ async def rayneo_assistant(ctx: JobContext) -> None:
                              started=record.t(m["started_speaking_at"]) if m.get("started_speaking_at") else None,
                              stopped=record.t(m["stopped_speaking_at"]) if m.get("stopped_speaking_at") else None)
 
-    @ctx.room.on("track_subscribed")
-    def _want_full_video(
-        track: rtc.Track, publication: rtc.RemoteTrackPublication, participant: rtc.RemoteParticipant
-    ) -> None:
-        if publication.kind == rtc.TrackKind.KIND_VIDEO:
-            if publication.simulcasted:  # the rtc SDK raises otherwise; the glasses send one layer
-                publication.set_video_quality(rtc.VideoQuality.VIDEO_QUALITY_HIGH)
-            logger.info(
-                "video from %s: published %dx%d %s simulcast=%s",
-                participant.identity, publication.width, publication.height,
-                publication.mime_type, publication.simulcasted,
-            )
+    # The glasses' camera track: the full layer, and what decodes it into the record (camera.py).
+    watch_camera(ctx.room, record, logger)
 
     await session.start(
         agent=Agent(instructions=persona),

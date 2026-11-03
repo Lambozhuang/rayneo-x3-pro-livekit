@@ -52,6 +52,9 @@ services:
     environment:
       # One record per call (runlog.py): backend/runs/<call>/ on the host; deploy/report.py makes the page.
       RUN_DIR: /app/runs
+      # The driver libraries the nvidia runtime mounts into the container: `video` brings libnvcuvid, the NVDEC
+      # library, which the default (compute, utility) leaves out. The setting replaces the default, so all three.
+      NVIDIA_DRIVER_CAPABILITIES: compute,utility,video
     # The agent is dispatched into rooms by livekit-server and talks to its model
     # outbound; nothing needs to reach it. Its worker health port (8081) is on
     # the host stack too but stays behind ufw.
@@ -63,4 +66,13 @@ services:
       # Guides are baked into the image; this mount lets you edit one and
       # `docker compose restart agent` without a rebuild.
       - ./agent/guides:/app/guides
+    # The glasses send H.265, which the agent's libwebrtc decodes only on an NVIDIA GPU (NVDEC, camera.py); it has
+    # no software H.265 decoder. Docker needs the nvidia runtime for this (README, Setting up a new server).
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: 1
+              capabilities: [gpu]
     restart: unless-stopped

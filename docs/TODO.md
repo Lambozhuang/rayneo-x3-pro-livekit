@@ -19,6 +19,7 @@
   - 另记 delegation.created 给回合打标签，input_transcript.delta 的 end_ms 和 delegation 的 offset_ms 作模型内部时间的参考。report.py 对每个回合而不只是委托算一行，有录音时用录音校验，正式实验不录音。
   - visual frame age 拆两段：agent 持有（帧到 FrameTap 到 look_sent，已有）；眼镜到 agent 不逐帧量，Python SDK 的 timestamp_us 是接收侧时间，用眼镜每 5 s 的 rtt 和编码器状态加 agent 端接收统计的 jitterBufferDelay 估，netem 加的延迟是已知量。逐帧精确只能靠录音的 video.csv。
 - [ ] 系统性测试：Gemini Live 一体化 vs GPT-Live 配合不同后端模型，看整体的响应时间和效果，50% pre 时展示
+- [ ] H.265 迁移上机（2026-11-03 定，编码不是实验因子）：眼镜改发 H.265，agent 在 lab PC 的 RTX 2080 Ti 上用 NVDEC 解，libwebrtc 没有 H.265 软解，agent 从此只能跑在有 NVIDIA 卡的机器上（家里的机器先不管）。代码已改、未上机。顺序：lab PC 装 nvidia-container-toolkit；用一次性容器连本地 livekit-server 看 agent 日志出现 NvidiaVideoDecoderFactory；上机一次看 rayneo-link 的 encoder 是 c2.qti.hevc.encoder、记录的 decoder 事件是 NvCodec 且有帧、大脑照片正常。依据：eval/brain-frame-codec 的 0.1 Mbps 行，H.265 撑到 0.25 Mbps、0.1 垮，H.264 撑到 0.5、0.25 垮。
 
 ### GPT 路径（大脑）
 

@@ -191,8 +191,9 @@ fun VoiceAssistant(
         LaunchedEffect(Unit) {
             session.waitUntilConnected()
             val startsAt = System.currentTimeMillis()
-            Log.i(CALL_TAG, "call starts room=${room.name} at=$startsAt")
-            CallLog.add("call", mapOf("what" to "starts", "room" to room.name), startsAt)
+            val codec = room.videoTrackPublishDefaults.videoCodec  // what the camera track is published as
+            Log.i(CALL_TAG, "call starts room=${room.name} codec=$codec at=$startsAt")
+            CallLog.add("call", mapOf("what" to "starts", "room" to room.name, "codec" to codec), startsAt)
             session.waitUntilDisconnected()
             onEndCall()
         }

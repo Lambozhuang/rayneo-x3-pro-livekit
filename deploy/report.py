@@ -467,6 +467,9 @@ def problems(events: list[dict], looks: dict[int, dict]) -> list[str]:
             out.append(f"{t} GPT-Live delegated ({esc(e.get('id'))}), nothing reached the brain")
         elif k == "camera" and e.get("none_after_s"):
             out.append(f"{t} no camera frame {e['none_after_s']} s into the call")
+        elif k == "decoder" and not e.get("frames"):
+            out.append(f"{t} no frame decoded from {esc(e.get('codec'))} {e['after_s']} s after subscribing: "
+                       f"decoder {esc(e.get('implementation') or 'none')}")
         elif k == "quality" and e.get("quality") in ("poor", "lost"):
             out.append(f"{t} link quality {e['quality']} ({esc(e['who'])})")
         elif k == "wearer" and e.get("left") and e.get("reason") != "CLIENT_INITIATED":

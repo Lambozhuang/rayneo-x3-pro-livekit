@@ -45,7 +45,7 @@ class VoiceAssistantViewModel(application: Application, savedStateHandle: SavedS
             eglBase = eglBase,
             // Hardware only: DefaultVideoEncoderFactory also builds the software
             // factory, whose constructor needs libwebrtc's native library, and
-            // that is not loaded until LiveKit.create runs. We publish H264 on
+            // that is not loaded until LiveKit.create runs. We publish H265 on
             // the Qualcomm encoder anyway.
             videoEncoderFactory = HardwareVideoEncoderFactory(
                 eglBase.eglBaseContext,
@@ -70,11 +70,13 @@ class VoiceAssistantViewModel(application: Application, savedStateHandle: SavedS
         videoTrackPublishDefaults = VideoTrackPublishDefaults(
             videoEncoding = VideoEncoding(maxBitrate = 4_000_000, maxFps = 15),
             // VP8 is libvpx in software on this SoC, and 1080p at 15 fps was
-            // still mush: it hit the encoder's limit, not the network's. H264
-            // goes through the Qualcomm hardware encoder. The agent's libwebrtc
-            // decodes H264 (its FFI ships the decoder), livekit-server relays
-            // any codec both ends agree on.
-            videoCodec = VideoCodec.H264.codecName,
+            // still mush: it hit the encoder's limit, not the network's. H265
+            // goes through the Qualcomm hardware encoder, as H264 did until
+            // 2026-11-03, and reads the same to the vision model at half the
+            // bitrate (eval/brain-frame-codec). The agent's libwebrtc decodes
+            // it on the server's NVIDIA GPU only (backend/docker-compose.yml);
+            // livekit-server relays any codec both ends agree on.
+            videoCodec = VideoCodec.H265.codecName,
             simulcast = false,
             degradationPreference = RtpParameters.DegradationPreference.MAINTAIN_RESOLUTION,
         )
