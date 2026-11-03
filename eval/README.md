@@ -10,3 +10,4 @@ A study's README says, in order: the question, the material used (which run, whi
 | `brain-frame-codec/` | what the video's bitrate costs the brain's model when the video is encoded as the glasses encode it, in H.264 and in H.265, on the second material of `brain-frame-quality/` |
 | `structured-output-replay/` | whether asking the brain's model for one JSON object instead of tool calls changes what it decides, by replaying a recorded call's looks |
 | `brain-thread-replay/` | whether the brain, keeping one conversation of its own (2026-10-29), holds the progress where the plate says it is, by replaying the looks of the 2026-10-28 call in which it flipped eight times |
+| `voice-script/` | whether GPT-Live, with the voice's prompt, carries a scripted build conversation as designed (says where the brick goes once the brain says it is the right one, says a step is done when the progress moves, waits when the brain has not looked yet), with no glasses, brain or camera |

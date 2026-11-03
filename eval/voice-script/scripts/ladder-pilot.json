@@ -1,0 +1,102 @@
+{
+ "name": "ladder as the call of 2026-11-03 17:00 went: the right brick in hand, placed, questions between",
+ "guide": "ladder",
+ "steps": [
+  {
+   "user": "I'm ready",
+   "expect": [
+    "tan"
+   ]
+  },
+  {
+   "commentary": "Camera: You have the right tan one-by-six brick.",
+   "expect": [
+    "vertical|middle|left of cent"
+   ]
+  },
+  {
+   "user": "Do you think I got the right piece",
+   "expect": [
+    "yes|right|that's it"
+   ]
+  },
+  {
+   "user": "Okay, I put it down",
+   "expect_not": [
+    "white"
+   ],
+   "then": 4
+  },
+  {
+   "commentary": "Progress: 1 of 5 steps done; the user is on step 2 (white 1x6).",
+   "expect": [
+    "done|step (one|two|1|2)|that's it|good|nice",
+    "white"
+   ]
+  },
+  {
+   "commentary": "Camera: You have the right white one-by-six brick.",
+   "expect": [
+    "vertical|right of|four"
+   ]
+  },
+  {
+   "user": "Did I finish the first step or not",
+   "expect": [
+    "yes|done|finished"
+   ]
+  },
+  {
+   "user": "So where should I put the white piece",
+   "expect": [
+    "four|right of|vertical"
+   ]
+  },
+  {
+   "user": "Okay, done",
+   "expect_not": [
+    "yellow"
+   ],
+   "then": 4
+  },
+  {
+   "commentary": "Camera: The white brick is one column too far to the right; move it one column left. Want a picture?",
+   "expect": [
+    "left",
+    "picture|show"
+   ]
+  },
+  {
+   "user": "Yes, show me",
+   "expect": [
+    "picture|coming|glasses"
+   ]
+  },
+  {
+   "commentary": "Picture: the glasses now show the picture of step 2 (white 1x6).",
+   "expect": [
+    "picture|glasses|look"
+   ]
+  },
+  {
+   "user": "Okay, how about now",
+   "expect_not": [
+    "yellow"
+   ],
+   "then": 4
+  },
+  {
+   "commentary": "Progress: 2 of 5 steps done; the user is on step 3 (yellow 1x4).",
+   "expect": [
+    "done|step (one|two|1|2)|that's it|good|nice",
+    "yellow"
+   ]
+  },
+  {
+   "commentary": "Progress: all 5 steps done, the build is finished.",
+   "expect": [
+    "done|finished|complete|built|that's it"
+   ]
+  }
+ ]
+}

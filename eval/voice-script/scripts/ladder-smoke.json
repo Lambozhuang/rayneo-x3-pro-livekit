@@ -1,0 +1,31 @@
+{
+ "name": "ladder smoke: greeting, the first brick in hand, the first step done",
+ "guide": "ladder",
+ "steps": [
+  {
+   "user": "I'm ready",
+   "expect": [
+    "tan"
+   ]
+  },
+  {
+   "commentary": "Camera: You have the right tan one-by-six brick.",
+   "expect": [
+    "vertical|middle|left of cent"
+   ]
+  },
+  {
+   "user": "Okay, I put it down",
+   "expect_not": [
+    "white"
+   ]
+  },
+  {
+   "commentary": "Progress: 1 of 5 steps done; the user is on step 2 (white 1x6).",
+   "expect": [
+    "done|step (one|two|1|2)|that's it|good|nice",
+    "white"
+   ]
+  }
+ ]
+}

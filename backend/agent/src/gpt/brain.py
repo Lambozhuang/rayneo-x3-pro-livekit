@@ -83,9 +83,18 @@ from runlog import RunLog
 
 logger = logging.getLogger("rayneo-agent.brain")
 
-# What closes a hand-over GPT-Live makes although its prompt tells it not to: a commentary on the hand-over's id, so
-# GPT-Live stops waiting and answers from the facts the brain has told it; the watch goes on untouched.
-HANDED_BACK = "Camera: nothing new to add; answer from what the helper has already told you, and the helper will say if something changes."
+
+
+def handed_back(last: str | None) -> str:
+    """What closes a hand-over GPT-Live makes although its prompt tells it not to: a commentary on the hand-over's id
+    that repeats the brain's last line, so the voice answers from it when it covers the question and otherwise says
+    it is checking; the next watch look answers the words anyway (the brain's rule 5). The first wording, "answer
+    from what the helper has already told you", made the voice give the next step as if the one before were checked;
+    the second, "still looking at it", made it say so even when it knew the answer (eval/voice-script, 2026-11-03)."""
+    if not last:
+        return "Camera: nothing seen yet; the helper says when it has."
+    fact = last.split(": ", 1)[1] if last.startswith(("Camera: ", "Progress: ", "Picture: ")) else last
+    return f"Camera: nothing new since the last look; still: {fact}"
 
 
 # (name, description, JSON schema of the arguments); the same for both providers
@@ -334,6 +343,7 @@ class Brain:
         self._pending: str | None = None  # handed-over words put in a look before the history had them (replays only)
         self._turn = asyncio.Lock()  # one look is built, sent and kept at a time
         self._asks = 0  # hand-overs GPT-Live made all the same, each closed at once
+        self._last_line: str | None = None  # the last line given to the voice, repeated to close a hand-over
         self._watcher: asyncio.Task | None = None
         self._look: asyncio.Task | None = None  # the watch look running, if any
         self._look_w = 0
@@ -390,16 +400,17 @@ class Brain:
 
     def on_delegation(self, d) -> None:
         """GPT-Live handed the user's words over although its prompt tells it not to: close the hand-over at once
-        with HANDED_BACK, so it answers from what it has been told, and count it. No request is made and the watch
+        with the last line again (handed_back), so it answers from what it has been told, and count it. No request is made and the watch
         is not touched; the words it came with go into the record, since the next watch look reads them from the
         history anyway."""
         self._asks += 1
         words = d.pending_transcript.strip()  # the turn not yet in the history; often empty
         logger.info("delegation: %s #%d closed at once, user: %s", d.id, self._asks, words or "(no words came with it)")
         self._record.event("delegation", n=self._asks, id=d.id, words=words)
-        self._record.event("commentary", n=self._asks, id=d.id, text=HANDED_BACK,
+        text = handed_back(self._last_line)
+        self._record.event("commentary", n=self._asks, id=d.id, text=text,
                            voice_speaking=self._session.agent_state == "speaking")
-        self._session.current_agent.duplex_session.append_commentary(HANDED_BACK, delegation_id=d.id)
+        self._session.current_agent.duplex_session.append_commentary(text, delegation_id=d.id)
 
     # ------------------------------------------------------------------ one look
 
@@ -530,6 +541,7 @@ class Brain:
                 if told:
                     self._record.event("tell", **{"w" if kind == "watch" else "n": n}, text=told)
                     self._session.current_agent.duplex_session.append_thinking(f"Camera: {told}")
+                    self._last_line = f"Camera: {told}"
                     result, line = "The assistant knows it.", None
                 else:
                     result, line = "Ignored: nothing to tell.", None
@@ -538,6 +550,7 @@ class Brain:
             look.results[call_id] = result
             if line:
                 speak.append(line)
+                self._last_line = line
         return speak
 
     async def _move(self, done) -> tuple[str, str | None]:
