@@ -2,7 +2,7 @@
 
     uv run python chart.py
 
-Eleven panels against the bitrate, the frame as recorded then 1, 0.5 and 0.25 Mbps: the three scores of the result
+Eleven panels against the bitrate, the frame as recorded then 1, 0.5, 0.25 and 0.1 Mbps: the three scores of the result
 table, whole frames, bricks found and sizes right as shares, then the rest the replies hold, orientation right, the 1x6
 and 1x4 sizes right, the extra bricks and guesses as counts, and the photo's size and the call's timing as medians. One
 line per codec and model, each model's lines starting from its own point for the recorded frame: Claude Sonnet 5.5
@@ -24,8 +24,8 @@ import score  # noqa: E402
 score.out = here / "out"
 matplotlib.use("Agg")
 
-STEPS = ["as recorded", "1 Mbps", "0.5 Mbps", "0.25 Mbps"]
-RATES = (1000, 500, 250)
+STEPS = ["as recorded", "1 Mbps", "0.5 Mbps", "0.25 Mbps", "0.1 Mbps"]
+RATES = (1000, 500, 250, 100)
 MODELS = [("low", "Sonnet 5.5", "-"), ("none-gpt-6.1-terra", "gpt-6.1-terra", "--")]  # reply suffix, name, line style
 CODECS = [("h264", "H.264", {"low": "#2a78d6", "none-gpt-6.1-terra": "#e34948"}),
           ("hevc", "H.265", {"low": "#1baf7a", "none-gpt-6.1-terra": "#eda100"})]
