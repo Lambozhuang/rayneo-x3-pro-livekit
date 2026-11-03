@@ -24,7 +24,8 @@
 ### GPT 路径（大脑）
 
 - [ ] 语音重复说同一件事（2026-11-02 第四场 logs/20261102-132502-glasses-ef10b896，111 到 132 s）。brain-v4 暂时接受，用户决定先不改。看到的：(1) 规则 3 的 tell 和规则 4 的 say 单子重叠，"一步放对或放错"两边都命中，大脑同一轮既 tell 又 say（w42），"放对"又和 Progress 重复（w10）；(2) GPT-Live 会念 tell，又不去重 commentary，所以同一事实两条通道各念一遍；(3) 助手的话在一段结束时才进 history，这一段拖了 20 s，大脑 say 时看不见助手正在说什么；(4) 语音说话占这场 71% 的时间，若 watch 等它说完再发，盲区太大；只在上一轮 tell/say 后才等的变体抓不住反应延迟。可选的改法按简单到复杂：tell 和 say 的单子分开，拿错砖归 say，放对不 tell，已 tell/say 过的不再 say；接 GPT-Live 的 output_transcript.delta 让大脑看见正在说的话；定向等待。缓存已验证：未缓存部分稳定在约 1450 token 一轮
-- [ ] 保留意见：委托来时如果 watch 发出不到 1 s，不取消，让它的结论带上委托 id 当回答（watch 不知道问题，可能答不上）
+- [ ] watch-only 上机验证（2026-11-03 第一次 pilot 的反馈，代码已改、未上机，docs/pilot/2026-11-03-feedback.md）：look 整个去掉，voice 的提示词不再转交、按 helper 说过的事实答，需要眼睛的话说一句等 helper 的下一行；大脑拿对颗粒就 say（之前只 tell，被试觉得太沉默）、放错一次就提议看图（之前两次）、用户问眼前的事用 say 答。GPT-Live 的 session 没有不带 delegation 的选项，所以它自己转交时 brain.on_delegation 立刻用一句 commentary 关掉，不拍照；记录里 delegation 事件数就是提示词没管住的次数，上机要听 voice 被关掉后怎么接。跟着要清的：眼镜的 Thinking 状态没人设了（Phase.kt 读 rayneo.brain.looking），下次改眼镜时去掉；docs/diagrams/gpt-live-agent.png 还画着委托，要重画；report.py 的 hand-over 等待图从此为空，归到下面记录与分析的整理里。
+- [x] 保留意见：委托来时如果 watch 发出不到 1 s，不取消，让它的结论带上委托 id 当回答。2026-11-03 look 整个去掉了，不再适用。
 - [ ] 端到端延迟的最后一段：记录里已有委托 → 大脑回复 → Live 开口，还缺眼镜播出，要在眼镜本地按真实声音计时
 - [ ] 对比模型和图片尺寸对延迟的影响
 

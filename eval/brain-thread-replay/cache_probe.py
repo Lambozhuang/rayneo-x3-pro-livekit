@@ -92,7 +92,7 @@ brain._jpeg = lambda frame, side: frame.jpeg
 
 voice = replay.Voice()
 tap = SimpleNamespace(latest=None, count=0, latest_at=time.monotonic())
-b = Brain(voice, Build(guide=guide, run=rec.name + "-" + variant), tap, model, s["brain_effort"], s["brain_side"],
+b = Brain(voice, Build(guide=guide, run=rec.name + "-" + variant), tap, model, s["brain_effort"],
           s["brain_watch_side"], s["brain_watch_every"], call["language"])
 usages = []
 orig_ask = model.ask

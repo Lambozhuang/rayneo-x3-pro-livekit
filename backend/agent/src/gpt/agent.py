@@ -1,20 +1,17 @@
-"""The GPT path: GPT-Live speaks, the brain looks by itself and when it is asked to.
+"""The GPT path: GPT-Live speaks, the brain looks by itself every few seconds.
 
     glasses --audio--> SFU --> this process --ws--> gpt-live-1 (knows every step)
             --video-->     --> FrameTap (frames kept for the brain, none to the voice)
-    gpt-live-1 --delegation (id + the user's words)--> brain: its own conversation + the lines since its last
-                                                       look + the newest frame --> one vision call --> a reply,
-                                                       maybe set_progress or show
-            <--commentary on that delegation-- brain (the voice says it in its own words)
-    brain, between delegations: a frame every few seconds --> one vision call --> what it sees, kept to itself,
-                                maybe tell, say, set_progress or show
+    brain: a frame every few seconds + the lines said since its last look --> one vision call --> what it sees,
+           kept to itself, maybe tell, say, set_progress or show
             <--thinking (tell: a fact for later) or commentary (say: the user hears it now; the progress moved)-- brain
             <--audio-- SFU <-- this process <-- gpt-live-1
             <--step list (participant attributes)-- this process (the step is the brain's)
 
-The voice owns the conversation and answers what needs no eyes by itself; it
-hands the rest over (client delegation, brain.py). No VAD is passed to the
-session: the model listens while it speaks and stops on its own.
+The voice owns the conversation and answers from the steps and from what the
+brain has told it; it is told not to hand anything over, and a hand-over it makes
+all the same is closed at once (brain.py). No VAD is passed to the session: the
+model listens while it speaks and stops on its own.
 """
 
 import asyncio
@@ -72,7 +69,7 @@ async def rayneo_assistant(ctx: JobContext) -> None:
     build = Build(guide=guide, run=ctx.room.name)
     session = AgentSession(video_sampler=tap, llm=build_live_model(settings))
     model = make_model(settings.brain_provider, settings.brain_model, settings.brain_detail)
-    brain = Brain(session, build, tap, model, settings.brain_effort, settings.brain_side, settings.brain_watch_side,
+    brain = Brain(session, build, tap, model, settings.brain_effort, settings.brain_watch_side,
                   settings.brain_watch_every, lang, settings.brain_timeout, record)
     persona = voice_persona(guide, lang)
     record.text("brain.txt", brain.instructions)

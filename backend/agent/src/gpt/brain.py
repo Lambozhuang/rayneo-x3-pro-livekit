@@ -2,35 +2,29 @@
 
 The brain is one vision model, behind OpenAI's Responses API or Anthropic's
 Messages API (BRAIN_PROVIDER), that keeps one conversation of its own for the
-whole call and is called in two ways, both at BRAIN_EFFORT:
-
-- A watch look runs whenever no delegation does, one after the other, at most one
-  every BRAIN_WATCH_EVERY seconds, on the newest camera frame scaled to
-  BRAIN_WATCH_SIDE. Nobody asked: what the brain writes stays in its own
-  conversation, and GPT-Live hears of the look only through a tool: tell gives
-  it a fact silently (thinking, context for what it says next), say has it tell
-  the user something now (commentary). On 2026-11-02 every look's text went to
-  GPT-Live as thinking, 45 lines in 107 s, and GPT-Live read them out, the doubts
-  ("I still can't count") above all; the brain now chooses what the assistant
-  needs, as OpenAI's guidance has it: an update when something useful changes.
-- A delegation: when the user says something that needs eyes ("is this right?",
-  "where does it go?", "what is this?"), GPT-Live delegates; the plugin emits
-  `delegation_created` with an id and, sometimes, the user's words not yet in the
-  history. The brain answers from the newest frame scaled to BRAIN_SIDE, and the
-  reply goes to GPT-Live as commentary on that id ("Camera: ..."), which says it in
-  its own words. A watch look still running is cancelled and the watch waits until
-  the answer is out: GPT-Live says a few words by itself when a delegation takes a
-  moment, and any thinking or commentary appended meanwhile cancels those words,
-  so nothing is appended while a delegation runs.
-
-The two kinds differ in nothing else: the same tools (set_progress moves the
+whole call and looks by itself: one watch look after the other, at most one every
+BRAIN_WATCH_EVERY seconds, on the newest camera frame scaled to BRAIN_WATCH_SIDE,
+at BRAIN_EFFORT. Nobody asks it anything: each look's message carries the lines
+the user and the assistant said since the look before, so the brain reads the
+user's questions and claims ("I placed it", "is this right?") there, and what it
+writes stays in its own conversation. GPT-Live hears of a look only through the
+tools: tell gives it a fact silently (thinking, context for what it says next),
+say has it tell the user something now (commentary), set_progress moves the
 build and show puts a step's picture on the glasses, each told to GPT-Live as
-commentary; tell and say reach GPT-Live as above), the same instructions, the
-same conversation; a delegation's message ends with "The assistant hands this to
-you." and that is all the model is told. One tool list keeps the prompt cache's
-prefix the same from one request to the next, and lets the brain put the picture
-up at the look after the user asks for it, whether or not GPT-Live hands the
-request over.
+commentary. On 2026-11-02 every look's text went to GPT-Live as thinking, 45
+lines in 107 s, and GPT-Live read them out, the doubts ("I still can't count")
+above all; the brain now chooses what the assistant needs, as OpenAI's guidance
+has it: an update when something useful changes.
+
+Until the pilot of 2026-11-03 GPT-Live also handed the user's words over
+(client delegation) and the brain answered each hand-over with a look of its own
+at BRAIN_SIDE, cancelling the watch meanwhile. The pilot's participant felt those
+answers come sometimes fast, sometimes slow (2.7 to 5.7 s from the hand-over to
+the spoken answer, the same spread the watch has), so the look is gone: GPT-Live's
+prompt tells it never to hand over but to answer from what the brain has told it,
+and since the GPT-Live session cannot be started without a delegation target, a
+hand-over it makes all the same is closed at once with a commentary that says
+so (on_delegation), without a request to the vision model. The record counts them.
 
 The brain's conversation (Look, one per request) is a chat with tools as a model
 is used anywhere: a user message per look, with the lines the user and the
@@ -46,29 +40,27 @@ prompt cache every request is the one before plus one look, the photo of the
 look before taken out.
 
 The picture of a step on the glasses (show) follows the user's words: they asked
-for it, or took the assistant up on an offer the brain made from a watch look
-(say), as a helper standing beside them would offer before pointing at the
-instructions; the prompt says so, the code does not hold the tool back. The picture is a file
+for it, or took the assistant up on an offer the brain made (say), as a helper
+standing beside them would offer before pointing at the instructions; the
+prompt says so, the code does not hold the tool back. The picture is a file
 beside the task (render_pictures.py), named in an attribute and then sent to the
 glasses as a byte stream; the glasses show that it is on its way, then the
 picture itself. It goes away when the progress moves (Build.set_step) or when
 the brain is asked to take it away (show 0).
 
-Both kinds of request are built the same way:
+Every request is built the same way:
 
-    tools         set_progress(done), tell(text), say(text), show(step), the same for both
-    instructions  rules for both + the whole task file          fixed, so the prompt cache hits
-    conversation  every look so far, the newest with its photo and ending with "The assistant hands this
-                  to you." when it is a delegation
+    tools         set_progress(done), tell(text), say(text), show(step), the same every time
+    instructions  the rules + the whole task file                   fixed, so the prompt cache hits
+    conversation  every look so far, the newest with its photo
 
-The newest delegation wins: a call still running when the next arrives is
-cancelled. A delegation that fails or takes longer than BRAIN_TIMEOUT answers "the
-helper could not answer, say it again"; with no camera frame yet the model is asked
-without a photo. A watch look that fails is logged and the next one follows; with
-no frame yet none is made. A look that gets no answer (cancelled, failed, timed
-out) is not kept, and the lines it carried come again with the next look. Every
-step of a look goes into the call's record (runlog.py): the photo and the message
-as sent, the reply, the timings.
+A watch look that fails or takes longer than BRAIN_TIMEOUT is logged and the next
+one follows; with no camera frame yet none is made. A look that gets no answer
+(failed, timed out) is not kept, and the lines it carried come again with the
+next look. Every step of a look goes into the call's record (runlog.py): the
+photo and the message as sent, the reply, the timings. `_look_once` and
+`_message` still take the handed-over words of a look of the old kind, which
+eval/brain-thread-replay replays from the records of 2026-10-29 to 11-03.
 """
 
 from __future__ import annotations
@@ -91,7 +83,9 @@ from runlog import RunLog
 
 logger = logging.getLogger("rayneo-agent.brain")
 
-LOOKING_ATTRIBUTE = "rayneo.brain.looking"  # "1" while a delegation runs; the glasses show "Thinking" (Phase.kt)
+# What closes a hand-over GPT-Live makes although its prompt tells it not to: a commentary on the hand-over's id, so
+# GPT-Live stops waiting and answers from the facts the brain has told it; the watch goes on untouched.
+HANDED_BACK = "Camera: nothing new to add; answer from what the helper has already told you, and the helper will say if something changes."
 
 
 # (name, description, JSON schema of the arguments); the same for both providers
@@ -140,7 +134,7 @@ TOOLS = [SET_PROGRESS, TELL, SAY, SHOW]  # the same for every look, so the cache
 # how a line of the chat history is labelled in a look's message
 WHO = {"user": "User", "assistant": "Assistant"}
 
-# the result of a tool call the look did not get to carry out (a delegation came while it was being done)
+# the result of a tool call the look did not get to carry out (the call ended while it was being done)
 NOT_DONE = "Not carried out: a request from the assistant came first."
 
 
@@ -322,7 +316,7 @@ def make_model(provider: str, model: str, detail: str):
 
 
 class Brain:
-    def __init__(self, session: AgentSession, build: Build, tap: FrameTap, model, effort: str, side: int,
+    def __init__(self, session: AgentSession, build: Build, tap: FrameTap, model, effort: str,
                  watch_side: int, watch_every: float, language: str, timeout: float = 12.0,
                  record: RunLog | None = None) -> None:
         self._timeout = timeout
@@ -332,19 +326,14 @@ class Brain:
         self._tap = tap
         self._model = model
         self._effort = effort
-        self._side = side
         self._watch_side = watch_side
         self._watch_every = watch_every
         self._instructions = brain_instructions(build.guide, language)
         self._looks: list[Look] = []  # the conversation: every look the model answered, in order
         self._seen: set[str] = set()  # ids of the chat history items already in a kept look
-        self._pending: str | None = None  # a delegation's words put in a look before the history had them
+        self._pending: str | None = None  # handed-over words put in a look before the history had them (replays only)
         self._turn = asyncio.Lock()  # one look is built, sent and kept at a time
-        self._task: asyncio.Task | None = None  # the delegation running, if any
-        self._task_n = 0
-        self._asks = 0
-        self._free = asyncio.Event()  # set while no delegation runs: the watch goes on
-        self._free.set()
+        self._asks = 0  # hand-overs GPT-Live made all the same, each closed at once
         self._watcher: asyncio.Task | None = None
         self._look: asyncio.Task | None = None  # the watch look running, if any
         self._look_w = 0
@@ -366,17 +355,15 @@ class Brain:
             self._look.cancel()
 
     async def _watch_loop(self) -> None:
-        """One watch look after the other while no delegation runs, each starting at least watch_every after the
-        one before."""
+        """One watch look after the other, each starting at least watch_every after the one before."""
         w = 0
         while True:
-            await self._free.wait()
             started = time.monotonic()
             if self._tap.latest is not None:
                 w += 1
                 self._look_w = w
                 self._look = asyncio.create_task(self._watch(w), name="watch_look")
-                await asyncio.wait([self._look])  # returns on cancel too, which a delegation does
+                await asyncio.wait([self._look])  # returns on cancel too, which stop_watching does
             await asyncio.sleep(max(0.0, self._watch_every - (time.monotonic() - started)))
 
     async def _watch(self, w: int) -> None:
@@ -399,67 +386,29 @@ class Brain:
                                voice_speaking=self._session.agent_state == "speaking")
             self._session.current_agent.duplex_session.append_commentary(line)
 
-    # ------------------------------------------------------------------ delegations
+    # ------------------------------------------------------------------ hand-overs
 
     def on_delegation(self, d) -> None:
-        """GPT-Live handed something over; answer it, dropping any older one still running and the watch look."""
+        """GPT-Live handed the user's words over although its prompt tells it not to: close the hand-over at once
+        with HANDED_BACK, so it answers from what it has been told, and count it. No request is made and the watch
+        is not touched; the words it came with go into the record, since the next watch look reads them from the
+        history anyway."""
         self._asks += 1
         words = d.pending_transcript.strip()  # the turn not yet in the history; often empty
-        logger.info("delegation: %s #%d user: %s", d.id, self._asks, words or "(no words came with it)")
+        logger.info("delegation: %s #%d closed at once, user: %s", d.id, self._asks, words or "(no words came with it)")
         self._record.event("delegation", n=self._asks, id=d.id, words=words)
-        self._free.clear()
-        if self._look is not None and not self._look.done():
-            logger.info("watch: #%d dropped for delegation #%d", self._look_w, self._asks)
-            self._record.event("watch_dropped", w=self._look_w, by=self._asks)
-            self._look.cancel()
-        if self._task is not None and not self._task.done():
-            logger.info("brain: newer delegation, the one before is dropped")
-            self._record.event("look_dropped", n=self._task_n, by=self._asks)
-            self._task.cancel()
-        self._task_n = self._asks
-        self._task = asyncio.create_task(self._answer(d.id, words, self._asks, time.monotonic()), name="brain")
-        self._task.add_done_callback(self._delegation_done)
-        self._publish_looking(True)
+        self._record.event("commentary", n=self._asks, id=d.id, text=HANDED_BACK,
+                           voice_speaking=self._session.agent_state == "speaking")
+        self._session.current_agent.duplex_session.append_commentary(HANDED_BACK, delegation_id=d.id)
 
-    def _delegation_done(self, task: asyncio.Task) -> None:
-        if task is self._task:  # not one a newer delegation replaced
-            self._free.set()
-
-    async def _answer(self, delegation_id: str, words: str, n: int, t_asked: float | None = None) -> None:
-        try:
-            text, calls, look = await asyncio.wait_for(
-                self._look_once("look", n, self._side, words, TOOLS), self._timeout)
-        except asyncio.CancelledError:
-            raise
-        except Exception as e:
-            logger.warning("brain: #%d failed (%s: %s), asking the user to repeat", n, type(e).__name__, str(e)[:200])
-            self._record.event("look_failed", n=n, error=f"{type(e).__name__}: {e}"[:500])
-            self._commentary("The helper could not answer this time. Ask the user to say it again.",
-                             delegation_id, n, t_asked)
-            self._publish_looking(False)
-            return
-        parts = [f"Camera: {text}"] if text else []
-        parts += await self._carry_out(look, calls, "look", n)
-        self._commentary(" ".join(parts) or "Camera: nothing to add.", delegation_id, n, t_asked)
-        self._publish_looking(False)
-
-    def _publish_looking(self, looking: bool) -> None:
-        """Tell the glasses whether a delegation is in progress, as the participant attribute LOOKING_ATTRIBUTE ("1"
-        or cleared), so they can show "Thinking" while the brain works: the speech model's own state stays
-        "listening" through a hand-over. Set on every hand-over and cleared when the answer or the failure goes
-        to the voice, not when a look is cancelled, since a cancelled look was replaced by a newer one. Watch
-        looks leave it alone: nobody is waiting for them."""
-        attributes = {LOOKING_ATTRIBUTE: "1" if looking else ""}
-        asyncio.create_task(get_job_context().room.local_participant.set_attributes(attributes), name="looking")
-
-    # ------------------------------------------------------------------ one look, either kind
+    # ------------------------------------------------------------------ one look
 
     def _message(self, words: str | None) -> tuple[str, list[str], str | None]:
         """The text of the next look's message, the ids of the chat history items it takes, and the delegation's
         words it put in before the history had them, if any; both kept once the look is. The text is the lines the
-        user and the assistant said since the look before, in the history's order, each labelled; for a delegation
-        (`words` given, maybe empty) the words that came with it when the history does not have them yet, and
-        HANDED last. With nothing new, NO_ONE_SPOKE. The history's own line for words put in earlier is taken as
+        user and the assistant said since the look before, in the history's order, each labelled; for a handed-over
+        look (`words` given, maybe empty; replays only) the words that came with it when the history does not have
+        them yet, and HANDED last. With nothing new, NO_ONE_SPOKE. The history's own line for words put in earlier is taken as
         seen when it comes, so the user is not read as saying it twice."""
         lines, ids, pending = [], [], self._pending
         for item in self._session.history.items:
@@ -486,10 +435,11 @@ class Brain:
 
     async def _look_once(self, kind: str, n: int, side: int, words: str | None, tools: list
                          ) -> tuple[str, list[tuple[str, str, dict]], Look]:
-        """Send one request on the newest frame and log and record it as `kind` (look: a delegation, watch: a watch
-        look) number n. Returns the reply, the tool calls, and the Look, kept in the conversation with its output;
-        the calls are carried out by the caller (_carry_out), which writes their results into the Look. A look
-        the model does not answer (cancelled, failed) is taken out again."""
+        """Send one request on the newest frame and log and record it as `kind` number n: "watch", the only kind
+        the call makes, or "look" with the handed-over `words`, the kind the replays of old records make
+        (eval/brain-thread-replay). Returns the reply, the tool calls, and the Look, kept in the conversation with
+        its output; the calls are carried out by the caller (_carry_out), which writes their results into the
+        Look. A look the model does not answer (cancelled, failed) is taken out again."""
         async with self._turn:
             name = "delegation" if kind == "look" else "watch"
             num = "n" if kind == "look" else "w"
@@ -649,37 +599,3 @@ class Brain:
         brick = build.guide.steps[step - 1].brick
         return (f"The glasses show the picture of step {step} ({brick}).",
                 f"Picture: the glasses now show the picture of step {step} ({brick}).")
-
-    # ------------------------------------------------------------------ to the voice
-
-    def _commentary(self, text: str, delegation_id: str, n: int = 0, t_asked: float | None = None) -> None:
-        # the wire line (live: sent commentary.append ...) is logged by agent.py as it goes out
-        speaking = self._session.agent_state == "speaking"
-        self._record.event("commentary", n=n, id=delegation_id, text=text, voice_speaking=speaking)
-        self._session.current_agent.duplex_session.append_commentary(text, delegation_id=delegation_id)
-        if t_asked is not None:
-            asyncio.create_task(self._time_voice(n, t_asked, time.monotonic(), speaking), name="time_voice")
-
-    async def _time_voice(self, n: int, t_asked: float, t_sent: float, speaking: bool, limit: float = 15.0) -> None:
-        """Log when the voice starts saying the answer: ms after the commentary went out and after the delegation
-        (~ the user's last word). If the voice was still talking when the answer arrived ("let me look"), GPT-Live
-        goes on from its words into the answer in the same turn, and the record of 2026-11-02 showed that waiting
-        for its next speech after a pause read 9 to 13 s where the answer had been spoken within the turn; so
-        that case is recorded as voice_joined and not timed."""
-        session = self._session
-        if speaking:
-            logger.info("voice: #%d was speaking when the answer came and goes on into it; its start is not timed", n)
-            self._record.event("voice_joined", n=n, after_delegation_ms=round((t_sent - t_asked) * 1000))
-            return
-        while session.agent_state != "speaking":
-            if time.monotonic() - t_sent > limit:
-                logger.info("voice: #%d not speaking %.0fs after the commentary", n, limit)
-                self._record.event("voice_silent", n=n, why=f"not speaking {limit:.0f} s after")
-                return
-            await asyncio.sleep(0.02)
-        now = time.monotonic()
-        logger.info("voice: #%d started %.0f ms after the commentary, %.0f ms after the delegation%s", n,
-                    (now - t_sent) * 1000, (now - t_asked) * 1000,
-                    " (it was speaking when the answer arrived)" if speaking else "")
-        self._record.event("voice_started", n=n, after_commentary_ms=round((now - t_sent) * 1000),
-                           after_delegation_ms=round((now - t_asked) * 1000), was_speaking=speaking)

@@ -164,7 +164,7 @@ async def main() -> None:
     build = Build(guide=guide, run=rec.name)
     out.mkdir(exist_ok=True)
     # the brain's own record of the replay (out/<time>-<room>/events.jsonl): every request's tokens and timing
-    b = Brain(voice, build, tap, model, settings["brain_effort"], settings["brain_side"], settings["brain_watch_side"],
+    b = Brain(voice, build, tap, model, settings["brain_effort"], settings["brain_watch_side"],
               settings["brain_watch_every"], call["language"], record=RunLog(str(out), rec.name))
 
     todo = looks(rec)
