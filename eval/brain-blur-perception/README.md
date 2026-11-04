@@ -25,11 +25,16 @@ The decision rule agreed before the run: if the real capped frames come out not-
 | codec study, H.265 0.1 Mbps | 41 | 5% | 38% | 57% | 95% | 98% | 33% | 58% | 112 |
 | real call, no cap (12:30) | 36 | 71% | 24% | 6% | 29% | 86% | 82% | 15% | 181 |
 | real call, 0.25 Mbps cap (10:38) | 36 | 0% | 0% | 100% | 100% | 100% | 0% | 100% | 121 |
+| pilot 2 run 4, no cap, +1000 ms RTT (13:06, exposure -2) | 36 | 65% | 26% | 8% | 35% | 81% | 74% | 17% | 189 |
+| pilot 2 run 5, 0.5 Mbps cap (13:10, exposure -2) | 36 | 18% | 57% | 25% | 82% | 81% | 51% | 35% | 144 |
+| pilot 2 run 6, 0.25 Mbps cap (13:15, exposure -2) | 36 | 0% | 31% | 69% | 100% | 89% | 31% | 79% | 129 |
 
 - The grades follow the bitrate down the codec ladder: clear in 100, 84, 62, 30 and 5 percent of the gradings from the recording to 0.1 Mbps, blurry in 0, 0, 2, 22 and 57 percent, and the two passes agree on 83 to 100 percent of the photos.
 - The real capped call is graded blurry in every one of its 72 gradings, far more than the encoded 0.25 Mbps frames (22 percent blurry): the live stream's decode of a lossy 0.25 Mbps uplink, with 3 to 6 percent of packets dropped by the shaper, smears far worse than a clean encode at the same rate, and the model sees it. In these photos it would read no brick size at all (0 of 72 gradings studs-countable), where the call's own brain, which knows the steps, did move the build through all five.
 - The real open call is graded blurry in 6 percent of the gradings (two photos: the dark first frame of the call and one with the hand moving) and slightly blurry in 24 percent, so "blurry" is the grade to speak on and "slightly blurry" is not.
 - Hands lie over the plate in 64 of the 72 capped gradings and 45 of the 72 open ones, so hands do not explain the difference in grades.
+- The second pilot's runs, asked for afterwards (2026-11-04 evening): the +1000 ms run grades like the open call (65 percent clear, 8 percent blurry), so delay alone leaves the picture whole. The real 0.5 Mbps cap is already far from the encoded 0.5 Mbps file: not clear in 82 percent of the gradings, blurry in 25, studs countable in half, where the encoded frames were blurry in 2 percent; the real cliff for the model sits between no cap and 0.5 Mbps, not between 0.5 and 0.25. The second pilot's 0.25 Mbps run is blurry in 69 percent and slightly blurry in 31, a little milder than the 10:38 call's 100 percent blurry (different participant, exposure -2 against -4).
+- The nine frames at which that 0.25 Mbps run moved its progress (seven up, two down), graded twice each: two of the seven steps were recorded on frames graded slightly blurry with every size read (steps 2 and 3 at 125.8 s and 170.6 s), the other five on frames graded blurry with no size read; both withdrawals (177.0 s, 225.0 s) and the re-recordings after them were on blurry frames. So under that cap most steps rested on colour, place and the step list, not on studs.
 
 Against the rule agreed before the run, the capped call comes out not clear in 100 percent (the bar was 80) and the open call blurry in 6 percent (the bar was 10): the model's own perception is good enough.
 

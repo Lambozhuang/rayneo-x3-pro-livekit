@@ -14,10 +14,13 @@ from pathlib import Path
 here = Path(__file__).resolve().parent
 out = here / "out" / "replies"
 GRADES = ["clear", "slightly blurry", "blurry"]
-ORDER = ["sq1080", "hevc-v1000", "hevc-v500", "hevc-v250", "hevc-v100", "real-open", "real-capped"]
+ORDER = ["sq1080", "hevc-v1000", "hevc-v500", "hevc-v250", "hevc-v100", "real-open", "real-capped",
+         "real-rtt1000", "real-cap500", "real-cap250-pilot2"]
 NAMES = {"sq1080": "codec study, as recorded", "hevc-v1000": "codec study, H.265 1 Mbps", "hevc-v500": "codec study, H.265 0.5 Mbps",
          "hevc-v250": "codec study, H.265 0.25 Mbps", "hevc-v100": "codec study, H.265 0.1 Mbps",
-         "real-open": "real call, no cap (12:30)", "real-capped": "real call, 0.25 Mbps cap (10:38)"}
+         "real-open": "real call, no cap (12:30)", "real-capped": "real call, 0.25 Mbps cap (10:38)",
+         "real-rtt1000": "pilot 2 run 4, no cap, +1000 ms", "real-cap500": "pilot 2 run 5, 0.5 Mbps cap",
+         "real-cap250-pilot2": "pilot 2 run 6, 0.25 Mbps cap"}
 
 
 def replies(cond: str, n: int) -> dict[str, dict]:

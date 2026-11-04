@@ -45,9 +45,13 @@ EFFORT = "low"
 DETAIL = "high"
 PARALLEL = 8
 CODEC_CONDITIONS = ["sq1080", "hevc-v1000", "hevc-v500", "hevc-v250", "hevc-v100"]
-REAL_RUNS = {  # condition -> the call whose watch photos stand for it, both at exposure -4 on the same desk
-    "real-open": "20261104-123046-glasses-dfdff7e6",  # no network cap, 181 KB photos
-    "real-capped": "20261104-103852-glasses-0013df82",  # 0.25 Mbps uplink cap, 124 KB photos
+REAL_RUNS = {  # condition -> the call whose watch photos stand for it
+    "real-open": "20261104-123046-glasses-dfdff7e6",  # no network cap, exposure -4, 181 KB photos
+    "real-capped": "20261104-103852-glasses-0013df82",  # 0.25 Mbps uplink cap, exposure -4, 124 KB photos
+    # the second pilot's runs (2026-11-04 13:00, exposure -2), asked for by the study's analyst to place the 0.5 Mbps cliff
+    "real-rtt1000": "20261104-130610-glasses-e4f384d1",  # pilot 2 run 4: no cap, +1000 ms RTT
+    "real-cap500": "20261104-131044-glasses-c7069b58",  # pilot 2 run 5: 0.5 Mbps cap
+    "real-cap250-pilot2": "20261104-131510-glasses-02b04d3a",  # pilot 2 run 6: 0.25 Mbps cap
 }
 REAL_N = 36
 
