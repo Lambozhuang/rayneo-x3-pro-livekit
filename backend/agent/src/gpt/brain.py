@@ -107,10 +107,17 @@ SET_PROGRESS = (
     "recorded higher than the plate shows leaves the user building on a mistake. Call it only when the photo lets "
     "you tell and the number differs from the progress recorded, which the result of your last call told you; leave "
     "it out when part of the build is hidden or too small to judge, and when the user only says they are done "
-    "without the photo showing it.",
+    "without the photo showing it. seen and basis go into the call's record and are never spoken: seen is one "
+    "sentence of what the photo shows that the number rests on, basis says how far the photo itself carries it.",
     {"type": "object", "properties": {"done": {"type": "integer",
-                                               "description": "how many steps, from step 1, are built right"}},
-     "required": ["done"], "additionalProperties": False})
+                                               "description": "how many steps, from step 1, are built right"},
+                                      "seen": {"type": "string",
+                                               "description": "one sentence: the brick or bricks the number rests on and where they sit"},
+                                      "basis": {"type": "string", "enum": ["studs read", "colour and place", "step and words"],
+                                                "description": "studs read: you counted the brick's studs in this photo; colour and place: "
+                                                               "you saw its colour and position but not its studs; step and words: the "
+                                                               "step list and what the user said carry it more than the photo"}},
+     "required": ["done", "seen", "basis"], "additionalProperties": False})
 TELL = (
     "tell",
     "Gives the assistant a fact silently, for a later answer; it does not speak it on its own, but it tends to work it "
@@ -345,7 +352,7 @@ class Brain:
         self._timeout = timeout
         self._record = record or RunLog(None, "")
         self._notes: list[str] = []  # lines for the model's next message, such as a pending step that stood
-        self._pending_progress: tuple[int, int] | None = None  # (steps done, the look that recorded it), until the next look
+        self._pending_progress: tuple[int, int, dict] | None = None  # (steps done, the look that recorded it, seen and basis), until the next look
         self._line_class: dict[str, tuple[str, bool]] = {}  # a line _carry_out made -> (class, waiting)
         self._pending_lines: dict[str, tuple[float, str, bool]] = {}  # class -> (when, line, waiting), the newest, awaiting the voice
         self._gate: asyncio.Task | None = None
@@ -547,7 +554,7 @@ class Brain:
         speak = []
         for call_id, name, args in sorted(calls, key=lambda c: c[1] == "show"):
             if name == "set_progress":
-                result, line = await self._move(args.get("done"))
+                result, line = await self._move(args.get("done"), args)
             elif name == "show":
                 result, line = await self._show(args.get("step"), kind, n)
             elif name == "say":
@@ -636,13 +643,13 @@ class Brain:
         is published, told to the voice and noted for the model's next message; withdrawn, nothing was ever said."""
         if self._pending_progress is None or self._pending_progress[1] == w:
             return
-        done, _ = self._pending_progress
+        done, _, rests = self._pending_progress
         self._pending_progress = None
         lowered = any(c == "set_progress" and isinstance(a.get("done"), int) and a["done"] < done for _, c, a in calls)
         if lowered or done <= self._build.step:
             self._record.event("progress_withdrawn", w=w, done=done)
             return
-        result = await self._commit_progress(done)
+        result = await self._commit_progress(done, rests)
         self._notes.append(f"{result} Your pending call stood.")
         self._to_voice(self._progress_line(done), "state", False, w)
 
@@ -652,10 +659,11 @@ class Brain:
             return False
         return difflib.SequenceMatcher(None, self._last_say[1].lower(), said.lower()).ratio() >= SAY_REPEAT_RATIO
 
-    async def _move(self, done) -> tuple[str, str | None]:
+    async def _move(self, done, args: dict | None = None) -> tuple[str, str | None]:
         """Move the build to `done` steps done, record and publish it. Returns the tool's result and the line that
-        tells the voice, or None when nothing moved."""
+        tells the voice, or None when nothing moved. `args` carries the call's seen and basis for the record."""
         build = self._build
+        rests = {"seen": (args or {}).get("seen"), "basis": (args or {}).get("basis")}
         total = len(build.guide.steps)
         if not isinstance(done, int) or not 0 <= done <= total:
             return f"Ignored: done must be a whole number from 0 to {total}.", None
@@ -664,14 +672,13 @@ class Brain:
         if done > build.step:
             if self._pending_progress is not None and self._pending_progress[0] == done:
                 self._pending_progress = None  # said twice: it stands now
-                return await self._commit_progress(done), self._progress_line(done)
-            self._pending_progress = (done, self._look_w)
-            self._record.event("progress_pending", w=self._look_w, done=done)
+                return await self._commit_progress(done, rests), self._progress_line(done)
+            self._pending_progress = (done, self._look_w, rests)
+            self._record.event("progress_pending", w=self._look_w, done=done, **rests)
             return (f"Recorded as pending: {done} of {total} steps done stands at your next look unless that look "
                     "shows otherwise; the assistant is told then."), None
-        before = build.step
         build.set_step(done)  # index of the step the user is on = the number of steps done
-        self._record.event("step", done=None, reopened=build.step + 1, now=build.step + 1)
+        self._record.event("step", done=None, reopened=build.step + 1, now=build.step + 1, **rests)
         await publish_build(build)
         where = self._where()
         return f"Recorded: {where}. The assistant is told.", f"Progress: {where}."
@@ -686,13 +693,13 @@ class Brain:
     def _progress_line(self, done: int) -> str:
         return f"Progress: {self._where()}."
 
-    async def _commit_progress(self, done: int) -> str:
-        """The build moves up to `done`, is recorded and published; returns the tool result, the line for the voice
-        being _progress_line."""
+    async def _commit_progress(self, done: int, rests: dict) -> str:
+        """The build moves up to `done`, is recorded and published with what it rests on (seen, basis); returns the
+        tool result, the line for the voice being _progress_line."""
         build = self._build
         picture = build.picture
         build.set_step(done)
-        self._record.event("step", done=build.step, now=None if build.finished else build.step + 1)
+        self._record.event("step", done=build.step, now=None if build.finished else build.step + 1, **rests)
         if build.finished:
             self._record.event("build", finished=True, took_s=round(time.monotonic() - build.started, 1))
         await publish_build(build)
