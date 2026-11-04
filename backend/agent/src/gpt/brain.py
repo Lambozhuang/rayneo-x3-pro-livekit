@@ -203,11 +203,14 @@ class OpenAIModel:
     look's answer, the new lines and the new photo only. The photo goes last, as a user item of its own, so that
     nothing of it precedes the breakpoint."""
 
-    def __init__(self, model: str, detail: str) -> None:
+    def __init__(self, model: str, detail: str, service_tier: str = "default") -> None:
         from openai import AsyncOpenAI
 
         self._client = AsyncOpenAI()
         self._model, self._detail = model, detail
+        # OpenAI's processing tier (BRAIN_SERVICE_TIER): "priority" buys steadier latency at twice the token price, after
+        # one look in thirty took 10 s on the default tier with nothing to generate (2026-11-04)
+        self._service_tier = service_tier
 
     def _render(self, looks: list[Look]) -> list:
         items: list = []
@@ -227,6 +230,8 @@ class OpenAIModel:
                   ) -> tuple[str, list[tuple[str, str, dict]], list, dict]:
         """Answers the newest look. Returns the reply text, the tool calls, the output items to keep, the usage."""
         kw = {"reasoning": {"effort": effort}} if effort else {}
+        if self._service_tier != "default":
+            kw["service_tier"] = self._service_tier
         resp = await self._client.responses.create(
             model=self._model, instructions=instructions, input=self._render(looks),
             tools=[{"type": "function", "name": n, "description": d, "parameters": p, "strict": True} for n, d, p in tools],
@@ -330,11 +335,11 @@ class AnthropicModel:
         }
 
 
-def make_model(provider: str, model: str, detail: str):
-    """The brain's model client: BRAIN_PROVIDER openai or anthropic."""
+def make_model(provider: str, model: str, detail: str, service_tier: str = "default"):
+    """The brain's model client: BRAIN_PROVIDER openai or anthropic; the service tier is OpenAI's only."""
     if provider == "anthropic":
         return AnthropicModel(model)
-    return OpenAIModel(model, detail)
+    return OpenAIModel(model, detail, service_tier)
 
 
 class Brain:

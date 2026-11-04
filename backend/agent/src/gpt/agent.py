@@ -71,7 +71,7 @@ async def rayneo_assistant(ctx: JobContext) -> None:
     tap = FrameTap(on_first=lambda f: record.event("camera", first_frame=f"{f.width}x{f.height}"))
     build = Build(guide=guide, run=ctx.room.name)
     session = AgentSession(video_sampler=tap, llm=build_live_model(settings))
-    model = make_model(settings.brain_provider, settings.brain_model, settings.brain_detail)
+    model = make_model(settings.brain_provider, settings.brain_model, settings.brain_detail, settings.brain_service_tier)
     # The glasses' camera track: the full layer, what decodes it, and the stream's rate at the decoder, into the record
     # (camera.py). The brain is not told the rate: it sees for itself when the picture is blurry (eval/brain-blur-perception).
     watch_camera(ctx.room, record, logger)

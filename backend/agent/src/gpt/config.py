@@ -32,6 +32,7 @@ class Settings:
     brain_model: str
     brain_effort: str
     brain_detail: str
+    brain_service_tier: str  # OpenAI's processing tier for the brain's calls: default, priority (steadier latency, twice the price) or flex
     brain_timeout: float
     # The brain's looks (brain.py, watch): the side in px their frame is scaled to, and the shortest time in
     # seconds from the start of one to the start of the next. Required: they decide how many requests a call
@@ -48,6 +49,7 @@ class Settings:
             brain_model=require_env("BRAIN_MODEL"),
             brain_effort=os.environ.get("BRAIN_EFFORT", "none"),
             brain_detail=os.environ.get("BRAIN_DETAIL", "high"),
+            brain_service_tier=os.environ.get("BRAIN_SERVICE_TIER", "default"),
             brain_timeout=float(os.environ.get("BRAIN_TIMEOUT", "12")),
             brain_watch_side=int(require_env("BRAIN_WATCH_SIDE")),
             brain_watch_every=float(require_env("BRAIN_WATCH_EVERY")),
@@ -57,12 +59,14 @@ class Settings:
             raise RuntimeError(f"BRAIN_PROVIDER={s.brain_provider!r}: must be openai or anthropic")
         if s.brain_provider == "anthropic":
             require_env("ANTHROPIC_API_KEY")
+        if s.brain_service_tier not in ("default", "priority", "flex"):
+            raise RuntimeError(f"BRAIN_SERVICE_TIER={s.brain_service_tier!r}: must be default, priority or flex")
         if s.brain_watch_side <= 0 or s.brain_watch_every <= 0:
             raise RuntimeError(f"BRAIN_WATCH_SIDE={s.brain_watch_side} BRAIN_WATCH_EVERY={s.brain_watch_every}: "
                                "use values above 0")
-        logger.info("session model: %s voice=%s brain=%s/%s effort=%s detail=%s watch_side=%d watch_every=%ss",
+        logger.info("session model: %s voice=%s brain=%s/%s effort=%s detail=%s tier=%s watch_side=%d watch_every=%ss",
                     s.live_model, s.voice, s.brain_provider, s.brain_model, s.brain_effort, s.brain_detail,
-                    s.brain_watch_side, s.brain_watch_every)
+                    s.brain_service_tier, s.brain_watch_side, s.brain_watch_every)
         return s
 
     def experiment_line(self, guide: str) -> str:
