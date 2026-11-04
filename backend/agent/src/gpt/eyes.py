@@ -33,7 +33,8 @@ frame does nothing. The lines:
 
 The wearer's words are classified by the same API on the text alone (what they ask or claim), and routed: a question
 about the scene or a disagreement goes to the brain's model with the frame; a request for the picture puts it on the
-glasses; "I placed it" goes to the brain's model at once as well, and its answer is spoken only when the eyes have not
+glasses; words sorted as needing no eyes at less than WORDS_SURE confidence go to the brain's model all the same, since
+a wasted request is cheap and an unanswered question is not; "I placed it" goes to the brain's model at once as well, and its answer is spoken only when the eyes have not
 settled the step by then (PLACED_WAIT_S), so the wearer never waits in silence after it and never hears the verdict
 twice; everything else needs no eyes, the voice answers it or lets it pass. The questions are built from the task
 file, so another step-wise task needs no change here.
@@ -73,6 +74,7 @@ BLUR = 0.8
 BLUR_EVERY_S = 60.0
 FIND_AFTER_S = 12.0  # with nothing in the hand this long after a step was given and the user last spoke, where its brick lies is said
 CONSULT_WAIT_S = 4.5  # the correction's words are waited for this long before the voice is told to repeat the place
+WORDS_SURE = 0.5  # words classified less surely than this as needing no eyes are sent to the brain's model all the same
 PLACED_WAIT_S = 2.5  # after "I placed it", the eyes get this long to settle the step before the brain's answer is spoken
 TIMEOUT_S = 5.0
 
@@ -390,10 +392,11 @@ class Eyes:
             logger.warning("eyes: words not classified (%s)", str(e)[:100])
             self._record.event("words", text=text, words_kind="unclassified")
             return
-        kind = a["kind"]["choice"]
-        self._record.event("words", text=text, words_kind=kind, sure=round(a["kind"].get("confidence", 0), 2), ms=ms)
-        logger.info("eyes: words %r -> %s", text, kind)
-        if kind in ("scene", "disagrees"):
+        kind, sure = a["kind"]["choice"], a["kind"].get("confidence", 0.0)
+        self._record.event("words", text=text, words_kind=kind, sure=round(sure, 2), ms=ms)
+        logger.info("eyes: words %r -> %s (%.2f)", text, kind, sure)
+        if kind in ("scene", "disagrees") or (sure < WORDS_SURE and kind in ("steps", "other")):
+            # an unclear classification goes to the brain's model too: a wasted request is cheap, an unanswered question is not
             self._consult_now("words", f'The user just said: "{text}". Answer them in one sentence from what the photo shows, '
                                        "starting with the answer; if you cannot see what they ask about, say what is in the way.",
                               fallback=False)
