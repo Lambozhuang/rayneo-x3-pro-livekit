@@ -113,11 +113,11 @@ SET_PROGRESS = (
      "required": ["done"], "additionalProperties": False})
 TELL = (
     "tell",
-    "Gives the assistant a fact silently, for what it says next; it does not speak it on its own. The assistant "
-    "cannot see, so tell it what it would otherwise have to ask you for: the brick the user holds, a step placed "
-    "right or wrong, a picture on the glasses. Do not tell it what has not changed since you last told it, what "
-    "it already knows from the conversation, or what you cannot make out; it would pass a doubt on to the user. "
-    "What you write outside this tool stays with you.",
+    "Gives the assistant a fact silently, for a later answer; it does not speak it on its own, but it tends to work it "
+    "into what it says, so tell rarely: where bricks lie on the desk when the user will look for them, a picture on "
+    "the glasses. Not hands, not a brick being set down, not what the user is doing: write those for yourself. One "
+    "tell every twenty seconds reaches the assistant; the rest is held. What you write outside this tool stays with "
+    "you.",
     {"type": "object", "properties": {"text": {"type": "string",
                                                "description": "one short sentence of plain facts"}},
      "required": ["text"], "additionalProperties": False})
@@ -153,6 +153,7 @@ WHO = {"user": "User", "assistant": "Assistant"}
 SAY_REPEAT_S = 8.0  # a say that says what the last say said, this soon after it, is held: the voice has it already
 SAY_REPEAT_RATIO = 0.6  # how alike two says must read (difflib ratio) to count as the same
 WAIT_SAY_EVERY_S = 15.0  # a waiting say (nothing can be told yet) goes out at most this often; the model asks at every look
+TELL_EVERY_S = 20.0  # a tell goes to the voice at most this often: GPT-Live reads thinking aloud, and 34 tells in a call made a monologue
 
 # the result of a tool call the look did not get to carry out (the call ended while it was being done)
 NOT_DONE = "Not carried out: a request from the assistant came first."
@@ -356,6 +357,7 @@ class Brain:
         self._asks = 0  # hand-overs GPT-Live made all the same, each closed at once
         self._last_line: str | None = None  # the last line given to the voice, repeated to close a hand-over
         self._last_say: tuple[float, str] | None = None  # when and what the brain last had the voice say
+        self._last_tell: float | None = None  # when the brain last gave the voice a silent fact
         self._watcher: asyncio.Task | None = None
         self._look: asyncio.Task | None = None  # the watch look running, if any
         self._look_w = 0
@@ -562,13 +564,20 @@ class Brain:
                     result, line = "The assistant says it.", f"Camera: {said}"
             elif name == "tell":
                 told = " ".join(str(args.get("text") or "").split())
-                if told:
+                since = time.monotonic() - self._last_tell if self._last_tell is not None else None
+                if not told:
+                    result, line = "Ignored: nothing to tell.", None
+                elif since is not None and since < TELL_EVERY_S:
+                    # GPT-Live reads thinking aloud: the run of 2026-11-04 12:30 had 34 tells and a voice that spoke 91 %
+                    # of the time, every hand movement included. One silent fact every TELL_EVERY_S is what gets through.
+                    self._record.event("tell_held", **{"w" if kind == "watch" else "n": n}, text=told, since_s=round(since, 1))
+                    result, line = f"Held: a fact went to the assistant {since:.0f} s ago; one every {TELL_EVERY_S:.0f} s at most. Keep this for yourself.", None
+                else:
+                    self._last_tell = time.monotonic()
                     self._record.event("tell", **{"w" if kind == "watch" else "n": n}, text=told)
                     self._session.current_agent.duplex_session.append_thinking(f"Camera: {told}")
                     self._last_line = f"Camera: {told}"
                     result, line = "The assistant knows it.", None
-                else:
-                    result, line = "Ignored: nothing to tell.", None
             else:
                 result, line = f"No such tool here: {name}.", None
             look.results[call_id] = result
