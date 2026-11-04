@@ -12,9 +12,10 @@
 #                                                 console (Lab.mock); also waiting and problem
 #   .\deploy\glasses.ps1 -Mock                    open the app on the mock call screen (MockScreen.kt): the ladder at
 #                                                 step 3 with a fixed conversation, no server needed; double tap leaves
-#   .\deploy\glasses.ps1 -Exposure -6             set the camera's exposure compensation for this launch's calls, in
-#                                                 sixths of an EV, -12..12 (Exposure.kt); a launch without it uses -6,
-#                                                 the lab's value (eval/brain-frame-quality); -Exposure 0 is the camera's own
+#   .\deploy\glasses.ps1 -Exposure -4             set the camera's exposure compensation for this launch's calls, in
+#                                                 sixths of an EV, -12..12 (Exposure.kt); a launch without it uses -2,
+#                                                 the lab's value since 2026-11-04 (-6 read a yellow brick as orange);
+#                                                 -Exposure 0 is the camera's own
 #   .\deploy\glasses.ps1 -ExposureSweep           record the desk as -Record would, 5 s at each of the compensations
 #                                                 0, -2, -4 and -6, and pull it into logs\exposure-<time>\; no server
 #   .\deploy\glasses.ps1 -Log                     after launching, tail the touchpad/gesture log (Ctrl+C to stop)
@@ -37,7 +38,7 @@ param(
     [switch]$Record,              # record every call of this launch: camera as the call sees it, mic, agent voice
     [switch]$Mock,                # open on the static mock of the call screen instead of the build picker
     [string]$MockLab,             # open on the lab screen in this stage with no console: waiting, after, problem (Lab.mock)
-    [int]$Exposure = -6,          # exposure compensation index for the calls, -12..12; the lab's -6 unless given
+    [int]$Exposure = -2,          # exposure compensation index for the calls, -12..12; the lab's -2 unless given
     [switch]$ExposureSweep,       # record the desk at several compensations, pull the recording, then leave
     [switch]$Install,
     [switch]$Log,

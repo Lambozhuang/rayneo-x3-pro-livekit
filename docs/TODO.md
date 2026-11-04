@@ -46,7 +46,7 @@
 
 ### 眼镜
 
-- [ ] lab 模式给被试的改动（2026-11-03 深夜，模拟器上看过，真机上要跑一场）：任务自己结束（大脑记完最后一步、voice 说完并静 2 s，agent 发 rayneo.call.over，眼镜等本地 agent 声音静 1 s 再挂断，ended_by=finished，gpt/agent.py `_end_when_finished`），lab 模式下双击无效、三连击是实验员的（结束这场或退回菜单，模拟器上试过），lab 屏幕只剩给被试的一句话（Lab.stage），带 -Lab 启动直接进 lab 屏幕，通话中标题行右端显示剩余时间。真机要看：完成后几秒挂断、voice 的最后一句有没有被切掉、报告里 ended_by 和 completed、控制台怎么收这个结束。glasses.ps1 默认 -Exposure -6 也要看一眼 rayneo-call 的 exposure 行。Thinking 状态和 rayneo.brain.looking 已从眼镜端删掉。
+- [ ] lab 模式给被试的改动（2026-11-03 深夜，模拟器上看过，真机上要跑一场）：任务自己结束（大脑记完最后一步、voice 说完并静 2 s，agent 发 rayneo.call.over，眼镜等本地 agent 声音静 1 s 再挂断，ended_by=finished，gpt/agent.py `_end_when_finished`），lab 模式下双击无效、三连击是实验员的（结束这场或退回菜单，模拟器上试过），lab 屏幕只剩给被试的一句话（Lab.stage），带 -Lab 启动直接进 lab 屏幕，通话中标题行右端显示剩余时间。真机要看：完成后几秒挂断、voice 的最后一句有没有被切掉、报告里 ended_by 和 completed、控制台怎么收这个结束。glasses.ps1 默认 -Exposure 现在是 -2（2026-11-04 定，-6 把黄看成橙），看一眼 rayneo-call 的 exposure 行。Thinking 状态和 rayneo.brain.looking 已从眼镜端删掉。
 - [ ] UI用户自己说的话可以就留一行，一直更新，而不是顶掉上面，这样可以更多保留agent说的话
 - [ ] 相机预览在加法显示上亮不亮、要不要压暗；两个眼各一个渲染器的功耗。按需步骤图的行为本身已验（2026-10-28 两场、2026-11-02 四场：要图或答应提议后 0.4 到 2.6 s 到眼镜）
 - [ ] 步骤图在 netem 丢包下晚到时的体验，以及是否要让语音知道图可能未到。好网络下的到达延迟已验：属性公布到眼镜显示 50 到 100 ms（2026-10-28 和 2026-11-02 的 glasses.log）
