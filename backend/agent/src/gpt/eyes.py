@@ -77,6 +77,7 @@ BLUR_EVERY_S = 60.0
 FIND_AFTER_S = 12.0  # with nothing in the hand this long after a step was given and the user last spoke, where its brick lies is said
 CONSULT_WAIT_S = 4.5  # the correction's words are waited for this long before the voice is told to repeat the place
 WORDS_SURE = 0.5  # words classified less surely than this as needing no eyes are sent to the brain's model all the same
+WORDS_SETTLE_S = 1.2  # pieces of the wearer's turn that come this close together are classified as one
 PLACED_WAIT_S = 2.5  # after "I placed it", the eyes get this long to settle the step before the brain's answer is spoken
 TIMEOUT_S = 5.0
 
@@ -199,6 +200,8 @@ class Eyes:
         self._last_line_at: float | None = None
         self._consulting: asyncio.Task | None = None
         self._verdict_at: float | None = None  # when the step was last settled, by the progress or a "not in its place" line
+        self._pieces: list[str] = []  # the wearer's turn as it comes through, classified once it has settled
+        self._settling: asyncio.Task | None = None
 
     # ------------------------------------------------------------------ the loop
 
@@ -379,11 +382,26 @@ class Eyes:
     # ------------------------------------------------------------------ the wearer's words
 
     async def words(self, text: str) -> None:
-        """The wearer's words, classified by the same API on the text alone and routed: a question about the scene
-        or a disagreement goes to the brain's model with the frame, a request for the picture puts it up, the rest
-        needs no eyes."""
+        """The wearer's words as they come through: a reading now, and the words classified once no more have come
+        for WORDS_SETTLE_S, since the transcript hands a turn over in pieces."""
         self.poke("the wearer's words")
         self._user_spoke_at = time.monotonic()
+        self._pieces.append(text.strip())
+        if self._settling is None or self._settling.done():
+            self._settling = asyncio.create_task(self._settle_words(), name="words")
+
+    async def _settle_words(self) -> None:
+        n = -1
+        while n != len(self._pieces):  # wait until no new piece came during a whole pause
+            n = len(self._pieces)
+            await asyncio.sleep(WORDS_SETTLE_S)
+        text, self._pieces = " ".join(self._pieces), []
+        await self._route(text)
+
+    async def _route(self, text: str) -> None:
+        """The wearer's turn, classified by the same API on the text and the lines before it, and routed: a question
+        about the scene or a disagreement goes to the brain's model with the frame, a request for the picture puts it
+        up, the rest needs no eyes."""
         try:
             items = [i for i in self._session.history.items
                      if i.type == "message" and i.role in ("user", "assistant") and (i.text_content or "").strip()]

@@ -246,12 +246,20 @@ async def main() -> None:
 
     await asyncio.sleep(2.0)
     record.event("end", voice_s=sum(getattr(u, "session_duration", 0) for u in session.usage.model_usage), camera_frames=tap.count)
-    await eyes.stop()
+
+    async def step(name: str, coro) -> None:
+        """One shutdown step, given 15 s: a close that hangs (seen once on session.aclose) must not hold the report."""
+        try:
+            await asyncio.wait_for(coro, 15.0)
+        except asyncio.TimeoutError:
+            log.warning("shutdown: %s did not finish in 15 s", name)
+            print(f"shutdown: {name} did not finish in 15 s; going on")
+    await step("eyes", eyes.stop())
     if hasattr(model, "close"):
-        await model.close()
+        await step("model", model.close())
     mic.stop()
-    await session.aclose()
-    await session.llm.aclose()
+    await step("session", session.aclose())
+    await step("llm", session.llm.aclose())
     record.close()
     wav(run_dir, clock, t_start, ear, mic)
     report(run_dir)
