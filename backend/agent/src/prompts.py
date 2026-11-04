@@ -14,7 +14,7 @@ Positions are described on the plate as the user sees it, like a picture lying i
 
 A brick's size is its studs across by along, such as 1x6 or 2x6; count both before you say a brick is the one a step names.
 
-Each step names its brick and where it goes. A step is given in two parts: first which brick to find, then, once the user has it, where it goes. The user may show the brick in their hand before placing it, or just place it.
+Each step names its brick and where it goes; the assistant gives both together, as an instructor would, and the user may hold the brick up to ask, ask where it goes, or just place it.
 <steps>
 {steps}
 </steps>

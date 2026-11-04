@@ -2,9 +2,12 @@
 
     glasses --audio--> SFU --> this process --ws--> gpt-live-1 (knows every step)
             --video-->     --> FrameTap (frames kept for the brain, none to the voice)
-    brain: a frame every few seconds + the lines said since its last look --> one vision call --> what it sees,
-           kept to itself, maybe tell, say, set_progress or show
-            <--thinking (tell: a fact for later) or commentary (say: the user hears it now; the progress moved)-- brain
+    brain: a frame every few seconds, or at once when the wearer spoke or the hand left the plate, + the lines said
+           since its last look + the quick look's reading --> one vision call --> what it sees, kept to itself,
+           maybe say, set_progress or show
+    quick look: a frame about once a second --> Decisions API, typed answers (hand on the plate, brick in the hand,
+           steps built right, picture blurry) --> the brick in the hand named, a step done recorded, the brain woken
+            <--commentary (say: the user hears it now; the progress moved)-- brain and quick look
             <--audio-- SFU <-- this process <-- gpt-live-1
             <--step list (participant attributes)-- this process (the step is the brain's)
 
@@ -40,7 +43,9 @@ from frames import FrameTap
 from gpt.brain import TOOLS, Brain, make_model
 from gpt.config import Settings, build_live_model
 from gpt.prompts import voice_persona
+from gpt.quick import QuickEye
 from guide import Build, picked_guide, publish_build
+from prompts import task_block
 from qoe import LabRun, deliver, write_report
 from runlog import RunLog
 
@@ -71,12 +76,20 @@ async def rayneo_assistant(ctx: JobContext) -> None:
     tap = FrameTap(on_first=lambda f: record.event("camera", first_frame=f"{f.width}x{f.height}"))
     build = Build(guide=guide, run=ctx.room.name)
     session = AgentSession(video_sampler=tap, llm=build_live_model(settings))
-    model = make_model(settings.brain_provider, settings.brain_model, settings.brain_detail, settings.brain_service_tier)
+    model = make_model(settings.brain_provider, settings.brain_model, settings.brain_detail, settings.brain_service_tier,
+                       settings.brain_transport)
     # The glasses' camera track: the full layer, what decodes it, and the stream's rate at the decoder, into the record
     # (camera.py). The brain is not told the rate: it sees for itself when the picture is blurry (eval/brain-blur-perception).
     watch_camera(ctx.room, record, logger)
     brain = Brain(session, build, tap, model, settings.brain_effort, settings.brain_watch_side,
                   settings.brain_watch_every, lang, settings.brain_timeout, record)
+    # The quick look (gpt/quick.py): typed answers about the newest frame about once a second, which name the brick in
+    # the hand and move the progress at once, and wake the brain when the hand leaves the plate.
+    quick = None
+    if settings.quick_every > 0:
+        quick = QuickEye(tap, build, task_block(guide), settings.quick_model, settings.quick_detail, settings.quick_every,
+                         record, brain.quick_progress, brain.quick_say, brain.poke)
+        brain.quick = quick
     persona = voice_persona(guide, lang)
     record.text("brain.txt", brain.instructions)
     record.text("brain-tools.json", json.dumps(
@@ -95,6 +108,8 @@ async def rayneo_assistant(ctx: JobContext) -> None:
     @session.on("close")
     def _log_close(ev) -> None:
         brain.stop_watching()  # the call is over: no more looks at a camera that has stopped sending
+        if quick:
+            quick.cancel()
         record.event("closed", reason=str(getattr(ev.reason, "value", ev.reason)), error=str(ev.error) if ev.error else None)
         # The call is over when the session is: end the job now, not when livekit-server closes the room, which is
         # 20 s after the glasses leave (departure_timeout), so the record closes and reaches the console at once.
@@ -102,6 +117,8 @@ async def rayneo_assistant(ctx: JobContext) -> None:
 
     async def _log_usage() -> None:
         brain.stop_watching()
+        if quick:
+            await quick.stop()
         logger.info("usage: %s camera_frames=%d", session.usage, tap.count)
         record.event("end", voice_s=sum(getattr(u, "session_duration", 0) for u in session.usage.model_usage),
                      camera_frames=tap.count)
@@ -125,6 +142,8 @@ async def rayneo_assistant(ctx: JobContext) -> None:
                              interrupted=ev.item.interrupted,
                              started=record.t(m["started_speaking_at"]) if m.get("started_speaking_at") else None,
                              stopped=record.t(m["stopped_speaking_at"]) if m.get("stopped_speaking_at") else None)
+                if ev.item.role == "user" and (ev.item.text_content or "").strip():
+                    brain.poke("the wearer's words")  # a look now, with the words in it, as a person looks when asked
 
     await session.start(
         agent=Agent(instructions=persona),
@@ -234,6 +253,8 @@ async def rayneo_assistant(ctx: JobContext) -> None:
     record.event("step", done=None, now=1)
     await publish_build(build)
     brain.start_watching()
+    if quick:
+        quick.start()
 
     # The task ends by itself: once the brain has recorded the last step as done, the voice says so (the Progress
     # commentary), and when it has stopped speaking the glasses are told to hang up through Build.over in the published
@@ -272,10 +293,9 @@ async def rayneo_assistant(ctx: JobContext) -> None:
     # generate_reply on GPT-Live is commentary: a request the model may decline.
     handle = session.generate_reply(
         instructions=(
-            "Greet the wearer briefly: say you can see through their glasses and will "
-            f'guide them through building "{guide.title}", naming it in a few words; that they can tell you '
-            "when they have a brick or have placed one, ask you to check anything, or ask for a picture of a step; "
-            "and ask them to say when they are ready. Do not describe any step yet."
+            "Greet the wearer in two short sentences: you can see through their glasses and will guide them through "
+            f'building "{guide.title}", and they can ask you anything on the way, a picture of a step included; then '
+            "ask them to say when they are ready. Do not describe the build or any step."
         )
     )
     await handle

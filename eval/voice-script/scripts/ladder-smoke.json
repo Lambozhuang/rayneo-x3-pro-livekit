@@ -1,30 +1,38 @@
 {
- "name": "ladder smoke: greeting, the first brick in hand, the first step done",
+ "name": "ladder smoke: the first step given whole, the brick in hand confirmed, 'done' waits for the helper, the step done with the next given",
  "guide": "ladder",
  "steps": [
   {
    "user": "I'm ready",
    "expect": [
-    "tan"
+    "tan",
+    "vertical|upright|middle|left of cent"
    ]
   },
   {
-   "commentary": "Camera: You have the right tan one-by-six brick.",
+   "commentary": "Camera: The tan one, in your hand.",
    "expect": [
-    "vertical|middle|left of cent"
+    "yep|yes|that's it|that's the one|right one|good"
+   ],
+   "expect_not": [
+    "turn|closer|still|show me|once it"
    ]
   },
   {
    "user": "Okay, I put it down",
+   "expect": [
+    "let me|see|look|check|mm"
+   ],
    "expect_not": [
-    "white"
+    "white|done|step one is|that's step"
    ]
   },
   {
    "commentary": "Progress: 1 of 5 steps done; the user is on step 2 (white 1x6).",
    "expect": [
     "done|step (one|two|1|2)|that's it|good|nice",
-    "white"
+    "white",
+    "right of|four|vertical|upright|level"
    ]
   }
  ]

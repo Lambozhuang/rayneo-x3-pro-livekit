@@ -3,14 +3,20 @@
 The brain is one vision model, behind OpenAI's Responses API or Anthropic's
 Messages API (BRAIN_PROVIDER), that keeps one conversation of its own for the
 whole call and looks by itself: one watch look after the other, at most one every
-BRAIN_WATCH_EVERY seconds, on the newest camera frame scaled to BRAIN_WATCH_SIDE,
-at BRAIN_EFFORT. Nobody asks it anything: each look's message carries the lines
-the user and the assistant said since the look before, so the brain reads the
-user's questions and claims ("I placed it", "is this right?") there, and what it
-writes stays in its own conversation. GPT-Live hears of a look only through the
-tools: say has it tell the user something now (commentary), set_progress moves the
-build and show puts a step's picture on the glasses, each told to GPT-Live as
-commentary. On 2026-11-02 every look's text went to GPT-Live as thinking, 45
+BRAIN_WATCH_EVERY seconds and at once when woken (poke: the user's words came, or
+the quick look saw the hand leave the plate), on the newest camera frame scaled
+to BRAIN_WATCH_SIDE, at BRAIN_EFFORT. Nobody asks it anything: each look's message
+carries the lines the user and the assistant said since the look before, what the
+quick look (gpt/quick.py) told the user or recorded meanwhile, and the quick
+look's latest reading, so the brain reads the user's questions and claims ("I
+placed it", "is this right?") there, and what it writes stays in its own
+conversation. GPT-Live hears of a look only through the tools: say has it tell
+the user something now (commentary), set_progress moves the build and show puts
+a step's picture on the glasses, each told to GPT-Live as commentary; the quick
+look's two lines, the brick in the hand and a step done, go the same way
+(speak). OpenAI's calls go over one persistent WebSocket to the Responses API
+(BRAIN_TRANSPORT ws), which eval/brain-speed/ measured at 1.3 s a look against
+1.6 s over HTTP; http is the fallback. On 2026-11-02 every look's text went to GPT-Live as thinking, 45
 lines in 107 s, and GPT-Live read them out, the doubts ("I still can't count")
 above all; the brain now chooses what the assistant needs, as OpenAI's guidance
 has it: an update when something useful changes.
@@ -95,9 +101,10 @@ def handed_back(last: str | None, age_s: float | None = None) -> str:
     rule 5). The first wording, "answer from what the helper has already told you", made the voice give the next step
     as if the one before were checked; the second, "still looking at it", made it say so even when it knew the answer
     (eval/voice-script, 2026-11-03); repeating a stale line made it say a brick was still misplaced right after the
-    wearer had fixed it (the run of 2026-11-04 15:51)."""
+    wearer had fixed it (the run of 2026-11-04 15:51); "checking that now; the next line says what I see" was read
+    out word for word (16:44), so the stale case is now the three words a person says."""
     if not last or (age_s is not None and age_s > HANDED_BACK_FRESH_S):
-        return "Camera: checking that now; the next line says what I see."
+        return "Camera: let me look."
     fact = last.split(": ", 1)[1] if last.startswith(("Camera: ", "Progress: ", "Picture: ")) else last
     return f"Camera: nothing new since the last look; still: {fact}"
 
@@ -109,7 +116,8 @@ SET_PROGRESS = (
     "to the number of the last step. It can go up by more than one, or down when an earlier step turns out wrong. The "
     "step list on the glasses and the assistant follow it, so what you write should say the same, and progress "
     "recorded higher than the plate shows leaves the user building on a mistake. Call it only when the photo lets "
-    "you tell and the number differs from the progress recorded, which the result of your last call told you; leave "
+    "you tell and the number differs from the progress recorded, which the result of your last call, or the message's "
+    "note of a move by the quick look, told you; leave "
     "it out when part of the build is hidden or too small to judge, and when the user only says they are done "
     "without the photo showing it. seen and basis go into the call's record and are never spoken: seen is one "
     "sentence of what the photo shows that the number rests on, basis says how far the photo itself carries it.",
@@ -335,11 +343,71 @@ class AnthropicModel:
         }
 
 
-def make_model(provider: str, model: str, detail: str, service_tier: str = "default"):
-    """The brain's model client: BRAIN_PROVIDER openai or anthropic; the service tier is OpenAI's only."""
+class OpenAIWsModel(OpenAIModel):
+    """OpenAIModel over one persistent WebSocket to the Responses API: the same body, sent as a response.create
+    event, the answer read from the response.completed event. The connection is opened at the first ask and
+    reopened after an error; the service closes one after 60 minutes, longer than any call. eval/brain-speed/
+    (2026-11-04): 1335 ms a look against 1636 over HTTP, the same replies."""
+
+    def __init__(self, model: str, detail: str, service_tier: str = "default") -> None:
+        super().__init__(model, detail, service_tier)
+        self._conn = None
+
+    async def _connection(self):
+        if self._conn is None:
+            self._conn = await self._client.responses.connect().enter()
+            logger.info("brain: websocket to the Responses API open")
+        return self._conn
+
+    async def close(self) -> None:
+        if self._conn is not None:
+            conn, self._conn = self._conn, None
+            await conn.close()
+
+    async def ask(self, instructions: str, looks: list[Look], tools: list, effort: str, key: str
+                  ) -> tuple[str, list[tuple[str, str, dict]], list, dict]:
+        kw = {"reasoning": {"effort": effort}} if effort else {}
+        if self._service_tier != "default":
+            kw["service_tier"] = self._service_tier
+        try:
+            conn = await self._connection()
+            await conn.response.create(
+                model=self._model, instructions=instructions, input=self._render(looks),
+                tools=[{"type": "function", "name": n, "description": d, "parameters": p, "strict": True} for n, d, p in tools],
+                store=False, include=["reasoning.encrypted_content"], prompt_cache_key=key,
+                prompt_cache_options={"mode": "explicit"}, **kw,
+            )
+            resp = None
+            async for ev in conn:
+                if ev.type == "response.completed":
+                    resp = ev.response
+                    break
+                if ev.type in ("response.failed", "response.incomplete", "error"):
+                    raise RuntimeError(f"{ev.type}: {getattr(ev, 'response', None) or getattr(ev, 'error', None)}")
+        except BaseException:
+            await self.close()  # whatever went wrong, the next ask opens a new connection
+            raise
+        if resp is None or not resp.output:
+            raise RuntimeError("the model returned no output")
+        calls = [(o.call_id, o.name, json.loads(o.arguments or "{}")) for o in resp.output if o.type == "function_call"]
+        u = resp.usage
+        out_details = getattr(u, "output_tokens_details", None) if u else None
+        return resp.output_text, calls, list(resp.output), {
+            "in": u.input_tokens if u else 0, "out": u.output_tokens if u else 0,
+            "cached": u.input_tokens_details.cached_tokens if u and u.input_tokens_details else 0,
+            "written": 0, "thinking": getattr(out_details, "reasoning_tokens", None) if out_details is not None else None,
+            "stop": resp.status, "ttft_ms": None,
+        }
+
+
+def make_model(provider: str, model: str, detail: str, service_tier: str = "default", transport: str = "ws"):
+    """The brain's model client: BRAIN_PROVIDER openai or anthropic; the service tier and the transport (ws or
+    http) are OpenAI's only."""
     if provider == "anthropic":
         return AnthropicModel(model)
-    return OpenAIModel(model, detail, service_tier)
+    if transport == "http":
+        return OpenAIModel(model, detail, service_tier)
+    return OpenAIWsModel(model, detail, service_tier)
 
 
 class Brain:
@@ -367,6 +435,9 @@ class Brain:
         self._watcher: asyncio.Task | None = None
         self._look: asyncio.Task | None = None  # the watch look running, if any
         self._look_w = 0
+        self._wake = asyncio.Event()  # set by poke: the next look goes at once
+        self._notes: list[str] = []  # what the quick look told the user or recorded since the last look, for the next message
+        self.quick = None  # the QuickEye beside the brain (gpt/quick.py), set by the agent, or None
 
     @property
     def instructions(self) -> str:
@@ -385,16 +456,28 @@ class Brain:
             self._look.cancel()
 
     async def _watch_loop(self) -> None:
-        """One watch look after the other, each starting at least watch_every after the one before."""
+        """One watch look after the other, each starting watch_every after the one before, or at once when poked
+        meanwhile."""
         w = 0
         while True:
             started = time.monotonic()
             if self._tap.latest is not None:
                 w += 1
                 self._look_w = w
+                self._wake.clear()  # a poke during the look stays set and brings the next look at once
                 self._look = asyncio.create_task(self._watch(w), name="watch_look")
                 await asyncio.wait([self._look])  # returns on cancel too, which stop_watching does
-            await asyncio.sleep(max(0.0, self._watch_every - (time.monotonic() - started)))
+            rest = self._watch_every - (time.monotonic() - started)
+            if rest > 0:
+                try:
+                    await asyncio.wait_for(self._wake.wait(), rest)
+                except asyncio.TimeoutError:
+                    pass
+
+    def poke(self, reason: str) -> None:
+        """Have the next look go at once: the user's words came, or the quick look saw the hand leave the plate."""
+        self._record.event("poke", reason=reason, looking=self._look is not None and not self._look.done())
+        self._wake.set()
 
     async def _watch(self, w: int) -> None:
         try:
@@ -406,16 +489,40 @@ class Brain:
             self._record.event("watch_failed", w=w, error=f"{type(e).__name__}: {e}"[:500])
 
     async def _watch_look(self, w: int) -> None:
-        """One watch look and what comes of it: the reply stays in the brain's conversation; a say goes to GPT-Live
-        as thinking, a say and a progress moved as one commentary."""
+        """One watch look and what comes of it: the reply stays in the brain's conversation; what the tools say to
+        the user, a say and a progress moved, goes to GPT-Live as one commentary."""
         text, calls, look = await self._look_once("watch", w, self._watch_side, None, TOOLS)
         speak = await self._carry_out(look, calls, "watch", w)
         if speak:
-            line = " ".join(speak)
-            self._record.event("commentary", w=w, id=None, text=line,
-                               voice_speaking=self._session.agent_state == "speaking")
-            self._session.current_agent.duplex_session.append_commentary(line)
-            self._last_line, self._last_line_at = speak[-1], time.monotonic()
+            self.speak(speak, "brain", w)
+
+    def speak(self, lines: list[str], source: str, w: int | None = None) -> None:
+        """Hands lines to the voice as one commentary and records it; `source` is brain or quick."""
+        line = " ".join(lines)
+        self._record.event("commentary", w=w, id=None, text=line, source=source,
+                           voice_speaking=self._session.agent_state == "speaking")
+        self._session.current_agent.duplex_session.append_commentary(line)
+        self._last_line, self._last_line_at = lines[-1], time.monotonic()
+
+    # ------------------------------------------------------------------ the quick look's two lines
+
+    async def quick_progress(self, done: int, seen: str) -> None:
+        """The quick look counted more steps built right than recorded, with no hand on the plate: the progress
+        moves and the user hears it as when the brain records it; the brain reads of it in its next message."""
+        if done <= self._build.step:
+            return
+        await self._commit_progress(done, {"seen": seen, "basis": "quick look"})
+        line = self._progress_line(done)
+        self._notes.append(f"Meanwhile the quick look recorded and the user was told: {line}")
+        self.speak([line], "quick")
+
+    async def quick_say(self, text: str) -> None:
+        """The quick look saw the current step's brick in the hand: the user hears it now, and the brain's next
+        message says so, so it does not say it again."""
+        self._last_say = (time.monotonic(), text)
+        self._record.event("say", text=text, say_kind="news", source="quick")
+        self._notes.append(f"Meanwhile the quick look told the user: {text}")
+        self.speak([f"Camera: {text}"], "quick")
 
     # ------------------------------------------------------------------ hand-overs
 
@@ -437,11 +544,13 @@ class Brain:
 
     def _message(self, words: str | None) -> tuple[str, list[str], str | None]:
         """The text of the next look's message, the ids of the chat history items it takes, and the delegation's
-        words it put in before the history had them, if any; both kept once the look is. The text is the lines the
-        user and the assistant said since the look before, in the history's order, each labelled; for a handed-over
-        look (`words` given, maybe empty; replays only) the words that came with it when the history does not have
-        them yet, and HANDED last. With nothing new, NO_ONE_SPOKE. The history's own line for words put in earlier is taken as
-        seen when it comes, so the user is not read as saying it twice."""
+        words it put in before the history had them, if any; both kept once the look is. The text is what the quick
+        look told the user or recorded since the look before, then the lines the user and the assistant said since
+        then, in the history's order, each labelled, or NO_ONE_SPOKE, then the quick look's latest reading; for a
+        handed-over look (`words` given, maybe empty; replays only) the words that came with it when the history
+        does not have them yet, and HANDED last. The history's own line for words put in earlier is taken as seen
+        when it comes, so the user is not read as saying it twice."""
+        notes = list(self._notes)  # taken out by _look_once once the look is answered, so a failed look loses none
         lines, ids, pending = [], [], self._pending
         for item in self._session.history.items:
             if item.type != "message" or item.role not in ("user", "assistant") or item.id in self._seen:
@@ -455,7 +564,9 @@ class Brain:
                 continue
             lines.append(f"{WHO[item.role]}: {text}")
         if words is None:
-            return "\n".join(lines) or NO_ONE_SPOKE, ids, pending
+            said = "\n".join(lines) or NO_ONE_SPOKE
+            reading = [self.quick.latest.line(self._build.guide)] if self.quick is not None and self.quick.latest else []
+            return "\n".join(notes + [said] + reading), ids, pending
         users = [line[len("User: "):] for line in lines if line.startswith("User: ")]
         if words and not any(words in u or u in words for u in users):
             lines.append(f"User: {words}")
@@ -479,6 +590,7 @@ class Brain:
             frame, seq = self._tap.latest, self._tap.count  # the newest frame (~15 a second) and its number in this call
             age_ms = (time.monotonic() - self._tap.latest_at) * 1000 if frame is not None else None
             photo = await asyncio.to_thread(_jpeg, frame, side) if frame is not None else None
+            taken = len(self._notes)  # the quick look's notes this message carries; more may come while the model answers
             text, ids, pending = self._message(words)
             if photo is None:
                 text = f"{NO_PHOTO}\n{text}"
@@ -510,6 +622,7 @@ class Brain:
                 raise
             look.photo, look.output, look.calls = None, output, calls
             self._seen.update(ids)
+            del self._notes[:taken]
             self._pending = pending
             t_back = time.perf_counter()
             logger.info("brain: %s #%d reply after %.0f ms (model %.0f ms, first output %s ms): in=%d (cached %d, "

@@ -30,6 +30,17 @@ Last, on the user's ruling that the voice should be fast and normal in tone but 
 
 On 2026-11-04 two exchanges joined the whole-call script after a 0.25 Mbps lab run: a brain line that cannot tell yet ("looks like a tan brick, but I can't count its studs; turn them toward me"), which the voice had cut down to "just turn the studs toward me" and the wearer heard as an order out of nowhere, now expected to carry both what the brain sees and what it asks; and a hedged line ("looks orange to me, but I may be mistaken"), expected to stay hedged and never become "that's wrong". With the two rules added to the persona the script met 22 of 22.
 
+## The instructor persona (2026-11-04 evening)
+
+The persona was rewritten as the instructor of a video call, after OpenAI's Prompting GPT-Live template (a backchannel policy, an interruption policy and a delegation policy written with the token `<|SpawnThinking|>`), and the scripts with it: a step is given as brick and place together, "is this the right one" and "done" get "let me see" and nothing more, "okay" gets no sentence, a colour the user names stands, and a helper line that says what is in the way ("your hand is still over it, lift it for a second") is passed on as a request. The smoke script met 9 of 9 and the whole call 35 of 36 on the first run each; the miss was an expectation that had not allowed "yep, that's the one" as the answer to "no, it's the yellow one", which is the behaviour wanted. The whole call's dialogue: "Tan one-by-six first, vertical, roughly in the middle of the plate, a little left of center." / "Let me see." / "Yep, that's the one." / "Good, that's step one. Now the white one-by-six, vertical, to the right of the tan with four empty columns between them." / "Step two: the white one-by-six goes vertical to the right of the tan..." / "White one's one column too far right; move it one left. Want the picture?" / "Picture's up now." / "Your hand's still over it, so I can't see the right end. Lift your hand for a second, so I can see." / "The one in your hand looks orange to me; the step needs the yellow one, or is that it?" / "Yep, that's the one." / "That's the build finished. Task over."
+
+| | voice spoke | turns | words a turn | words a minute | wearer's last word to the answer |
+|---|---|---|---|---|---|
+| lab call 2026-11-04 16:44 (152 s), persona before | 94 s, 62% | 15 | 21 | 190 | - |
+| scripted whole call, instructor persona (207 s) | 106 s, 51% | 20 | 14 | 159 | median 0.6 s, max 6.7 s |
+
+What the run still showed: the voice repeats the place when it confirms the brick in the hand ("Yep, that's the one; vertical, to the right of the tan...") although the step had given it; the persona now answers "got it" with "good" and the place only when not yet said. The greeting runs 11 s and 40 words on "two or three short sentences".
+
 ## What the project does with it
 
 The prompt changes and the closing line are in `backend/agent/src/gpt/`, to be deployed and heard on the glasses on the next lab day. From now on a change to the voice's prompt is run through `ladder-pilot.json` before it goes to the glasses; a behaviour seen wrong in a lab run becomes a step with an expectation. What this harness cannot show: how the brain's own lines come and when, since the brain is scripted here; the brain's rules are a matter for the records and for `brain-thread-replay/`.

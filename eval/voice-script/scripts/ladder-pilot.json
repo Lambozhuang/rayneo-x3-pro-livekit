@@ -1,87 +1,86 @@
 {
- "name": "ladder as the call of 2026-11-03 17:00 went: the right brick in hand, placed, questions between",
+ "name": "ladder as an instructor runs it: steps given whole, 'this one?' and 'done' wait for the helper, acknowledgements get no sentence, colour taken on the user's word, a misplacement and its picture",
  "guide": "ladder",
  "steps": [
   {
    "user": "I'm ready",
    "expect": [
-    "tan"
+    "tan",
+    "vertical|upright|middle|left of cent"
+   ]
+  },
+  {
+   "user": "Is this the right one",
+   "expect": [
+    "let me|see|look|check|mm"
+   ],
+   "expect_not": [
+    "yes|yep|that's it|right one"
    ]
   },
   {
    "commentary": "Camera: The tan one, in your hand.",
    "expect": [
-    "vertical|middle|left of cent"
+    "yep|yes|that's it|that's the one|right one|good"
    ],
    "expect_not": [
     "turn|closer|still|show me|once it"
    ]
   },
   {
-   "user": "Do you think I got the right piece",
-   "expect": [
-    "yes|right|that's it"
-   ]
+   "user": "Okay",
+   "expect_not": [
+    "\\b\\w{4,}\\b\\W+\\b\\w{4,}\\b\\W+\\b\\w{4,}\\b\\W+\\b\\w{4,}\\b"
+   ],
+   "then": 4
   },
   {
    "user": "Okay, I put it down",
-   "expect_not": [
-    "white"
+   "expect": [
+    "let me|see|look|check|mm"
    ],
-   "then": 4
+   "expect_not": [
+    "white|done|that's step"
+   ]
   },
   {
    "commentary": "Progress: 1 of 5 steps done; the user is on step 2 (white 1x6).",
    "expect": [
     "done|step (one|two|1|2)|that's it|good|nice",
-    "white"
+    "white",
+    "right of|four|vertical|upright|level"
    ]
   },
   {
-   "commentary": "Camera: The white one, in your hand.",
+   "user": "Which step am I on now",
    "expect": [
-    "vertical|right of|four"
+    "two|2|second"
    ]
   },
   {
-   "commentary": "Camera: The picture I'm getting is a bit blurry right now, so I may need an extra look.",
-   "expect": [
-    "blurr|picture|look"
-   ],
+   "user": "Got it",
    "expect_not": [
-    "turn|closer|still|show me|hold"
-   ]
-  },
-  {
-   "user": "Did I finish the first step or not",
-   "expect": [
-    "yes|done|finished"
-   ]
-  },
-  {
-   "user": "So where should I put the white piece",
-   "expect": [
-    "four|right of|vertical"
-   ]
-  },
-  {
-   "user": "Okay, done",
-   "expect_not": [
-    "yellow"
+    "let me see|checking|yellow"
    ],
    "then": 4
   },
   {
-   "commentary": "Camera: The placed brick looks orange to me, but I may be mistaken; it sits between the rails.",
+   "commentary": "Camera: The white one, in your hand.",
    "expect": [
-    "look|may|might|not sure|could be"
-   ],
-   "expect_not": [
-    "wrong|not right|isn't right"
+    "yep|yes|that's it|that's the one|right one|good"
    ]
   },
   {
-   "commentary": "Camera: The white brick is one column too far to the right; move it one column left. Want a picture?",
+   "user": "Okay, done",
+   "expect": [
+    "let me|see|look|check|mm"
+   ],
+   "expect_not": [
+    "yellow"
+   ]
+  },
+  {
+   "commentary": "Camera: The white brick is one column too far right; move it one column left. Want me to show you the picture?",
    "expect": [
     "left",
     "picture|show"
@@ -90,33 +89,76 @@
   {
    "user": "Yes, show me",
    "expect": [
-    "picture|coming|glasses"
+    "picture|coming|glasses|up"
    ]
   },
   {
    "commentary": "Picture: the glasses now show the picture of step 2 (white 1x6).",
    "expect": [
-    "picture|glasses|look|up"
+    "picture|glasses|look|up|there"
    ]
   },
   {
-   "user": "Okay, how about now",
+   "user": "How about now",
+   "expect": [
+    "let me|see|look|check|mm"
+   ],
    "expect_not": [
     "yellow"
+   ]
+  },
+  {
+   "commentary": "Camera: Your hand is still over it, so I can't see the right end; lift your hand for a second.",
+   "expect": [
+    "hand|lift|move"
    ],
-   "then": 4
+   "expect_not": [
+    "wrong|not right"
+   ]
   },
   {
    "commentary": "Progress: 2 of 5 steps done; the user is on step 3 (yellow 1x4).",
    "expect": [
-    "done|step (one|two|1|2)|that's it|good|nice",
-    "yellow"
+    "done|step (two|three|2|3)|that's it|good|nice",
+    "yellow",
+    "between|top row|touching|horizontal|across"
+   ]
+  },
+  {
+   "commentary": "Camera: The one in your hand looks orange to me; the step wants the yellow one, or is that it?",
+   "expect": [
+    "orange|look|may|might|not sure|yellow"
+   ],
+   "expect_not": [
+    "wrong brick|that's wrong|not right"
+   ]
+  },
+  {
+   "user": "No, it's the yellow one",
+   "expect": [
+    "okay|alright|fine|got it|yellow|good|go ahead|then|yep|yes|that's the one"
+   ],
+   "expect_not": [
+    "orange|wrong|not right|are you sure"
+   ]
+  },
+  {
+   "user": "Where does it go again",
+   "expect": [
+    "between|top row|touching|horizontal|across"
+   ]
+  },
+  {
+   "commentary": "Progress: 3 of 5 steps done; the user is on step 4 (blue 1x4).",
+   "expect": [
+    "done|step (three|four|3|4)|that's it|good|nice",
+    "blue"
    ]
   },
   {
    "commentary": "Progress: all 5 steps done, the build is finished.",
    "expect": [
-    "done|finished|complete|built|that's it"
+    "done|finished|complete|built|that's it|over"
    ]
   }
  ]
