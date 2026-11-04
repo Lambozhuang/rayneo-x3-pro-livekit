@@ -273,12 +273,17 @@ async def main() -> None:
             would; the glasses store the frame landscape with a 90 degree rotation, so it is turned upright here."""
             import av
             container = av.open(str(rec / "recording" / "video.mp4"))
+            stream = container.streams.video[0]
+            # the file's own clock starts at its first frame, which video.csv stamps with the wall clock; a stretch
+            # begun partway in seeks to the keyframe before its start instead of decoding everything before it
+            if args.start > frame_times[0] + 1.0:
+                container.seek(int((args.start - frame_times[0] - 1.0) / float(stream.time_base)), stream=stream)
             late = 0
             try:
-                for n, fr in enumerate(container.decode(video=0)):
-                    if n >= len(frame_times):
-                        break
-                    t = frame_times[n] - args.start
+                for fr in container.decode(stream):
+                    if fr.time is None:
+                        continue
+                    t = frame_times[0] + fr.time - args.start
                     if t < 0:
                         continue
                     if t > end:
