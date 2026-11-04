@@ -387,7 +387,7 @@ class Eyes:
             if self._consult is not None:
                 self._consult_now("colour", f"The brick at step {step}'s place sits right, but to the quick look it is not {colour} "
                                             f"({now.colour:.0%} that it is). Is it the {brick}? If it is, call set_progress with {step}; "
-                                            "if it is another colour, say which and that the step wants the {colour} one.", fallback=False)
+                                            f"if it is another colour, say which and that the step wants the {colour} one.", fallback=False)
             return
         if self._wrong_said_at is None and not hand_on and self._agree(lambda r: r.on_plate >= QUICK_SURE and r.right <= WRONG):
             self._wrong_said_at = self._verdict_at = time.monotonic()
