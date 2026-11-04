@@ -39,7 +39,7 @@ The persona was rewritten as the instructor of a video call, after OpenAI's Prom
 | lab call 2026-11-04 16:44 (152 s), persona before | 94 s, 62% | 15 | 21 | 190 | - |
 | scripted whole call, instructor persona (207 s) | 106 s, 51% | 20 | 14 | 159 | median 0.6 s, max 6.7 s |
 
-What the run still showed: the voice repeats the place when it confirms the brick in the hand ("Yep, that's the one; vertical, to the right of the tan...") although the step had given it; the persona now answers "got it" with "good" and the place only when not yet said. The greeting runs 11 s and 40 words on "two or three short sentences".
+What the run still showed, and the smoke runs after it settled: the voice repeated the place when it confirmed the brick in the hand ("Yep, that's the one; vertical, to the right of the tan...") although the step had given it, so the persona now answers "got it" with "good" and a confirmed brick with "Yep, that's the one." alone, which the next smoke run gave (1.9 s). The greeting ran 11 s and 40 words on "two or three short sentences" and 4.5 s and 15 words once the request was one sentence ("I see your table. We're doing LEGO ladder on a baseplate. Say when you're ready."), since the participant is briefed before the session and hears it once a round. One smoke run in five had the voice answer "I put it down" with nothing at all where the others said "Let me see" or "Mm-hm", so the rule now says "at once, every time, never with silence".
 
 ## What the project does with it
 
