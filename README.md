@@ -10,7 +10,7 @@ The LEGO build is the workload of the GPT and Realtime paths. The wearer picks o
 
 The agent has three architectures: GPT-Live with a separate vision model, which runs the LEGO build; OpenAI Realtime alone, which sees the camera itself and runs the LEGO build, as a proof of concept; and Gemini Live alone, which runs no task: it is a general voice assistant that sees through the camera. The Gemini path runs no LEGO build: at the 280 tokens the Live API gives a frame it cannot count studs.
 
-`docs/TASK.md` has the experiment: the task it is based on (ITU-T P.1321's block building), the choices made for ours, what is measured, and the papers behind them. `docs/TODO.md` is the open list.
+`docs/TASK.md` has the experiment: the task it is based on (ITU-T P.1321's block building), the choices made for ours, what is measured, and the papers behind them. `docs/TODO.md` is the open list. `docs/design/` holds one note per design decision, the structures weighed and the measurements that decided; the latest, `2026-11-04-eyes-and-consult.md`, is how the agent came to be a mouth, a pair of eyes and a consult.
 
 ## Architecture
 
