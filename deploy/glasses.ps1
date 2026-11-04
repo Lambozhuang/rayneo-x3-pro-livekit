@@ -128,9 +128,12 @@ $extras += @("--ei", "exposure", $Exposure)
 if ($Mock -or $ExposureSweep -or $MockLab -or $Lab) {
     # The start screen is chosen in onCreate, so a running instance has to go first.
     & adb shell am force-stop $Pkg
+}
+if ($Mock) { $extras += @("--ez", "mock", "true") }
+if ($ExposureSweep) {
     # The last sweep's done marker would end the wait below before this sweep has begun.
-    if ($ExposureSweep) { & adb shell rm -rf "/sdcard/Android/data/$Pkg/files/exposure" }
-    $extras += if ($Mock) { @("--ez", "mock", "true") } else { @("--ez", "exposure_sweep", "true") }
+    & adb shell rm -rf "/sdcard/Android/data/$Pkg/files/exposure"
+    $extras += @("--ez", "exposure_sweep", "true")
 }
 & adb shell am start -n $Activity @extras | Select-Object -Last 1
 Write-Host "launched -> $(if ($Mock) { 'mock call screen' } elseif ($ExposureSweep) { 'exposure sweep' } else { $Endpoint })$(if ($Lab) { ", console $Lab" })$(if ($Record) { ', recording' }), exposure $Exposure"
