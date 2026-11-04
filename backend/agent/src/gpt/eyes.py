@@ -568,14 +568,16 @@ class Eyes:
         """What the latest reading says about the current step's brick, when it says something plainly: in its place,
         or on the plate but not; otherwise None and the brain's model answers alone."""
         r = self.latest
-        if r is None or time.monotonic() - r.at > 3.0 or r.hand >= HAND_ON:
+        if r is None or time.monotonic() - r.at > 3.0:
             return None
         step = min(self._build.step + 1, len(self._build.guide.steps))
         colour = colour_word(self._build.guide.steps[step - 1].brick)
-        # two readings agreeing, as every rule asks: one reading said a brick three rows too low sat right at 0.83
-        if self._agree(lambda q: q.hand < HAND_ON and q.on_plate >= QUICK_SURE and q.right >= RIGHT and q.colour >= RIGHT):
+        # two readings agreeing, as every rule asks: one reading said a brick three rows too low sat right at 0.83. The
+        # hand may be on the plate: the user asking counts the brick as placed, and the rules that wait for the hand
+        # to leave are not this one.
+        if self._agree(lambda q: q.on_plate >= QUICK_SURE and q.right >= RIGHT and q.colour >= RIGHT):
             return f"Camera: the {colour} one looks in its place to me."
-        if self._agree(lambda q: q.hand < HAND_ON and q.on_plate >= QUICK_SURE and q.right <= WRONG):
+        if self._agree(lambda q: q.on_plate >= QUICK_SURE and q.right <= WRONG):
             return f"Camera: the {colour} one is on the plate but not in its place yet."
         return None
 
