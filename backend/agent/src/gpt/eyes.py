@@ -19,8 +19,10 @@ eval/agent-sim/ 2026-11-04). Every rule acts on two readings in a row at QUICK_S
 frame does nothing. The lines:
 
 - the current step's brick in the hand: "Camera: The blue one, in your hand." once per step;
-- the current step's brick on the plate as the step says, hand off, or more steps built right than recorded: the
-  progress moves and the voice hears "Progress: ...";
+- the current step's brick on the plate as the step says and in the step's colour, hand off, or more steps built
+  right than recorded: the progress moves and the voice hears "Progress: ..."; the last step, which ends the task,
+  is confirmed by the brain's model first when the consult is on, since the eyes once called a white brick in the
+  lime brick's place right (the recording of 2026-10-27, eval/agent-sim/);
 - the current step's brick on the plate, hand off, not as the step says, the count unmoved: "Camera: the white one
   is on the plate but not in its place yet." once per attempt (a hand back on it starts a new one), and the brain is
   consulted for the correction; if nothing comes back within CONSULT_WAIT_S the voice is told to say the place once
@@ -78,6 +80,7 @@ FIND_AFTER_S = 12.0  # with nothing in the hand this long after a step was given
 CONSULT_WAIT_S = 4.5  # the correction's words are waited for this long before the voice is told to repeat the place
 WORDS_SURE = 0.5  # words classified less surely than this as needing no eyes are sent to the brain's model all the same
 WORDS_SETTLE_S = 1.2  # pieces of the wearer's turn that come this close together are classified as one
+FINISH_AGAIN_S = 10.0  # the brain's model is asked again whether the build is finished after this long with the count still at the last step
 PLACED_WAIT_S = 2.5  # after "I placed it", the eyes get this long to settle the step before the brain's answer is spoken
 TIMEOUT_S = 5.0
 
@@ -120,9 +123,12 @@ def scene_questions(guide: Guide) -> list[dict]:
 
 
 def step_questions(guide: Guide, k: int) -> list[dict]:
-    """The three questions about the brick of step k (1-based)."""
+    """The four questions about the brick of step k (1-based)."""
     step = guide.steps[min(k, len(guide.steps)) - 1]
     return [
+        {"type": "predicate", "name": "colour",
+         "instructions": f"Is the brick lying at step {k}'s place on the baseplate {colour_word(step.brick)}, the colour step {k} "
+                         "names, and not a brick of another colour?"},
         {"type": "predicate", "name": "on_plate",
          "instructions": f"Is the {step.brick} of step {k} resting on the baseplate, pressed on, with no hand on it?"},
         {"type": "predicate", "name": "right",
@@ -158,6 +164,7 @@ class Reading:
     done_sure: float
     on_plate: float
     right: float
+    colour: float  # the brick at the step's place is the step's colour
     where: str
     where_sure: float
     blurry: float
@@ -169,7 +176,7 @@ class Reading:
         held = f"the {guide.steps[int(self.in_hand[5:]) - 1].brick}" if self.in_hand.startswith("step ") else self.in_hand
         return (f"The quick look, {time.monotonic() - self.at:.0f} s ago: hand on the plate {'yes' if self.hand >= HAND_ON else 'no'}; "
                 f"in the hand {held} ({self.in_hand_sure:.0%} sure); steps built right {self.done} ({self.done_sure:.0%} sure); "
-                f"the step's brick on the plate {self.on_plate:.0%}, placed as the step says {self.right:.0%}; "
+                f"the step's brick on the plate {self.on_plate:.0%}, placed as the step says {self.right:.0%}, its colour {self.colour:.0%}; "
                 f"picture {'blurry' if self.blurry >= 0.5 else 'clear'}.")
 
 
@@ -194,6 +201,7 @@ class Eyes:
         self._said_in_hand = self._said_doubt = self._said_where = False
         self._wrong_said_at: float | None = None  # the attempt the "not in its place" line was said for
         self._hand_was_on = False
+        self._finish_asked_at: float | None = None  # when the brain's model was last asked whether the build is finished
         self._step_given_at = time.monotonic()
         self._blur_said_at: float | None = None
         self._last_line: str | None = None
@@ -248,7 +256,7 @@ class Eyes:
             return  # no new frame since the last reading
         self._read_count = self._tap.count
         self._n += 1
-        step = self._build.step + 1
+        step = min(self._build.step + 1, len(self._build.guide.steps))  # after the last step the questions stay on it
         photo = await asyncio.to_thread(self._jpeg, self._tap.latest)
         text = f"{self._task}\n\nThe photo is what the user's glasses see right now, the desk from above."
         (a, ms1, t1), (b, ms2, t2) = await asyncio.gather(
@@ -262,6 +270,7 @@ class Eyes:
                           in_hand_p={p["value"]: p["probability"] for p in in_hand.get("probabilities", [])},
                           done=int(a["done"]["choice"]), done_sure=a["done"].get("confidence", 0.0),
                           on_plate=a["on_plate"]["probability"], right=a["right"]["probability"],
+                          colour=a["colour"]["probability"],
                           where=a["where"]["choice"], where_sure=a["where"].get("confidence", 0.0),
                           blurry=a["blurry"]["probability"], ms=ms, tokens=tokens)
         before = self._readings[-1] if self._readings else None
@@ -273,10 +282,11 @@ class Eyes:
         self._record.event("quick", n=self._n, ms=ms, tokens=tokens, step=step, hand=round(reading.hand, 2),
                            in_hand=reading.in_hand, in_hand_sure=round(reading.in_hand_sure, 2), done=reading.done,
                            done_sure=round(reading.done_sure, 2), on_plate=round(reading.on_plate, 2),
-                           right=round(reading.right, 2), where=reading.where, blurry=round(reading.blurry, 2))
-        logger.info("eyes: #%d %d ms step %d hand %.2f in_hand %s (%.2f) done %d (%.2f) on %.2f right %.2f where %s blurry %.2f",
+                           right=round(reading.right, 2), colour=round(reading.colour, 2), where=reading.where,
+                           blurry=round(reading.blurry, 2))
+        logger.info("eyes: #%d %d ms step %d hand %.2f in_hand %s (%.2f) done %d (%.2f) on %.2f right %.2f colour %.2f where %s blurry %.2f",
                     self._n, ms, step, reading.hand, reading.in_hand, reading.in_hand_sure, reading.done, reading.done_sure,
-                    reading.on_plate, reading.right, reading.where, reading.blurry)
+                    reading.on_plate, reading.right, reading.colour, reading.where, reading.blurry)
         await self._act(before, reading)
 
     async def _ask_decisions(self, text: str, photo: bytes | None, qs: list[dict]) -> tuple[dict, int, int]:
@@ -319,6 +329,8 @@ class Eyes:
     async def _act(self, before: Reading | None, now: Reading) -> None:
         build = self._build
         step = now.step
+        if self._build.finished:
+            return  # the task is over: the glasses hang up once the voice has said so
         if step != self._step_told:
             self._step_told = step
             self._said_in_hand = self._said_doubt = self._said_where = False
@@ -329,16 +341,23 @@ class Eyes:
         hand_on = now.hand >= HAND_ON
         if self._hand_was_on and not hand_on:
             self._wrong_said_at = None  # the hand was on the plate and left: a new attempt
+            self._finish_asked_at = None
         self._hand_was_on = hand_on
+        last = len(build.guide.steps)
 
         if step > len(build.guide.steps):
             return  # finished
         # the step's brick on the plate as the step says, hand off: the step is done; or more steps counted built right
         if now.done > build.step and not hand_on and self._agree_on(lambda r: r.done, now.done, lambda r: r.done_sure, 0.5):
+            if now.done == last and not await self._finish():
+                return
             await self.progress(now.done, f"the quick look counts {now.done} steps built right, {now.done_sure:.0%} sure", "quick look")
             return
-        if not hand_on and self._agree(lambda r: r.on_plate >= QUICK_SURE and r.right >= RIGHT):
-            await self.progress(step, f"the quick look sees the {brick} on the plate as the step says, {now.right:.0%} sure", "quick look")
+        if not hand_on and self._agree(lambda r: r.on_plate >= QUICK_SURE and r.right >= RIGHT and r.colour >= RIGHT):
+            if step == last and not await self._finish():
+                return
+            await self.progress(step, f"the quick look sees the {brick} on the plate as the step says, {now.right:.0%} sure, "
+                                      f"its colour {now.colour:.0%}", "quick look")
             return
         # the current step's brick in the hand: told once per step
         if not self._said_in_hand and self._agree_on(lambda r: r.in_hand, f"step {step}", lambda r: r.in_hand_sure):
@@ -354,6 +373,15 @@ class Eyes:
                 self.speak([f"Camera: in your hand, the {names[0]} one or the {names[1]} one, I can't tell which from here."], "quick")
                 return
         # the step's brick on the plate, hand off, not as the step says, the count unmoved: not in its place yet
+        # the step's brick on the plate, sitting right, but not the step's colour to the eyes: the brain's model is asked
+        # quietly, since the eyes misread white under a dark exposure and a wrong "not quite" costs more than a second
+        if self._wrong_said_at is None and not hand_on and self._agree(lambda r: r.on_plate >= QUICK_SURE and r.right >= RIGHT and r.colour <= WRONG):
+            self._wrong_said_at = time.monotonic()
+            if self._consult is not None:
+                self._consult_now("colour", f"The brick at step {step}'s place sits right, but to the quick look it is not {colour} "
+                                            f"({now.colour:.0%} that it is). Is it the {brick}? If it is, call set_progress with {step}; "
+                                            "if it is another colour, say which and that the step wants the {colour} one.", fallback=False)
+            return
         if self._wrong_said_at is None and not hand_on and self._agree(lambda r: r.on_plate >= QUICK_SURE and r.right <= WRONG):
             self._wrong_said_at = self._verdict_at = time.monotonic()
             if self._consult is None:  # the eyes alone: one line, the place said again and the picture offered
@@ -361,7 +389,9 @@ class Eyes:
                             "and offer the picture."], "eyes")
                 return
             self.speak([f"Camera: the {colour} one is on the plate but not in its place yet."], "quick")
-            self._consult_now("placement", f"The {brick} of step {step} is on the plate but not where the step puts it; say what is "
+            doubt = (f"The brick at that place may not be {colour} at all ({now.colour:.0%} that it is): check the colour first, since "
+                     f"a brick of another colour is not the step's brick, whatever its place. " if now.colour <= WRONG else "")
+            self._consult_now("placement", f"The {brick} of step {step} is on the plate but not as the step says. {doubt}Say what is "
                                            "wrong and what would make it right, in one sentence.", fallback=True)
             return
         # the picture blurry
@@ -378,6 +408,20 @@ class Eyes:
             self._said_where = True
             spoken = dict(WHERE)[now.where]
             self.speak([f"Camera: the {colour} one is {spoken}."], "quick")
+
+    async def _finish(self) -> bool:
+        """Whether the eyes may call the build finished by themselves: yes with the consult off; with it on, the
+        brain's model is asked once per attempt and moves the progress itself when it agrees, since finishing ends
+        the task on the glasses."""
+        if self._consult is None:
+            return True
+        if self._finish_asked_at is None or time.monotonic() - self._finish_asked_at >= FINISH_AGAIN_S:
+            self._finish_asked_at = time.monotonic()
+            n = len(self._build.guide.steps)
+            self._consult_now("finish", f"The quick look counts all {n} steps built. Is the build finished as the steps say, every "
+                                        f"brick its step's colour in its place? If it is, call set_progress with {n}; if not, say "
+                                        "in one sentence what is still off.", fallback=False)
+        return False
 
     # ------------------------------------------------------------------ the wearer's words
 
@@ -422,7 +466,8 @@ class Eyes:
         if kind in ("scene", "disagrees") or (sure < WORDS_SURE and kind in ("steps", "other") and self._consult is not None):
             # an unclear classification goes to the brain's model too: a wasted request is cheap, an unanswered question is not
             self._consult_now("words", f'The user just said: "{text}". Answer them in one sentence from what the photo shows, '
-                                       "starting with the answer; if you cannot see what they ask about, say what is in the way.",
+                                       "starting with the answer; if you cannot see what they ask about, say what is in the way; if the words need "
+                                       "no answer about the desk, an acknowledgement or small talk, call no tool.",
                               fallback=False)
         elif kind == "picture":
             line = await self._show(min(self._build.step + 1, len(self._build.guide.steps)))

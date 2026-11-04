@@ -34,6 +34,10 @@ A was built first and ran in simulation (tag `instructor-a`). Its weakness was t
 
 In the last runs the brick in the hand was confirmed 0.3 s after the eyes' line, a step done 0.3 s after the hand left, a misplaced white brick called "not quite" with "three columns too far right" 2.2 s later, and "I put it there" on the lime brick the camera shows as yellow settled in 3.5 s by the consult. The voice spoke 30 to 40 percent of the time at 8 to 12 words a turn.
 
+## What a real recording added
+
+The simulation then played a glasses recording (`eval/agent-sim/`, the ladder of 2026-10-27, video at 15 fps and the wearer's own voice). On continuous frames the eyes called a white brick in the last brick's place right and finished the build, which on the glasses ends the task; so the step questions ask the brick's colour too, the step rule needs it, the last step is confirmed by the brain's model before the build is called finished, and a colour the eyes doubt on a brick that sits right goes to the brain's model quietly rather than as "not quite". Under the recording's dark exposure the eyes' colour answers were the least reliable of the seven.
+
 ## Open until the glasses have run it
 
-How often a right placement is called "not quite" on live frames at fifteen a second, where the simulation had one frame every two seconds; how long the first consult of a call takes on the lab PC; how often GPT-Live still hands over, and how it takes "let me look"; whether the eyes' doubt line about two colours reads as a question to the wearer; what the eyes make of the plate under a 0.25 Mbps cap, where the frames are blurred (`eval/brain-blur-perception/` graded them with terra, not luna). The device checks are listed in `docs/TODO.md`.
+How often a right placement is called "not quite" on live frames at the lab's exposure, where the recording had the darker one; how long the first consult of a call takes on the lab PC; how often GPT-Live still hands over, and how it takes "let me look"; whether the eyes' doubt line about two colours reads as a question to the wearer; what the eyes make of the plate under a 0.25 Mbps cap, where the frames are blurred (`eval/brain-blur-perception/` graded them with terra, not luna). The device checks are listed in `docs/TODO.md`.

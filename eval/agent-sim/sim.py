@@ -29,12 +29,14 @@ import json
 import logging
 import statistics as st
 import sys
+import threading
 import time
 import wave
 from pathlib import Path
 from types import SimpleNamespace
 
 import dotenv
+import numpy as np
 from PIL import Image
 
 HERE = Path(__file__).resolve().parent
@@ -92,6 +94,8 @@ async def main() -> None:
     ap.add_argument("--quick-every", type=float, default=1.0)
     ap.add_argument("--voice", default="marin")
     ap.add_argument("--no-consult", action="store_true", help="the eyes alone judge, as BRAIN_CONSULT=off")
+    ap.add_argument("--photos", action="store_true", help="play the record's photos and TTS of the transcript even when a recording exists")
+    ap.add_argument("--guide", default=None, help="a task directory to use instead of the record's guide, as the task was when it was recorded")
     args = ap.parse_args()
 
     rec = Path(args.record)
@@ -99,11 +103,37 @@ async def main() -> None:
         rec = ROOT / rec  # the voice harness, imported above, moves the process to backend/agent
     ev = [json.loads(line) for line in open(rec / "events.jsonl", encoding="utf-8")]
     call = ev[0]
-    guide = load_guide(ROOT / "backend" / "agent" / "guides" / call["guide"] / "task.toml")
+    guide_dir = Path(args.guide) if args.guide else ROOT / "backend" / "agent" / "guides" / call["guide"]
+    if not guide_dir.is_absolute():
+        guide_dir = ROOT / guide_dir
+    guide = load_guide(guide_dir / "task.toml")
     photos = [(e["t"], rec / e["photo"]) for e in ev if e["kind"] == "watch_sent" and e.get("photo")]
     words = [(e["started"] if e.get("started") is not None else e["t"], e["text"].strip())
              for e in ev if e["kind"] == "said" and e["who"] == "wearer" and (e.get("text") or "").strip()]
     end = args.until if args.until else max(e["t"] for e in ev) + 5.0
+    # a glasses recording (deploy/glasses.ps1 -Record): the video at 15 fps and the wearer's own voice, each frame and
+    # chunk stamped with the wall clock it was captured at, which the call event's wall_ms puts on the record's clock
+    recording = (rec / "recording" / "video.mp4").exists() and not args.photos
+    frame_times: list[float] = []
+    mic_pcm, mic_t = b"", 0.0
+    if recording:
+        rows = [l.split(",") for l in (rec / "recording" / "video.csv").read_text(encoding="utf-8").splitlines()[1:]]
+        frame_times = [(int(r[2]) - call["wall_ms"]) / 1000 for r in rows]
+        mic_rows = (rec / "recording" / "mic.csv").read_text(encoding="utf-8").splitlines()[1:]
+        mic_t = (int(mic_rows[0].split(",")[0]) - call["wall_ms"]) / 1000
+        with wave.open(str(rec / "recording" / "mic.wav")) as w:
+            rate, raw = w.getframerate(), w.readframes(w.getnframes())
+        x = np.frombuffer(raw, dtype=np.int16)
+        if rate != vs.SAMPLE_RATE:  # 48 kHz on the glasses, 24 kHz into GPT-Live: the mean of each pair of samples
+            step_n = rate // vs.SAMPLE_RATE
+            x = x[: len(x) // step_n * step_n].reshape(-1, step_n).mean(axis=1).astype(np.int16)
+        mic_end = mic_t + len(x) / vs.SAMPLE_RATE
+        if not args.until:
+            end = min(frame_times[-1], mic_end)
+        skip = max(0.0, args.start - mic_t)  # a stretch begun after the microphone started skips that much audio
+        mic_pcm = x[int(skip * vs.SAMPLE_RATE):].tobytes()
+        mic_t = max(0.0, mic_t - args.start)
+        photos, words = [], []
     photos = [(t - args.start, p) for t, p in photos if args.start <= t <= end]
     words = [(t - args.start, w) for t, w in words if args.start <= t <= end]
     end -= args.start
@@ -115,12 +145,16 @@ async def main() -> None:
 
     out = HERE / "out"
     out.mkdir(exist_ok=True)
-    print(f"simulating {rec.name}: {len(photos)} photos, {len(words)} wearer lines, {end:.0f} s")
-
-    openai = OpenAI()
-    print("making the wearer's lines as speech...", end=" ", flush=True)
-    speech = [(t, text, vs.tts(openai, text, ROOT / "eval" / "voice-script" / "out" / "tts")) for t, text in words]
-    print("done")
+    if recording:
+        print(f"simulating {rec.name} from its recording: {sum(1 for t in frame_times if args.start <= t <= args.start + end)} frames "
+              f"at 15 fps, the wearer's own voice from {mic_t:.1f} s, {end:.0f} s")
+        speech = []
+    else:
+        print(f"simulating {rec.name}: {len(photos)} photos, {len(words)} wearer lines, {end:.0f} s")
+        openai = OpenAI()
+        print("making the wearer's lines as speech...", end=" ", flush=True)
+        speech = [(t, text, vs.tts(openai, text, ROOT / "eval" / "voice-script" / "out" / "tts")) for t, text in words]
+        print("done")
 
     clock = vs.Clock()
     mic = vs.ScriptMic(clock)
@@ -227,9 +261,45 @@ async def main() -> None:
         f'Greet the wearer in one short sentence: you can see their table, this round is "{guide.title}" in two or '
         "three words, and they should say when they are ready. Do not describe the build or a step."))
 
+    if recording:
+        def play_video() -> None:
+            """Decodes the recording and makes each frame the newest at the second it was captured, as the camera
+            would; the glasses store the frame landscape with a 90 degree rotation, so it is turned upright here."""
+            import av
+            container = av.open(str(rec / "recording" / "video.mp4"))
+            late = 0
+            try:
+                for n, fr in enumerate(container.decode(video=0)):
+                    if n >= len(frame_times):
+                        break
+                    t = frame_times[n] - args.start
+                    if t < 0:
+                        continue
+                    if t > end:
+                        break
+                    wait = t - (clock.now() - t_start)
+                    if wait > 0:
+                        time.sleep(wait)
+                    elif wait < -0.15:
+                        late += 1  # behind: this frame is decoded and dropped, the next one shown on time
+                        continue
+                    arr = np.ascontiguousarray(np.rot90(fr.to_ndarray(format="rgb24"), k=-1))  # landscape to upright
+                    tap(rtc.VideoFrame(arr.shape[1], arr.shape[0], rtc.VideoBufferType.RGB24, arr.tobytes()), session)
+            finally:
+                container.close()
+                if late:
+                    log.warning("video: %d frames dropped, the decoder behind by more than 0.15 s", late)
+                    record.event("sim_video", dropped=late)
+        threading.Thread(target=play_video, name="video", daemon=True).start()
+
     i_p = i_w = 0
+    mic_started = not recording
     while True:
         now = clock.now() - t_start
+        if not mic_started and now >= mic_t:
+            mic.say(mic_pcm)
+            record.event("sim_mic", at=mic_t, length_s=round(len(mic_pcm) / (vs.SAMPLE_RATE * 2), 1))
+            mic_started = True
         while i_p < len(photos) and photos[i_p][0] <= now:
             img = Image.open(io.BytesIO(photos[i_p][1].read_bytes())).convert("RGB")
             tap(rtc.VideoFrame(img.width, img.height, rtc.VideoBufferType.RGB24, img.tobytes()), session)
