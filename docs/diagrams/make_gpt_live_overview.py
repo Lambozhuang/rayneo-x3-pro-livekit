@@ -41,15 +41,15 @@ T_LABEL = 15                     # what it is, what a connection carries
 PAD = 28
 INSET = 16                       # inside the server frame
 CW, CH = 236, 84                 # a component card
-RC = 200                         # the row's centre line
+RC = 250                         # the row's centre line
 GLX = PAD                        # glasses
 SX1 = GLX + CW + 170             # our server: room for the Wi-Fi link's label
 LKX = SX1 + INSET                # livekit-server
 AGX = LKX + CW + 92              # the agent
 SX2 = AGX + CW + INSET
 KX = SX2 + 176                   # the model APIs
-K1, K2 = RC - 54, RC + 54        # their centre lines
-W, H = int(KX + CW + PAD), int(K2 + CH / 2 + 24)
+K1, K2, K3 = RC - 104, RC, RC + 104   # their centre lines: the voice, the eyes, the consult
+W, H = int(KX + CW + PAD), int(K3 + CH / 2 + 24)
 
 
 def icon(name: str) -> str:
@@ -114,7 +114,7 @@ def build(t: dict) -> str:
     add('</defs>')
 
     text(PAD, 46, "GPT-Live path: deployment", T_TITLE, "start", weight=600)
-    text(PAD, 78, "The glasses and one server on the lab network; only the server reaches the model APIs",
+    text(PAD, 78, "The glasses and one server on the lab network; only the server reaches the three model APIs",
          T_SUB, "start", t["muted"])
 
     glasses = (f'fill="none" stroke="{t["accent"]}" stroke-width="1.9" '
@@ -125,23 +125,25 @@ def build(t: dict) -> str:
     xf = SX2 + 32                # where the agent's two links fork
     ftop, fbot = RC - CH / 2 - 44, RC + CH / 2 + INSET
     band(GLX + CW + 8, SX1 - 8, ftop, fbot, t["accent"])
-    band(SX2 + 8, KX - 8, ftop, fbot, t["hop"])
-    text((xf + KX) / 2, RC + 6, "internet", T_LABEL, colour=t["muted"], weight=600)
+    band(SX2 + 8, KX - 8, K1 - CH / 2 - 30, K3 + CH / 2 + INSET, t["hop"])
+    text((xf + KX) / 2, K1 - CH / 2 - 12, "internet", T_LABEL, colour=t["muted"], weight=600)
     box(SX1, ftop, SX2 - SX1, fbot - ftop, fill=t["frame"])
     band(LKX + CW + 8, AGX - 8, RC - CH / 2, RC + CH / 2, t["hop"])
     text(SX1 + INSET, RC - CH / 2 - 16, "Our server · lab PC", T_LABEL, "start", t["muted"], 600)
     component(LKX, RC, "livekit", f'fill="{t["livekit"]}"', 28, "livekit-server", "SFU, relays the media")
     component(AGX, RC, "python", f'fill="{t["python"]}"', 30, "Python agent", "LiveKit Agents")
 
-    component(KX, K1, "openai", f'fill="{t["text"]}"', 30, "gpt-live-1", "OpenAI", t["api_edge"])
-    component(KX, K2, "anthropic", f'fill="{t["text"]}"', 26, "Claude Sonnet 5.5", "Anthropic", t["api_edge"])
+    component(KX, K1, "openai", f'fill="{t["text"]}"', 30, "gpt-live-1", "OpenAI Live API", t["api_edge"])
+    component(KX, K2, "openai", f'fill="{t["text"]}"', 30, "gpt-6-luna", "OpenAI Decisions API", t["api_edge"])
+    component(KX, K3, "openai", f'fill="{t["text"]}"', 30, "gpt-6.1-terra", "OpenAI Responses API", t["api_edge"])
 
     link([(GLX + CW + 6, RC), (LKX - 6, RC)], t["accent"], "head", "WebRTC over Wi-Fi", "the link under test", t["accent"])
     link([(LKX + CW + 6, RC), (AGX - 6, RC)], t["muted"], "headm", "WebRTC", "loopback")
-    link([(AGX + CW + 6, RC - 16), (xf, RC - 16), (xf, K1), (KX - 6, K1)], t["api"], "headv",
+    link([(AGX + CW + 6, RC - 20), (xf, RC - 20), (xf, K1), (KX - 6, K1)], t["api"], "headv",
          "WebSocket", [])
-    link([(AGX + CW + 6, RC + 16), (xf, RC + 16), (xf, K2), (KX - 6, K2)], t["api"], "headv",
-         "HTTPS", [])
+    link([(AGX + CW + 6, RC), (KX - 6, RC)], t["api"], "headv", "HTTPS", [])
+    link([(AGX + CW + 6, RC + 20), (xf, RC + 20), (xf, K3), (KX - 6, K3)], t["api"], "headv",
+         "WebSocket", [])
 
     add("</svg>")
     return "\n".join(out)

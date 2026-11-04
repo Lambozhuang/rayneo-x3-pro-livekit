@@ -1,12 +1,11 @@
-"""Build the GPT-Live path's agent architecture diagram: the components inside the agent, the mechanisms between
-GPT-Live and the brain, and what each connection carries. SVG + 2x PNG, white background.
+"""Build the GPT-Live path's agent architecture diagram: the three parts inside the agent (the GPT-Live session, the
+eyes, the consult), the lines between them, and what each connection carries. SVG + 2x PNG, white background.
 
-Written for a technical reader: components and mechanisms by the names the code gives them (GPT-Live session,
-brain, delegation, commentary, thinking, watch, set_progress), each connection labelled with what it carries and
-its key parameters. Sized for a slide: a slide shrinks the figure to the screen's width, so the type is set large
-against the figure's width and long explanations wrap rather than widen it. Same recipe as
-make_gpt_live_overview.py (hand-laid-out SVG, headless-Chrome 2x PNG); the helpers are copied rather than
-imported because that script renders on import.
+Written for a technical reader: components and mechanisms by the names the code gives them (GPT-Live session, eyes,
+consult, commentary, words, set_progress), each connection labelled with what it carries and its key figures. Sized
+for a slide: a slide shrinks the figure to the screen's width, so the type is set large against the figure's width and
+long explanations wrap rather than widen it. Same recipe as make_gpt_live_overview.py (hand-laid-out SVG,
+headless-Chrome 2x PNG); the helpers are copied rather than imported because that script renders on import.
 
     python docs/diagrams/make_gpt_live_agent.py
 """
@@ -51,21 +50,26 @@ LX, LW = BX2 + GAP, 150                          # livekit-server: every connect
 LOOP = 92                                        # livekit-server to the agent frame: loopback on our server
 NET = GAP                                        # the internet band stands this far off the frame and the API cards
 FX, FY = LX + LW + LOOP, 104                     # agent frame
-CX, CW = FX + INSET, 504                         # session and brain cards
+CX, CW = FX + INSET, 560                         # the three cards
 FW = CW + 2 * INSET
 INDENT = 16                                      # the rows sit this far in from the card's name
-TERM = 132                                       # the explanation column inside a card, after the functions
+TERM = 150                                       # the explanation column inside a card, after the functions
+BETWEEN = 122                                    # between two cards: room for the lines and their tags
 
 SESSION = [
-    ("Conversation", ["full-duplex speech with the wearer;", "takes audio only, no camera"]),
-    ("Step guidance", ["tells each step from the build plan", "written into its prompt"]),
-    ("Hand-off", ["sends a delegation when an answer", "needs the camera"]),
+    ("Conversation", ["full-duplex speech with the wearer, the", "steps in its prompt; takes audio only"]),
+    ("Instructor", ["gives each step as brick and place, answers", "what the steps and the conversation answer"]),
+    ("Facts to words", ["puts the eyes' lines into speech: \"yep, that's", "the one\", \"good, that's step one\", \"hmm, not quite\""]),
 ]
-BRAIN = [
-    ("Watch", ["looks at the newest frame by itself,", "at most every 2 s; BRAIN_WATCH_SIDE px"]),
-    ("Answer", ["looks at the newest frame for each", "delegation; BRAIN_SIDE px"]),
-    ("Progress", ["records how many steps are built right", "(set_progress), updates the step list"]),
-    ("Context", ["one conversation of its own: every look,", "its replies and tool results; newest photo only"]),
+EYES = [
+    ("Reading", ["the newest frame, every 0.7 s with a hand at", "work, 2 s still, at once on words; 7 typed answers"]),
+    ("Rules", ["two readings agreeing: the brick in the hand,", "the step done, a brick placed but not right, a doubt"]),
+    ("Progress", ["records the steps built right (set_progress),", "updates the step list on the glasses"]),
+    ("Words", ["sorts the wearer's words: about the scene", "or in dispute, to the consult; the picture, shown"]),
+]
+CONSULT = [
+    ("Ask", ["one request with the frame, the step, the eyes'", "reading, the last lines, and the question"]),
+    ("Answer", ["one sentence for the voice: what is wrong and", "how to fix it, or the answer; may move the progress"]),
 ]
 
 
@@ -76,14 +80,16 @@ def card_height(rows) -> float:
 
 
 SY, SH = FY + 44, card_height(SESSION)           # GPT-Live session card
-RY, RH = SY + SH + 104, card_height(BRAIN)       # brain card: room for the three mechanisms between
-FH = RY + RH + INSET - FY
-GY, GH = SY, RY + RH - SY                        # the glasses card is as tall as the two cards
-X_DEL, X_COM, X_THK = CX + 30, CX + 200, CX + 372   # the three wires between them
-KX, KW, KH = CX + CW + LINK, 236, 88             # model API cards
+EY, EH = SY + SH + BETWEEN, card_height(EYES)    # eyes card
+QY, QH = EY + EH + BETWEEN, card_height(CONSULT)  # consult card
+FH = QY + QH + INSET - FY
+GY, GH = SY, QY + QH - SY                        # the glasses card is as tall as the three cards
+X_WORDS, X_FACTS = CX + 40, CX + 300             # the lines between the session and the eyes
+X_ASK, X_SENT = CX + 40, CX + 300                # the lines between the eyes and the consult
+KX, KW, KH = CX + CW + LINK, 250, 92             # model API cards
 W, H = int(KX + KW + PAD), int(FY + FH + 24)
-Y_AUDIO_UP, Y_AUDIO_DOWN = SY + SH / 2 - 18, SY + SH / 2 + 66
-Y_VIDEO, Y_STEPS = RY + RH / 2 - 28, RY + RH / 2 + 40
+Y_AUDIO_UP, Y_AUDIO_DOWN = SY + SH / 2 - 24, SY + SH / 2 + 60
+Y_VIDEO, Y_STEPS = EY + EH / 2 - 30, QY + QH / 2
 
 
 def icon(name: str) -> str:
@@ -106,6 +112,7 @@ def build(t: dict) -> str:
     add = out.append
 
     def text(x, y, s, size, anchor="middle", colour=None, weight=400):
+        s = s.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
         add(f'<text x="{x}" y="{y}" font-size="{size}" font-weight="{weight}" fill="{colour or t["text"]}" '
             f'text-anchor="{anchor}">{s}</text>')
 
@@ -119,9 +126,11 @@ def build(t: dict) -> str:
         add(f'<path d="{d}" fill="none" stroke="{colour}" stroke-width="1.8" '
             f'stroke-linejoin="round"{ms} marker-end="url(#{marker})"/>')
 
-    def component(y, title, rows):
+    def component(y, title, rows, sub=None):
         """A card's name, then one row per function: the function on the left, what it does on the right."""
         text(CX + 20, y + 34, title, T_CARD, "start", weight=600)
+        if sub:
+            text(CX + 20 + len(title) * 12.5 + 10, y + 34, sub, T_LABEL, "start", t["muted"])
         ry = y + 48 + LEAD - 4
         for term, lines in rows:
             text(CX + 20 + INDENT, ry, term, T_ROW, "start", t["text"], 600)
@@ -152,8 +161,8 @@ def build(t: dict) -> str:
     add('</defs>')
 
     text(PAD, 46, "GPT-Live path: agent architecture", T_TITLE, "start", weight=600)
-    text(PAD, 78, "GPT-Live runs the conversation; the brain runs a separate vision model and owns the build state",
-         T_SUB, "start", t["muted"])
+    text(PAD, 78, "GPT-Live speaks; the eyes read the frame through the Decisions API and state the facts; "
+                  "the brain's model is consulted for the words that take judgement", T_SUB, "start", t["muted"])
 
     # glasses and the hop under test
     box(GX, GY, GW, GH)
@@ -167,27 +176,38 @@ def build(t: dict) -> str:
     add(f'<rect x="{BX1}" y="{GY}" width="{BX2 - BX1}" height="{GH}" rx="6" '
         f'fill="{t["band"]}" fill-opacity="0.06"/>')
     bcx = (BX1 + BX2) / 2
-    text(bcx, (SY + SH + RY) / 2 + 2, "WebRTC over Wi-Fi", T_ROW, colour=t["accent"], weight=600)
-    text(bcx, (SY + SH + RY) / 2 + 24, "the link under test", T_LABEL, colour=t["accent"])
+    band_y = (SY + SH + EY) / 2 + 2
+    text(bcx, band_y, "WebRTC over Wi-Fi", T_ROW, colour=t["accent"], weight=600)
+    text(bcx, band_y + 22, "the link under test", T_LABEL, colour=t["accent"])
 
     # the agent
     box(FX, FY, FW, FH, fill=t["frame"])
     add(place("python", FX + INSET + 10, FY + 12, 22, f'fill="{t["python"]}"'))
     text(FX + INSET + 30, FY + 30, "Python agent · LiveKit Agents · our server", T_LABEL, "start", t["muted"], 600)
     box(CX, SY, CW, SH)
-    component(SY, "GPT-Live session", SESSION)
-    box(CX, RY, CW, RH)
-    component(RY, "Brain", BRAIN)
+    component(SY, "GPT-Live session", SESSION, "the mouth")
+    box(CX, EY, CW, EH)
+    component(EY, "Eyes", EYES, "gpt/eyes.py")
+    box(CX, QY, CW, QH)
+    component(QY, "Consult", CONSULT, "gpt/consult.py")
 
-    # GPT-Live <-> brain
-    y1, y2 = SY + SH + 6, RY - 6
-    ym = (y1 + y2) / 2 - 12
-    wire([(X_DEL, y1), (X_DEL, y2)], t["muted"], "headm")
-    wire([(X_COM, y2), (X_COM, y1)], t["muted"], "headm")
-    wire([(X_THK, y2), (X_THK, y1)], t["muted"], "headm")
-    tag(X_DEL + 12, ym, "delegation", ["a question that", "needs the camera"])
-    tag(X_COM + 12, ym, "commentary", ["spoken: answers,", "corrections, progress"])
-    tag(X_THK + 12, ym, "thinking", ["what it sees, not spoken"])
+    # session <-> eyes
+    y1, y2 = SY + SH + 6, EY - 6
+    ym = (y1 + y2) / 2 - 14
+    wire([(X_WORDS, y1), (X_WORDS, y2)], t["muted"], "headm")
+    wire([(X_FACTS, y2), (X_FACTS, y1)], t["muted"], "headm")
+    tag(X_WORDS + 12, ym, "words", ["the wearer's turn as text,", "sorted by what it asks:", "scene, dispute, picture, placed, other"])
+    tag(X_FACTS + 12, ym, "commentary", ["a line of facts, spoken: \"the blue one,",
+                                         "in your hand\", \"1 of 5 steps done\",",
+                                         "\"on the plate but not in its place yet\""])
+
+    # eyes <-> consult
+    y1, y2 = EY + EH + 6, QY - 6
+    ym = (y1 + y2) / 2 - 14
+    wire([(X_ASK, y1), (X_ASK, y2)], t["muted"], "headm")
+    wire([(X_SENT, y2), (X_SENT, y1)], t["muted"], "headm")
+    tag(X_ASK + 12, ym, "ask", ["a brick placed wrong, a question", "about the desk, \"I placed it\";", "a few a call"])
+    tag(X_SENT + 12, ym, "one sentence", ["\"one column too far right, move it", "left\", spoken by the voice after", "\"hmm, not quite\""])
 
     # livekit-server, the SFU between the glasses and the agent: it forwards the media and the attributes as they
     # are, and holds a WebRTC connection of its own to each side
@@ -200,19 +220,16 @@ def build(t: dict) -> str:
     lb1, lb2 = LX + LW + GAP, FX - GAP
     add(f'<rect x="{lb1}" y="{GY}" width="{lb2 - lb1}" height="{GH}" rx="6" fill="{t["hop"]}" fill-opacity="0.08"/>')
     loop_cx = (lb1 + lb2) / 2
-    text(loop_cx, (SY + SH + RY) / 2 + 2, "WebRTC", T_LABEL, colour=t["muted"], weight=600)
-    text(loop_cx, (SY + SH + RY) / 2 + 22, "loopback", T_LABEL, colour=t["muted"])
+    text(loop_cx, band_y, "WebRTC", T_LABEL, colour=t["muted"], weight=600)
+    text(loop_cx, band_y + 20, "loopback", T_LABEL, colour=t["muted"])
 
     # glasses <-> livekit-server <-> agent: each connection in two legs, labelled on the one under test
     gx1, lx0, lx1, cx0 = GX + GW + 4, LX - 4, LX + LW + 4, CX - 6
     lx = (gx1 + lx0) / 2
-    # bitrates on the wire, headers included, from the 2026-10-16 captures (traffic/summary.md): both voices are
-    # Opus with RED, each packet carrying the one before, and sent only while someone speaks (DTX), as LiveKit's SDKs
-    # publish them by default; the video's 4 Mbps cap is ours and not settled yet
-    for y, lines, to_agent in ((Y_AUDIO_UP, ["mic audio, Opus + RED", "LiveKit default", "~75 kbps while speaking"], True),
-                               (Y_AUDIO_DOWN, ["agent speech, Opus + RED", "LiveKit default", "~125 kbps while speaking"], False),
-                               (Y_VIDEO, ["video, H.264", "1080x1920, 15 fps", "~4 Mbps (TBD)"], True),
-                               (Y_STEPS, ["step list,", "participant attributes"], False)):
+    for y, lines, to_agent in ((Y_AUDIO_UP, ["mic audio, Opus + RED", "~75 kbps while speaking"], True),
+                               (Y_AUDIO_DOWN, ["agent speech, Opus + RED", "~125 kbps while speaking"], False),
+                               (Y_VIDEO, ["video, H.265", "1080x1920, 15 fps, ~4 Mbps;", "the eyes and the consult take", "the newest frame"], True),
+                               (Y_STEPS, ["step list (attributes),", "a step's picture when asked"], False)):
         if to_agent:
             wire([(gx1, y), (lx0, y)], t["accent"], "head")
             wire([(lx1, y), (cx0, y)], t["muted"], "headm")
@@ -225,15 +242,15 @@ def build(t: dict) -> str:
     nb1, nb2 = FX + FW + NET, KX - NET
     add(f'<rect x="{nb1}" y="{GY}" width="{nb2 - nb1}" height="{GH}" rx="6" fill="{t["hop"]}" fill-opacity="0.08"/>')
     ncx = (nb1 + nb2) / 2
-    text(ncx, (SY + SH + RY) / 2 + 10, "internet", T_LABEL, colour=t["muted"], weight=600)
-    for line_y, name, size, title, sub, above, below in (
-        (SY + SH / 2, "openai", 30, "gpt-live-1", "OpenAI", ["audio, session events"], "WebSocket"),
-        (RY + RH / 2, "anthropic", 26, "Claude Sonnet 5.5", "Anthropic", ["its conversation and", "the newest frame"],
-         "HTTPS, one per look"),
+    text(ncx, GY + 26, "internet", T_LABEL, colour=t["muted"], weight=600)
+    for line_y, title, sub, above, below in (
+        (SY + SH / 2, "gpt-live-1", "OpenAI Live API", ["audio, session events"], "WebSocket"),
+        (EY + EH / 2, "gpt-6-luna", "OpenAI Decisions API", ["the frame, 7 questions,", "typed answers back, ~0.4 s"], "HTTPS, 2 requests a frame"),
+        (QY + QH / 2, "gpt-6.1-terra", "OpenAI Responses API", ["the frame and the question,", "one sentence back, ~1.3 s"], "WebSocket"),
     ):
         y, h = line_y - KH / 2, KH
         box(KX, y, KW, h, t["api_edge"], width=1.5)
-        add(place(name, KX + 32, y + h / 2 - size / 2, size, f'fill="{t["text"]}"'))
+        add(place("openai", KX + 32, y + h / 2 - 15, 30, f'fill="{t["text"]}"'))
         text(KX + 60, y + h / 2 - 4, title, T_ROW + 2, "start", weight=600)
         text(KX + 60, y + h / 2 + 19, sub, T_LABEL, "start", t["body"])
         wire([(CX + CW + 6, line_y), (KX - 6, line_y)], t["api"], "headv", both=True)
