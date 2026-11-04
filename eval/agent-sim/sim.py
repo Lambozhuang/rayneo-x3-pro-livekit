@@ -377,6 +377,8 @@ def report(run_dir: Path) -> None:
             rows.append((t, f"| {t:.1f} | progress | done={e.get('done')} reopened={e.get('reopened')} basis={e.get('basis')} |"))
         elif k == "words":
             rows.append((t, f"| {t:.1f} | words | {esc(e['text'])} -> {e['words_kind']} |"))
+        elif k == "cut_in":
+            rows.append((t, f"| {t:.1f} | cut in | the voice is told to stop for: {esc(e['text'])} |"))
         elif k == "consult_sent":
             rows.append((t, f"| {t:.1f} | consult | {e['reason']} |"))
         elif k == "say_held":
@@ -424,6 +426,7 @@ def report(run_dir: Path) -> None:
     reopened = [e for e in ev if e["kind"] == "step" and e.get("reopened") is not None]
     if reopened:
         lines.append("- reopened: " + ", ".join(f"step {e['reopened']} at {e['t']:.0f} s" for e in reopened) + ".")
+    lines.append(f"- cut-ins: {sum(1 for e in ev if e['kind'] == 'cut_in')}.")
     lines.append(f"- hand-overs: {sum(1 for e in ev if e['kind'] == 'delegation')}; pokes: {sum(1 for e in ev if e['kind'] == 'poke')}; "
                  f"failed: {sum(1 for e in ev if e['kind'] in ('quick_failed', 'consult_failed'))}, late consults: {sum(1 for e in ev if e['kind'] == 'consult_late')}.")
     (run_dir / "report.md").write_text("\n".join(lines) + "\n", encoding="utf-8")

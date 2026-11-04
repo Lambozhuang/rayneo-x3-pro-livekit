@@ -83,6 +83,7 @@ WORDS_SETTLE_S = 1.2  # pieces of the wearer's turn that come this close togethe
 FINISH_AGAIN_S = 10.0  # the brain's model is asked again whether the build is finished after this long with the count still at the last step
 PLACED_WAIT_S = 2.5  # after "I placed it", the eyes get this long to settle the step before the brain's answer is spoken
 TIMEOUT_S = 5.0
+CUT_IN = "Stop what you are saying at once, mid-sentence, this once: a helper line follows that the user must hear now."
 
 
 def colour_word(brick: str) -> str:
@@ -386,9 +387,9 @@ class Eyes:
             self._wrong_said_at = self._verdict_at = time.monotonic()
             if self._consult is None:  # the eyes alone: one line, the place said again and the picture offered
                 self.speak([f"Camera: the {colour} one is on the plate but not in its place yet; say once more where it goes, "
-                            "and offer the picture."], "eyes")
+                            "and offer the picture."], "eyes", urgent=True)
                 return
-            self.speak([f"Camera: the {colour} one is on the plate but not in its place yet."], "quick")
+            self.speak([f"Camera: the {colour} one is on the plate but not in its place yet."], "quick", urgent=True)
             doubt = (f"The brick at that place may not be {colour} at all ({now.colour:.0%} that it is): check the colour first, since "
                      f"a brick of another colour is not the step's brick, whatever its place. " if now.colour <= WRONG else "")
             self._consult_now("placement", f"The {brick} of step {step} is on the plate but not as the step says. {doubt}Say what is "
@@ -491,11 +492,20 @@ class Eyes:
 
     # ------------------------------------------------------------------ speaking and consulting
 
-    def speak(self, lines: list[str], source: str) -> None:
-        """Hands lines to the voice as one commentary and records it."""
+    def speak(self, lines: list[str], source: str, urgent: bool = False) -> None:
+        """Hands lines to the voice as one commentary and records it. An urgent line that comes while the voice is
+        speaking is preceded by an appended instruction to stop, which makes GPT-Live break off within two seconds
+        and say the line, where a commentary alone waits for the sentence in progress (eval/voice-script,
+        interrupt-*.json, 2026-11-05); used for a step done and a brick placed wrong, the two moments a person
+        interrupts themselves for."""
         line = " ".join(lines)
-        self._record.event("commentary", text=line, source=source, voice_speaking=self._session.agent_state == "speaking")
-        self._session.current_agent.duplex_session.append_commentary(line)
+        speaking = self._session.agent_state == "speaking"
+        duplex = self._session.current_agent.duplex_session
+        if urgent and speaking:
+            self._record.event("cut_in", text=line, source=source)
+            duplex.append_instructions(CUT_IN)
+        self._record.event("commentary", text=line, source=source, voice_speaking=speaking)
+        duplex.append_commentary(line)
         self._last_line, self._last_line_at = lines[-1], time.monotonic()
 
     async def progress(self, done: int, seen: str, basis: str) -> None:
@@ -513,7 +523,7 @@ class Eyes:
         total = len(build.guide.steps)
         where = (f"all {total} steps done, the build is finished" if build.finished else
                  f"{build.step} of {total} steps done; the user is on step {build.step + 1} ({build.guide.steps[build.step].brick})")
-        self.speak([f"Progress: {where}."], basis.replace(" ", "_"))
+        self.speak([f"Progress: {where}."], basis.replace(" ", "_"), urgent=True)
         if picture:
             logger.info("picture: taken off the glasses with the progress")
 

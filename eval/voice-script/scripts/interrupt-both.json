@@ -1,0 +1,10 @@
+{
+ "name": "an appended instruction to stop, and at once the Progress line as commentary: does the voice cut its turn and say the new line",
+ "guide": "ladder",
+ "steps": [
+  {"user": "Before I start, can you explain all five steps to me in detail, one by one", "then": 3},
+  {"instructions": "Stop what you are saying at once, mid-sentence: a helper line has come that the user must hear now.", "then": "none"},
+  {"commentary": "Progress: 1 of 5 steps done; the user is on step 2 (white 1x6).", "expect": ["white"], "then": 8},
+  {"wait": 2}
+ ]
+}

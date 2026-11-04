@@ -1,0 +1,9 @@
+{
+ "name": "does a commentary cut into a long turn: the wearer asks for all the steps, and three seconds in a Progress line arrives",
+ "guide": "ladder",
+ "steps": [
+  {"user": "Before I start, can you explain all five steps to me in detail, one by one", "then": 3},
+  {"commentary": "Progress: 1 of 5 steps done; the user is on step 2 (white 1x6).", "expect": ["white"]},
+  {"wait": 2}
+ ]
+}

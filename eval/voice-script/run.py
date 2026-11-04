@@ -9,6 +9,7 @@ The script is eval/voice-script/scripts/<script>.json: the build and a list of s
                                                  and it goes to GPT-Live as microphone audio at wall-clock pace
     {"commentary": "Progress: 1 of 5 ..."}     a line the brain would have the voice say now (brain.py say / set_progress)
     {"thinking": "Camera: ..."}                a line the brain would give the voice silently (brain.py tell)
+    {"instructions": "..."}                    a rule appended mid-session (session.instructions.append)
     {"wait": 3}                                seconds of nothing
 
 and may carry "then": "quiet" (the default for user and commentary: wait until the voice has answered and been silent
@@ -286,8 +287,8 @@ class Run:
 
         for i, step in enumerate(self.script["steps"], 1):
             self.said_since_step = []
-            kind = next(k for k in ("user", "commentary", "thinking", "wait") if k in step)
-            then = step.get("then", "quiet" if kind in ("user", "commentary") else "none")
+            kind = next(k for k in ("user", "commentary", "thinking", "instructions", "wait") if k in step)
+            then = step.get("then", "quiet" if kind in ("user", "commentary", "instructions") else "none")
             self.event("step", n=i, **{kind: step[kind]}, then=then)
             t_step = self.clock.now()
             if kind == "user":
@@ -300,6 +301,8 @@ class Run:
             elif kind == "thinking":
                 duplex.append_thinking(step["thinking"])
                 last_line[0] = step["thinking"]
+            elif kind == "instructions":  # a standing rule appended mid-session, which the docs say can interrupt speech
+                duplex.append_instructions(step["instructions"])
             elif kind == "wait":
                 await asyncio.sleep(float(step["wait"]))
             if then == "quiet":
@@ -374,7 +377,7 @@ class Run:
         for e in ev:
             k = e["kind"]
             if k == "step":
-                what = {x: e[x] for x in ("user", "commentary", "thinking", "wait") if x in e}
+                what = {x: e[x] for x in ("user", "commentary", "thinking", "instructions", "wait") if x in e}
                 lines.append(f"| {e['t']:.1f} | step {e['n']} | | | | {esc(json.dumps(what, ensure_ascii=False))} |")
             elif k == "said":
                 if e["who"] == "voice" and e.get("started") is not None and e.get("stopped") is not None:

@@ -1,0 +1,20 @@
+{
+ "name": "does an appended instruction cut into a long turn: the wearer asks for all the steps, and three seconds in an instruction tells the voice to stop and say the step is done",
+ "guide": "ladder",
+ "steps": [
+  {
+   "user": "Before I start, can you explain all five steps to me in detail, one by one",
+   "then": 3
+  },
+  {
+   "instructions": "Stop what you are saying at once, mid-sentence, and say only this: step one is done, now the white one by six, vertical to the right of the tan one.",
+   "expect": [
+    "white"
+   ],
+   "then": 8
+  },
+  {
+   "wait": 2
+  }
+ ]
+}
