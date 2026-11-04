@@ -156,6 +156,13 @@ async def rayneo_assistant(ctx: JobContext) -> None:
                 if ev.item.role == "user" and (ev.item.text_content or "").strip():
                     asyncio.create_task(eyes.words(ev.item.text_content), name="words")  # a look now, and the words routed
 
+    # The transcript's interim pieces, as the wearer speaks: the eyes look when they begin and act on a question from
+    # the moment it is clear, 0.8 s of silence before the turn closes.
+    @session.on("user_input_transcribed")
+    def _interim(ev) -> None:
+        if not ev.is_final and (ev.transcript or "").strip():
+            asyncio.create_task(eyes.words(ev.transcript, final=False), name="words_interim")
+
     await session.start(
         agent=Agent(instructions=persona),
         room=ctx.room,

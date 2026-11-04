@@ -80,6 +80,7 @@ FIND_AFTER_S = 12.0  # with nothing in the hand this long after a step was given
 CONSULT_WAIT_S = 4.5  # the correction's words are waited for this long before the voice is told to repeat the place
 WORDS_SURE = 0.5  # words classified less surely than this as needing no eyes are sent to the brain's model all the same
 WORDS_SETTLE_S = 1.2  # a piece of the wearer's turn that follows the first this closely is joined to it and the turn reclassified
+INTERIM_SETTLE_S = 0.4  # an interim transcript is routed once no newer one has come for this long: the deltas come word by word
 FINISH_AGAIN_S = 10.0  # the brain's model is asked again whether the build is finished after this long with the count still at the last step
 PLACED_WAIT_S = 2.5  # after "I placed it", the eyes get this long to settle the step before the brain's answer is spoken
 TIMEOUT_S = 5.0
@@ -211,6 +212,8 @@ class Eyes:
         self._verdict_at: float | None = None  # when the step was last settled, by the progress or a "not in its place" line
         self._pieces: list[str] = []  # the wearer's turn as it comes through, each piece reclassifying the whole
         self._pieces_at: float = 0.0
+        self._interim_at: float = 0.0  # when an interim transcript of the turn under way last came
+        self._interim_task: asyncio.Task | None = None  # routes the latest interim once the deltas pause
         self._routed: tuple[str, str] | None = None  # the turn's text and kind last acted on
 
     # ------------------------------------------------------------------ the loop
@@ -223,6 +226,8 @@ class Eyes:
             self._task_handle.cancel()
         if self._consulting is not None:
             self._consulting.cancel()
+        if self._interim_task is not None:
+            self._interim_task.cancel()
 
     async def stop(self) -> None:
         self.cancel()
@@ -427,18 +432,34 @@ class Eyes:
 
     # ------------------------------------------------------------------ the wearer's words
 
-    async def words(self, text: str) -> None:
-        """The wearer's words as they come through: a reading now, and the words classified and routed at once. The
-        transcript hands a turn over in pieces ("I I do it" / "right"), so a piece that follows within WORDS_SETTLE_S
-        is joined to the turn and the whole reclassified; the earlier action stands unless the kind changed."""
-        self.poke("the wearer's words")
+    async def words(self, text: str, final: bool = True) -> None:
+        """The wearer's words as they come through, classified and routed at once. An interim transcript (final False,
+        the turn still under way, its text so far) takes a reading when it is the turn's first and is routed from
+        three words on, so a question is answered from the moment it is clear rather than 0.8 s of silence later; the
+        closed turn (final True) takes a reading and is routed, a piece that follows within WORDS_SETTLE_S joined to
+        it ("I I do it" / "right"), and what was done for an earlier text of the same kind stands."""
         now = time.monotonic()
         self._user_spoke_at = now
+        text = text.strip()
+        if not final:
+            if now - self._interim_at > 2.0:
+                self.poke("the wearer begins to speak")
+            self._interim_at = now
+            if self._interim_task is not None and not self._interim_task.done():
+                self._interim_task.cancel()
+            if len(text.split()) >= 3:
+                self._interim_task = asyncio.create_task(self._route_settled(text), name="words_interim")
+            return
+        self.poke("the wearer's words")
         if now - self._pieces_at > WORDS_SETTLE_S:
             self._pieces = []
-        self._pieces.append(text.strip())
+        self._pieces.append(text)
         self._pieces_at = now
         await self._route(" ".join(self._pieces))
+
+    async def _route_settled(self, text: str) -> None:
+        await asyncio.sleep(INTERIM_SETTLE_S)
+        await self._route(text)
 
     async def _route(self, text: str) -> None:
         """The wearer's turn, classified by the same API on the text and the lines before it, and routed: a question
@@ -461,8 +482,8 @@ class Eyes:
         kind, sure = a["kind"]["choice"], a["kind"].get("confidence", 0.0)
         self._record.event("words", text=text, words_kind=kind, sure=round(sure, 2), ms=ms)
         logger.info("eyes: words %r -> %s (%.2f)", text, kind, sure)
-        if self._routed is not None and self._routed[1] == kind and text.startswith(self._routed[0]):
-            return  # a later piece of the same turn, the same kind: what was done for the first piece stands
+        if self._routed is not None and self._routed[1] == kind and (text.startswith(self._routed[0]) or self._routed[0].startswith(text)):
+            return  # the same turn, longer or closed, the same kind: what was done for the earlier text stands
         self._routed = (text, kind)
         if kind in ("scene", "disagrees") or (sure < WORDS_SURE and kind in ("steps", "other") and self._consult is not None):
             # an unclear classification goes to the brain's model too: a wasted request is cheap, an unanswered question is not
@@ -547,13 +568,14 @@ class Eyes:
         """What the latest reading says about the current step's brick, when it says something plainly: in its place,
         or on the plate but not; otherwise None and the brain's model answers alone."""
         r = self.latest
-        if r is None or time.monotonic() - r.at > 3.0 or r.hand >= HAND_ON or r.on_plate < QUICK_SURE:
+        if r is None or time.monotonic() - r.at > 3.0 or r.hand >= HAND_ON:
             return None
         step = min(self._build.step + 1, len(self._build.guide.steps))
         colour = colour_word(self._build.guide.steps[step - 1].brick)
-        if r.right >= RIGHT and r.colour >= RIGHT:
+        # two readings agreeing, as every rule asks: one reading said a brick three rows too low sat right at 0.83
+        if self._agree(lambda q: q.hand < HAND_ON and q.on_plate >= QUICK_SURE and q.right >= RIGHT and q.colour >= RIGHT):
             return f"Camera: the {colour} one looks in its place to me."
-        if r.right <= WRONG:
+        if self._agree(lambda q: q.hand < HAND_ON and q.on_plate >= QUICK_SURE and q.right <= WRONG):
             return f"Camera: the {colour} one is on the plate but not in its place yet."
         return None
 

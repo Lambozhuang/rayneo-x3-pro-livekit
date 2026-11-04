@@ -218,6 +218,12 @@ async def main() -> None:
             if who == "wearer" and (e.item.text_content or "").strip():
                 asyncio.create_task(eyes.words(e.item.text_content), name="words")
 
+    @session.on("user_input_transcribed")
+    def _interim(e) -> None:
+        if not e.is_final and (e.transcript or "").strip():
+            record.event("interim", text=e.transcript)
+            asyncio.create_task(eyes.words(e.transcript, final=False), name="words_interim")
+
     state = {"voice_started": None, "voice_stopped": None}
 
     @session.on("agent_state_changed")
