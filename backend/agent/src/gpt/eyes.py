@@ -489,7 +489,10 @@ class Eyes:
             # an unclear classification goes to the brain's model too: a wasted request is cheap, an unanswered question is not
             if kind == "scene" and self._consult is not None:
                 first = self._verdict_now()  # the eyes' own answer at once, the brain's sentence as the second beat
-                if first:
+                said_already = (self._wrong_said_at is not None and "not in its place" in (first or "")) or (
+                    self._verdict_at is not None and time.monotonic() - self._verdict_at < 5.0)
+                if first and not said_already:  # not when the rules have just said as much
+                    self._record.event("first_beat", text=first)
                     self.speak([first], "eyes", urgent=True)
             self._consult_now("words", f'The user just said: "{text}". Answer them in one sentence from what the photo shows, '
                                        "starting with the answer; if you cannot see what they ask about, say what is in the way; if the words need "
