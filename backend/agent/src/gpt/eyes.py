@@ -4,7 +4,7 @@ voice gets from it.
 The design follows the Decisions API's limits (eval/brain-decisions/): the model behind it, gpt-6-luna, answers typed
 questions about a frame in about 0.3 s and reads the coarse state of the desk well, whether a hand is on the plate,
 which brick is in the hand, how many steps are built right, whether the current step's brick is on the plate and
-whether it sits as the step says, but cannot say which way a misplaced brick should move. So the eyes decide what
+whether it sits as the step says, but cannot say which way a misplaced brick should move. So the eyes settle what
 happened and say so at once, in a line of facts the voice (GPT-Live) puts into words, and leave the two things that
 take words, the content of a correction and the answer to a question about the scene, to one short request to the
 brain's model (consult.py), sent while the voice says the first beat: "Hmm, not quite." and then, a second later,
@@ -247,8 +247,8 @@ class Eyes:
         photo = await asyncio.to_thread(self._jpeg, self._tap.latest)
         text = f"{self._task}\n\nThe photo is what the user's glasses see right now, the desk from above."
         (a, ms1, t1), (b, ms2, t2) = await asyncio.gather(
-            self._decide(text, photo, scene_questions(self._build.guide)),  # no word of the step: it pulled the count down
-            self._decide(f"{text} The user is on step {step}.", photo, step_questions(self._build.guide, step)))
+            self._ask_decisions(text, photo, scene_questions(self._build.guide)),  # no word of the step: it pulled the count down
+            self._ask_decisions(f"{text} The user is on step {step}.", photo, step_questions(self._build.guide, step)))
         a.update(b)
         ms, tokens = max(ms1, ms2), t1 + t2
         in_hand = a["in_hand"]
@@ -274,7 +274,7 @@ class Eyes:
                     reading.on_plate, reading.right, reading.where, reading.blurry)
         await self._act(before, reading)
 
-    async def _decide(self, text: str, photo: bytes | None, qs: list[dict]) -> tuple[dict, int, int]:
+    async def _ask_decisions(self, text: str, photo: bytes | None, qs: list[dict]) -> tuple[dict, int, int]:
         """One Decisions request; returns the answers by name, the time and the tokens."""
         content: list = [{"type": "input_text", "text": text}]
         if photo is not None:
@@ -385,7 +385,7 @@ class Eyes:
             context = f"The last lines before it:\n{before}\n" if before else ""
             if self._last_line and self._last_line_at and time.monotonic() - self._last_line_at < 30:
                 context += f"The helper's last line to the assistant: {self._last_line}\n"
-            a, ms, _ = await self._decide(f"{self._task}\n\n{context}The user, building this, just said to the assistant: \"{text}\"", None, [
+            a, ms, _ = await self._ask_decisions(f"{self._task}\n\n{context}The user, building this, just said to the assistant: \"{text}\"", None, [
                 {"type": "choice", "name": "kind", "instructions": "What are these words, as the assistant should take them?",
                  "choices": [{"value": v, "description": d} for v, d in WORDS]}])
         except Exception as e:  # noqa: BLE001

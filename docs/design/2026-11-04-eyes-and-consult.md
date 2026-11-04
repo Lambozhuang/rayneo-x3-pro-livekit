@@ -20,7 +20,7 @@ OpenAI's Decisions API runs gpt-6-luna and returns typed answers only, a probabi
 
 | | eyes | who speaks to the voice | who records progress | terra calls a call | "this one?", "done" | correction |
 |---|---|---|---|---|---|---|
-| A | terra every 2 s, woken by the wearer's words; a quick look on Decisions every second | terra, and the quick look for two lines | both | about 70 | 1.5 to 2 s | terra at its next look |
+| A | terra every 2 s, woken by the wearer's words; a quick look on the Decisions API every second | terra, and the quick look for two lines | both | about 70 | 1.5 to 2 s | terra at its next look |
 | B | as A | terra only; the quick look wakes it | terra | about 70 | 2.7 to 3.5 s | as A |
 | C | as A | terra, and the quick look for the brick in the hand | terra | about 70 | brick 1.5 s, done 2.7 s | as A |
 | D | Decisions only | the eyes' facts, the voice composes | the eyes | 0 | 1.5 to 2.3 s | "not quite, want the picture?" |
