@@ -273,8 +273,9 @@ async def rayneo_assistant(ctx: JobContext) -> None:
     handle = session.generate_reply(
         instructions=(
             "Greet the wearer briefly: say you can see through their glasses and will "
-            f'guide them through building "{guide.title}", naming it in a few words, and '
-            "ask them to say when they are ready. Do not describe any step yet."
+            f'guide them through building "{guide.title}", naming it in a few words; that they can tell you '
+            "when they have a brick or have placed one, ask you to check anything, or ask for a picture of a step; "
+            "and ask them to say when they are ready. Do not describe any step yet."
         )
     )
     await handle

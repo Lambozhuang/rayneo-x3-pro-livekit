@@ -67,6 +67,7 @@ from __future__ import annotations
 
 import asyncio
 import base64
+import difflib
 import io
 import json
 import logging
@@ -122,10 +123,16 @@ TELL = (
      "required": ["text"], "additionalProperties": False})
 SAY = (
     "say",
-    "Has the assistant tell the user something now, without their asking, in its own words.",
+    "Has the assistant tell the user something now, without their asking, in its own words. kind says what it is: "
+    "news, something the user acts on now (the brick in their hand named, a placement wrong, an offer of a picture, "
+    "an answer to them), which is spoken at once; or waiting, nothing can be told yet (studs unclear, hands in the "
+    "way, the picture poor) with what would help, which is spoken at most once every ten seconds, so say it and the "
+    "extras are held.",
     {"type": "object", "properties": {"text": {"type": "string",
-                                               "description": "one or two short sentences of plain facts"}},
-     "required": ["text"], "additionalProperties": False})
+                                               "description": "one or two short sentences of plain facts"},
+                                      "kind": {"type": "string", "enum": ["news", "waiting"],
+                                               "description": "news: the user acts on it now; waiting: nothing can be told yet"}},
+     "required": ["text", "kind"], "additionalProperties": False})
 SHOW = (
     "show",
     "Puts the picture of one step on the user's glasses, in the square that otherwise shows what the camera sees: "
@@ -142,6 +149,10 @@ TOOLS = [SET_PROGRESS, TELL, SAY, SHOW]  # the same for every look, so the cache
 
 # how a line of the chat history is labelled in a look's message
 WHO = {"user": "User", "assistant": "Assistant"}
+
+SAY_REPEAT_S = 8.0  # a say that says what the last say said, this soon after it, is held: the voice has it already
+SAY_REPEAT_RATIO = 0.6  # how alike two says must read (difflib ratio) to count as the same
+WAIT_SAY_EVERY_S = 10.0  # a waiting say (nothing can be told yet) goes out at most this often; the model asks at every look
 
 # the result of a tool call the look did not get to carry out (the call ended while it was being done)
 NOT_DONE = "Not carried out: a request from the assistant came first."
@@ -344,6 +355,7 @@ class Brain:
         self._turn = asyncio.Lock()  # one look is built, sent and kept at a time
         self._asks = 0  # hand-overs GPT-Live made all the same, each closed at once
         self._last_line: str | None = None  # the last line given to the voice, repeated to close a hand-over
+        self._last_say: tuple[float, str] | None = None  # when and what the brain last had the voice say
         self._watcher: asyncio.Task | None = None
         self._look: asyncio.Task | None = None  # the watch look running, if any
         self._look_w = 0
@@ -531,11 +543,23 @@ class Brain:
                 result, line = await self._show(args.get("step"), kind, n)
             elif name == "say":
                 said = " ".join(str(args.get("text") or "").split())
-                if said:
-                    self._record.event("say", **{"w" if kind == "watch" else "n": n}, text=said)
-                    result, line = "The assistant says it.", f"Camera: {said}"
-                else:
+                waiting = args.get("kind") == "waiting"
+                since = time.monotonic() - self._last_say[0] if self._last_say else None
+                if not said:
                     result, line = "Ignored: nothing to say.", None
+                elif waiting and since is not None and since < WAIT_SAY_EVERY_S:
+                    # The model asks for a better view at every look while a state lasts (the replay of 2026-11-04 under
+                    # 0.25 Mbps: "turn the studs toward me" five times in 25 s); one such line every ten seconds keeps the
+                    # helper present without nagging, and the model is told so its own record stays honest.
+                    self._record.event("say_held", **{"w" if kind == "watch" else "n": n}, text=said, say_kind="waiting", since_s=round(since, 1))
+                    result, line = f"Held: a line went out {since:.0f} s ago; a waiting line is spoken every {WAIT_SAY_EVERY_S:.0f} s at most.", None
+                elif self._repeats(said):
+                    self._record.event("say_held", **{"w" if kind == "watch" else "n": n}, text=said, say_kind="repeat", since_s=round(since, 1))
+                    result, line = "Held: this says what your last say said, seconds ago; the assistant has it.", None
+                else:
+                    self._last_say = (time.monotonic(), said)
+                    self._record.event("say", **{"w" if kind == "watch" else "n": n}, text=said, say_kind="waiting" if waiting else "news")
+                    result, line = "The assistant says it.", f"Camera: {said}"
             elif name == "tell":
                 told = " ".join(str(args.get("text") or "").split())
                 if told:
@@ -552,6 +576,12 @@ class Brain:
                 speak.append(line)
                 self._last_line = line
         return speak
+
+    def _repeats(self, said: str) -> bool:
+        """Whether `said` says what the last say said, within SAY_REPEAT_S of it."""
+        if self._last_say is None or time.monotonic() - self._last_say[0] > SAY_REPEAT_S:
+            return False
+        return difflib.SequenceMatcher(None, self._last_say[1].lower(), said.lower()).ratio() >= SAY_REPEAT_RATIO
 
     async def _move(self, done) -> tuple[str, str | None]:
         """Move the build to `done` steps done, record and publish it. Returns the tool's result and the line that
