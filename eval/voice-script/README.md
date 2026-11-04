@@ -28,6 +28,8 @@ The whole call's dialogue, as the voice held it on the last run: "Find the tan o
 
 Last, on the user's ruling that the voice should be fast and normal in tone but may well say more, the one-sentence rule gave way to "say what the user needs, in as many sentences as it takes, and then stop", with the bans on repeating the helper's words, a placement or padding a wait kept; the run after it met 18 of 18 with 14 words a turn at 178 words a minute, the pace the persona asks for.
 
+On 2026-11-04 two exchanges joined the whole-call script after a 0.25 Mbps lab run: a brain line that cannot tell yet ("looks like a tan brick, but I can't count its studs; turn them toward me"), which the voice had cut down to "just turn the studs toward me" and the wearer heard as an order out of nowhere, now expected to carry both what the brain sees and what it asks; and a hedged line ("looks orange to me, but I may be mistaken"), expected to stay hedged and never become "that's wrong". With the two rules added to the persona the script met 22 of 22.
+
 ## What the project does with it
 
 The prompt changes and the closing line are in `backend/agent/src/gpt/`, to be deployed and heard on the glasses on the next lab day. From now on a change to the voice's prompt is run through `ladder-pilot.json` before it goes to the glasses; a behaviour seen wrong in a lab run becomes a step with an expectation. What this harness cannot show: how the brain's own lines come and when, since the brain is scripted here; the brain's rules are a matter for the records and for `brain-thread-replay/`.

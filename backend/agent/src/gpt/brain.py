@@ -126,8 +126,8 @@ SAY = (
     "Has the assistant tell the user something now, without their asking, in its own words. kind says what it is: "
     "news, something the user acts on now (the brick in their hand named, a placement wrong, an offer of a picture, "
     "an answer to them), which is spoken at once; or waiting, nothing can be told yet (studs unclear, hands in the "
-    "way, the picture poor) with what would help, which is spoken at most once every ten seconds, so say it and the "
-    "extras are held.",
+    "way, the picture poor) with what would help, which is spoken at most once every fifteen seconds, so say it and "
+    "the extras are held.",
     {"type": "object", "properties": {"text": {"type": "string",
                                                "description": "one or two short sentences of plain facts"},
                                       "kind": {"type": "string", "enum": ["news", "waiting"],
@@ -152,7 +152,7 @@ WHO = {"user": "User", "assistant": "Assistant"}
 
 SAY_REPEAT_S = 8.0  # a say that says what the last say said, this soon after it, is held: the voice has it already
 SAY_REPEAT_RATIO = 0.6  # how alike two says must read (difflib ratio) to count as the same
-WAIT_SAY_EVERY_S = 10.0  # a waiting say (nothing can be told yet) goes out at most this often; the model asks at every look
+WAIT_SAY_EVERY_S = 15.0  # a waiting say (nothing can be told yet) goes out at most this often; the model asks at every look
 
 # the result of a tool call the look did not get to carry out (the call ended while it was being done)
 NOT_DONE = "Not carried out: a request from the assistant came first."

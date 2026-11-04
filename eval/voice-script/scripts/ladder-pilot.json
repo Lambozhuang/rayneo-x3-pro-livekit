@@ -21,6 +21,13 @@
    ]
   },
   {
+   "commentary": "Camera: That looks like a tan brick, but I can't count its studs; turn them toward me.",
+   "expect": [
+    "tan|brick|holding|got",
+    "turn|stud|toward"
+   ]
+  },
+  {
    "user": "Okay, I put it down",
    "expect_not": [
     "white"
@@ -58,6 +65,15 @@
     "yellow"
    ],
    "then": 4
+  },
+  {
+   "commentary": "Camera: The placed brick looks orange to me, but I may be mistaken; it sits between the rails.",
+   "expect": [
+    "look|may|might|not sure|could be"
+   ],
+   "expect_not": [
+    "wrong|not right|isn't right"
+   ]
   },
   {
    "commentary": "Camera: The white brick is one column too far to the right; move it one column left. Want a picture?",
