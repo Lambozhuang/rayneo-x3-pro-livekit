@@ -36,6 +36,7 @@ class Settings:
     quick_model: str  # the eyes' Decisions model (gpt/eyes.py), gpt-6-luna
     quick_detail: str  # the eyes' image detail: low (512 px, 0.3 s) or high (1080 px, 0.4 s)
     quick_every: float  # seconds between the eyes' readings while the scene is still; 0.7 while a hand is at work
+    consult: bool  # whether the brain's model is consulted for words (on), or the eyes alone judge and the voice says the place again (off)
     brain_timeout: float
     brain_watch_side: int  # the side in px of the frame a consult sends
 
@@ -53,6 +54,7 @@ class Settings:
             quick_model=require_env("BRAIN_QUICK_MODEL"),
             quick_detail=require_env("BRAIN_QUICK_DETAIL"),
             quick_every=float(require_env("BRAIN_QUICK_EVERY")),
+            consult=require_env("BRAIN_CONSULT") == "on",
             brain_timeout=float(os.environ.get("BRAIN_TIMEOUT", "12")),
             brain_watch_side=int(require_env("BRAIN_WATCH_SIDE")),
         )
@@ -67,13 +69,16 @@ class Settings:
             raise RuntimeError(f"BRAIN_TRANSPORT={s.brain_transport!r}: must be ws or http")
         if s.quick_detail not in ("low", "high"):
             raise RuntimeError(f"BRAIN_QUICK_DETAIL={s.quick_detail!r}: must be low or high")
+        if os.environ["BRAIN_CONSULT"] not in ("on", "off"):
+            raise RuntimeError(f"BRAIN_CONSULT={os.environ['BRAIN_CONSULT']!r}: must be on or off")
         if s.quick_every <= 0:
             raise RuntimeError(f"BRAIN_QUICK_EVERY={s.quick_every}: seconds between the eyes' readings while the scene is still")
         if s.brain_watch_side <= 0:
             raise RuntimeError(f"BRAIN_WATCH_SIDE={s.brain_watch_side}: use a value above 0")
-        logger.info("session model: %s voice=%s eyes=%s/%s every %ss consult=%s/%s effort=%s detail=%s tier=%s transport=%s side=%d",
-                    s.live_model, s.voice, s.quick_model, s.quick_detail, s.quick_every, s.brain_provider, s.brain_model,
-                    s.brain_effort, s.brain_detail, s.brain_service_tier, s.brain_transport, s.brain_watch_side)
+        logger.info("session model: %s voice=%s eyes=%s/%s every %ss consult=%s %s/%s effort=%s detail=%s tier=%s transport=%s side=%d",
+                    s.live_model, s.voice, s.quick_model, s.quick_detail, s.quick_every, "on" if s.consult else "off",
+                    s.brain_provider, s.brain_model, s.brain_effort, s.brain_detail, s.brain_service_tier, s.brain_transport,
+                    s.brain_watch_side)
         return s
 
     def experiment_line(self, guide: str) -> str:

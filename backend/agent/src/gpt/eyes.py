@@ -33,7 +33,9 @@ frame does nothing. The lines:
 
 The wearer's words are classified by the same API on the text alone (what they ask or claim), and routed: a question
 about the scene or a disagreement goes to the brain's model with the frame; a request for the picture puts it on the
-glasses; words sorted as needing no eyes at less than WORDS_SURE confidence go to the brain's model all the same, since
+glasses; with the consult off (BRAIN_CONSULT=off) the eyes alone judge: a misplaced brick gets the place said once more
+and the picture offered, a question about the desk the eyes' latest reading in words, and nothing goes to the brain's
+model; words sorted as needing no eyes at less than WORDS_SURE confidence go to the brain's model all the same, since
 a wasted request is cheap and an unanswered question is not; "I placed it" goes to the brain's model at once as well, and its answer is spoken only when the eyes have not
 settled the step by then (PLACED_WAIT_S), so the wearer never waits in silence after it and never hears the verdict
 twice; everything else needs no eyes, the voice answers it or lets it pass. The questions are built from the task
@@ -172,12 +174,12 @@ class Reading:
 
 class Eyes:
     def __init__(self, session, build: Build, tap: FrameTap, task_text: str, model: str, detail: str, every: float,
-                 record: RunLog, consult: Callable[[str, Reading | None, str | None], Awaitable[str | None]],
+                 record: RunLog, consult: Callable[[str, Reading | None, str | None], Awaitable[str | None]] | None,
                  show: Callable[[int], Awaitable[str]]) -> None:
         self._session, self._build, self._tap, self._task = session, build, tap, task_text
         self._model, self._detail, self._every = model, detail, every
         self._record = record
-        self._consult, self._show = consult, show  # the brain's model for words (consult.py) and the picture
+        self._consult, self._show = consult, show  # the brain's model for words (consult.py), or None with the consult off, and the picture
         self._http = httpx.AsyncClient(timeout=TIMEOUT_S, headers={"Authorization": f"Bearer {os.environ['OPENAI_API_KEY']}"})
         self._readings: deque[Reading] = deque(maxlen=QUICK_AGREE)
         self.latest: Reading | None = None
@@ -351,6 +353,10 @@ class Eyes:
         # the step's brick on the plate, hand off, not as the step says, the count unmoved: not in its place yet
         if self._wrong_said_at is None and not hand_on and self._agree(lambda r: r.on_plate >= QUICK_SURE and r.right <= WRONG):
             self._wrong_said_at = self._verdict_at = time.monotonic()
+            if self._consult is None:  # the eyes alone: one line, the place said again and the picture offered
+                self.speak([f"Camera: the {colour} one is on the plate but not in its place yet; say once more where it goes, "
+                            "and offer the picture."], "eyes")
+                return
             self.speak([f"Camera: the {colour} one is on the plate but not in its place yet."], "quick")
             self._consult_now("placement", f"The {brick} of step {step} is on the plate but not where the step puts it; say what is "
                                            "wrong and what would make it right, in one sentence.", fallback=True)
@@ -395,7 +401,7 @@ class Eyes:
         kind, sure = a["kind"]["choice"], a["kind"].get("confidence", 0.0)
         self._record.event("words", text=text, words_kind=kind, sure=round(sure, 2), ms=ms)
         logger.info("eyes: words %r -> %s (%.2f)", text, kind, sure)
-        if kind in ("scene", "disagrees") or (sure < WORDS_SURE and kind in ("steps", "other")):
+        if kind in ("scene", "disagrees") or (sure < WORDS_SURE and kind in ("steps", "other") and self._consult is not None):
             # an unclear classification goes to the brain's model too: a wasted request is cheap, an unanswered question is not
             self._consult_now("words", f'The user just said: "{text}". Answer them in one sentence from what the photo shows, '
                                        "starting with the answer; if you cannot see what they ask about, say what is in the way.",
@@ -452,9 +458,32 @@ class Eyes:
         """One request to the brain's model, in the background; the voice gets its sentence when it comes, or the
         fallback line when nothing comes within CONSULT_WAIT_S. With `unless_settled_since`, the sentence is dropped
         when the eyes have settled the step since that moment."""
+        if self._consult is None:
+            self._record.event("consult_off", reason=reason)
+            self.speak([self._eyes_only(reason)], "eyes")
+            return
         if self._consulting is not None and not self._consulting.done():
             self._consulting.cancel()
         self._consulting = asyncio.create_task(self._consult_task(reason, ask, fallback, unless_settled_since), name="consult")
+
+    def _eyes_only(self, reason: str) -> str:
+        """What the eyes can say by themselves where the brain's model would have been asked: for a misplaced brick,
+        that the place is to be said once more with the picture offered; for the wearer's words, the latest reading
+        on the step's brick in words."""
+        step = min(self._build.step + 1, len(self._build.guide.steps))
+        colour = colour_word(self._build.guide.steps[step - 1].brick)
+        r = self.latest
+        if r is None:
+            return f"Camera: I can't see the plate yet."
+        if r.on_plate >= QUICK_SURE and r.right >= RIGHT:
+            return f"Camera: the {colour} one looks in its place to me."
+        if r.on_plate >= QUICK_SURE and r.right <= WRONG:
+            if self._wrong_said_at is not None:
+                return f"Camera: the {colour} one still does not look in its place to me."
+            return f"Camera: the {colour} one is on the plate but does not look in its place yet; say once more where it goes, and offer the picture."
+        if r.hand >= HAND_ON:
+            return "Camera: a hand is over the plate, so I can't tell yet."
+        return f"Camera: I can't tell from here whether the {colour} one is in its place yet."
 
     async def _consult_task(self, reason: str, ask: str, fallback: bool, unless_settled_since: float | None) -> None:
         step = self._build.step + 1

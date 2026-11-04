@@ -102,7 +102,7 @@ async def rayneo_assistant(ctx: JobContext) -> None:
     consult = Consult(session, build, tap, model, settings.brain_effort, settings.brain_watch_side, lang, record,
                       lambda done, seen, basis: eyes.progress(done, seen, basis))
     eyes = Eyes(session, build, tap, task_block(guide), settings.quick_model, settings.quick_detail, settings.quick_every,
-                record, consult.ask, show)
+                record, consult.ask if settings.consult else None, show)
     persona = voice_persona(guide, lang)
     record.text("consult.txt", consult.instructions)
     record.text("consult-tools.json", json.dumps(

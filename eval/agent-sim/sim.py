@@ -91,6 +91,7 @@ async def main() -> None:
     ap.add_argument("--quick-detail", default="low")
     ap.add_argument("--quick-every", type=float, default=1.0)
     ap.add_argument("--voice", default="marin")
+    ap.add_argument("--no-consult", action="store_true", help="the eyes alone judge, as BRAIN_CONSULT=off")
     args = ap.parse_args()
 
     rec = Path(args.record)
@@ -157,7 +158,7 @@ async def main() -> None:
     consult = Consult(session, build, tap, model, args.effort, 1080, "English", record,
                       lambda done, seen, basis: eyes.progress(done, seen, basis))
     eyes = Eyes(session, build, tap, task_block(guide), args.quick_model, args.quick_detail, args.quick_every, record,
-                consult.ask, show)
+                None if args.no_consult else consult.ask, show)
 
     record.event("call", wall_ms=record.wall_ms, room=run_dir.name, lab=None, guide=guide.name, language="English",
                  commit=None, settings={"sim_of": rec.name, "brain_model": args.brain_model, "brain_effort": args.effort,
