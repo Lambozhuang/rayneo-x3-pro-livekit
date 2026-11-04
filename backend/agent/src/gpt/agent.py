@@ -1,20 +1,20 @@
-"""The GPT path: GPT-Live speaks, the brain looks by itself every few seconds.
+"""The GPT path: GPT-Live speaks, the eyes read the frame, the brain's model is asked for words when words are needed.
 
     glasses --audio--> SFU --> this process --ws--> gpt-live-1 (knows every step)
-            --video-->     --> FrameTap (frames kept for the brain, none to the voice)
-    brain: a frame every few seconds, or at once when the wearer spoke or the hand left the plate, + the lines said
-           since its last look + the quick look's reading --> one vision call --> what it sees, kept to itself,
-           maybe say, set_progress or show
-    quick look: a frame about once a second --> Decisions API, typed answers (hand on the plate, brick in the hand,
-           steps built right, picture blurry) --> the brick in the hand named, a step done recorded, the brain woken
-            <--commentary (say: the user hears it now; the progress moved)-- brain and quick look
+            --video-->     --> FrameTap (frames kept for the eyes, none to the voice)
+    eyes (eyes.py): a frame every 0.7 to 2 s, at once when the wearer spoke --> Decisions API, typed answers (hand on
+           the plate, brick in the hand, steps built right, the step's brick placed and right, where it lies, blur)
+           --> a line of facts for the voice when something changed, the progress moved
+    consult (consult.py): a misplaced brick, or a question about the scene --> one request to the brain's model with
+           the frame --> one sentence for the voice
+            <--commentary (the facts, the progress, the sentence)-- eyes and consult
             <--audio-- SFU <-- this process <-- gpt-live-1
-            <--step list (participant attributes)-- this process (the step is the brain's)
+            <--step list (participant attributes)-- this process (the step is the eyes')
 
 The voice owns the conversation and answers from the steps and from what the
-brain has told it; it is told not to hand anything over, and a hand-over it makes
-all the same is closed at once (brain.py). No VAD is passed to the session: the
-model listens while it speaks and stops on its own.
+eyes have told it; it is told not to hand anything over, and a hand-over it
+makes all the same is closed at once (eyes.handed_back). No VAD is passed to the
+session: the model listens while it speaks and stops on its own.
 """
 
 import asyncio
@@ -40,11 +40,12 @@ from livekit.agents.metrics import RealtimeModelMetrics
 from camera import watch_camera
 from env import language, require_env
 from frames import FrameTap
-from gpt.brain import TOOLS, Brain, make_model
+from gpt.brain import make_model
 from gpt.config import Settings, build_live_model
+from gpt.consult import TOOLS, Consult
+from gpt.eyes import Eyes
 from gpt.prompts import voice_persona
-from gpt.quick import QuickEye
-from guide import Build, picked_guide, publish_build
+from guide import PICTURE_TOPIC, Build, picked_guide, publish_build
 from prompts import task_block
 from qoe import LabRun, deliver, write_report
 from runlog import RunLog
@@ -79,20 +80,32 @@ async def rayneo_assistant(ctx: JobContext) -> None:
     model = make_model(settings.brain_provider, settings.brain_model, settings.brain_detail, settings.brain_service_tier,
                        settings.brain_transport)
     # The glasses' camera track: the full layer, what decodes it, and the stream's rate at the decoder, into the record
-    # (camera.py). The brain is not told the rate: it sees for itself when the picture is blurry (eval/brain-blur-perception).
+    # (camera.py). The eyes are not told the rate: they see for themselves when the picture is blurry (eval/brain-blur-perception).
     watch_camera(ctx.room, record, logger)
-    brain = Brain(session, build, tap, model, settings.brain_effort, settings.brain_watch_side,
-                  settings.brain_watch_every, lang, settings.brain_timeout, record)
-    # The quick look (gpt/quick.py): typed answers about the newest frame about once a second, which name the brick in
-    # the hand and move the progress at once, and wake the brain when the hand leaves the plate.
-    quick = None
-    if settings.quick_every > 0:
-        quick = QuickEye(tap, build, task_block(guide), settings.quick_model, settings.quick_detail, settings.quick_every,
-                         record, brain.quick_progress, brain.quick_say, brain.poke)
-        brain.quick = quick
+
+    async def show(step: int) -> str:
+        """Puts the picture of step `step` on the glasses: the attribute that names it first, on the signalling channel,
+        then the bytes as a byte stream on PICTURE_TOPIC. Returns the line that tells the voice."""
+        build.show(step)
+        await publish_build(build)
+        name, data = guide.picture_name(step), guide.picture(step).read_bytes()
+        t0 = time.perf_counter()
+        writer = await ctx.room.local_participant.stream_bytes(name, total_size=len(data), mime_type="image/png", topic=PICTURE_TOPIC)
+        await writer.write(data)
+        await writer.aclose()
+        record.event("picture", step=step, name=name, bytes=len(data), send_ms=round((time.perf_counter() - t0) * 1000))
+        return f"Picture: the glasses now show the picture of step {step} ({guide.steps[step - 1].brick})."
+
+    # The eyes (gpt/eyes.py) read the frame through the Decisions API and speak the facts; the consult (gpt/consult.py) asks
+    # the brain's model for the words the eyes cannot produce. The two hold hands through eyes.progress and consult.ask.
+    eyes: Eyes
+    consult = Consult(session, build, tap, model, settings.brain_effort, settings.brain_watch_side, lang, record,
+                      lambda done, seen, basis: eyes.progress(done, seen, basis))
+    eyes = Eyes(session, build, tap, task_block(guide), settings.quick_model, settings.quick_detail, settings.quick_every,
+                record, consult.ask, show)
     persona = voice_persona(guide, lang)
-    record.text("brain.txt", brain.instructions)
-    record.text("brain-tools.json", json.dumps(
+    record.text("consult.txt", consult.instructions)
+    record.text("consult-tools.json", json.dumps(
         [{"name": n, "description": d, "input_schema": p} for n, d, p in TOOLS], indent=2))
     record.text("voice.txt", persona)
 
@@ -107,18 +120,16 @@ async def rayneo_assistant(ctx: JobContext) -> None:
 
     @session.on("close")
     def _log_close(ev) -> None:
-        brain.stop_watching()  # the call is over: no more looks at a camera that has stopped sending
-        if quick:
-            quick.cancel()
+        eyes.cancel()  # the call is over: no more looks at a camera that has stopped sending
         record.event("closed", reason=str(getattr(ev.reason, "value", ev.reason)), error=str(ev.error) if ev.error else None)
         # The call is over when the session is: end the job now, not when livekit-server closes the room, which is
         # 20 s after the glasses leave (departure_timeout), so the record closes and reaches the console at once.
         ctx.shutdown(reason=f"session closed: {getattr(ev.reason, 'value', ev.reason)}")
 
     async def _log_usage() -> None:
-        brain.stop_watching()
-        if quick:
-            await quick.stop()
+        await eyes.stop()
+        if hasattr(model, "close"):
+            await model.close()
         logger.info("usage: %s camera_frames=%d", session.usage, tap.count)
         record.event("end", voice_s=sum(getattr(u, "session_duration", 0) for u in session.usage.model_usage),
                      camera_frames=tap.count)
@@ -143,7 +154,7 @@ async def rayneo_assistant(ctx: JobContext) -> None:
                              started=record.t(m["started_speaking_at"]) if m.get("started_speaking_at") else None,
                              stopped=record.t(m["stopped_speaking_at"]) if m.get("stopped_speaking_at") else None)
                 if ev.item.role == "user" and (ev.item.text_content or "").strip():
-                    brain.poke("the wearer's words")  # a look now, with the words in it, as a person looks when asked
+                    asyncio.create_task(eyes.words(ev.item.text_content), name="words")  # a look now, and the words routed
 
     await session.start(
         agent=Agent(instructions=persona),
@@ -155,7 +166,17 @@ async def rayneo_assistant(ctx: JobContext) -> None:
         ),
     )
     duplex = session.current_agent.duplex_session
-    duplex.on("delegation_created", brain.on_delegation)
+
+    def _handed(d) -> None:
+        """GPT-Live handed the wearer's words over although its prompt tells it not to: closed at once with the eyes' last
+        line while fresh, or "let me look"; the words themselves are routed when they reach the history."""
+        logger.info("delegation: %s closed at once", d.id)
+        record.event("delegation", id=d.id, words=d.pending_transcript.strip())
+        text = eyes.handed_back()
+        record.event("commentary", id=d.id, text=text, source="handed_back", voice_speaking=session.agent_state == "speaking")
+        duplex.append_commentary(text, delegation_id=d.id)
+
+    duplex.on("delegation_created", _handed)
 
     # The call's timeline in the log: who is speaking when, and what GPT-Live itself reports about handing over
     # (its raw events, so a delegation the plugin did not pass on would still show).
@@ -252,14 +273,14 @@ async def rayneo_assistant(ctx: JobContext) -> None:
     record.event("build", started=True, steps=len(guide.steps))
     record.event("step", done=None, now=1)
     await publish_build(build)
-    brain.start_watching()
-    if quick:
-        quick.start()
+    eyes.start()
+    if hasattr(model, "warm"):
+        await model.warm()  # the consult's WebSocket, open before the first consult needs it
 
-    # The task ends by itself: once the brain has recorded the last step as done, the voice says so (the Progress
+    # The task ends by itself: once the eyes have recorded the last step as done, the voice says so (the Progress
     # commentary), and when it has stopped speaking the glasses are told to hang up through Build.over in the published
-    # attributes (BuildSteps.kt), so the wearer has nothing to remember to end a task (the pilot of 2026-11-03). The
-    # brain may still move the progress back while the voice speaks; then the wait starts over. The silence is measured
+    # attributes (BuildSteps.kt), so the wearer has nothing to remember to end a task (the pilot of 2026-11-03). A
+    # consult may still move the progress back while the voice speaks; then the wait starts over. The silence is measured
     # here, at the agent's end of the audio; the glasses wait for a second of silence at their own decoder before they
     # hang up (VoiceAssistantScreen.kt), so the last words are heard whatever the network's delay. The session closes
     # as it does whenever the glasses leave.

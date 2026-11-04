@@ -23,6 +23,22 @@ The first 40 watch looks of `logs/20261104-164445-glasses-ef8ed836/` (the snowma
 
 The hand on the plate comes back as 0 or 1 and follows the record's "pressing the blue plate" and "hands clear" look by look. The brick in the hand is right where the brain was sure (the blue round plate at w10 to w12, the grey at w19 to w23, at 0.9 to 1.0); the lime 1x4 the brain had read as yellow comes back as "step 4" (the yellow 1x4) or "step 3" (the lime) at 0.3 to 0.6, so the colour the camera cannot settle shows as a low confidence rather than a wrong answer. The three disagreements on the count at high confidence 0.5 to 0.6 were the count moving up while the hand still pressed the brick, which the question had asked it not to count. A request costs about 0.015 cents at low.
 
+## The whole battery an eyes-only design would need (2026-11-04, later)
+
+`battery.py <record> [--first w100 --last w124 --step 4] [--detail low|high] [--reference]` asks ten questions a photo: the four above and, for the current step, whether its brick is on the plate, whether it sits exactly as the step says, which way it is off and by how much, its orientation, and where it lies on the desk. The misplacement of the 2026-10-28 gate call (`logs/20261028-162315-glasses-795c9128/`, w107 to w124, the white 1x6 of step 4 one column too far right the whole time, which the replayed terra of `eval/brain-thread-replay/` had read as "one column too far right") is the ground truth; the snowman call's correct placements the control.
+
+| question | on the misplaced white brick | on a correct placement (snowman) |
+|---|---|---|
+| exactly as the step says (predicate) | 0.01 to 0.19 | 0.84 to 0.93 after the brick is placed, 0.0 before |
+| which way off (choice) | "in the right place" at 0.2 to 0.5, "too far left" twice, never "too far right" | - |
+| by how many studs (choice) | one, two, three or more, at random | - |
+| orientation (predicate) | 0.9 and above, right | right |
+| on the plate (predicate) | 0.8 to 1.0 once the hand is off | right |
+
+Detail high (626 ms a request) and the step's rendered picture given as a reference image (453 ms) change none of this: the direction stays random, the "exactly as the step says" probability stays low. Ten questions a request also spread the confidences: the count of steps built right, 0.8 to 0.99 sure with four questions, came back at 0.2 to 0.5 with ten on the same frames, so the battery in use should stay small.
+
+So the model behind Decisions reads the coarse state of the plate, hands and bricks, and tells a right placement from a wrong one, but not where a wrong one should move; those words need the brain's model, which read "one column too far right" on the same frames.
+
 ## What the project does with it
 
-The quick look (`backend/agent/src/gpt/quick.py`) asks these four questions about the newest frame once a second at detail low, and acts on two readings in a row at 0.7 confidence or better: the current step's brick in the hand is told to the user, and a higher count with no hand on the plate moves the progress. A hand leaving the plate without the count moving wakes the brain for a look. The brain gets every reading in its next message as a hint with its confidence, the colour question included.
+The eyes (`backend/agent/src/gpt/eyes.py`) are built on these limits: the Decisions API reads the frame every 0.7 to 2 s, in two requests of four and three questions, and says what happened in a line of facts the voice puts into words, the current step's brick in the hand, the step done, the brick on the plate but not in its place, two bricks it cannot tell apart; the brain's model is consulted once (`gpt/consult.py`) for the words it cannot produce, what is wrong and how to fix it, and for the wearer's questions about the desk. The first design of the evening, a quick look beside a brain watching every two seconds, went the same evening, after `eval/agent-sim/` ran the three parts together.

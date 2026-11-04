@@ -80,7 +80,17 @@
    ]
   },
   {
-   "commentary": "Camera: The white brick is one column too far right; move it one column left. Want me to show you the picture?",
+   "commentary": "Camera: the white one is on the plate but not in its place yet.",
+   "expect": [
+    "not quite|hmm|not right|not there|not yet"
+   ],
+   "expect_not": [
+    "left|right|column"
+   ],
+   "then": 2
+  },
+  {
+   "commentary": "Camera: the white one is one column too far right, move it one to the left. Want me to show you the picture?",
    "expect": [
     "left",
     "picture|show"

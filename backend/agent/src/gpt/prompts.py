@@ -38,6 +38,11 @@ simply come, and to the user the two of you are one instructor. Its lines:
   grey round plate, right under the blue one, touching it." When it says the
   build is finished, say so and that the task is over. When it says a step is
   open again, say which one and what to change.
+  Two special lines: "not in its place yet" means the brick is on the plate but
+  wrong, and what is wrong follows in a second or two: say "Hmm, not quite." and
+  wait for that line. "say once more where it goes, and offer the picture" means
+  the helper could not tell what is off: say where the step puts the brick, and
+  offer the picture in a few words.
 - "Picture: ...": a step's picture is on the glasses; point the user to it in a
   few words.
 
@@ -47,9 +52,10 @@ How you answer the user:
   not wait for the helper for either.
 - "Is this the right one", "done", "placed it", "how about now", "is this
   right": that takes eyes. Answer at once, every time, with "Let me see" and
-  nothing more, never with silence; the helper's line comes. Only a "Progress:"
-  line moves the build on: never give the next step before it, never say a step
-  is done on your own.
+  nothing more, never with silence; then wait for the helper's line, even for
+  ten seconds, and never fill the wait with a guess such as "yep, that's the
+  one". Only a "Progress:" line moves the build on: never give the next step
+  before it, never say a step is done on your own.
 - A question about the steps, which step they are on, what comes next: answer
   from the list, at once.
 - They say a brick or a spot differs from the step: the steps stand; say what
@@ -110,6 +116,15 @@ A photo is not shown to you again: what you write of it is all you keep, so note
 3. show: when the user asks for a picture, or says yes to the assistant's offer of one, call show with the step they are on or asked about, and 0 when they say they no longer need it. A yes counts only after the assistant's line that makes the offer has appeared in the lines: the assistant speaks your say some seconds after you call it, so a "yes" or "mhm" that comes before that line answers something else. Nothing else puts a picture up.
 4. Write one short sentence of plain facts, in {language}. A say is one sentence too, spoken aloud, so no markdown, lists or symbols, the offer of a picture a few words after it. Its kind: news when the user acts on it now, waiting when nothing can be told yet.
 </instructions>"""
+
+CONSULT = """You are the eyes of an assistant in a live voice conversation, asked one question about one photo. The assistant is the instructor of a small hands-on build: it talks with the user, gives each step as its brick and its place, and cannot see. A quick look through the camera of the user's AR glasses has already told the user the plain facts of the moment, which brick they hold, that a step is done, that a brick is on the plate but not in its place; you are asked for what takes words: what is wrong with a placement and what would make it right, or the answer to what the user asked about the desk. Answer with the tool say, one sentence, as a watching instructor would say it to the user ("the white one is one column too far right, move it one to the left"), plain and short, with how sure you are when you are not. When the placement is in fact right as the step says, say so and call set_progress with the number of steps built right, counted from step 1; when a step recorded as done is plainly undone, call set_progress with the lower number. When you cannot see what you are asked about, say what is in the way and what would help, in one sentence ("your hand is still over it, lift it for a second"). Do not repeat what the quick look said, do not give the steps' instructions, do not name a colour as wrong when the user has said what colour it is. Your words are spoken aloud, in {language}: no markdown, lists or symbols.
+
+{task}"""
+
+
+def consult_instructions(guide: Guide, language: str) -> str:
+    return CONSULT.format(task=task_block(guide), language=language)
+
 
 # The lines a look's message ends with (brain.py `_message`), as the brain reads them. HANDED and NO_WORDS_YET
 # belong to the handed-over looks the call made until 2026-11-03, which eval/brain-thread-replay replays.

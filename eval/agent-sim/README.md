@@ -1,0 +1,37 @@
+# Does the whole agent hold together without the glasses
+
+This harness runs the GPT path's agent as it runs in a call, GPT-Live, the eyes and the consult together, with a recorded call standing in for the room, so that a change to the structure can be seen working before the glasses are in reach. It was built on the evening of 2026-11-04, when the lab PC was out of reach from home and the day's structure had been tested only one part at a time.
+
+## Question
+
+Do the parts run together as designed: who speaks when, how long after a frame the eyes' line and the consult's sentence reach the voice, whether the eyes and the consult contradict each other, and what a minute costs?
+
+## Material
+
+A recorded call's record (`logs/<call>/`): its photos, each the frame the brain was sent at the second it was taken (one every two seconds), and the wearer's lines with the second each was said. The snowman call of 2026-11-04 16:44 (`20261104-164445-glasses-ef8ed836`, a clean build, the lime 1x4 read as yellow) and the gate call of 2026-10-28 16:23 (`20261028-162315-glasses-795c9128`, the white 1x6 one column too far right from 245 s on) are the two used.
+
+## Method
+
+`sim.py <record> [--from 240 --until 300] [--quick-every 2]` starts livekit-agents' `AgentSession` with the GPT-Live plugin exactly as `gpt/agent.py` does (client delegation, the persona, the greeting request), then the eyes (`gpt/eyes.py`) on the Decisions API and the consult (`gpt/consult.py`) on the brain's model over the WebSocket, with the call's record (`runlog.py`) written as in a call. The room is stood in for: the microphone plays the wearer's recorded lines as TTS audio (`eval/voice-script`'s `ScriptMic` and `tts`) at the second each was said; the speaker keeps the voice's audio and its timing and plays nothing (`Ear`); the camera makes each of the record's photos the newest frame at the second it was taken, so the eyes see a new frame every two seconds instead of fifteen a second and read each once; the step list and the picture go into the record instead of to glasses. `--from` begins partway in, with the progress the record had then. The wearer's lines were answers to another voice, so the dialogue is not judged for sense; the timing and the mechanics are.
+
+`out/<time>-sim-<record>/` holds the record (`events.jsonl`, the consults' photos, the prompts), `agent.log`, `dialogue.wav` (left the voice, right the wearer) and `report.md`: the timeline of lines said, lines to the voice with their source (eyes, consult, fallback, hand-over), progress, words and how they were routed, consults; and the figures: the voice's share, the eyes' and the consults' latencies, how long after an eyes' or a consult's line the voice started, the progress and any reopening, hand-overs, failures.
+
+## Result (2026-11-04 evening)
+
+Six runs, each one a change to `gpt/eyes.py` found by the run before:
+
+| run | what it showed | what changed |
+|---|---|---|
+| snowman 0 to 70 s, first eyes | the words event's field collided with `RunLog.event`'s, so no words were routed; one request of seven questions spread the confidences (the step count 0.8 to 0.4 on frames the probe had read at 0.9), so no progress moved; a frame was read several times | two requests a reading, four scene and three step questions; a frame read once; the field renamed |
+| snowman 0 to 70 s | the count read 0 on frames the probe had read 1, the scene questions carrying "the user is on step 1"; the confidence swung 0.59 to 0.99 between near-identical frames of the same brick in the same hand, so two readings at 0.7 never came | the step hint only on the step questions; rules on the agreement of two readings' values with their mean confidence over a bar |
+| snowman 0 to 70 s | "The blue one, in your hand." to "Yep, that's the one." in 0.3 s; the step done 0.3 s after the hand left (33.7 s against 33.4 in the call); the grey plate the same; "in your hand, the lime one or the yellow one, I can't tell which" for the colour the camera cannot settle | - |
+| snowman whole call | steps 1 and 2 as above; on the lime 1x4 the eyes' "as the step says" swung 0.0 to 0.7 and the count sat at 0.15 to 0.4, so the step was not settled by the eyes; "I put it to there now" went to the consult after 2.5 s, whose first request of the call took longer than the 3.5 s allowed (a cold WebSocket) and was cancelled, so the fallback line went out and the voice said the place once more and offered the picture; "I am pretty sure that's lime" came through the transcript in two pieces and was not classified as a disagreement | the WebSocket opened at the call's start; 4.5 s allowed; the words classified with the two lines before them and the eyes' last line |
+| gate 240 to 300 s, the white 1x6 one column too far right | nothing was said for a minute: the misplacement rule also required the count not to have risen, and the count read 4 or 5 at 0.1 to 0.4 on the busy plate | the rule no longer looks at the count |
+| gate 240 to 300 s again | "Camera: the white one is on the plate but not in its place yet" 15.8 s in, "Hmm, not quite." from the voice, the consult's "three columns too far right; move it three studs left" 2.2 s later, "Slide it three studs left, touching the blue one's bottom." from the voice; "I do it right" classified as a disagreement and answered "Not quite, three studs too far right"; "How about now" classified as a question about the scene and answered "one stud too far right" after the wearer had moved it, as the call's own brain had read it; the picture shown when asked | - |
+| snowman 80 to 135 s again | "Yep, I put it to there now" to the consult, which recorded step 3 and said "Yes, the lime brick is in the right place." 5.3 s after the words (2.5 s waited, 2.9 s consult); "I am pretty sure, that's lime" classified as a disagreement and answered "It could be lime; the lighting makes the colour hard to judge."; the yellow 1x4 recorded by the eyes | the consult after "I placed it" is sent at once and its answer dropped if the eyes settle the step first |
+
+Figures of the last runs: the eyes' readings 380 to 400 ms median, 2600 input tokens a frame (both requests); consults 1.0 to 2.9 s, the first of a call the slowest; the voice spoke 30 to 40 percent of the time at 8 to 12 words a turn; two Decisions requests in 150 came back 503 and were skipped.
+
+## What the project does with it
+
+The eyes-and-consult structure went to the glasses on this evidence, with the device checks listed in docs/TODO.md. The harness is run on a record before any change to `gpt/eyes.py`, `gpt/consult.py` or the prompts goes to the glasses.

@@ -1,13 +1,15 @@
-"""The brain: the vision model that helps GPT-Live, which talks with the user and cannot see.
+"""The brain's model: the clients for the vision model behind OpenAI's Responses API or Anthropic's Messages API
+(BRAIN_PROVIDER), which the consult (consult.py) asks one question at a time since the evening of 2026-11-04, and
+the Brain of the design before it, a watch loop with a conversation of its own, which the agent no longer runs and
+eval/brain-thread-replay/ and eval/brain-speed/ still replay. The eyes of today's design are eyes.py.
 
-The brain is one vision model, behind OpenAI's Responses API or Anthropic's
-Messages API (BRAIN_PROVIDER), that keeps one conversation of its own for the
-whole call and looks by itself: one watch look after the other, at most one every
+The watch-loop Brain is one vision model that keeps one conversation of its own
+for the whole call and looks by itself: one watch look after the other, at most one every
 BRAIN_WATCH_EVERY seconds and at once when woken (poke: the user's words came, or
 the quick look saw the hand leave the plate), on the newest camera frame scaled
 to BRAIN_WATCH_SIDE, at BRAIN_EFFORT. Nobody asks it anything: each look's message
 carries the lines the user and the assistant said since the look before, what the
-quick look (gpt/quick.py) told the user or recorded meanwhile, and the quick
+quick look (the first eyes of 2026-11-04, since eyes.py) told the user or recorded meanwhile, and the quick
 look's latest reading, so the brain reads the user's questions and claims ("I
 placed it", "is this right?") there, and what it writes stays in its own
 conversation. GPT-Live hears of a look only through the tools: say has it tell
@@ -359,6 +361,13 @@ class OpenAIWsModel(OpenAIModel):
             logger.info("brain: websocket to the Responses API open")
         return self._conn
 
+    async def warm(self) -> None:
+        """Opens the connection ahead of the first request, so that the first consult of a call does not pay for it."""
+        try:
+            await self._connection()
+        except Exception as e:  # noqa: BLE001
+            logger.warning("brain: websocket not opened ahead (%s: %s); the first request opens it", type(e).__name__, str(e)[:120])
+
     async def close(self) -> None:
         if self._conn is not None:
             conn, self._conn = self._conn, None
@@ -437,7 +446,7 @@ class Brain:
         self._look_w = 0
         self._wake = asyncio.Event()  # set by poke: the next look goes at once
         self._notes: list[str] = []  # what the quick look told the user or recorded since the last look, for the next message
-        self.quick = None  # the QuickEye beside the brain (gpt/quick.py), set by the agent, or None
+        self.quick = None  # the quick look beside the watch-loop brain (2026-11-04, since gone into eyes.py); None in the replays
 
     @property
     def instructions(self) -> str:
