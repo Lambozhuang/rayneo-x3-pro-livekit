@@ -79,7 +79,7 @@ BLUR_EVERY_S = 60.0
 FIND_AFTER_S = 12.0  # with nothing in the hand this long after a step was given and the user last spoke, where its brick lies is said
 CONSULT_WAIT_S = 4.5  # the correction's words are waited for this long before the voice is told to repeat the place
 WORDS_SURE = 0.5  # words classified less surely than this as needing no eyes are sent to the brain's model all the same
-WORDS_SETTLE_S = 1.2  # pieces of the wearer's turn that come this close together are classified as one
+WORDS_SETTLE_S = 1.2  # a piece of the wearer's turn that follows the first this closely is joined to it and the turn reclassified
 FINISH_AGAIN_S = 10.0  # the brain's model is asked again whether the build is finished after this long with the count still at the last step
 PLACED_WAIT_S = 2.5  # after "I placed it", the eyes get this long to settle the step before the brain's answer is spoken
 TIMEOUT_S = 5.0
@@ -209,8 +209,9 @@ class Eyes:
         self._last_line_at: float | None = None
         self._consulting: asyncio.Task | None = None
         self._verdict_at: float | None = None  # when the step was last settled, by the progress or a "not in its place" line
-        self._pieces: list[str] = []  # the wearer's turn as it comes through, classified once it has settled
-        self._settling: asyncio.Task | None = None
+        self._pieces: list[str] = []  # the wearer's turn as it comes through, each piece reclassifying the whole
+        self._pieces_at: float = 0.0
+        self._routed: tuple[str, str] | None = None  # the turn's text and kind last acted on
 
     # ------------------------------------------------------------------ the loop
 
@@ -427,26 +428,22 @@ class Eyes:
     # ------------------------------------------------------------------ the wearer's words
 
     async def words(self, text: str) -> None:
-        """The wearer's words as they come through: a reading now, and the words classified once no more have come
-        for WORDS_SETTLE_S, since the transcript hands a turn over in pieces."""
+        """The wearer's words as they come through: a reading now, and the words classified and routed at once. The
+        transcript hands a turn over in pieces ("I I do it" / "right"), so a piece that follows within WORDS_SETTLE_S
+        is joined to the turn and the whole reclassified; the earlier action stands unless the kind changed."""
         self.poke("the wearer's words")
-        self._user_spoke_at = time.monotonic()
+        now = time.monotonic()
+        self._user_spoke_at = now
+        if now - self._pieces_at > WORDS_SETTLE_S:
+            self._pieces = []
         self._pieces.append(text.strip())
-        if self._settling is None or self._settling.done():
-            self._settling = asyncio.create_task(self._settle_words(), name="words")
-
-    async def _settle_words(self) -> None:
-        n = -1
-        while n != len(self._pieces):  # wait until no new piece came during a whole pause
-            n = len(self._pieces)
-            await asyncio.sleep(WORDS_SETTLE_S)
-        text, self._pieces = " ".join(self._pieces), []
-        await self._route(text)
+        self._pieces_at = now
+        await self._route(" ".join(self._pieces))
 
     async def _route(self, text: str) -> None:
         """The wearer's turn, classified by the same API on the text and the lines before it, and routed: a question
-        about the scene or a disagreement goes to the brain's model with the frame, a request for the picture puts it
-        up, the rest needs no eyes."""
+        about the scene or a disagreement goes to the brain's model with the frame, with the eyes' own verdict spoken
+        first when the latest reading has one; a request for the picture puts it up; the rest needs no eyes."""
         try:
             items = [i for i in self._session.history.items
                      if i.type == "message" and i.role in ("user", "assistant") and (i.text_content or "").strip()]
@@ -464,8 +461,15 @@ class Eyes:
         kind, sure = a["kind"]["choice"], a["kind"].get("confidence", 0.0)
         self._record.event("words", text=text, words_kind=kind, sure=round(sure, 2), ms=ms)
         logger.info("eyes: words %r -> %s (%.2f)", text, kind, sure)
+        if self._routed is not None and self._routed[1] == kind and text.startswith(self._routed[0]):
+            return  # a later piece of the same turn, the same kind: what was done for the first piece stands
+        self._routed = (text, kind)
         if kind in ("scene", "disagrees") or (sure < WORDS_SURE and kind in ("steps", "other") and self._consult is not None):
             # an unclear classification goes to the brain's model too: a wasted request is cheap, an unanswered question is not
+            if kind == "scene" and self._consult is not None:
+                first = self._verdict_now()  # the eyes' own answer at once, the brain's sentence as the second beat
+                if first:
+                    self.speak([first], "eyes", urgent=True)
             self._consult_now("words", f'The user just said: "{text}". Answer them in one sentence from what the photo shows, '
                                        "starting with the answer; if you cannot see what they ask about, say what is in the way; if the words need "
                                        "no answer about the desk, an acknowledgement or small talk, call no tool.",
@@ -538,6 +542,20 @@ class Eyes:
         if self._consulting is not None and not self._consulting.done():
             self._consulting.cancel()
         self._consulting = asyncio.create_task(self._consult_task(reason, ask, fallback, unless_settled_since), name="consult")
+
+    def _verdict_now(self) -> str | None:
+        """What the latest reading says about the current step's brick, when it says something plainly: in its place,
+        or on the plate but not; otherwise None and the brain's model answers alone."""
+        r = self.latest
+        if r is None or time.monotonic() - r.at > 3.0 or r.hand >= HAND_ON or r.on_plate < QUICK_SURE:
+            return None
+        step = min(self._build.step + 1, len(self._build.guide.steps))
+        colour = colour_word(self._build.guide.steps[step - 1].brick)
+        if r.right >= RIGHT and r.colour >= RIGHT:
+            return f"Camera: the {colour} one looks in its place to me."
+        if r.right <= WRONG:
+            return f"Camera: the {colour} one is on the plate but not in its place yet."
+        return None
 
     def _eyes_only(self, reason: str) -> str:
         """What the eyes can say by themselves where the brain's model would have been asked: for a misplaced brick,
