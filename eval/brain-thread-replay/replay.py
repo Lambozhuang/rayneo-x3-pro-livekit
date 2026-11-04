@@ -188,6 +188,7 @@ async def main() -> None:
         tap.latest = SimpleNamespace(jpeg=photo, width=1080, height=1080)
         tap.count += 1
         tap.latest_at = time.monotonic()
+        b._look_w = look["n"]  # the look's number, as the watch loop sets it
         voice.appended = []
         step_before = build.step
         t0 = time.perf_counter()
@@ -196,6 +197,9 @@ async def main() -> None:
             speak = await b._carry_out(kept, calls, "watch", look["n"])  # a tell appends to the stand-in voice
             if speak:
                 voice.append_commentary(" ".join(speak))
+            await b._settle_progress(look["n"], calls)  # a step recorded at the look before stands now, as in a call
+            for note in b._notes:  # what the brain would put in its next message about it
+                voice.appended.append(("note", note))
         else:
             text, calls, kept = await b._look_once("look", look["n"], settings["brain_side"], s.get("words") or "",
                                                    TOOLS)

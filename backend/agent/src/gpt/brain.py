@@ -76,6 +76,7 @@ from dataclasses import dataclass, field
 
 from livekit.agents import AgentSession
 
+from camera import Stream
 from frames import FrameTap, bottom_square
 from gpt.prompts import HANDED, NO_ONE_SPOKE, NO_PHOTO, NO_WORDS_YET, brain_instructions
 from guide import PICTURE_TOPIC, Build, publish_build
@@ -154,6 +155,11 @@ SAY_REPEAT_S = 8.0  # a say that says what the last say said, this soon after it
 SAY_REPEAT_RATIO = 0.6  # how alike two says must read (difflib ratio) to count as the same
 WAIT_SAY_EVERY_S = 15.0  # a waiting say (nothing can be told yet) goes out at most this often; the model asks at every look
 TELL_EVERY_S = 20.0  # a tell goes to the voice at most this often: GPT-Live reads thinking aloud, and 34 tells in a call made a monologue
+WEAK_TOLD_EVERY_S = 60.0  # how often the model is told the picture is weak while it is (camera.Stream.weak)
+GATE_WAIT_MAX_S = 15.0  # how long a line to the voice waits for both sides to fall silent before it goes anyway
+WAITING_STALE_S = 10.0  # a waiting line older than this when the voice is free is dropped: the moment has passed
+WEAK_PICTURE = ("The picture is weak right now, {kbps:.0f} kbps at {fps:.0f} frames a second, so fine detail may not "
+                "be readable; say so to the user once, in your own words, and ask nothing of them.")
 
 # the result of a tool call the look did not get to carry out (the call ended while it was being done)
 NOT_DONE = "Not carried out: a request from the assistant came first."
@@ -339,9 +345,16 @@ def make_model(provider: str, model: str, detail: str):
 class Brain:
     def __init__(self, session: AgentSession, build: Build, tap: FrameTap, model, effort: str,
                  watch_side: int, watch_every: float, language: str, timeout: float = 12.0,
-                 record: RunLog | None = None) -> None:
+                 record: RunLog | None = None, stream: Stream | None = None) -> None:
         self._timeout = timeout
         self._record = record or RunLog(None, "")
+        self._stream = stream  # the camera stream at the decoder (camera.py); None in replays
+        self._weak_told: float | None = None  # when the model was last told the picture is weak
+        self._notes: list[str] = []  # lines for the model's next message, such as a pending step that stood
+        self._pending_progress: tuple[int, int] | None = None  # (steps done, the look that recorded it), until the next look
+        self._line_class: dict[str, tuple[str, bool]] = {}  # a line _carry_out made -> (class, waiting)
+        self._pending_lines: dict[str, tuple[float, str, bool]] = {}  # class -> (when, line, waiting), the newest, awaiting the voice
+        self._gate: asyncio.Task | None = None
         self._session = session
         self._build = build
         self._tap = tap
@@ -404,11 +417,10 @@ class Brain:
         as thinking, a say and a progress moved as one commentary."""
         text, calls, look = await self._look_once("watch", w, self._watch_side, None, TOOLS)
         speak = await self._carry_out(look, calls, "watch", w)
-        if speak:
-            line = " ".join(speak)
-            self._record.event("commentary", w=w, id=None, text=line,
-                               voice_speaking=self._session.agent_state == "speaking")
-            self._session.current_agent.duplex_session.append_commentary(line)
+        for line in speak:
+            cls, waiting = self._line_class.pop(line, ("say", False))
+            self._to_voice(line, cls, waiting, w)
+        await self._settle_progress(w, calls)
 
     # ------------------------------------------------------------------ hand-overs
 
@@ -435,7 +447,12 @@ class Brain:
         look (`words` given, maybe empty; replays only) the words that came with it when the history does not have
         them yet, and HANDED last. With nothing new, NO_ONE_SPOKE. The history's own line for words put in earlier is taken as
         seen when it comes, so the user is not read as saying it twice."""
-        lines, ids, pending = [], [], self._pending
+        lines, ids, pending = self._notes, [], self._pending
+        self._notes = []
+        if self._stream is not None and self._stream.weak and (
+                self._weak_told is None or time.monotonic() - self._weak_told >= WEAK_TOLD_EVERY_S):
+            self._weak_told = time.monotonic()
+            lines.append(WEAK_PICTURE.format(kbps=self._stream.kbps, fps=self._stream.fps or 0))
         for item in self._session.history.items:
             if item.type != "message" or item.role not in ("user", "assistant") or item.id in self._seen:
                 continue
@@ -584,7 +601,60 @@ class Brain:
             if line:
                 speak.append(line)
                 self._last_line = line
+                self._line_class[line] = ("say", bool(args.get("kind") == "waiting")) if name == "say" else ("state", False)
         return speak
+
+    def _to_voice(self, line: str, cls: str, waiting: bool, w: int) -> None:
+        """Hands a line to the voice once neither side is speaking. While one is, the newest line of each class waits,
+        `state` (Progress, Picture) and `say` (Camera), and a newer one of the same class replaces it, so the voice
+        never reads a queue of stale lines, which the second pilot heard three at a time ("That's step two. Now take
+        the dark red... Two of five steps done. You're on step three..."), and does not start over the wearer, which it
+        did four to eight times a run. A waiting line that has waited WAITING_STALE_S is dropped: the moment has passed.
+        After GATE_WAIT_MAX_S the lines go anyway."""
+        if cls in self._pending_lines:
+            self._record.event("line_replaced", w=w, text=self._pending_lines[cls][1], by=line)
+        self._pending_lines[cls] = (time.monotonic(), line, waiting)
+        if self._gate is None or self._gate.done():
+            self._gate = asyncio.create_task(self._release_lines(), name="to_voice")
+
+    async def _release_lines(self) -> None:
+        t0 = time.monotonic()
+        while self._pending_lines:
+            busy = self._session.agent_state == "speaking" or getattr(self._session, "user_state", None) == "speaking"
+            if not busy or time.monotonic() - t0 >= GATE_WAIT_MAX_S:
+                parts = []
+                for cls in ("state", "say"):
+                    if cls not in self._pending_lines:
+                        continue
+                    when, line, waiting = self._pending_lines.pop(cls)
+                    if waiting and time.monotonic() - when >= WAITING_STALE_S:
+                        self._record.event("line_dropped", text=line, waited_s=round(time.monotonic() - when, 1))
+                        continue
+                    parts.append(line)
+                if parts:
+                    text = " ".join(parts)
+                    self._record.event("commentary", id=None, text=text, waited_s=round(time.monotonic() - t0, 1),
+                                       voice_speaking=self._session.agent_state == "speaking")
+                    self._session.current_agent.duplex_session.append_commentary(text)
+                t0 = time.monotonic()
+                continue
+            await asyncio.sleep(0.1)
+
+    async def _settle_progress(self, w: int, calls: list[tuple[str, str, dict]]) -> None:
+        """A step recorded as done at an earlier look stands now, unless this look moved the progress below it: the
+        second pilot had a step recorded while the hand was still on it and withdrawn six seconds later. Standing, it
+        is published, told to the voice and noted for the model's next message; withdrawn, nothing was ever said."""
+        if self._pending_progress is None or self._pending_progress[1] == w:
+            return
+        done, _ = self._pending_progress
+        self._pending_progress = None
+        lowered = any(c == "set_progress" and isinstance(a.get("done"), int) and a["done"] < done for _, c, a in calls)
+        if lowered or done <= self._build.step:
+            self._record.event("progress_withdrawn", w=w, done=done)
+            return
+        result = await self._commit_progress(done)
+        self._notes.append(f"{result} Your pending call stood.")
+        self._to_voice(self._progress_line(done), "state", False, w)
 
     def _repeats(self, said: str) -> bool:
         """Whether `said` says what the last say said, within SAY_REPEAT_S of it."""
@@ -601,22 +671,45 @@ class Brain:
             return f"Ignored: done must be a whole number from 0 to {total}.", None
         if done == build.step:
             return f"Unchanged: {done} of {total} steps were already recorded as done.", None
-        before, picture = build.step, build.picture
+        if done > build.step:
+            if self._pending_progress is not None and self._pending_progress[0] == done:
+                self._pending_progress = None  # said twice: it stands now
+                return await self._commit_progress(done), self._progress_line(done)
+            self._pending_progress = (done, self._look_w)
+            self._record.event("progress_pending", w=self._look_w, done=done)
+            return (f"Recorded as pending: {done} of {total} steps done stands at your next look unless that look "
+                    "shows otherwise; the assistant is told then."), None
+        before = build.step
         build.set_step(done)  # index of the step the user is on = the number of steps done
-        if build.step > before:
-            self._record.event("step", done=build.step, now=None if build.finished else build.step + 1)
-            if build.finished:
-                self._record.event("build", finished=True, took_s=round(time.monotonic() - build.started, 1))
-        else:
-            self._record.event("step", done=None, reopened=build.step + 1, now=build.step + 1)
+        self._record.event("step", done=None, reopened=build.step + 1, now=build.step + 1)
         await publish_build(build)
-        where = (f"all {total} steps done, the build is finished" if build.finished else
-                 f"{build.step} of {total} steps done; the user is on step {build.step + 1} "
-                 f"({build.guide.steps[build.step].brick})")
-        result = f"Recorded: {where}. The assistant is told."
+        where = self._where()
+        return f"Recorded: {where}. The assistant is told.", f"Progress: {where}."
+
+    def _where(self) -> str:
+        build = self._build
+        total = len(build.guide.steps)
+        return (f"all {total} steps done, the build is finished" if build.finished else
+                f"{build.step} of {total} steps done; the user is on step {build.step + 1} "
+                f"({build.guide.steps[build.step].brick})")
+
+    def _progress_line(self, done: int) -> str:
+        return f"Progress: {self._where()}."
+
+    async def _commit_progress(self, done: int) -> str:
+        """The build moves up to `done`, is recorded and published; returns the tool result, the line for the voice
+        being _progress_line."""
+        build = self._build
+        picture = build.picture
+        build.set_step(done)
+        self._record.event("step", done=build.step, now=None if build.finished else build.step + 1)
+        if build.finished:
+            self._record.event("build", finished=True, took_s=round(time.monotonic() - build.started, 1))
+        await publish_build(build)
+        result = f"Recorded: {self._where()}. The assistant is told."
         if picture:
             result += " The picture is taken off the glasses."
-        return result, f"Progress: {where}."
+        return result
 
     async def _show(self, step, kind: str, n: int) -> tuple[str, str | None]:
         """Put the picture of step `step` on the glasses (0: take it away), record and publish it. Returns the

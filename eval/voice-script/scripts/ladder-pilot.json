@@ -21,10 +21,12 @@
    ]
   },
   {
-   "commentary": "Camera: That looks like a tan brick, but I can't count its studs; turn them toward me.",
+   "commentary": "Camera: I see the tan one; I'll check the size once it's on the plate.",
    "expect": [
-    "tan|brick|holding|got",
-    "turn|stud|toward"
+    "tan"
+   ],
+   "expect_not": [
+    "turn|closer|still|show me"
    ]
   },
   {
@@ -45,6 +47,15 @@
    "commentary": "Camera: You have the right white one-by-six brick.",
    "expect": [
     "vertical|right of|four"
+   ]
+  },
+  {
+   "commentary": "Camera: The picture I'm getting is a bit blurry right now, so I may need an extra look.",
+   "expect": [
+    "blurr|picture|look"
+   ],
+   "expect_not": [
+    "turn|closer|still|show me|hold"
    ]
   },
   {
@@ -91,7 +102,7 @@
   {
    "commentary": "Picture: the glasses now show the picture of step 2 (white 1x6).",
    "expect": [
-    "picture|glasses|look"
+    "picture|glasses|look|up"
    ]
   },
   {

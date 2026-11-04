@@ -72,8 +72,11 @@ async def rayneo_assistant(ctx: JobContext) -> None:
     build = Build(guide=guide, run=ctx.room.name)
     session = AgentSession(video_sampler=tap, llm=build_live_model(settings))
     model = make_model(settings.brain_provider, settings.brain_model, settings.brain_detail)
+    # The glasses' camera track: the full layer, what decodes it into the record, and the stream's rate at the decoder,
+    # which the brain reads to know when the picture is weak (camera.py).
+    stream = watch_camera(ctx.room, record, logger)
     brain = Brain(session, build, tap, model, settings.brain_effort, settings.brain_watch_side,
-                  settings.brain_watch_every, lang, settings.brain_timeout, record)
+                  settings.brain_watch_every, lang, settings.brain_timeout, record, stream)
     persona = voice_persona(guide, lang)
     record.text("brain.txt", brain.instructions)
     record.text("brain-tools.json", json.dumps(
@@ -122,9 +125,6 @@ async def rayneo_assistant(ctx: JobContext) -> None:
                              interrupted=ev.item.interrupted,
                              started=record.t(m["started_speaking_at"]) if m.get("started_speaking_at") else None,
                              stopped=record.t(m["stopped_speaking_at"]) if m.get("stopped_speaking_at") else None)
-
-    # The glasses' camera track: the full layer, and what decodes it into the record (camera.py).
-    watch_camera(ctx.room, record, logger)
 
     await session.start(
         agent=Agent(instructions=persona),
