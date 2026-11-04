@@ -21,9 +21,12 @@ Six changes to the voice's prompt, and two to the closing line, were then tested
 | | voice spoke | turns | words a turn | words a minute | wearer's last word to the answer |
 |---|---|---|---|---|---|
 | lab call 17:00 (109 s) | 46 s, 42% | 15 | 7 | 143 | median 1.6 s, max 9.4 s |
-| scripted whole call, last run (128 s) | 65 s, 51% | 16 | 11 | 163 | median 3.4 s, max 4.6 s |
+| scripted whole call, one-sentence rule (128 s) | 65 s, 51% | 16 | 11 | 163 | median 3.4 s, max 4.6 s |
+| scripted whole call, last run, say what is needed (137 s) | 63 s, 46% | 13 | 14 | 178 | median 3.6 s, max 5.6 s |
 
 The whole call's dialogue, as the voice held it on the last run: "Find the tan one by six." / "Yep, that's the right one. Stand it vertical, roughly in the middle, a little left of centre." / "Yes, that's the right one." / "Let me check." / "That's step one. Now the white one by six." / "That's the right one. Place it vertical, to the right of the tan one, level with it, leaving four empty columns between." / "Yes, you did. Now we're on step two." / "Let me check." / "It's one column too far right. Move it one column left. Want me to show you a picture?" / "Coming up now." / "Look at your glasses. Step two's picture is up. ..." / "Let me check." / "That's step two. Now the yellow one by four." / "The build is finished. The task is over."
+
+Last, on the user's ruling that the voice should be fast and normal in tone but may well say more, the one-sentence rule gave way to "say what the user needs, in as many sentences as it takes, and then stop", with the bans on repeating the helper's words, a placement or padding a wait kept; the run after it met 18 of 18 with 14 words a turn at 178 words a minute, the pace the persona asks for.
 
 ## What the project does with it
 

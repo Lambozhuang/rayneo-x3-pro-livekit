@@ -2,13 +2,16 @@ package io.livekit.android.example.voiceassistant.screen
 
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.height
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import io.livekit.android.example.voiceassistant.Lab
 import io.livekit.android.example.voiceassistant.ui.Eyes
@@ -33,7 +36,14 @@ fun LabScreen() {
             verticalArrangement = Arrangement.Center,
             modifier = Modifier.fillMaxSize()
         ) {
-            Text(stage.text, color = Color(0xFFEEEEEE), fontSize = 22.sp, lineHeight = 30.sp, textAlign = TextAlign.Center)
+            // One Text per sentence: a sentence that wraps keeps its lines close, and a gap separates it from the next.
+            stage.text.lines().forEachIndexed { i, sentence ->
+                if (i > 0) Spacer(Modifier.height(SENTENCE_GAP))
+                Text(sentence, color = Color(0xFFEEEEEE), fontSize = 28.sp, lineHeight = 32.sp, textAlign = TextAlign.Center)
+            }
         }
     }
 }
+
+/** The space between two sentences of the stage's text, wider than the lines inside one so the sentences read apart. */
+private val SENTENCE_GAP = 14.dp
