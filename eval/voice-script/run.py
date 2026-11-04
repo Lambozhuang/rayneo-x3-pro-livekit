@@ -282,7 +282,8 @@ class Run:
             "Greet the wearer briefly: say you can see through their glasses and will "
             f'guide them through building "{self.guide.title}", naming it in a few words; that they can tell you '
             "when they have a brick or have placed one, ask you to check anything, or ask for a picture of a step; "
-            "and ask them to say when they are ready. Do not describe any step yet."))
+            "that you check each brick once it is on the plate; and ask them to say when they are ready. Do not "
+            "describe any step yet."))
         await handle
         await self.until_quiet(STEP_TIMEOUT_S)
 

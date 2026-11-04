@@ -6,10 +6,11 @@ the glasses' video track is subscribed it asks for the full layer (the glasses s
 that would pick a lower one), logs what was published, and once the first frames have had time to arrive reads the
 receiver's statistics and writes a `decoder` event: the codec on the wire, the decoder libwebrtc picked and the frames
 decoded so far. From then on it reads the statistics every STREAM_EVERY_S and keeps the received kbps and decoded fps
-of the last window in the `Stream`, with a `stream` event in the record each time; `Stream.weak` is true below
-WEAK_KBPS or WEAK_FPS, which is where the brain's photos lose the studs (the glasses send about 4000 kbps at 15 fps,
-about 330 under a 0.5 Mbps cap and about 110 under 0.25, with 1 fps windows), and gpt/brain.py tells the model so
-once a minute while it lasts, so that the voice can say the picture is poor instead of asking the wearer to pose. The glasses send H.265 (VoiceAssistantViewModel.kt), which the agent's libwebrtc decodes only on an NVIDIA
+of the last window in the `Stream`, with a `stream` event in the record each time, so a run's analysis has the rate
+the agent received beside the rate the glasses sent; `Stream.weak` is true below WEAK_KBPS or WEAK_FPS (the glasses send
+about 4000 kbps at 15 fps, about 330 under a 0.5 Mbps cap and about 110 under 0.25, with 1 fps windows). The brain is
+not told any of this: eval/brain-blur-perception found its model grades the capped calls' photos blurry by itself, so
+it remarks on a poor picture from what it sees (gpt/prompts.py). The glasses send H.265 (VoiceAssistantViewModel.kt), which the agent's libwebrtc decodes only on an NVIDIA
 GPU, NVDEC, where the decoder is named `NVIDIA H265 Decoder` (the Rust SDK's NvidiaVideoDecoderFactory; it has no
 software H.265 decoder). A call on a machine without the GPU therefore has a `decoder` event with no frames, which deploy/report.py
 lists as a problem, and the vision model sees nothing.

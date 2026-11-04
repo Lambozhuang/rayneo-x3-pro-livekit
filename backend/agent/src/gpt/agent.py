@@ -72,11 +72,11 @@ async def rayneo_assistant(ctx: JobContext) -> None:
     build = Build(guide=guide, run=ctx.room.name)
     session = AgentSession(video_sampler=tap, llm=build_live_model(settings))
     model = make_model(settings.brain_provider, settings.brain_model, settings.brain_detail)
-    # The glasses' camera track: the full layer, what decodes it into the record, and the stream's rate at the decoder,
-    # which the brain reads to know when the picture is weak (camera.py).
-    stream = watch_camera(ctx.room, record, logger)
+    # The glasses' camera track: the full layer, what decodes it, and the stream's rate at the decoder, into the record
+    # (camera.py). The brain is not told the rate: it sees for itself when the picture is blurry (eval/brain-blur-perception).
+    watch_camera(ctx.room, record, logger)
     brain = Brain(session, build, tap, model, settings.brain_effort, settings.brain_watch_side,
-                  settings.brain_watch_every, lang, settings.brain_timeout, record, stream)
+                  settings.brain_watch_every, lang, settings.brain_timeout, record)
     persona = voice_persona(guide, lang)
     record.text("brain.txt", brain.instructions)
     record.text("brain-tools.json", json.dumps(
@@ -275,7 +275,8 @@ async def rayneo_assistant(ctx: JobContext) -> None:
             "Greet the wearer briefly: say you can see through their glasses and will "
             f'guide them through building "{guide.title}", naming it in a few words; that they can tell you '
             "when they have a brick or have placed one, ask you to check anything, or ask for a picture of a step; "
-            "and ask them to say when they are ready. Do not describe any step yet."
+            "that you check each brick once it is on the plate; and ask them to say when they are ready. Do not "
+            "describe any step yet."
         )
     )
     await handle

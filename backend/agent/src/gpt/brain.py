@@ -76,7 +76,6 @@ from dataclasses import dataclass, field
 
 from livekit.agents import AgentSession
 
-from camera import Stream
 from frames import FrameTap, bottom_square
 from gpt.prompts import HANDED, NO_ONE_SPOKE, NO_PHOTO, NO_WORDS_YET, brain_instructions
 from guide import PICTURE_TOPIC, Build, publish_build
@@ -155,11 +154,8 @@ SAY_REPEAT_S = 8.0  # a say that says what the last say said, this soon after it
 SAY_REPEAT_RATIO = 0.6  # how alike two says must read (difflib ratio) to count as the same
 WAIT_SAY_EVERY_S = 15.0  # a waiting say (nothing can be told yet) goes out at most this often; the model asks at every look
 TELL_EVERY_S = 20.0  # a tell goes to the voice at most this often: GPT-Live reads thinking aloud, and 34 tells in a call made a monologue
-WEAK_TOLD_EVERY_S = 60.0  # how often the model is told the picture is weak while it is (camera.Stream.weak)
 GATE_WAIT_MAX_S = 15.0  # how long a line to the voice waits for both sides to fall silent before it goes anyway
 WAITING_STALE_S = 10.0  # a waiting line older than this when the voice is free is dropped: the moment has passed
-WEAK_PICTURE = ("The picture is weak right now, {kbps:.0f} kbps at {fps:.0f} frames a second, so fine detail may not "
-                "be readable; say so to the user once, in your own words, and ask nothing of them.")
 
 # the result of a tool call the look did not get to carry out (the call ended while it was being done)
 NOT_DONE = "Not carried out: a request from the assistant came first."
@@ -345,11 +341,9 @@ def make_model(provider: str, model: str, detail: str):
 class Brain:
     def __init__(self, session: AgentSession, build: Build, tap: FrameTap, model, effort: str,
                  watch_side: int, watch_every: float, language: str, timeout: float = 12.0,
-                 record: RunLog | None = None, stream: Stream | None = None) -> None:
+                 record: RunLog | None = None) -> None:
         self._timeout = timeout
         self._record = record or RunLog(None, "")
-        self._stream = stream  # the camera stream at the decoder (camera.py); None in replays
-        self._weak_told: float | None = None  # when the model was last told the picture is weak
         self._notes: list[str] = []  # lines for the model's next message, such as a pending step that stood
         self._pending_progress: tuple[int, int] | None = None  # (steps done, the look that recorded it), until the next look
         self._line_class: dict[str, tuple[str, bool]] = {}  # a line _carry_out made -> (class, waiting)
@@ -449,10 +443,6 @@ class Brain:
         seen when it comes, so the user is not read as saying it twice."""
         lines, ids, pending = self._notes, [], self._pending
         self._notes = []
-        if self._stream is not None and self._stream.weak and (
-                self._weak_told is None or time.monotonic() - self._weak_told >= WEAK_TOLD_EVERY_S):
-            self._weak_told = time.monotonic()
-            lines.append(WEAK_PICTURE.format(kbps=self._stream.kbps, fps=self._stream.fps or 0))
         for item in self._session.history.items:
             if item.type != "message" or item.role not in ("user", "assistant") or item.id in self._seen:
                 continue

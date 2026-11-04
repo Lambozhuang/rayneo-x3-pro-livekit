@@ -9,24 +9,18 @@
    ]
   },
   {
-   "commentary": "Camera: You have the right tan one-by-six brick.",
+   "commentary": "Camera: The tan one, in your hand.",
    "expect": [
     "vertical|middle|left of cent"
+   ],
+   "expect_not": [
+    "turn|closer|still|show me|once it"
    ]
   },
   {
    "user": "Do you think I got the right piece",
    "expect": [
     "yes|right|that's it"
-   ]
-  },
-  {
-   "commentary": "Camera: I see the tan one; I'll check the size once it's on the plate.",
-   "expect": [
-    "tan"
-   ],
-   "expect_not": [
-    "turn|closer|still|show me"
    ]
   },
   {
@@ -44,7 +38,7 @@
    ]
   },
   {
-   "commentary": "Camera: You have the right white one-by-six brick.",
+   "commentary": "Camera: The white one, in your hand.",
    "expect": [
     "vertical|right of|four"
    ]
