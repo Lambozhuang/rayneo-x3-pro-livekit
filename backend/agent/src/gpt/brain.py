@@ -86,14 +86,19 @@ logger = logging.getLogger("rayneo-agent.brain")
 
 
 
-def handed_back(last: str | None) -> str:
+HANDED_BACK_FRESH_S = 6.0  # a last line older than this is not repeated to close a hand-over: the plate may have changed
+
+
+def handed_back(last: str | None, age_s: float | None = None) -> str:
     """What closes a hand-over GPT-Live makes although its prompt tells it not to: a commentary on the hand-over's id
-    that repeats the brain's last line, so the voice answers from it when it covers the question and otherwise says
-    it is checking; the next watch look answers the words anyway (the brain's rule 5). The first wording, "answer
-    from what the helper has already told you", made the voice give the next step as if the one before were checked;
-    the second, "still looking at it", made it say so even when it knew the answer (eval/voice-script, 2026-11-03)."""
-    if not last:
-        return "Camera: nothing seen yet; the helper says when it has."
+    that repeats the brain's last line while that line is fresh, so the voice answers from it when it covers the
+    question, and otherwise says the helper is checking; the next watch look answers the words anyway (the brain's
+    rule 5). The first wording, "answer from what the helper has already told you", made the voice give the next step
+    as if the one before were checked; the second, "still looking at it", made it say so even when it knew the answer
+    (eval/voice-script, 2026-11-03); repeating a stale line made it say a brick was still misplaced right after the
+    wearer had fixed it (the run of 2026-11-04 15:51)."""
+    if not last or (age_s is not None and age_s > HANDED_BACK_FRESH_S):
+        return "Camera: checking that now; the next line says what I see."
     fact = last.split(": ", 1)[1] if last.startswith(("Camera: ", "Progress: ", "Picture: ")) else last
     return f"Camera: nothing new since the last look; still: {fact}"
 
@@ -369,7 +374,8 @@ class Brain:
         self._pending: str | None = None  # handed-over words put in a look before the history had them (replays only)
         self._turn = asyncio.Lock()  # one look is built, sent and kept at a time
         self._asks = 0  # hand-overs GPT-Live made all the same, each closed at once
-        self._last_line: str | None = None  # the last line given to the voice, repeated to close a hand-over
+        self._last_line: str | None = None  # the last line given to the voice, repeated to close a hand-over while fresh
+        self._last_line_at: float | None = None
         self._last_say: tuple[float, str] | None = None  # when and what the brain last had the voice say
         self._last_tell: float | None = None  # when the brain last gave the voice a silent fact
         self._watcher: asyncio.Task | None = None
@@ -418,10 +424,10 @@ class Brain:
         as thinking, a say and a progress moved as one commentary."""
         text, calls, look = await self._look_once("watch", w, self._watch_side, None, TOOLS)
         speak = await self._carry_out(look, calls, "watch", w)
+        await self._settle_progress(w, calls)  # a step from the look before stands first, so its line leads this look's
         for line in speak:
             cls, waiting = self._line_class.pop(line, ("say", False))
             self._to_voice(line, cls, waiting, w)
-        await self._settle_progress(w, calls)
 
     # ------------------------------------------------------------------ hand-overs
 
@@ -434,7 +440,7 @@ class Brain:
         words = d.pending_transcript.strip()  # the turn not yet in the history; often empty
         logger.info("delegation: %s #%d closed at once, user: %s", d.id, self._asks, words or "(no words came with it)")
         self._record.event("delegation", n=self._asks, id=d.id, words=words)
-        text = handed_back(self._last_line)
+        text = handed_back(self._last_line, time.monotonic() - self._last_line_at if self._last_line_at else None)
         self._record.event("commentary", n=self._asks, id=d.id, text=text,
                            voice_speaking=self._session.agent_state == "speaking")
         self._session.current_agent.duplex_session.append_commentary(text, delegation_id=d.id)
@@ -589,25 +595,26 @@ class Brain:
                 else:
                     self._last_tell = time.monotonic()
                     self._record.event("tell", **{"w" if kind == "watch" else "n": n}, text=told)
-                    self._session.current_agent.duplex_session.append_thinking(f"Camera: {told}")
-                    self._last_line = f"Camera: {told}"
+                    self._to_voice(f"Camera: {told}", "tell", False, n)  # silent, but through the gate like the rest
                     result, line = "The assistant knows it.", None
             else:
                 result, line = f"No such tool here: {name}.", None
             look.results[call_id] = result
             if line:
                 speak.append(line)
-                self._last_line = line
                 self._line_class[line] = ("say", bool(args.get("kind") == "waiting")) if name == "say" else ("state", False)
         return speak
 
     def _to_voice(self, line: str, cls: str, waiting: bool, w: int) -> None:
         """Hands a line to the voice once neither side is speaking. While one is, the newest line of each class waits,
-        `state` (Progress, Picture) and `say` (Camera), and a newer one of the same class replaces it, so the voice
-        never reads a queue of stale lines, which the second pilot heard three at a time ("That's step two. Now take
-        the dark red... Two of five steps done. You're on step three..."), and does not start over the wearer, which it
-        did four to eight times a run. A waiting line that has waited WAITING_STALE_S is dropped: the moment has passed.
-        After GATE_WAIT_MAX_S the lines go anyway."""
+        `state` (Progress, Picture), `say` (Camera, spoken) and `tell` (Camera, silent), and a newer one of the same
+        class replaces it, so the voice never reads a queue of stale lines, which the second pilot heard three at a
+        time ("That's step two. Now take the dark red... Two of five steps done. You're on step three..."), and does not
+        start over the wearer, which it did four to eight times a run. Released, state goes first, then say, as one
+        commentary, and the tell after them as thinking, so a fact for later never comes before the step it follows
+        (the run of 2026-11-04 15:51 heard "the yellow one by four is on the right of the pile" before "that's step
+        two"). A waiting line that has waited WAITING_STALE_S is dropped: the moment has passed. After GATE_WAIT_MAX_S
+        the lines go anyway."""
         if cls in self._pending_lines:
             self._record.event("line_replaced", w=w, text=self._pending_lines[cls][1], by=line)
         self._pending_lines[cls] = (time.monotonic(), line, waiting)
@@ -633,6 +640,11 @@ class Brain:
                     self._record.event("commentary", id=None, text=text, waited_s=round(time.monotonic() - t0, 1),
                                        voice_speaking=self._session.agent_state == "speaking")
                     self._session.current_agent.duplex_session.append_commentary(text)
+                    self._last_line, self._last_line_at = parts[-1], time.monotonic()
+                if "tell" in self._pending_lines:
+                    _, line, _ = self._pending_lines.pop("tell")
+                    self._session.current_agent.duplex_session.append_thinking(line)
+                    self._last_line, self._last_line_at = line, time.monotonic()
                 t0 = time.monotonic()
                 continue
             await asyncio.sleep(0.1)
