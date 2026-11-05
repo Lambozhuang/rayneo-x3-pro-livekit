@@ -226,19 +226,24 @@ class OpenAIModel:
     async def ask(self, instructions: str, looks: list[Look], tools: list, effort: str, key: str
                   ) -> tuple[str, list[tuple[str, str, dict]], list, dict]:
         """Answers the newest look. Returns the reply text, the tool calls, the output items to keep, the usage."""
+        from openai.types.responses import Response
+
         kw = {"reasoning": {"effort": effort}} if effort else {}
-        resp = await self._client.responses.create(
-            model=self._model, instructions=instructions, input=self._render(looks),
-            tools=[{"type": "function", "name": n, "description": d, "parameters": p, "strict": True} for n, d, p in tools],
-            store=False, include=["reasoning.encrypted_content"], prompt_cache_key=key,
-            prompt_cache_options={"mode": "explicit"}, **kw,
-        )
+        body = {"model": self._model, "instructions": instructions, "input": self._render(looks),
+                "tools": [{"type": "function", "name": n, "description": d, "parameters": p, "strict": True} for n, d, p in tools],
+                "store": False, "include": ["reasoning.encrypted_content"], "prompt_cache_key": key,
+                "prompt_cache_options": {"mode": "explicit"}, **kw}
+        # The body goes as it is: responses.create would first walk every item of the whole thread through the SDK's
+        # typed-parameter transform, which blocked the agent's event loop 100 to 140 ms a look on the lab PC (the
+        # agent's own warnings, 2026-11-05 15:45) and with it the voice's audio and turn handling.
+        resp = await self._client.post("/responses", body=body, cast_to=Response)
         if not resp.output:
             raise RuntimeError("the model returned no output")
         calls = [(o.call_id, o.name, json.loads(o.arguments or "{}")) for o in resp.output if o.type == "function_call"]
         u = resp.usage
         out_details = getattr(u, "output_tokens_details", None) if u else None
-        return resp.output_text, calls, list(resp.output), {
+        output = [o.model_dump(exclude_unset=True, mode="json") for o in resp.output]  # as the transform made them
+        return resp.output_text, calls, output, {
             "in": u.input_tokens if u else 0, "out": u.output_tokens if u else 0,
             "cached": u.input_tokens_details.cached_tokens if u and u.input_tokens_details else 0,
             "written": 0,  # OpenAI caches by itself and reports no writes
@@ -353,6 +358,8 @@ class Brain:
         self._instructions = brain_instructions(build.guide, language)
         self._looks: list[Look] = []  # the conversation: every look the model answered, in order
         self._seen: set[str] = set()  # ids of the chat history items already in a kept look
+        self._look_ids: set[str] = set()  # the history items the look in flight carries
+        self._poked = False  # the wearer's words landed and cancelled the look in flight: the next goes out now
         self.voice_now = ""  # what the voice is saying at this moment (agent.py feeds the transcript deltas), until its line is in the history
         self._pending: str | None = None  # handed-over words put in a look before the history had them (replays only)
         self._turn = asyncio.Lock()  # one look is built, sent and kept at a time
@@ -378,6 +385,16 @@ class Brain:
         if self._look is not None:
             self._look.cancel()
 
+    def poke(self, item_id: str) -> None:
+        """The wearer's words have landed in the history (agent.py): a look in flight that does not carry them is
+        cancelled, the thread takes it out again, and the next look, which carries them, goes out at once. Without
+        this the answer came 0.2 to 2 s after the words when a look happened to follow them and 3.6 to 4.5 s when one
+        had just gone out (the run of 2026-11-05 15:45); one request is wasted for one look's time saved."""
+        if self._look is not None and not self._look.done() and item_id not in self._look_ids:
+            self._record.event("poke", item=item_id, w=self._look_w)
+            self._poked = True
+            self._look.cancel()
+
     async def _watch_loop(self) -> None:
         """One watch look after the other, each starting at least watch_every after the one before."""
         w = 0
@@ -387,7 +404,10 @@ class Brain:
                 w += 1
                 self._look_w = w
                 self._look = asyncio.create_task(self._watch(w), name="watch_look")
-                await asyncio.wait([self._look])  # returns on cancel too, which stop_watching does
+                await asyncio.wait([self._look])  # returns on cancel too, which stop_watching and poke do
+            if self._poked:
+                self._poked = False
+                continue  # the wearer's words are waiting: no pause before the look that carries them
             await asyncio.sleep(max(0.0, self._watch_every - (time.monotonic() - started)))
 
     async def _watch(self, w: int) -> None:
@@ -484,6 +504,7 @@ class Brain:
             age_ms = (time.monotonic() - self._tap.latest_at) * 1000 if frame is not None else None
             photo = await asyncio.to_thread(_jpeg, frame, side) if frame is not None else None
             text, ids, pending = self._message(words)
+            self._look_ids = set(ids)
             if photo is None:
                 text = f"{NO_PHOTO}\n{text}"
             look = Look(text=text, photo=photo)
