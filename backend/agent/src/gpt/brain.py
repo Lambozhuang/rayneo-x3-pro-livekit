@@ -144,6 +144,14 @@ SHOW = (
      "required": ["step"], "additionalProperties": False})
 TOOLS = [SET_PROGRESS, TELL, SAY, SHOW]  # the same for every look, so the cached prefix holds
 
+# Sent as an appended instruction before a progress line while the voice is talking. A commentary waits for the
+# sentence in progress and for the helper lines queued before it; an appended instruction interrupts speech (OpenAI's
+# live-conversations guide, and eval/voice-script's interrupt scripts on the decisions branch, 2026-11-05), so the step
+# done is heard at once and the stale lines go. The last sentence binds it to the moment: appended instructions stay in
+# the model's context, and one without it was applied six seconds late and cut a step instruction short.
+CUT_IN = ("A progress line follows now: break off what you are saying, drop any helper lines you have not said yet, "
+          "and say the progress line. This is for this moment only; finish every later sentence as usual.")
+
 # how a line of the chat history is labelled in a look's message
 WHO = {"user": "User", "assistant": "Assistant"}
 
@@ -397,9 +405,15 @@ class Brain:
         speak = await self._carry_out(look, calls, "watch", w)
         if speak:
             line = " ".join(speak)
-            self._record.event("commentary", w=w, id=None, text=line,
-                               voice_speaking=self._session.agent_state == "speaking")
-            self._session.current_agent.duplex_session.append_commentary(line)
+            speaking = self._session.agent_state == "speaking"
+            duplex = self._session.current_agent.duplex_session
+            if speaking and any(s.startswith("Progress:") for s in speak):
+                # the step done or the build finished must not queue behind the voice's turn and the lines before it:
+                # pilot 4 had the voice relay an old "hand still on it" for 4 s after the brain recorded the last step
+                self._record.event("cut_in", w=w, text=line)
+                duplex.append_instructions(CUT_IN)
+            self._record.event("commentary", w=w, id=None, text=line, voice_speaking=speaking)
+            duplex.append_commentary(line)
 
     # ------------------------------------------------------------------ hand-overs
 

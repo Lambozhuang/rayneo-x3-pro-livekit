@@ -272,10 +272,8 @@ async def rayneo_assistant(ctx: JobContext) -> None:
     # generate_reply on GPT-Live is commentary: a request the model may decline.
     handle = session.generate_reply(
         instructions=(
-            "Greet the wearer briefly: say you can see through their glasses and will "
-            f'guide them through building "{guide.title}", naming it in a few words; that they can tell you '
-            "when they have a brick or have placed one, ask you to check anything, or ask for a picture of a step; "
-            "and ask them to say when they are ready. Do not describe any step yet."
+            "Greet the wearer in one short sentence: you can see their table, and they should say when they are "
+            "ready. Nothing else: no task name, no list of what they can do, no step. They have done this before."
         )
     )
     await handle
