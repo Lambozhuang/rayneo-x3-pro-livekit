@@ -38,6 +38,14 @@ class Settings:
     # makes.
     brain_watch_side: int
     brain_watch_every: float
+    # The second line (moments.py): every frame goes to the Decisions API; the side in px of its bottom square, the
+    # probability a yes and the brick's name need, how long a line said holds the same line back, the model and the
+    # image detail.
+    moments_side: int
+    moments_sure: float
+    moments_hold_s: float
+    moments_model: str
+    moments_detail: str
 
     @classmethod
     def from_env(cls) -> Settings:
@@ -51,6 +59,11 @@ class Settings:
             brain_timeout=float(os.environ.get("BRAIN_TIMEOUT", "12")),
             brain_watch_side=int(require_env("BRAIN_WATCH_SIDE")),
             brain_watch_every=float(require_env("BRAIN_WATCH_EVERY")),
+            moments_side=int(require_env("MOMENTS_SIDE")),
+            moments_sure=float(require_env("MOMENTS_SURE")),
+            moments_hold_s=float(require_env("MOMENTS_HOLD_S")),
+            moments_model=os.environ.get("MOMENTS_MODEL", "gpt-6-luna"),
+            moments_detail=os.environ.get("MOMENTS_DETAIL", "high"),
         )
         require_env("OPENAI_API_KEY")  # the SDKs and the plugin read their keys themselves
         if s.brain_provider not in ("openai", "anthropic"):
@@ -60,9 +73,13 @@ class Settings:
         if s.brain_watch_side <= 0 or s.brain_watch_every <= 0:
             raise RuntimeError(f"BRAIN_WATCH_SIDE={s.brain_watch_side} BRAIN_WATCH_EVERY={s.brain_watch_every}: "
                                "use values above 0")
-        logger.info("session model: %s voice=%s brain=%s/%s effort=%s detail=%s watch_side=%d watch_every=%ss",
-                    s.live_model, s.voice, s.brain_provider, s.brain_model, s.brain_effort, s.brain_detail,
-                    s.brain_watch_side, s.brain_watch_every)
+        if s.moments_side <= 0 or not 0.5 <= s.moments_sure <= 1.0 or s.moments_hold_s < 0:
+            raise RuntimeError(f"MOMENTS_SIDE={s.moments_side} MOMENTS_SURE={s.moments_sure} MOMENTS_HOLD_S="
+                               f"{s.moments_hold_s}: the side above 0, sure between 0.5 and 1, the hold 0 or more")
+        logger.info("session model: %s voice=%s brain=%s/%s effort=%s detail=%s watch_side=%d watch_every=%ss "
+                    "moments=%s side=%d sure=%.2f hold=%ss", s.live_model, s.voice, s.brain_provider, s.brain_model,
+                    s.brain_effort, s.brain_detail, s.brain_watch_side, s.brain_watch_every, s.moments_model,
+                    s.moments_side, s.moments_sure, s.moments_hold_s)
         return s
 
     def experiment_line(self, guide: str) -> str:

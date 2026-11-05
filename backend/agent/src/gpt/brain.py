@@ -363,6 +363,10 @@ class Brain:
         self._last_line: str | None = None  # the last line given to the voice, repeated to close a hand-over
         self._watcher: asyncio.Task | None = None
         self._look: asyncio.Task | None = None  # the watch look running, if any
+        self._look_w = 0  # its number
+        self._look_seq = 0  # the number of the frame it looks at
+        self._next: tuple | None = None  # the frame the next look is to take instead of the newest (look_now)
+        self._wake = asyncio.Event()  # set by look_now: the pause before the next look ends now
 
     @property
     def instructions(self) -> str:
@@ -381,15 +385,31 @@ class Brain:
             self._look.cancel()
 
     async def _watch_loop(self) -> None:
-        """One watch look after the other, each starting at least watch_every after the one before."""
+        """One watch look after the other, each starting at least watch_every after the one before, or at once when
+        look_now has been called meanwhile."""
         w = 0
         while True:
             started = time.monotonic()
             if self._tap.latest is not None:
                 w += 1
+                self._look_w = w
                 self._look = asyncio.create_task(self._watch(w), name="watch_look")
-                await asyncio.wait([self._look])  # returns on cancel too, which stop_watching does
-            await asyncio.sleep(max(0.0, self._watch_every - (time.monotonic() - started)))
+                await asyncio.wait([self._look])  # returns on cancel too, which stop_watching and look_now do
+            try:
+                await asyncio.wait_for(self._wake.wait(), max(0.0, self._watch_every - (time.monotonic() - started)))
+            except asyncio.TimeoutError:
+                pass
+            self._wake.clear()
+
+    def look_now(self, frame, seq: int, at: float) -> None:
+        """The second line (moments.py) saw the step's brick on the plate with the hand gone: the next look goes out
+        at once on that very frame, and a look in flight on an older frame is cancelled (the thread takes it out
+        again), so the verdict comes one look's time after the hand left instead of up to two."""
+        self._next = (frame, seq, at)
+        if self._look is not None and not self._look.done() and self._look_seq < seq:
+            self._record.event("look_cancelled", w=self._look_w, frame=self._look_seq, for_frame=seq)
+            self._look.cancel()
+        self._wake.set()
 
     async def _watch(self, w: int) -> None:
         try:
@@ -481,8 +501,11 @@ class Brain:
             name = "delegation" if kind == "look" else "watch"
             num = "n" if kind == "look" else "w"
             t0 = time.perf_counter()
-            frame, seq = self._tap.latest, self._tap.count  # the newest frame (~15 a second) and its number in this call
-            age_ms = (time.monotonic() - self._tap.latest_at) * 1000 if frame is not None else None
+            now = self._next is not None  # the frame look_now named, else the newest (~15 a second) and its number in this call
+            frame, seq, at = self._next if now else (self._tap.latest, self._tap.count, self._tap.latest_at)
+            self._next = None
+            self._look_seq = seq
+            age_ms = (time.monotonic() - at) * 1000 if frame is not None else None
             photo = await asyncio.to_thread(_jpeg, frame, side) if frame is not None else None
             text, ids, pending = self._message(words)
             if photo is None:
@@ -504,7 +527,7 @@ class Brain:
                                n, build.step + 1)
             self._record.event(f"{kind}_sent", **{num: n}, step=build.step + 1, frame=seq if frame is not None else None,
                                frame_size=f"{frame.width}x{frame.height}" if frame is not None else None,
-                               frame_age_ms=round(age_ms) if age_ms is not None else None, side=side,
+                               frame_age_ms=round(age_ms) if age_ms is not None else None, side=side, now=now,
                                photo=saved, photo_kb=len(photo) // 1024 if photo else None,
                                prep_ms=round((t_sent - t0) * 1000), lines=text, looks=len(self._looks), words=words)
             try:

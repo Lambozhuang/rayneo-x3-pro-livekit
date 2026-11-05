@@ -1,10 +1,12 @@
-"""The GPT path: GPT-Live speaks, the brain looks by itself every few seconds.
+"""The GPT path: GPT-Live speaks, the brain looks by itself every few seconds, and a second line reads every frame.
 
     glasses --audio--> SFU --> this process --ws--> gpt-live-1 (knows every step)
-            --video-->     --> FrameTap (frames kept for the brain, none to the voice)
+            --video-->     --> FrameTap (frames kept for the brain and the moments, none to the voice)
     brain: a frame every few seconds + the lines said since its last look --> one vision call --> what it sees,
            kept to itself, maybe tell, say, set_progress or show
             <--thinking (tell: a fact for later) or commentary (say: the user hears it now; the progress moved)-- brain
+    moments: every frame --> the Decisions API --> which moment it shows: a brick held and which (one commentary,
+           "Camera: yes, that's the one."), the step's brick on the plate with the hand gone (the brain looks now)
             <--audio-- SFU <-- this process <-- gpt-live-1
             <--step list (participant attributes)-- this process (the step is the brain's)
 
@@ -39,6 +41,7 @@ from env import language, require_env
 from frames import FrameTap
 from gpt.brain import TOOLS, Brain, make_model
 from gpt.config import Settings, build_live_model
+from gpt.moments import Moments
 from gpt.prompts import voice_persona
 from guide import Build, picked_guide, publish_build
 from qoe import LabRun, deliver, write_report
@@ -74,6 +77,8 @@ async def rayneo_assistant(ctx: JobContext) -> None:
     model = make_model(settings.brain_provider, settings.brain_model, settings.brain_detail)
     brain = Brain(session, build, tap, model, settings.brain_effort, settings.brain_watch_side,
                   settings.brain_watch_every, lang, settings.brain_timeout, record)
+    moments = Moments(session, build, tap, brain, record, settings.moments_side, settings.moments_sure,
+                      settings.moments_hold_s, settings.moments_model, settings.moments_detail)
     persona = voice_persona(guide, lang)
     record.text("brain.txt", brain.instructions)
     record.text("brain-tools.json", json.dumps(
@@ -92,6 +97,7 @@ async def rayneo_assistant(ctx: JobContext) -> None:
     @session.on("close")
     def _log_close(ev) -> None:
         brain.stop_watching()  # the call is over: no more looks at a camera that has stopped sending
+        moments.stop()
         record.event("closed", reason=str(getattr(ev.reason, "value", ev.reason)), error=str(ev.error) if ev.error else None)
         # The call is over when the session is: end the job now, not when livekit-server closes the room, which is
         # 20 s after the glasses leave (departure_timeout), so the record closes and reaches the console at once.
@@ -99,9 +105,10 @@ async def rayneo_assistant(ctx: JobContext) -> None:
 
     async def _log_usage() -> None:
         brain.stop_watching()
-        logger.info("usage: %s camera_frames=%d", session.usage, tap.count)
+        moments.stop()
+        logger.info("usage: %s camera_frames=%d moments=%d", session.usage, tap.count, moments.count)
         record.event("end", voice_s=sum(getattr(u, "session_duration", 0) for u in session.usage.model_usage),
-                     camera_frames=tap.count)
+                     camera_frames=tap.count, moments=moments.count)
         record.close()
         if lab:
             path = write_report(lab, record.dir, record.wall_ms, round(time.time() * 1000),
@@ -242,6 +249,7 @@ async def rayneo_assistant(ctx: JobContext) -> None:
     record.event("step", done=None, now=1)
     await publish_build(build)
     brain.start_watching()
+    moments.start()
 
     # The task ends by itself: once the brain has recorded the last step as done, the voice says so (the Progress
     # commentary), and when it has stopped speaking the glasses are told to hang up through Build.over in the published
