@@ -1,0 +1,92 @@
+# Twelve frames, each with one brick held up in a hand, one frame a brick type and colour of the tasks: the probe asks
+# whether a brick is held, whether it is the current step's brick, and which of the task's bricks it is. Each frame's
+# `step` is the step the builder was on when they picked the brick up, so the held brick is the step's brick and
+# in_hand_is_step is expected true; the frame's `brick` is the expected answer of in_hand_which. Same source as
+# situations.toml: the user's own calls of 2026-11-04 and 2026-11-05, no console, connection excellent throughout.
+
+folder = "logs/material-2026-11-05/bricks"
+questions = "bricks"
+
+[[frame]]
+file = "1x4-yellow__ladder-1104-1024-w46.jpg"
+task = "ladder"
+step = 3
+brick = "yellow 1x4"
+what = "the right hand holds the yellow 1x4 above the plate; it looks orange in the picture"
+
+[[frame]]
+file = "1x4-blue__ladder-1104-1024-w72.jpg"
+task = "ladder"
+step = 4
+brick = "blue 1x4"
+what = "the right hand holds the blue 1x4 above the plate"
+
+[[frame]]
+file = "1x4-lime__ladder-1104-1024-w77.jpg"
+task = "ladder"
+step = 5
+brick = "lime 1x4"
+what = "the left hand holds the lime 1x4 left of the plate"
+
+[[frame]]
+file = "1x6-tan__ladder-1104-1603-w8.jpg"
+task = "ladder"
+step = 1
+brick = "tan 1x6"
+what = "the right hand holds the tan 1x6 above the empty plate"
+
+[[frame]]
+file = "1x6-white__ladder-1104-1024-w22.jpg"
+task = "ladder"
+step = 2
+brick = "white 1x6"
+what = "the right hand holds the white 1x6 above the plate, the tan 1x6 placed"
+
+[[frame]]
+file = "2x4-red__flag-1104-1621-w45.jpg"
+task = "flag"
+step = 3
+brick = "red 2x4"
+what = "the left hand holds the red 2x4 above the plate"
+
+[[frame]]
+file = "2x4-blue__airplane-1105-1559-w50.jpg"
+task = "airplane"
+step = 3
+brick = "blue 2x4"
+what = "the right hand holds the blue 2x4 above the plate"
+
+[[frame]]
+file = "2x4-purple__key-1105-1501-w72.jpg"
+task = "key"
+step = 4
+brick = "purple 2x4"
+what = "the right hand holds the purple 2x4 above the pile"
+
+[[frame]]
+file = "2x6-dark-grey__flag-1104-1621-w57.jpg"
+task = "flag"
+step = 5
+brick = "dark grey 2x6"
+what = "the left hand holds the dark grey 2x6 above the pile"
+
+[[frame]]
+file = "2x6-tan__key-1105-1501-w16.jpg"
+task = "key"
+step = 1
+brick = "tan 2x6"
+what = "the right hand holds the tan 2x6 above the plate"
+
+[[frame]]
+file = "round-4x4-blue__key-1105-1501-w31.jpg"
+task = "key"
+step = 2
+brick = "blue 4x4 round plate"
+what = "the right hand holds the blue round plate above the pile, fingers over part of it"
+
+[[frame]]
+file = "round-4x4-dark-grey__snowman-1104-1644-w19.jpg"
+task = "snowman"
+step = 2
+brick = "dark grey 4x4 round plate"
+what = "the right hand holds the dark grey round plate up; the left hand holds a tan 1x6, which is not in this task"

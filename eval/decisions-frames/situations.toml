@@ -1,0 +1,81 @@
+# The frames probe.py sends and what a person read off each one, so the Decisions answers can be scored.
+#
+# Every frame is one of the brain's 1080 px photos from a call the user ran themselves with no console and no network
+# shaping, copied into logs/material-2026-11-05/situations/ (not in git; the source call and look are in the file name).
+# `task` names the directory under backend/agent/guides/, `step` is the step the builder was on, and the probe writes the
+# developer text from them. `expect` holds only the answers a person can give with certainty from this one frame; a
+# field left out is reported but not scored. Predicates are true or false; step_wrong_how is one of nothing, not
+# placed yet, wrong brick, wrong orientation, wrong position; off_direction is left, right, up or down and is scored
+# only when step_wrong_how is wrong position.
+
+folder = "logs/material-2026-11-05/situations"
+
+[[frame]]
+file = "1-idle-no-hands-empty-plate__snowman-1104-1644-w8.jpg"
+task = "snowman"
+step = 1
+what = "no hands in the picture, the plate empty, the bricks loose on the desk"
+expect = { plate_visible = true, hand_on_plate = false, brick_in_hand = false, in_hand_is_step = false, step_on_plate = false, step_right = false, step_wrong_how = "not placed yet" }
+
+[[frame]]
+file = "2-holding-the-steps-brick-white-1x6__flag-1104-1621-w11.jpg"
+task = "flag"
+step = 1
+what = "the left hand holds the white 1x6 up beside the pile, the plate empty"
+expect = { plate_visible = true, hand_on_plate = false, brick_in_hand = true, in_hand_is_step = true, step_on_plate = false, step_right = false, step_wrong_how = "not placed yet" }
+
+[[frame]]
+file = "3-holding-another-brick-tan-1x6-step-wants-blue-round__snowman-1104-1644-w3.jpg"
+task = "snowman"
+step = 1
+what = "the left hand holds a tan 1x6 up left of the plate; the step wants the blue round plate, which lies on the desk"
+expect = { plate_visible = true, hand_on_plate = false, brick_in_hand = true, in_hand_is_step = false, step_on_plate = false, step_right = false, step_wrong_how = "not placed yet" }
+
+[[frame]]
+file = "4-hand-pressing-brick-on-plate__flag-1104-1621-w19.jpg"
+task = "flag"
+step = 1
+what = "the right hand presses the white 1x6 onto the plate and covers most of it; whether it sits right cannot be told"
+expect = { plate_visible = true, hand_on_plate = true, brick_in_hand = false, step_on_plate = false }
+
+[[frame]]
+file = "5-hands-off-step-placed-right__ladder-1104-1024-w41.jpg"
+task = "ladder"
+step = 2
+what = "tan and white 1x6 vertical with four empty columns between them; the hands rest at the plate's edges, the right one holding the orange separator, which is not a brick"
+expect = { plate_visible = true, hand_on_plate = false, brick_in_hand = false, step_on_plate = true, step_right = true, step_wrong_how = "nothing" }
+
+[[frame]]
+file = "6a-step-wrong-step1-grey-vertical-should-be-horizontal__crane-1104-1632-w15.jpg"
+task = "crane"
+step = 1
+what = "the dark grey 2x6 stands vertical in the middle of the plate; the step wants it horizontal; no hands on the plate"
+expect = { plate_visible = true, hand_on_plate = false, brick_in_hand = false, step_on_plate = true, step_right = false, step_wrong_how = "wrong orientation" }
+
+[[frame]]
+file = "6b-step-wrong-step3-rung-one-row-too-low__ladder-1104-1024-w51.jpg"
+task = "ladder"
+step = 3
+what = "the yellow 1x4 rung sits between the rails one row below their top row; it has to move up one row; no hands on the plate"
+expect = { plate_visible = true, hand_on_plate = false, brick_in_hand = false, step_on_plate = true, step_right = false, step_wrong_how = "wrong position", off_direction = "up" }
+
+[[frame]]
+file = "6c-step-wrong-step4-purple-gap-two-columns-needs-one__key-1105-1501-w83.jpg"
+task = "key"
+step = 4
+what = "the purple 2x4 stands vertical below the tan brick with two empty columns to the red brick on its right; one is wanted, so it has to move right; no hands on the plate"
+expect = { plate_visible = true, hand_on_plate = false, brick_in_hand = false, step_on_plate = true, step_right = false, step_wrong_how = "wrong position", off_direction = "right" }
+
+[[frame]]
+file = "7a-cannot-see-plate-out-of-view__ladder-1104-1603-w5.jpg"
+task = "ladder"
+step = 1
+what = "the builder looks at the laptop; only a corner of the plate is in the picture; a hand holds a cable"
+expect = { plate_visible = false }
+
+[[frame]]
+file = "7b-cannot-see-motion-blur__key-1105-1501-w22.jpg"
+task = "key"
+step = 1
+what = "the plate is sharp and empty; the right hand and the brick it holds are smeared by motion, so the brick cannot be identified; in_hand_is_step is left unscored to see whether the answer stays near the middle"
+expect = { plate_visible = true, hand_on_plate = false, brick_in_hand = true, step_on_plate = false, step_right = false }
