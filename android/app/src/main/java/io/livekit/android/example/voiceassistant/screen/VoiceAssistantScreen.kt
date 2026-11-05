@@ -23,7 +23,6 @@ import io.livekit.android.compose.state.SessionOptions
 import io.livekit.android.compose.state.rememberAgent
 import io.livekit.android.compose.state.rememberLocalMedia
 import io.livekit.android.compose.state.rememberSession
-import io.livekit.android.compose.state.rememberSessionMessages
 import io.livekit.android.compose.state.rememberSpeakingParticipants
 import io.livekit.android.example.voiceassistant.CallLog
 import io.livekit.android.example.voiceassistant.Exposure
@@ -38,11 +37,9 @@ import io.livekit.android.room.track.RemoteAudioTrack
 import io.livekit.android.example.voiceassistant.rememberCanEnableCamera
 import io.livekit.android.example.voiceassistant.rememberCanEnableMic
 import io.livekit.android.example.voiceassistant.requirePermissions
-import io.livekit.android.example.voiceassistant.ui.AgentLines
 import io.livekit.android.example.voiceassistant.ui.BuildProgress
 import io.livekit.android.example.voiceassistant.ui.CallLayout
 import io.livekit.android.example.voiceassistant.ui.CameraPreview
-import io.livekit.android.example.voiceassistant.ui.WearerLine
 import io.livekit.android.example.voiceassistant.ui.Eyes
 import io.livekit.android.example.voiceassistant.ui.Phase
 import io.livekit.android.example.voiceassistant.ui.rememberBuildProgress
@@ -275,7 +272,6 @@ fun VoiceAssistant(
             onDispose { if (dump != null) cameraTrack!!.removeRenderer(dump) }
         }
 
-        val sessionMessages = rememberSessionMessages()
         val speakers by rememberSpeakingParticipants(room)
         val wearerSpeaking = speakers.any { it.identity == room.localParticipant.identity }
         // Has an agent ever been here? Lets "it left" read differently from
@@ -325,11 +321,6 @@ fun VoiceAssistant(
             }
         }
 
-        // Both sides. The agent's lines are its own transcript; the wearer's
-        // are what the model heard, published back by the agent under the
-        // wearer's identity. See Captions.kt.
-        val wearerIdentity = room.localParticipant.identity
-
         // Everything above the Eyes call is hoisted on purpose: that layout is
         // composed once per eye, so a `remember` inside it would exist twice
         // and the two copies could disagree. See Eyes.
@@ -339,8 +330,6 @@ fun VoiceAssistant(
                 phase = phase,
                 picture = picture,
                 preview = { m -> CameraPreview(track = cameraTrack, modifier = m) },
-                agentLines = { m -> AgentLines(messages = sessionMessages.messages, wearerIdentity = wearerIdentity, modifier = m) },
-                wearerLine = { m -> WearerLine(messages = sessionMessages.messages, wearerIdentity = wearerIdentity, modifier = m) },
                 remaining = remaining,
                 modifier = modifier,
             )

@@ -140,23 +140,22 @@ fun PhaseHeader(phase: Phase, modifier: Modifier = Modifier) {
 }
 
 /**
- * The line under the agent's column: what the model heard the wearer say ([wearer]), or, when the phase has one, a line
- * saying what to do about it instead ("Connection lost, trying again"). Big enough to catch without focusing on it: the
- * panels are 640x480 at arm's length, so anything under ~18 sp is a squint.
+ * The line under the header when the phase has one, saying what to do ("Connection lost, trying again"); nothing
+ * otherwise. Big enough to catch without focusing on it: the panels are 640x480 at arm's length, so anything under
+ * ~18 sp is a squint.
  */
 @Composable
-fun WearerOrHint(phase: Phase, modifier: Modifier = Modifier, wearer: @Composable (Modifier) -> Unit) {
-    phase.hint?.let {
-        Text(
-            text = it,
-            color = Color(0xFFBDBDBD),
-            fontSize = 20.sp,
-            lineHeight = 26.sp,
-            maxLines = 1,
-            overflow = TextOverflow.Ellipsis,
-            modifier = modifier,
-        )
-    } ?: wearer(modifier)
+fun PhaseHint(phase: Phase, modifier: Modifier = Modifier) {
+    val hint = phase.hint ?: return
+    Text(
+        text = hint,
+        color = Color(0xFFBDBDBD),
+        fontSize = 20.sp,
+        lineHeight = 26.sp,
+        maxLines = 1,
+        overflow = TextOverflow.Ellipsis,
+        modifier = modifier,
+    )
 }
 
 /** Width that holds the longest phase word, "Reconnecting", at 16 sp bold. */

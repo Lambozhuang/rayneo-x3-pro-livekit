@@ -7,6 +7,7 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -27,12 +28,14 @@ import androidx.compose.ui.unit.sp
 
 /**
  * One eye of the call. The build's title runs along the top over a line, with the time left of the lab's limit at its
- * right end during a lab run ([remaining]). Below it two columns divided by a line. The
- * left one is the build's: the step list under its heading, all steps in view, and at the bottom what the camera sees
- * ([preview], CameraPreview). The right one is the agent's: a framed head saying "Assistant" and who has the floor
- * (PhaseHeader), the agent's lines, newest at the bottom, under them the agent's [picture] while it names one
- * (Pictures.kt), as the newest thing the agent gave, and along the bottom, under a line, what the model heard the wearer
- * say (WearerOrHint). VoiceAssistantScreen fills it from the room, MockScreen from fixed data, so the two look the same.
+ * right end during a lab run ([remaining]). Below it two columns divided by a line. The left one is the build's: the
+ * step list under its heading, all steps in view, and at the bottom what the camera sees ([preview], CameraPreview).
+ * The right one is the agent's: a framed head saying "Assistant" and who has the floor (PhaseHeader), under it a line
+ * saying what to do when the connection or the agent is lost (PhaseHint), and the rest of the column for the agent's
+ * [picture] while it names one (Pictures.kt), as large a square as the column allows. Neither side's words are shown:
+ * the transcripts came late and sometimes wrong, and the participant's task is the bricks, not the screen (the user's
+ * ruling after pilot 3, 2026-11-05). VoiceAssistantScreen fills the layout from the room, MockScreen from fixed data,
+ * so the two look the same.
  *
  * The picture's square also says when a picture is on its way (the agent has named it, its bytes are not here yet) and
  * when one did not arrive, so the wearer can ask for it again. The agent sends a picture only when the wearer asked for
@@ -48,8 +51,6 @@ fun CallLayout(
     phase: Phase,
     picture: Picture,
     preview: @Composable (Modifier) -> Unit,
-    agentLines: @Composable (Modifier) -> Unit,
-    wearerLine: @Composable (Modifier) -> Unit,
     remaining: String? = null,
     modifier: Modifier = Modifier,
 ) {
@@ -79,12 +80,13 @@ fun CallLayout(
             Hairline(Modifier.padding(horizontal = GAP).fillMaxHeight().width(1.dp))
             Column(modifier = Modifier.weight(1f).fillMaxHeight()) {
                 PhaseHeader(phase = phase, modifier = Modifier.fillMaxWidth())
-                agentLines(Modifier.weight(1f).fillMaxWidth().padding(top = GAP))
+                PhaseHint(phase = phase, modifier = Modifier.fillMaxWidth().padding(top = GAP))
                 if (picture != Picture.None) {
-                    PictureArea(picture = picture, modifier = Modifier.padding(top = 8.dp).size(PICTURE_SIDE).border(1.dp, OUTLINE))
+                    // The square is as tall as the room left, or as wide as the column when that is less.
+                    Box(modifier = Modifier.weight(1f).fillMaxWidth().padding(top = GAP), contentAlignment = Alignment.Center) {
+                        PictureArea(picture = picture, modifier = Modifier.fillMaxSize().aspectRatio(1f, matchHeightConstraintsFirst = true).border(1.dp, OUTLINE))
+                    }
                 }
-                Hairline(Modifier.padding(top = GAP).fillMaxWidth().height(1.dp))
-                WearerOrHint(phase = phase, modifier = Modifier.fillMaxWidth().padding(top = GAP), wearer = wearerLine)
             }
         }
     }
@@ -109,16 +111,16 @@ private fun Connecting(modifier: Modifier) {
     }
 }
 
-/** A one-pixel line in the grey of the outlines; three of them divide the screen. */
+/** A one-pixel line in the grey of the outlines; two of them divide the screen. */
 @Composable
 private fun Hairline(modifier: Modifier) {
     Box(modifier = modifier.background(OUTLINE))
 }
 
 /**
- * The agent's picture, a square under the agent's lines, framed like the camera's: the picture itself; a small dim ring
- * while the picture is on its way, which under a slow network is how long it takes; or the words that it did not arrive.
- * The ring and the words are dim: the display is additive.
+ * The agent's picture, a square framed like the camera's: the picture itself; a small dim ring while the picture is on
+ * its way, which under a slow network is how long it takes; or the words that it did not arrive. The ring and the words
+ * are dim: the display is additive.
  */
 @Composable
 private fun PictureArea(picture: Picture, modifier: Modifier = Modifier) {
@@ -151,9 +153,6 @@ private fun PictureArea(picture: Picture, modifier: Modifier = Modifier) {
 /** Side of the camera's square at the bottom of the build's column, and so the column's width; the step list, five
  * lines at 16 sp, takes the room above it, and the agent's column takes the rest of the eye's width. */
 private val PREVIEW_SIDE = 200.dp
-
-/** Side of the agent's picture under the agent's lines, which keep the space above it. */
-private val PICTURE_SIDE = 192.dp
 
 /** The space between every hairline and the content on either side of it. */
 val GAP = 12.dp
