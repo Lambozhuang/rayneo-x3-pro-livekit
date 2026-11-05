@@ -591,8 +591,10 @@ def report(d: str) -> str:
                        f'<span class="dim">{spoke}{cut}</span></span></div>')
         elif k in ("watch_back", "watch_failed") and watch_outcome(watches[e["w"]]) in ("progress", "say", "held", "tell", "note", "failed"):
             out.append(f'<div class="row">{t}<div style="flex:1">{watch_card(e["w"], watches[e["w"]])}</div></div>')
-        elif k == "delegation":
+        elif k == "delegation" and "n" in e and e["n"] in looks:
             out.append(f'<div class="row">{t}<div style="flex:1">{card(e["n"], looks[e["n"]], thinking.get(e["n"], []))}</div></div>')
+        elif k == "delegation":  # GPT-Live handed the wearer's words over; the eyes closed it (a commentary event follows)
+            out.append(f'<div class="row">{t}<span class="dim">hand-over: {esc(e.get("words") or "(no words yet)")}</span></div>')
         elif k == "step":
             what = ((f"step {e['done']} done, " if e.get("done") else "") + (f"step {e['reopened']} reopened, " if e.get("reopened") else "")
                     + (f"now step {e['now']}" if e.get("now") else "last step done"))

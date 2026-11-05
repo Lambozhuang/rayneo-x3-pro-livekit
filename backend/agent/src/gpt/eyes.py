@@ -13,20 +13,26 @@ brain's model (consult.py), sent while the voice says the first beat: "Hmm, not 
 A reading every QUICK_FAST_S while a hand is on the plate or a brick is in the hand, every `every` seconds (the
 BRAIN_QUICK_EVERY setting) when the scene is still, at once when the wearer has spoken (poke), and never twice on the
 same frame. A reading is two requests sent together, four questions about the scene (hand, brick in the hand, steps
-built right, blur) and three about the current step's brick (on the plate, placed as the step says, where it lies),
+built right, blur) and five about the current step's brick (held in a hand, its colour, on the plate, placed as the step says, where it lies),
 since one request with all seven spread the confidences (the step count fell from 0.8 to 0.4 on the same frames,
 eval/agent-sim/ 2026-11-04). Every rule acts on two readings in a row at QUICK_SURE confidence or better, so one odd
 frame does nothing. The lines:
 
-- the current step's brick in the hand: "Camera: The blue one, in your hand." once per step;
+- the current step's brick in the hand, by the choice question twice or by the step's own yes-or-no question
+  twice: "Camera: The blue one, in your hand." once per step (the choice alone called a tan 1x6 "another brick" for
+  twelve seconds on the device, 2026-11-05);
+- a later step's brick in the hand: "Camera: that's the lime one in your hand; this step wants the yellow one." once
+  per brick per step;
 - the current step's brick on the plate as the step says and in the step's colour, hand off, or more steps built
   right than recorded: the progress moves and the voice hears "Progress: ..."; the last step, which ends the task,
   is confirmed by the brain's model first when the consult is on, since the eyes once called a white brick in the
   lime brick's place right (the recording of 2026-10-27, eval/agent-sim/);
-- the current step's brick on the plate, hand off, not as the step says, the count unmoved: "Camera: the white one
-  is on the plate but not in its place yet." once per attempt (a hand back on it starts a new one), and the brain is
-  consulted for the correction; if nothing comes back within CONSULT_WAIT_S the voice is told to say the place once
-  more and offer the picture;
+- the current step's brick on the plate, hand off, not as the step says: the brain's model is asked, once per attempt
+  (a hand back on it starts a new one), whether it sits right, and moves the progress or says what is wrong; the quick
+  look's own verdict is not spoken, since on the ladder it read a right brick as wrong (0.15 and 0.28) and a wrong one
+  as right (0.72 and 0.79), and a question that took the fault for granted had the model invent one (2026-11-05); if
+  nothing comes back within CONSULT_WAIT_S the voice is told to say the place once more and offer the picture; with
+  the consult off the eyes say "not in its place yet" themselves;
 - two bricks the model cannot tell apart in the hand, one of them the step's: "Camera: in your hand, the yellow one
   or the lime one, I can't tell which." once per step;
 - the picture blurry: "Camera: the picture is blurry right now." at most once a minute;
@@ -80,12 +86,14 @@ BLUR_EVERY_S = 60.0
 FIND_AFTER_S = 12.0  # with nothing in the hand this long after a step was given and the user last spoke, where its brick lies is said
 CONSULT_WAIT_S = 4.5  # the correction's words are waited for this long before the voice is told to repeat the place
 WORDS_SURE = 0.5  # words classified less surely than this as needing no eyes are sent to the brain's model all the same
-WORDS_SETTLE_S = 1.2  # a piece of the wearer's turn that follows the first this closely is joined to it and the turn reclassified
+WORDS_SETTLE_S = 2.0  # a piece of the wearer's turn that follows the first this closely is joined to it and the turn reclassified
 INTERIM_SETTLE_S = 0.4  # an interim transcript is routed once no newer one has come for this long: the deltas come word by word
 FINISH_AGAIN_S = 10.0  # the brain's model is asked again whether the build is finished after this long with the count still at the last step
 PLACED_WAIT_S = 2.5  # after "I placed it", the eyes get this long to settle the step before the brain's answer is spoken
 TIMEOUT_S = 5.0
-CUT_IN = "Stop what you are saying at once, mid-sentence, this once: a helper line follows that the user must hear now."
+CUT_IN_AFTER_S = 3.0  # an urgent line cuts into the voice's turn only this long into it: a turn just begun takes the line anyway
+CUT_IN = ("Break off the sentence you are saying right now and say the helper line that follows. This is for this moment "
+          "only: finish every later sentence as usual.")
 
 
 def colour_word(brick: str) -> str:
@@ -126,9 +134,11 @@ def scene_questions(guide: Guide) -> list[dict]:
 
 
 def step_questions(guide: Guide, k: int) -> list[dict]:
-    """The four questions about the brick of step k (1-based)."""
+    """The five questions about the brick of step k (1-based)."""
     step = guide.steps[min(k, len(guide.steps)) - 1]
     return [
+        {"type": "predicate", "name": "holding",
+         "instructions": f"Is the user holding the {step.brick} of step {k} in a hand right now, lifted off the desk and the plate?"},
         {"type": "predicate", "name": "colour",
          "instructions": f"Is the brick lying at step {k}'s place on the baseplate {colour_word(step.brick)}, the colour step {k} "
                          "names, and not a brick of another colour?"},
@@ -168,6 +178,7 @@ class Reading:
     on_plate: float
     right: float
     colour: float  # the brick at the step's place is the step's colour
+    holding: float  # the step's brick is in the user's hand
     where: str
     where_sure: float
     blurry: float
@@ -179,7 +190,8 @@ class Reading:
         held = f"the {guide.steps[int(self.in_hand[5:]) - 1].brick}" if self.in_hand.startswith("step ") else self.in_hand
         return (f"The quick look, {time.monotonic() - self.at:.0f} s ago: hand on the plate {'yes' if self.hand >= HAND_ON else 'no'}; "
                 f"in the hand {held} ({self.in_hand_sure:.0%} sure); steps built right {self.done} ({self.done_sure:.0%} sure); "
-                f"the step's brick on the plate {self.on_plate:.0%}, placed as the step says {self.right:.0%}, its colour {self.colour:.0%}; "
+                f"the step's brick in the hand {self.holding:.0%}, on the plate {self.on_plate:.0%}, placed as the step says {self.right:.0%}, "
+                f"its colour {self.colour:.0%}; "
                 f"picture {'blurry' if self.blurry >= 0.5 else 'clear'}.")
 
 
@@ -202,7 +214,8 @@ class Eyes:
         # what has been said for the step the user is on, reset when the progress moves
         self._step_told = self._build.step
         self._said_in_hand = self._said_doubt = self._said_where = False
-        self._wrong_said_at: float | None = None  # the attempt the "not in its place" line was said for
+        self._said_wrong: set[str] = set()  # the later steps' bricks already called out in the hand this step
+        self._wrong_said_at: float | None = None  # the attempt the misplacement was judged for
         self._hand_was_on = False
         self._finish_asked_at: float | None = None  # when the brain's model was last asked whether the build is finished
         self._step_given_at = time.monotonic()
@@ -216,11 +229,16 @@ class Eyes:
         self._interim_at: float = 0.0  # when an interim transcript of the turn under way last came
         self._interim_task: asyncio.Task | None = None  # routes the latest interim once the deltas pause
         self._routed: tuple[str, str] | None = None  # the turn's text and kind last acted on
+        self._speaking_since: float | None = None  # when the voice's turn under way began
 
     # ------------------------------------------------------------------ the loop
 
     def start(self) -> None:
+        self._session.on("agent_state_changed", self._voice_state)
         self._task_handle = asyncio.create_task(self._loop(), name="eyes")
+
+    def _voice_state(self, ev) -> None:
+        self._speaking_since = time.monotonic() if ev.new_state == "speaking" else None
 
     def cancel(self) -> None:
         if self._task_handle is not None:
@@ -278,7 +296,7 @@ class Eyes:
                           in_hand_p={p["value"]: p["probability"] for p in in_hand.get("probabilities", [])},
                           done=int(a["done"]["choice"]), done_sure=a["done"].get("confidence", 0.0),
                           on_plate=a["on_plate"]["probability"], right=a["right"]["probability"],
-                          colour=a["colour"]["probability"],
+                          colour=a["colour"]["probability"], holding=a["holding"]["probability"],
                           where=a["where"]["choice"], where_sure=a["where"].get("confidence", 0.0),
                           blurry=a["blurry"]["probability"], ms=ms, tokens=tokens)
         before = self._readings[-1] if self._readings else None
@@ -290,11 +308,11 @@ class Eyes:
         self._record.event("quick", n=self._n, ms=ms, tokens=tokens, step=step, hand=round(reading.hand, 2),
                            in_hand=reading.in_hand, in_hand_sure=round(reading.in_hand_sure, 2), done=reading.done,
                            done_sure=round(reading.done_sure, 2), on_plate=round(reading.on_plate, 2),
-                           right=round(reading.right, 2), colour=round(reading.colour, 2), where=reading.where,
-                           blurry=round(reading.blurry, 2))
-        logger.info("eyes: #%d %d ms step %d hand %.2f in_hand %s (%.2f) done %d (%.2f) on %.2f right %.2f colour %.2f where %s blurry %.2f",
-                    self._n, ms, step, reading.hand, reading.in_hand, reading.in_hand_sure, reading.done, reading.done_sure,
-                    reading.on_plate, reading.right, reading.colour, reading.where, reading.blurry)
+                           right=round(reading.right, 2), colour=round(reading.colour, 2), holding=round(reading.holding, 2),
+                           where=reading.where, blurry=round(reading.blurry, 2))
+        logger.info("eyes: #%d %d ms step %d hand %.2f in_hand %s (%.2f) holding %.2f done %d (%.2f) on %.2f right %.2f colour %.2f where %s blurry %.2f",
+                    self._n, ms, step, reading.hand, reading.in_hand, reading.in_hand_sure, reading.holding, reading.done,
+                    reading.done_sure, reading.on_plate, reading.right, reading.colour, reading.where, reading.blurry)
         await self._act(before, reading)
 
     async def _ask_decisions(self, text: str, photo: bytes | None, qs: list[dict]) -> tuple[dict, int, int]:
@@ -342,6 +360,7 @@ class Eyes:
         if step != self._step_told:
             self._step_told = step
             self._said_in_hand = self._said_doubt = self._said_where = False
+            self._said_wrong = set()
             self._wrong_said_at = None
             self._step_given_at = time.monotonic()
         brick = build.guide.steps[min(step, len(build.guide.steps)) - 1].brick
@@ -367,10 +386,19 @@ class Eyes:
             await self.progress(step, f"the quick look sees the {brick} on the plate as the step says, {now.right:.0%} sure, "
                                       f"its colour {now.colour:.0%}", "quick look")
             return
-        # the current step's brick in the hand: told once per step
-        if not self._said_in_hand and self._agree_on(lambda r: r.in_hand, f"step {step}", lambda r: r.in_hand_sure):
+        # the current step's brick in the hand, by the choice or by the step's own question: told once per step
+        if not self._said_in_hand and (self._agree_on(lambda r: r.in_hand, f"step {step}", lambda r: r.in_hand_sure)
+                                       or self._agree(lambda r: r.holding >= QUICK_SURE)):
             self._said_in_hand = True
             self.speak([f"Camera: The {colour} one, in your hand."], "quick")
+            return
+        # a later step's brick in the hand: once per brick per step, as an instructor says "not that one"
+        held = now.in_hand
+        if (held.startswith("step ") and int(held[5:]) > step and held not in self._said_wrong
+                and self._agree_on(lambda r: r.in_hand, held, lambda r: r.in_hand_sure)):
+            self._said_wrong.add(held)
+            other = colour_word(build.guide.steps[int(held[5:]) - 1].brick)
+            self.speak([f"Camera: that's the {other} one in your hand; this step wants the {colour} one."], "quick")
             return
         # two bricks the model cannot tell apart, one of them the step's: asked as a question, once per step
         if not self._said_in_hand and not self._said_doubt and self._agree(lambda r: r.in_hand.startswith("step ") and r.in_hand_sure < SURE_MEAN):
@@ -391,16 +419,20 @@ class Eyes:
                                             f"if it is another colour, say which and that the step wants the {colour} one.", fallback=False)
             return
         if self._wrong_said_at is None and not hand_on and self._agree(lambda r: r.on_plate >= QUICK_SURE and r.right <= WRONG):
-            self._wrong_said_at = self._verdict_at = time.monotonic()
+            self._wrong_said_at = time.monotonic()
             if self._consult is None:  # the eyes alone: one line, the place said again and the picture offered
+                self._verdict_at = self._wrong_said_at
                 self.speak([f"Camera: the {colour} one is on the plate but not in its place yet; say once more where it goes, "
                             "and offer the picture."], "eyes", urgent=True)
                 return
-            self.speak([f"Camera: the {colour} one is on the plate but not in its place yet."], "quick", urgent=True)
-            doubt = (f"The brick at that place may not be {colour} at all ({now.colour:.0%} that it is): check the colour first, since "
-                     f"a brick of another colour is not the step's brick, whatever its place. " if now.colour <= WRONG else "")
-            self._consult_now("placement", f"The {brick} of step {step} is on the plate but not as the step says. {doubt}Say what is "
-                                           "wrong and what would make it right, in one sentence.", fallback=True)
+            # the brain's model judges, asked without the fault taken for granted: the quick look's position answers were
+            # wrong both ways on the ladder, and "say what is wrong" had the model invent "on its side" for a right brick
+            self._consult_now("placement", f"The quick look reads the {brick} of step {step} as on the plate but not as the step "
+                                           f"says ({now.right:.0%} that it sits right); it is often wrong about this. Look yourself: if "
+                                           f"the brick sits as the step says, call set_progress with {step} and say so in a few words; "
+                                           "if it does not, say what is wrong and what would make it right, in one sentence; if the "
+                                           f"brick there is not {colour}, say which colour it is and that the step wants the {colour} one.",
+                              fallback=True)
             return
         # the picture blurry
         if (self._blur_said_at is None or time.monotonic() - self._blur_said_at > BLUR_EVERY_S) and self._agree(lambda r: r.blurry >= BLUR):
@@ -483,6 +515,8 @@ class Eyes:
         kind, sure = a["kind"]["choice"], a["kind"].get("confidence", 0.0)
         self._record.event("words", text=text, words_kind=kind, sure=round(sure, 2), ms=ms)
         logger.info("eyes: words %r -> %s (%.2f)", text, kind, sure)
+        if len(text.split()) < 3 and sure < WORDS_SURE:
+            return  # a word or two, read unsurely ("How", "now"): the rest of the turn may follow within WORDS_SETTLE_S
         if self._routed is not None and self._routed[1] == kind and (text.startswith(self._routed[0]) or self._routed[0].startswith(text)):
             return  # the same turn, longer or closed, the same kind: what was done for the earlier text stands
         self._routed = (text, kind)
@@ -490,8 +524,7 @@ class Eyes:
             # an unclear classification goes to the brain's model too: a wasted request is cheap, an unanswered question is not
             if kind == "scene" and self._consult is not None:
                 first = self._verdict_now()  # the eyes' own answer at once, the brain's sentence as the second beat
-                said_already = (self._wrong_said_at is not None and "not in its place" in (first or "")) or (
-                    self._verdict_at is not None and time.monotonic() - self._verdict_at < 5.0)
+                said_already = self._verdict_at is not None and time.monotonic() - self._verdict_at < 5.0
                 if first and not said_already:  # not when the rules have just said as much
                     self._record.event("first_beat", text=first)
                     self.speak([first], "eyes", urgent=True)
@@ -523,14 +556,16 @@ class Eyes:
 
     def speak(self, lines: list[str], source: str, urgent: bool = False) -> None:
         """Hands lines to the voice as one commentary and records it. An urgent line that comes while the voice is
-        speaking is preceded by an appended instruction to stop, which makes GPT-Live break off within two seconds
-        and say the line, where a commentary alone waits for the sentence in progress (eval/voice-script,
-        interrupt-*.json, 2026-11-05); used for a step done and a brick placed wrong, the two moments a person
-        interrupts themselves for."""
+        CUT_IN_AFTER_S or more into a turn is preceded by an appended instruction to break off, which makes GPT-Live
+        stop within two seconds and say the line, where a commentary alone waits for the sentence in progress
+        (eval/voice-script, interrupt-*.json, 2026-11-05); used for a step done and a brick placed wrong, the two
+        moments a person interrupts themselves for. A turn just begun takes the line anyway, and the instruction sent
+        then was applied six seconds late and cut a step instruction short (the device, 2026-11-05 08:47)."""
         line = " ".join(lines)
         speaking = self._session.agent_state == "speaking"
+        long_turn = speaking and self._speaking_since is not None and time.monotonic() - self._speaking_since >= CUT_IN_AFTER_S
         duplex = self._session.current_agent.duplex_session
-        if urgent and speaking:
+        if urgent and long_turn:
             self._record.event("cut_in", text=line, source=source)
             duplex.append_instructions(CUT_IN)
         self._record.event("commentary", text=line, source=source, voice_speaking=speaking)
@@ -569,8 +604,9 @@ class Eyes:
         self._consulting = asyncio.create_task(self._consult_task(reason, ask, fallback, unless_settled_since), name="consult")
 
     def _verdict_now(self) -> str | None:
-        """What the latest reading says about the current step's brick, when it says something plainly: in its place,
-        or on the plate but not; otherwise None and the brain's model answers alone."""
+        """What the latest readings say about the current step's brick when they say it plainly: in its place.
+        Otherwise None and the brain's model answers alone; a reading of the brick as not in its place is left to it
+        too, since the eyes read a right brick as wrong on the ladder (2026-11-05)."""
         r = self.latest
         if r is None or time.monotonic() - r.at > 3.0:
             return None
@@ -581,8 +617,6 @@ class Eyes:
         # to leave are not this one.
         if self._agree(lambda q: q.on_plate >= QUICK_SURE and q.right >= RIGHT_STEP and q.colour >= RIGHT):
             return f"Camera: the {colour} one looks in its place to me."
-        if self._agree(lambda q: q.on_plate >= QUICK_SURE and q.right <= WRONG):
-            return f"Camera: the {colour} one is on the plate but not in its place yet."
         return None
 
     def _eyes_only(self, reason: str) -> str:
@@ -627,9 +661,14 @@ class Eyes:
             self.speak([f"Camera: I can't make out what is off with the {colour_word(brick)} one; say once more where it goes, and offer the picture."], "fallback")
 
     def handed_back(self) -> str:
-        """What closes a hand-over GPT-Live makes although its prompt tells it not to: the last line while fresh,
-        otherwise the three words a person says."""
+        """What closes a hand-over GPT-Live makes although its prompt tells it not to. A consult under way means an
+        answer is coming: "let me look". A fresh line is repeated. Otherwise the voice is told there is nothing new to
+        see and to answer itself: on the device (2026-11-05 08:47) two questions about the steps were handed over,
+        "let me look" closed them, and the voice said "Let me see" and waited for a line that nothing was going to
+        send."""
+        if self._consulting is not None and not self._consulting.done():
+            return "Camera: let me look."
         if self._last_line and self._last_line_at and time.monotonic() - self._last_line_at <= 6.0:
             fact = self._last_line.split(": ", 1)[1] if ": " in self._last_line else self._last_line
             return f"Camera: nothing new since the last look; still: {fact}"
-        return "Camera: let me look."
+        return "Camera: nothing new on the plate; this one is yours to answer, from the steps and what has been said."
