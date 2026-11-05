@@ -73,6 +73,7 @@ QUICK_FAST_S = 0.7  # the pause between readings while a hand is on the plate or
 QUICK_SIDE = {"low": 512, "high": 1080}  # the photo's side for each detail: the API scales "low" to 512 px anyway
 HAND_ON = 0.5  # the probability above which a hand counts as on the plate
 RIGHT = 0.6  # "as the step says" at least this is a right placement; WRONG or less a wrong one; between, nothing is said
+RIGHT_STEP = 0.8  # the bar for recording a step done on the step's own answers: a brick three rows too low read 0.72 and 0.79 on two frames running (eval/brain-decisions/bitrate.py)
 WRONG = 0.3
 BLUR = 0.8
 BLUR_EVERY_S = 60.0
@@ -360,7 +361,7 @@ class Eyes:
                 return
             await self.progress(now.done, f"the quick look counts {now.done} steps built right, {now.done_sure:.0%} sure", "quick look")
             return
-        if not hand_on and self._agree(lambda r: r.on_plate >= QUICK_SURE and r.right >= RIGHT and r.colour >= RIGHT):
+        if not hand_on and self._agree(lambda r: r.on_plate >= QUICK_SURE and r.right >= RIGHT_STEP and r.colour >= RIGHT):
             if step == last and not await self._finish():
                 return
             await self.progress(step, f"the quick look sees the {brick} on the plate as the step says, {now.right:.0%} sure, "
@@ -578,7 +579,7 @@ class Eyes:
         # two readings agreeing, as every rule asks: one reading said a brick three rows too low sat right at 0.83. The
         # hand may be on the plate: the user asking counts the brick as placed, and the rules that wait for the hand
         # to leave are not this one.
-        if self._agree(lambda q: q.on_plate >= QUICK_SURE and q.right >= RIGHT and q.colour >= RIGHT):
+        if self._agree(lambda q: q.on_plate >= QUICK_SURE and q.right >= RIGHT_STEP and q.colour >= RIGHT):
             return f"Camera: the {colour} one looks in its place to me."
         if self._agree(lambda q: q.on_plate >= QUICK_SURE and q.right <= WRONG):
             return f"Camera: the {colour} one is on the plate but not in its place yet."

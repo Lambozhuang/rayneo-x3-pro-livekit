@@ -39,6 +39,20 @@ Detail high (626 ms a request) and the step's rendered picture given as a refere
 
 So the model behind Decisions reads the coarse state of the plate, hands and bricks, and tells a right placement from a wrong one, but not where a wrong one should move; those words need the brain's model, which read "one column too far right" on the same frames.
 
+## The eyes' questions at every bitrate (2026-11-05 morning)
+
+`bitrate.py` asks the eyes' own two batteries (`gpt/eyes.py`, four scene and four step questions, 512 px, detail low) about the codec study's 41 frames of the ladder call of 2026-10-27 (`../brain-frame-codec/out/`, exposure -6) as recorded and as decoded from H.265 at 1, 0.5, 0.25 and 0.1 Mbps, and scores them against `../brain-frame-quality/labels.toml` and the study's narrative (the blue rung at the rails' bottom ends in f20 to f25, a white 1x4 where the light aqua one goes in f30 to f35); the task is `ladder-2026-10-27.toml`, the one recorded.
+
+| condition | hand on plate | steps built right | step's brick on plate | position right / wrong / unsure (17 frames) | colour right / wrong / unsure (17) | blurry | same count as recorded | ms |
+|---|---|---|---|---|---|---|---|---|
+| as recorded | 41/41 | 20/41 | 32/41 | 8 / 6 / 3 | 10 / 4 / 3 | 0 | - | 640 |
+| H.265 1 Mbps | 40/41 | 20/41 | 33/41 | 8 / 8 / 1 | 12 / 3 / 2 | 0 | 31/41 | 518 |
+| H.265 0.5 Mbps | 41/41 | 23/41 | 33/41 | 8 / 7 / 2 | 14 / 0 / 3 | 0 | 36/41 | 552 |
+| H.265 0.25 Mbps | 40/41 | 21/41 | 35/41 | 6 / 9 / 2 | 11 / 2 / 4 | 0 | 34/41 | 530 |
+| H.265 0.1 Mbps | 41/41 | 19/41 | 36/41 | 10 / 5 / 2 | 11 / 3 / 3 | 3 | 34/41 | 529 |
+
+The bitrate changes almost nothing: the answers at 0.1 Mbps agree with those on the recorded frames as often as those at 1 Mbps do, and only 0.1 Mbps has the model call any frame blurry (3 of 41). What the table shows instead is the model's own reading of this dark ladder material at any bitrate. The hand is read right on every frame. The count of steps built right is right and sure (0.6 to 0.99) while nothing or one brick is placed, and from two bricks on it is unsure (0.1 to 0.4) and wrong by a pattern: with four or five bricks on the plate it answers 5, counting bricks rather than steps built right, on the misplaced blue rung and on the white 1x4 alike. The position of the misplaced blue rung reads as right at 0.72 and 0.79 on two frames running as recorded, and at 0.87, 0.64, 0.91 on three at 0.25 Mbps, so the step rule as it stood (0.6 on two readings) would have recorded that step done; the bar for the step's own answers is 0.8 now (`RIGHT_STEP`), and the count rule's wrong answers stay under its 0.5 mean. The white 1x4 in the light aqua's place reads as light aqua on two of the six frames at 0.7 to 0.8, so the colour question does not catch a pale brick under this exposure every time either; the finish's confirmation by the brain's model stands between that and a task ended on the wrong brick. The snowman frames of 2026-11-04, under the lab's exposure and with round plates, had read far better (40 of 40 on the count); the lab day of 2026-11-05 shows which of the two these frames resemble.
+
 ## What the project does with it
 
 The eyes (`backend/agent/src/gpt/eyes.py`) are built on these limits: the Decisions API reads the frame every 0.7 to 2 s, in two requests of four and three questions, and says what happened in a line of facts the voice puts into words, the current step's brick in the hand, the step done, the brick on the plate but not in its place, two bricks it cannot tell apart; the brain's model is consulted once (`gpt/consult.py`) for the words it cannot produce, what is wrong and how to fix it, and for the wearer's questions about the desk. The first design of the evening, a quick look beside a brain watching every two seconds, went the same evening, after `eval/agent-sim/` ran the three parts together.
