@@ -353,6 +353,7 @@ class Brain:
         self._instructions = brain_instructions(build.guide, language)
         self._looks: list[Look] = []  # the conversation: every look the model answered, in order
         self._seen: set[str] = set()  # ids of the chat history items already in a kept look
+        self.voice_now = ""  # what the voice is saying at this moment (agent.py feeds the transcript deltas), until its line is in the history
         self._pending: str | None = None  # handed-over words put in a look before the history had them (replays only)
         self._turn = asyncio.Lock()  # one look is built, sent and kept at a time
         self._asks = 0  # hand-overs GPT-Live made all the same, each closed at once
@@ -452,6 +453,11 @@ class Brain:
                 pending = None
                 continue
             lines.append(f"{WHO[item.role]}: {text}")
+        # The voice's line reaches the history only when its turn ends; a look sent while it answers a question would
+        # read the question as unanswered and answer it again (the run of 2026-11-05 15:01, three times).
+        now = " ".join(self.voice_now.split())
+        if now:
+            lines.append(f"{WHO['assistant']} (speaking now, unfinished): {now}")
         if words is None:
             return "\n".join(lines) or NO_ONE_SPOKE, ids, pending
         users = [line[len("User: "):] for line in lines if line.startswith("User: ")]

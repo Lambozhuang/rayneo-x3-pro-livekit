@@ -116,6 +116,8 @@ async def rayneo_assistant(ctx: JobContext) -> None:
     def _log_turn(ev: ConversationItemAddedEvent) -> None:
         if isinstance(ev.item, ChatMessage):
             logger.info("%s: %s", ev.item.role, ev.item.text_content)
+            if ev.item.role == "assistant":
+                brain.voice_now = ""  # the turn is in the history now
             if ev.item.role in ("user", "assistant"):
                 m = ev.item.metrics or {}
                 record.event("said", who="wearer" if ev.item.role == "user" else "voice", text=ev.item.text_content,
@@ -192,8 +194,14 @@ async def rayneo_assistant(ctx: JobContext) -> None:
             logger.info("live: sent %s %s", etype, json.dumps({k: v for k, v in event.items() if k != "type"}))
             record.event("live_sent", type=etype, event=event)
 
+    # What the voice is saying right now, for the brain's looks (Brain.voice_now, brain.py _message).
+    def _voice_words(event: dict) -> None:
+        if event.get("type") == "session.output_transcript.delta":
+            brain.voice_now += event.get("delta") or ""
+
     duplex.on("openai_client_event_queued", _log_live_sent)
     duplex.on("openai_server_event_received", _log_live_event)
+    duplex.on("openai_server_event_received", _voice_words)
     if getattr(duplex, "_session_id", None):  # started before the hook above was in place
         logger.info("gpt-live: session started %s (billed from here; before this line)", duplex._session_id)
         record.event("live", type="session.started", id=duplex._session_id, before_hook=True)
