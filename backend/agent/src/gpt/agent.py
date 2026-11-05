@@ -118,8 +118,6 @@ async def rayneo_assistant(ctx: JobContext) -> None:
             logger.info("%s: %s", ev.item.role, ev.item.text_content)
             if ev.item.role == "assistant":
                 brain.voice_now = ""  # the turn is in the history now
-            elif (ev.item.text_content or "").strip():
-                brain.poke(ev.item.id)  # the wearer's words: a look that carries them goes out now
             if ev.item.role in ("user", "assistant"):
                 m = ev.item.metrics or {}
                 record.event("said", who="wearer" if ev.item.role == "user" else "voice", text=ev.item.text_content,
