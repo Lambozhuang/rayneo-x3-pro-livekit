@@ -18,9 +18,10 @@ since one request with all seven spread the confidences (the step count fell fro
 eval/agent-sim/ 2026-11-04). Every rule acts on two readings in a row at QUICK_SURE confidence or better, so one odd
 frame does nothing. The lines:
 
-- the current step's brick in the hand, by the choice question twice or by the step's own yes-or-no question
-  twice: "Camera: The blue one, in your hand." once per step (the choice alone called a tan 1x6 "another brick" for
-  twelve seconds on the device, 2026-11-05);
+- the current step's brick in the hand, the two questions agreeing twice, the step's own yes-or-no question at
+  QUICK_SURE and the choice naming the step's brick: "Camera: The blue one, in your hand." once per step (the choice
+  alone called a tan 1x6 "another brick" for twelve seconds, the yes-or-no alone said yes to a light aqua 2x4 asked
+  about the lime 1x4; the device, 2026-11-05);
 - a later step's brick in the hand: "Camera: that's the lime one in your hand; this step wants the yellow one." once
   per brick per step;
 - the current step's brick on the plate as the step says and in the step's colour, hand off, or more steps built
@@ -44,9 +45,10 @@ about the scene or a disagreement goes to the brain's model with the frame; a re
 glasses; with the consult off (BRAIN_CONSULT=off) the eyes alone judge: a misplaced brick gets the place said once more
 and the picture offered, a question about the desk the eyes' latest reading in words, and nothing goes to the brain's
 model; words sorted as needing no eyes at less than WORDS_SURE confidence go to the brain's model all the same, since
-a wasted request is cheap and an unanswered question is not; "I placed it" goes to the brain's model at once as well, and its answer is spoken only when the eyes have not
-settled the step by then (PLACED_WAIT_S), so the wearer never waits in silence after it and never hears the verdict
-twice; everything else needs no eyes, the voice answers it or lets it pass. The questions are built from the task
+a wasted request is cheap and an unanswered question is not; "I placed it" goes to the brain's model at once as well;
+an answer that comes after the progress has moved is dropped, whoever moved it, so the wearer never hears a verdict
+twice; everything else needs no eyes, the voice answers it or lets it pass. A hand-over GPT-Live makes all the same is
+closed with "let me look" and a request on the wearer's last words when none is under way. The questions are built from the task
 file, so another step-wise task needs no change here.
 """
 
@@ -89,7 +91,6 @@ WORDS_SURE = 0.5  # words classified less surely than this as needing no eyes ar
 WORDS_SETTLE_S = 2.0  # a piece of the wearer's turn that follows the first this closely is joined to it and the turn reclassified
 INTERIM_SETTLE_S = 0.4  # an interim transcript is routed once no newer one has come for this long: the deltas come word by word
 FINISH_AGAIN_S = 10.0  # the brain's model is asked again whether the build is finished after this long with the count still at the last step
-PLACED_WAIT_S = 2.5  # after "I placed it", the eyes get this long to settle the step before the brain's answer is spoken
 TIMEOUT_S = 5.0
 CUT_IN_AFTER_S = 3.0  # an urgent line cuts into the voice's turn only this long into it: a turn just begun takes the line anyway
 CUT_IN = ("Break off the sentence you are saying right now and say the helper line that follows. This is for this moment "
@@ -223,6 +224,7 @@ class Eyes:
         self._last_line: str | None = None
         self._last_line_at: float | None = None
         self._consulting: asyncio.Task | None = None
+        self._consult_for: str | None = None  # the wearer's turn the request under way is about, if any
         self._verdict_at: float | None = None  # when the step was last settled, by the progress or a "not in its place" line
         self._pieces: list[str] = []  # the wearer's turn as it comes through, each piece reclassifying the whole
         self._pieces_at: float = 0.0
@@ -269,7 +271,8 @@ class Eyes:
                 except Exception as e:  # noqa: BLE001
                     logger.warning("eyes: reading #%d failed (%s: %s)", self._n, type(e).__name__, str(e)[:200])
                     self._record.event("quick_failed", n=self._n, error=f"{type(e).__name__}: {e}"[:300])
-            busy = self.latest is not None and (self.latest.hand >= HAND_ON or self.latest.in_hand not in ("none", "another brick"))
+            busy = self.latest is not None and (self.latest.hand >= HAND_ON or self.latest.holding >= HAND_ON
+                                                or self.latest.in_hand not in ("none", "another brick"))
             rest = (QUICK_FAST_S if busy else self._every) - (time.monotonic() - started)
             if rest > 0:
                 try:
@@ -386,9 +389,9 @@ class Eyes:
             await self.progress(step, f"the quick look sees the {brick} on the plate as the step says, {now.right:.0%} sure, "
                                       f"its colour {now.colour:.0%}", "quick look")
             return
-        # the current step's brick in the hand, by the choice or by the step's own question: told once per step
-        if not self._said_in_hand and (self._agree_on(lambda r: r.in_hand, f"step {step}", lambda r: r.in_hand_sure)
-                                       or self._agree(lambda r: r.holding >= QUICK_SURE)):
+        # the current step's brick in the hand, the two questions agreeing twice: the yes-or-no one said yes to a light
+        # aqua 2x4 asked about the lime 1x4, the choice alone swung between the steps' bricks (the device, 2026-11-05)
+        if not self._said_in_hand and self._agree(lambda r: r.in_hand == f"step {step}" and r.holding >= QUICK_SURE):
             self._said_in_hand = True
             self.speak([f"Camera: The {colour} one, in your hand."], "quick")
             return
@@ -517,6 +520,9 @@ class Eyes:
         logger.info("eyes: words %r -> %s (%.2f)", text, kind, sure)
         if len(text.split()) < 3 and sure < WORDS_SURE:
             return  # a word or two, read unsurely ("How", "now"): the rest of the turn may follow within WORDS_SETTLE_S
+        if (self._consulting is not None and not self._consulting.done() and self._consult_for is not None and kind != "picture"
+                and (text.startswith(self._consult_for) or self._consult_for.startswith(text))):
+            return  # the brain's model is asked about this turn already: its answer stands, whatever this piece's kind
         if self._routed is not None and self._routed[1] == kind and (text.startswith(self._routed[0]) or self._routed[0].startswith(text)):
             return  # the same turn, longer or closed, the same kind: what was done for the earlier text stands
         self._routed = (text, kind)
@@ -531,17 +537,16 @@ class Eyes:
             self._consult_now("words", f'The user just said: "{text}". Answer them in one sentence from what the photo shows, '
                                        "starting with the answer; if you cannot see what they ask about, say what is in the way; if the words need "
                                        "no answer about the desk, an acknowledgement or small talk, call no tool.",
-                              fallback=False)
+                              fallback=False, for_text=text)
         elif kind == "picture":
             line = await self._show(min(self._build.step + 1, len(self._build.guide.steps)))
             self.speak([line], "eyes")
         elif kind == "placed":
-            self._placed(time.monotonic())
+            self._placed(text, time.monotonic())
 
-    def _placed(self, said_at: float) -> None:
-        """The wearer says they placed it: the brain's model is asked at once, speculatively, and its verdict is spoken
-        only if the eyes have not settled the step by the time it comes (the progress or a "not in its place" line
-        since the words, less a second for the transcript's lag)."""
+    def _placed(self, text: str, said_at: float) -> None:
+        """The wearer says they placed it: the brain's model is asked at once, speculatively; its verdict is dropped
+        like any that comes after the progress has moved."""
         if self._verdict_at is not None and self._verdict_at >= said_at - 1.0:
             return  # settled just before the words came through
         step = self._build.step + 1
@@ -550,7 +555,7 @@ class Eyes:
         brick = self._build.guide.steps[step - 1].brick
         self._consult_now("placed", f"The user says they have placed the {brick} of step {step}. Is it on the plate as the step says? "
                                     "If it is, say so and call set_progress; if not, say what is wrong and what would make it right; "
-                                    "if you cannot see it, say what is in the way.", fallback=True, unless_settled_since=said_at - 1.0)
+                                    "if you cannot see it, say what is in the way.", fallback=True, for_text=text)
 
     # ------------------------------------------------------------------ speaking and consulting
 
@@ -591,17 +596,23 @@ class Eyes:
         if picture:
             logger.info("picture: taken off the glasses with the progress")
 
-    def _consult_now(self, reason: str, ask: str, fallback: bool, unless_settled_since: float | None = None) -> None:
+    def _consult_now(self, reason: str, ask: str, fallback: bool, for_text: str | None = None) -> None:
         """One request to the brain's model, in the background; the voice gets its sentence when it comes, or the
-        fallback line when nothing comes within CONSULT_WAIT_S. With `unless_settled_since`, the sentence is dropped
-        when the eyes have settled the step since that moment."""
+        fallback line when nothing comes within CONSULT_WAIT_S, and nothing when the progress has moved meanwhile.
+        `for_text` is the wearer's turn the request is about, so a later piece of that turn does not restart it. A
+        placement check does not cancel a request under way, which has the same frame and state and judges the
+        placement too: four requests went out for one turn on the device, three of them cancelled (2026-11-05)."""
         if self._consult is None:
             self._record.event("consult_off", reason=reason)
             self.speak([self._eyes_only(reason)], "eyes")
             return
         if self._consulting is not None and not self._consulting.done():
+            if reason == "placement":
+                self._record.event("consult_kept", reason=reason)
+                return
             self._consulting.cancel()
-        self._consulting = asyncio.create_task(self._consult_task(reason, ask, fallback, unless_settled_since), name="consult")
+        self._consult_for = for_text
+        self._consulting = asyncio.create_task(self._consult_task(reason, ask, fallback), name="consult")
 
     def _verdict_now(self) -> str | None:
         """What the latest readings say about the current step's brick when they say it plainly: in its place.
@@ -638,14 +649,14 @@ class Eyes:
             return "Camera: a hand is over the plate, so I can't tell yet."
         return f"Camera: I can't tell from here whether the {colour} one is in its place yet."
 
-    async def _consult_task(self, reason: str, ask: str, fallback: bool, unless_settled_since: float | None) -> None:
+    async def _consult_task(self, reason: str, ask: str, fallback: bool) -> None:
         step = self._build.step + 1
         brick = self._build.guide.steps[min(step, len(self._build.guide.steps)) - 1].brick
         try:
             line = await asyncio.wait_for(self._consult(reason, self.latest, ask), CONSULT_WAIT_S)
-            if unless_settled_since is not None and self._verdict_at is not None and self._verdict_at >= unless_settled_since:
+            if self._build.step >= step:
                 self._record.event("consult_dropped", reason=reason, text=line)
-                return  # the eyes settled it meanwhile; the user has heard
+                return  # the progress moved meanwhile, by the eyes or by this request: the voice has the news already
         except asyncio.TimeoutError:
             self._record.event("consult_late", reason=reason, waited_s=CONSULT_WAIT_S)
             line = None
@@ -661,14 +672,17 @@ class Eyes:
             self.speak([f"Camera: I can't make out what is off with the {colour_word(brick)} one; say once more where it goes, and offer the picture."], "fallback")
 
     def handed_back(self) -> str:
-        """What closes a hand-over GPT-Live makes although its prompt tells it not to. A consult under way means an
-        answer is coming: "let me look". A fresh line is repeated. Otherwise the voice is told there is nothing new to
-        see and to answer itself: on the device (2026-11-05 08:47) two questions about the steps were handed over,
-        "let me look" closed them, and the voice said "Let me see" and waited for a line that nothing was going to
-        send."""
-        if self._consulting is not None and not self._consulting.done():
-            return "Camera: let me look."
-        if self._last_line and self._last_line_at and time.monotonic() - self._last_line_at <= 6.0:
-            fact = self._last_line.split(": ", 1)[1] if ": " in self._last_line else self._last_line
-            return f"Camera: nothing new since the last look; still: {fact}"
-        return "Camera: nothing new on the plate; this one is yours to answer, from the steps and what has been said."
+        """What closes a hand-over GPT-Live makes although its prompt tells it not to: "let me look", with a request to
+        the brain's model on the wearer's last words when none is under way, so every hand-over gets an answer within
+        a few seconds. Closing with "let me look" alone left the voice waiting on a question about the steps (08:47),
+        and closing with "nothing new on the plate; this one is yours to answer" had it say "Hmm, not quite" to "Here"
+        (09:12); with the consult off the eyes' latest reading closes it."""
+        if self._consult is None:
+            return self._eyes_only("handed")
+        if self._consulting is None or self._consulting.done():
+            text = " ".join(self._pieces) if self._pieces and time.monotonic() - self._pieces_at < 8.0 else ""
+            said = f'The user just said: "{text}". ' if text else "The user has just said something the assistant could not answer by itself. "
+            self._consult_now("handed", said + "Answer them in one sentence from what the photo shows and from the steps, starting "
+                                        "with the answer; if you cannot see what they ask about, say what is in the way.",
+                              fallback=False, for_text=text or None)
+        return "Camera: let me look."

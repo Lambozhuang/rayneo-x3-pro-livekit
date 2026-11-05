@@ -175,8 +175,9 @@ async def rayneo_assistant(ctx: JobContext) -> None:
     duplex = session.current_agent.duplex_session
 
     def _handed(d) -> None:
-        """GPT-Live handed the wearer's words over although its prompt tells it not to: closed at once with the eyes' last
-        line while fresh, or "let me look"; the words themselves are routed when they reach the history."""
+        """GPT-Live handed the wearer's words over although its prompt tells it not to: closed at once with "let me look",
+        and the eyes ask the brain's model about the words when no request is under way; the words themselves are
+        routed when they reach the history."""
         logger.info("delegation: %s closed at once", d.id)
         record.event("delegation", id=d.id, words=d.pending_transcript.strip())
         text = eyes.handed_back()
