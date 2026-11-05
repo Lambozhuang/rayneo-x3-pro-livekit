@@ -86,15 +86,13 @@ logger = logging.getLogger("rayneo-agent.brain")
 
 
 def handed_back(last: str | None) -> str:
-    """What closes a hand-over GPT-Live makes although its prompt tells it not to: a commentary on the hand-over's id
-    that repeats the brain's last line, so the voice answers from it when it covers the question and otherwise says
-    it is checking; the next watch look answers the words anyway (the brain's rule 5). The first wording, "answer
-    from what the helper has already told you", made the voice give the next step as if the one before were checked;
-    the second, "still looking at it", made it say so even when it knew the answer (eval/voice-script, 2026-11-03)."""
-    if not last:
-        return "Camera: nothing seen yet; the helper says when it has."
-    fact = last.split(": ", 1)[1] if last.startswith(("Camera: ", "Progress: ", "Picture: ")) else last
-    return f"Camera: nothing new since the last look; still: {fact}"
+    """What closes a hand-over GPT-Live makes although its prompt tells it not to: "let me look". The wearer's words
+    start a look at once (Brain.poke), so the answer follows within one look's time. Earlier wordings: "answer from
+    what the helper has already told you" made the voice give the next step as if the one before were checked;
+    "still looking at it" made it say so even when it knew the answer (eval/voice-script, 2026-11-03); "nothing new
+    since the last look; still: ..." made it say "no update from the camera yet" at every hand-over of the run of
+    2026-11-05 15:59, naming the camera."""
+    return "Camera: let me look."
 
 
 # (name, description, JSON schema of the arguments); the same for both providers

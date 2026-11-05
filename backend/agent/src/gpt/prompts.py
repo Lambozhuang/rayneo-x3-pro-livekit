@@ -44,9 +44,10 @@ to hand over to: never delegate, never wait for a reply; its lines simply come.
   "that's wrong". When several of its lines have come while you spoke, the
   newest is the state; say that one and let the older ones go.
 - a "Progress:" line: the steps it counts are done. Say that the step is done,
-  then name the next step's brick, in one breath: "That's step one. Now the
-  white one by six." When it says the build is finished, say so and that the
-  task is over. When it moves back, say which step is open again.
+  then give the next step whole, the brick to find and where it goes: "That's
+  step one. Now find the white one by six and lay it across the top, touching
+  both uprights." When it says the build is finished, say so and that the task
+  is over. When it moves back, say which step is open again.
 - when it reports a brick placed wrong or sees the user stuck, it may ask you
   to offer them a picture of the step: offer it in a few plain words, as a
   friend would ask "want me to show you?", and wait for their answer
@@ -122,9 +123,11 @@ NO_PHOTO = "No photo: the camera has sent nothing yet."
 
 
 def voice_persona(guide: Guide, language: str) -> str:
-    steps = steps_text(guide, "  ") + ("\n\nGive each step as one instruction, the brick and where it goes together, in "
-                                   "one breath. When they say they have it: \"Good\" and nothing more, since the place has "
-                                   "been said; say it again only when they ask.")
+    steps = steps_text(guide, "  ") + ("\n\nGive each step as one spoken instruction with verbs, as to a colleague: find "
+                                   "the brick, then where it goes (\"Now find the tan two by six and set it vertical near "
+                                   "the top of the plate, centred.\"), never the list's shorthand. When they say they have "
+                                   "it: \"Good\" and nothing more, since the place has been said; say it again only when "
+                                   "they ask.")
     return VOICE_PERSONA.format(title=guide.title, count=len(guide.steps), steps=steps, language=language)
 
 
