@@ -123,8 +123,8 @@ SAY = (
     "say",
     "Has the assistant tell the user something now, without their asking, in its own words. kind says what it is: "
     "news, something the user acts on now (the brick in their hand named, a placement wrong, an offer of a picture, "
-    "an answer to them); or waiting, nothing can be told yet (studs unclear, hands in the way, the picture poor) "
-    "with what would help.",
+    "an answer to them); or waiting, nothing can be told yet (studs unclear, hands in the way, the picture poor), "
+    "said as what is so, with no request to the user.",
     {"type": "object", "properties": {"text": {"type": "string",
                                                "description": "one or two short sentences of plain facts"},
                                       "kind": {"type": "string", "enum": ["news", "waiting"],
