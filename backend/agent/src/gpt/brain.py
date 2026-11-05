@@ -67,7 +67,6 @@ from __future__ import annotations
 
 import asyncio
 import base64
-import difflib
 import io
 import json
 import logging
@@ -116,8 +115,7 @@ TELL = (
     "Gives the assistant a fact silently, for a later answer; it does not speak it on its own, but it tends to work it "
     "into what it says, so tell rarely: where bricks lie on the desk when the user will look for them, a picture on "
     "the glasses. Not hands, not a brick being set down, not what the user is doing: write those for yourself. One "
-    "tell every twenty seconds reaches the assistant; the rest is held. What you write outside this tool stays with "
-    "you.",
+    "tell every few looks is plenty. What you write outside this tool stays with you.",
     {"type": "object", "properties": {"text": {"type": "string",
                                                "description": "one short sentence of plain facts"}},
      "required": ["text"], "additionalProperties": False})
@@ -125,9 +123,8 @@ SAY = (
     "say",
     "Has the assistant tell the user something now, without their asking, in its own words. kind says what it is: "
     "news, something the user acts on now (the brick in their hand named, a placement wrong, an offer of a picture, "
-    "an answer to them), which is spoken at once; or waiting, nothing can be told yet (studs unclear, hands in the "
-    "way, the picture poor) with what would help, which is spoken at most once every fifteen seconds, so say it and "
-    "the extras are held.",
+    "an answer to them); or waiting, nothing can be told yet (studs unclear, hands in the way, the picture poor) "
+    "with what would help.",
     {"type": "object", "properties": {"text": {"type": "string",
                                                "description": "one or two short sentences of plain facts"},
                                       "kind": {"type": "string", "enum": ["news", "waiting"],
@@ -150,10 +147,6 @@ TOOLS = [SET_PROGRESS, TELL, SAY, SHOW]  # the same for every look, so the cache
 # how a line of the chat history is labelled in a look's message
 WHO = {"user": "User", "assistant": "Assistant"}
 
-SAY_REPEAT_S = 8.0  # a say that says what the last say said, this soon after it, is held: the voice has it already
-SAY_REPEAT_RATIO = 0.6  # how alike two says must read (difflib ratio) to count as the same
-WAIT_SAY_EVERY_S = 15.0  # a waiting say (nothing can be told yet) goes out at most this often; the model asks at every look
-TELL_EVERY_S = 20.0  # a tell goes to the voice at most this often: GPT-Live reads thinking aloud, and 34 tells in a call made a monologue
 
 # the result of a tool call the look did not get to carry out (the call ended while it was being done)
 NOT_DONE = "Not carried out: a request from the assistant came first."
@@ -356,8 +349,6 @@ class Brain:
         self._turn = asyncio.Lock()  # one look is built, sent and kept at a time
         self._asks = 0  # hand-overs GPT-Live made all the same, each closed at once
         self._last_line: str | None = None  # the last line given to the voice, repeated to close a hand-over
-        self._last_say: tuple[float, str] | None = None  # when and what the brain last had the voice say
-        self._last_tell: float | None = None  # when the brain last gave the voice a silent fact
         self._watcher: asyncio.Task | None = None
         self._look: asyncio.Task | None = None  # the watch look running, if any
         self._look_w = 0
@@ -544,36 +535,21 @@ class Brain:
             elif name == "show":
                 result, line = await self._show(args.get("step"), kind, n)
             elif name == "say":
+                # Every say and tell goes out. Until 2026-11-05 a waiting say within 15 s of the last say, a say that read
+                # like the last one within 8 s and a tell within 20 s of the last were held; the numbers came off single
+                # runs, and the repeats they held were asked for by the prompt itself, which now says a thing once.
                 said = " ".join(str(args.get("text") or "").split())
                 waiting = args.get("kind") == "waiting"
-                since = time.monotonic() - self._last_say[0] if self._last_say else None
                 if not said:
                     result, line = "Ignored: nothing to say.", None
-                elif waiting and since is not None and since < WAIT_SAY_EVERY_S:
-                    # The model asks for a better view at every look while a state lasts (the replay of 2026-11-04 under
-                    # 0.25 Mbps: "turn the studs toward me" five times in 25 s); one such line every ten seconds keeps the
-                    # helper present without nagging, and the model is told so its own record stays honest.
-                    self._record.event("say_held", **{"w" if kind == "watch" else "n": n}, text=said, say_kind="waiting", since_s=round(since, 1))
-                    result, line = f"Held: a line went out {since:.0f} s ago; a waiting line is spoken every {WAIT_SAY_EVERY_S:.0f} s at most.", None
-                elif self._repeats(said):
-                    self._record.event("say_held", **{"w" if kind == "watch" else "n": n}, text=said, say_kind="repeat", since_s=round(since, 1))
-                    result, line = "Held: this says what your last say said, seconds ago; the assistant has it.", None
                 else:
-                    self._last_say = (time.monotonic(), said)
                     self._record.event("say", **{"w" if kind == "watch" else "n": n}, text=said, say_kind="waiting" if waiting else "news")
                     result, line = "The assistant says it.", f"Camera: {said}"
             elif name == "tell":
                 told = " ".join(str(args.get("text") or "").split())
-                since = time.monotonic() - self._last_tell if self._last_tell is not None else None
                 if not told:
                     result, line = "Ignored: nothing to tell.", None
-                elif since is not None and since < TELL_EVERY_S:
-                    # GPT-Live reads thinking aloud: the run of 2026-11-04 12:30 had 34 tells and a voice that spoke 91 %
-                    # of the time, every hand movement included. One silent fact every TELL_EVERY_S is what gets through.
-                    self._record.event("tell_held", **{"w" if kind == "watch" else "n": n}, text=told, since_s=round(since, 1))
-                    result, line = f"Held: a fact went to the assistant {since:.0f} s ago; one every {TELL_EVERY_S:.0f} s at most. Keep this for yourself.", None
                 else:
-                    self._last_tell = time.monotonic()
                     self._record.event("tell", **{"w" if kind == "watch" else "n": n}, text=told)
                     self._session.current_agent.duplex_session.append_thinking(f"Camera: {told}")
                     self._last_line = f"Camera: {told}"
@@ -585,12 +561,6 @@ class Brain:
                 speak.append(line)
                 self._last_line = line
         return speak
-
-    def _repeats(self, said: str) -> bool:
-        """Whether `said` says what the last say said, within SAY_REPEAT_S of it."""
-        if self._last_say is None or time.monotonic() - self._last_say[0] > SAY_REPEAT_S:
-            return False
-        return difflib.SequenceMatcher(None, self._last_say[1].lower(), said.lower()).ratio() >= SAY_REPEAT_RATIO
 
     async def _move(self, done) -> tuple[str, str | None]:
         """Move the build to `done` steps done, record and publish it. Returns the tool's result and the line that
