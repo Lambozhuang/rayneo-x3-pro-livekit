@@ -155,7 +155,7 @@ def main() -> None:
     tasks = {t: tomllib.loads((GUIDES / t / "task.toml").read_text(encoding="utf-8")) for t in {f["task"] for f in frames}}
     for f in frames:
         if battery == "bricks":  # the held brick is the step's brick: that is how the frames were picked
-            f["expect"] = {"brick_in_hand": True, "in_hand_is_step": True, "in_hand_which": f["brick"]}
+            f["expect"] = {"brick_in_hand": True, "in_hand_is_step": f.get("is_step", True), "in_hand_which": f["brick"]}
 
     if args.dry:
         for f in frames:

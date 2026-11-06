@@ -9,8 +9,13 @@
 The brain (brain.py) keeps judging the plate: what is placed right or wrong, the progress, the answers about the desk.
 This line never judges a placement and never changes the record; it answers the one moment a frame settles fast, the
 brick in the hand, and tells the brain when to look. Measured in eval/decisions-frames/ on 2026-11-05: the three state
-questions were read right on every frame at 720 px, the brick held was named right on 12 of 12, whether a placement
-is right not at all; a request takes 0.4 to 0.7 s. The structure is docs/design/2026-11-05-two-lines.md.
+questions were read right on every frame at 720 px, whether a placement is right not at all; a request takes 0.4 to
+0.7 s. The first home run (2026-11-06 00:03) showed the model reads a brick's hue and not its size: a dark red 2x6 and a
+tan 1x6 passed as the step's red 2x4 and tan 2x6 at 0.9 and above, by the choice over the build's bricks and by the
+yes-or-no alike, so the brick line is a yes-or-no the user accepts as roughly right, said once per pick-up and only with
+the hand away from the plate; the same run had a placed red brick read as held while the hand was on the plate, and the
+step's brick read as on the plate twice while the plate was empty, so the brain's look is called on the hand leaving the
+plate, not on the plate's state alone. The structure is docs/design/2026-11-05-two-lines.md.
 """
 
 import asyncio
@@ -32,7 +37,6 @@ from runlog import RunLog
 logger = logging.getLogger("rayneo-agent.moments")
 
 URL = "https://api.openai.com/v1/decisions"
-OTHER, NONE = "another brick", "none"  # the choice's two answers besides the build's bricks
 
 
 def developer_text(guide: Guide, step: int) -> str:
@@ -55,10 +59,9 @@ def developer_text(guide: Guide, step: int) -> str:
     )
 
 
-def questions(bricks: list[str]) -> list[dict]:
-    """The five questions, the same for every frame: four yes-or-no and which brick is held, a choice over the
-    build's bricks. Whether a placement is right is not asked: the model answered 0.84 to 1.00 on misplaced bricks
-    (eval/decisions-frames), so the plate is the brain's."""
+def questions() -> list[dict]:
+    """The five yes-or-no questions, the same for every frame. Whether a placement is right is not asked: the model
+    answered 0.84 to 1.00 on misplaced bricks (eval/decisions-frames), so the plate is the brain's."""
     def p(name: str, text: str) -> dict:
         return {"name": name, "type": "predicate", "instructions": text}
 
@@ -66,8 +69,7 @@ def questions(bricks: list[str]) -> list[dict]:
         p("plate", "The baseplate is in the picture and the picture is sharp enough to see its studs."),
         p("hand", "A hand is on the baseplate or on a brick that is on the baseplate."),
         p("held", "The builder holds a brick in the air, not resting on the desk or on the baseplate."),
-        {"name": "which", "type": "choice", "instructions": "Which brick does the builder hold?",
-         "choices": [{"value": b} for b in bricks + [OTHER, NONE]]},
+        p("is_step", "The brick the builder holds is the current step's brick: the same colour and the same size."),
         p("on", "The current step's brick is on the baseplate with no hand on it."),
     ]
 
@@ -85,9 +87,9 @@ def _jpeg(frame, side: int) -> bytes:
 
 
 class Moments:
-    """Reads every frame with the Decisions API and acts on two moments. `sure` is the probability a yes needs and
-    that the brick's name needs; `hold_s` is how long after a line the same line is not said again, so one pick-up
-    gets one line and not one a frame."""
+    """Reads every frame with the Decisions API and acts on two moments. `sure` is the probability a yes needs, and
+    one minus it is what a no needs; a pick-up gets one line, the next only once the hand has been empty, and two
+    lines are at least `hold_s` seconds apart."""
 
     YES = "Camera: yes, that's the one."
     NOT = "Camera: not that one; the step wants the {brick}."
@@ -99,9 +101,10 @@ class Moments:
         self._model, self._detail, self._timeout = model, detail, timeout
         self._key = os.environ["OPENAI_API_KEY"]
         self._task: asyncio.Task | None = None
-        self._hold: dict[str, float] = {}  # a line's kind -> the time (monotonic) until which it is not said again
-        self._on_before = False  # the frame before showed the step's brick on the plate with no hand on it
-        self._on_step = -1  # the step _on_before is about
+        self._said_until = 0.0  # the time (monotonic) before which no line is said
+        self._announced = False  # a line has been said for the brick held now; cleared once the hand reads empty
+        self._hand_before = 0.0  # the frame before's probability of a hand on the plate
+        self._state_step = -1  # the step the two fields above are about
         self.count = 0  # requests made, for the record
 
     def start(self) -> None:
@@ -139,7 +142,7 @@ class Moments:
                 "input": [{"role": "developer", "content": developer_text(guide, step)},
                           {"role": "user", "content": [{"type": "input_image", "detail": self._detail,
                                                         "image_url": "data:image/jpeg;base64," + base64.b64encode(photo).decode()}]}],
-                "questions": questions([s.brick for s in guide.steps])}
+                "questions": questions()}
         t_sent = time.perf_counter()
         r = await http.post(URL, json=body)
         ms = round((time.perf_counter() - t_sent) * 1000)
@@ -149,49 +152,58 @@ class Moments:
         a = {x.get("name"): x for x in data.get("answers", [])}
         if any(x.get("type") == "refusal" for x in a.values()):
             raise RuntimeError("a question was refused")
-        plate, hand, held, on = (a[k]["probability"] for k in ("plate", "hand", "held", "on"))
-        which = a["which"]["choice"]
-        which_p = next((x["probability"] for x in a["which"]["probabilities"] if x["value"] == which), 0.0)
+        plate, hand, held, is_step, on = (a[k]["probability"] for k in ("plate", "hand", "held", "is_step", "on"))
         tokens = (data.get("usage") or {}).get("input_tokens")
         self._record.event("moment", n=n, step=step + 1, frame=seq, frame_age_ms=round((time.monotonic() - at) * 1000),
                            prep_ms=round((t_sent - t0) * 1000), ms=ms, tokens=tokens, plate=round(plate, 2),
-                           hand=round(hand, 2), held=round(held, 2), which=which, which_p=round(which_p, 2), on=round(on, 2))
-        logger.info("moments: #%d step %d frame %d, %d ms: plate %.2f hand %.2f held %.2f which %s (%.2f) on %.2f",
-                    n, step + 1, seq, ms, plate, hand, held, which, which_p, on)
+                           hand=round(hand, 2), held=round(held, 2), is_step=round(is_step, 2), on=round(on, 2))
+        logger.info("moments: #%d step %d frame %d, %d ms: plate %.2f hand %.2f held %.2f is_step %.2f on %.2f",
+                    n, step + 1, seq, ms, plate, hand, held, is_step, on)
         if step != self._build.step:
             return  # the brain moved the progress while the request was out: these answers are about the step before
+        if step != self._state_step:
+            self._state_step, self._announced, self._hand_before = step, False, 0.0
         if plate < 0.5:
             return
-        self._brick_line(step, held, which, which_p)
-        self._placement(step, frame, seq, at, hand, on)
+        if held < 0.5:
+            self._announced = False  # the hand is empty: the next brick held gets a line
+        self._brick_line(step, hand, held, is_step, photo)
+        self._placement(step, frame, seq, at, hand, on, photo)
+        self._hand_before = hand
 
-    def _brick_line(self, step: int, held: float, which: str, which_p: float) -> None:
-        """A brick held and named with enough probability gets one line, "yes" for the step's brick and "not that
-        one" for any other; the same kind of line then holds for hold_s seconds."""
-        if held < self._sure or which_p < self._sure or which == NONE:
+    def _brick_line(self, step: int, hand: float, held: float, is_step: float, photo: bytes) -> None:
+        """A brick held up with the hand away from the plate gets one line: "yes" when it reads as the step's brick at
+        `sure` or above, "not that one" when it reads as another at one minus `sure` or below, nothing in between. One
+        line per pick-up, and two lines at least hold_s apart. The hand on the plate is left out, since there the
+        model read the brick placed as the brick held (the home run of 2026-11-06)."""
+        if self._announced or held < self._sure or hand >= 0.5:
             return
-        wanted = self._build.guide.steps[step].brick
-        kind = "yes" if which == wanted else "not"
+        if is_step >= self._sure:
+            line = self.YES
+        elif is_step <= 1.0 - self._sure:
+            line = self.NOT.format(brick=spoken(self._build.guide.steps[step].brick))
+        else:
+            return
         now = time.monotonic()
-        if now < self._hold.get(kind, 0.0):
+        if now < self._said_until:
             return
-        self._hold[kind] = now + self._hold_s
-        line = self.YES if kind == "yes" else self.NOT.format(brick=spoken(wanted))
+        self._said_until, self._announced = now + self._hold_s, True
+        saved = self._record.photo(photo, f"moment{self.count}-s{step + 1}")
         speaking = self._session.agent_state == "speaking"
-        logger.info("moments: say %r (held %.2f, %s at %.2f)", line, held, which, which_p)
-        self._record.event("moment_say", n=self.count, step=step + 1, text=line, which=which, which_p=round(which_p, 2),
-                           voice_speaking=speaking)
+        logger.info("moments: say %r (held %.2f, is_step %.2f, hand %.2f, photo %s)", line, held, is_step, hand, saved)
+        self._record.event("moment_say", n=self.count, step=step + 1, text=line, held=round(held, 2),
+                           is_step=round(is_step, 2), hand=round(hand, 2), photo=saved, voice_speaking=speaking)
         self._session.current_agent.duplex_session.append_commentary(line)
 
-    def _placement(self, step: int, frame, seq: int, at: float, hand: float, on: float) -> None:
-        """The step's brick on the plate with no hand on it, where the frame before did not show that: the brain
-        looks now, at this frame. Armed again when the state drops or the step changes."""
-        if step != self._on_step:
-            self._on_step, self._on_before = step, False
-        on_now = on >= self._sure and hand < 0.5
-        if on_now and not self._on_before:
-            logger.info("moments: the step's brick is on the plate and the hand gone (on %.2f, hand %.2f): the brain "
-                        "looks now at frame %d", on, hand, seq)
-            self._record.event("look_now", n=self.count, step=step + 1, frame=seq, on=round(on, 2), hand=round(hand, 2))
+    def _placement(self, step: int, frame, seq: int, at: float, hand: float, on: float, photo: bytes) -> None:
+        """The hand has just left the plate and the step's brick lies on it: the brain looks now, at this frame. The
+        hand's leaving is the frame before reading a hand on the plate and this one not; the plate's state alone is
+        not enough, since "the step's brick is on the plate" read 0.9 twice on an empty plate (the home run of
+        2026-11-06)."""
+        if self._hand_before >= 0.5 and hand < 0.5 and on >= self._sure:
+            saved = self._record.photo(photo, f"moment{self.count}-s{step + 1}")
+            logger.info("moments: the hand left the plate and the step's brick is on it (on %.2f, hand %.2f before "
+                        "%.2f): the brain looks now at frame %d, photo %s", on, hand, self._hand_before, seq, saved)
+            self._record.event("look_now", n=self.count, step=step + 1, frame=seq, on=round(on, 2), hand=round(hand, 2),
+                               hand_before=round(self._hand_before, 2), photo=saved)
             self._brain.look_now(frame, seq, at)
-        self._on_before = on_now

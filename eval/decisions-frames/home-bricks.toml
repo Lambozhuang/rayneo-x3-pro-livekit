@@ -1,0 +1,56 @@
+# Frames of the home run of 2026-11-06 00:03 (dog task, a desk lamp from the front, a white desk) in which the user held a
+# brick of the step's colour but another size: the dark red 2x6 at step 1 (red 2x4 wanted) and the tan 1x6 at step 2 (tan
+# 2x6 wanted). The user told which bricks they held; the live line (gpt/moments.py) had answered "red 2x4" and "tan 2x6"
+# at 0.97 to 1.00 and said "yes, that's the one". `is_step = false` says the held brick is not the step's; `brick` is the
+# choice's right answer, "another brick".
+
+folder = "logs/material-2026-11-06/home-bricks"
+questions = "bricks"
+
+[[frame]]
+file = "dark-red-2x6-lifted__dog-1106-0003-w24.jpg"
+task = "dog"
+step = 1
+brick = "another brick"
+is_step = false
+what = "the right hand has just lifted the dark red 2x6 over the plate; the top face dull under the lamp"
+
+[[frame]]
+file = "dark-red-2x6-glare__dog-1106-0003-w26.jpg"
+task = "dog"
+step = 1
+brick = "another brick"
+is_step = false
+what = "the dark red 2x6 held over the plate with the lamp reflecting off its top, which reads grey-pink"
+
+[[frame]]
+file = "dark-red-2x6-dark__dog-1106-0003-w30.jpg"
+task = "dog"
+step = 1
+brick = "another brick"
+is_step = false
+what = "the dark red 2x6 held over the plate at an angle where it reads very dark red"
+
+[[frame]]
+file = "tan-1x6-a__dog-1106-0003-w60.jpg"
+task = "dog"
+step = 2
+brick = "another brick"
+is_step = false
+what = "the tan 1x6 in the hand at step 2, which wants the tan 2x6"
+
+[[frame]]
+file = "tan-1x6-b__dog-1106-0003-w61.jpg"
+task = "dog"
+step = 2
+brick = "another brick"
+is_step = false
+what = "the tan 1x6 in the hand, next frame"
+
+[[frame]]
+file = "tan-1x6-c__dog-1106-0003-w62.jpg"
+task = "dog"
+step = 2
+brick = "another brick"
+is_step = false
+what = "the tan 1x6 in the hand, next frame"
