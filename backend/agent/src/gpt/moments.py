@@ -90,7 +90,8 @@ class Moments:
     """Reads every frame with the Decisions API and acts on two moments. `sure` is the probability a brick held and
     the step's brick on the plate need; `yes_at` is the probability at or above which the brick held is called the
     step's and `not_at` the one at or below which it is called another, nothing said in between; a pick-up gets one
-    line, the next only once the hand has read empty, and two lines are at least `hold_s` seconds apart."""
+    line, the next when the hand has read empty or has been at the plate since, or when the verdict flips, and two
+    lines are at least `hold_s` seconds apart."""
 
     YES = "Camera: yes, that's the one."
     NOT = "Camera: not that one; the step wants the {brick}."
@@ -104,7 +105,7 @@ class Moments:
         self._key = os.environ["OPENAI_API_KEY"]
         self._task: asyncio.Task | None = None
         self._said_until = 0.0  # the time (monotonic) before which no line is said
-        self._announced = False  # a line has been said for the brick held now; cleared once the hand reads empty
+        self._announced: str | None = None  # the line said for the brick held now ("yes" or "not"), None when none is
         self._hand_before = 0.0  # the frame before's probability of a hand on the plate
         self._state_step = -1  # the step the two fields above are about
         self.count = 0  # requests made, for the record
@@ -164,32 +165,36 @@ class Moments:
         if step != self._build.step:
             return  # the brain moved the progress while the request was out: these answers are about the step before
         if step != self._state_step:
-            self._state_step, self._announced, self._hand_before = step, False, 0.0
+            self._state_step, self._announced, self._hand_before = step, None, 0.0
         if plate < 0.5:
             return
-        if held < 0.5:
-            self._announced = False  # the hand is empty: the next brick held gets a line
+        if held < 0.5 or hand >= 0.5:
+            # the hand is empty, or at the plate putting a brick down or taking one: the next brick held up gets a line.
+            # In the home run of 2026-11-06 00:52 the user swapped bricks for 35 s without "held" ever dropping, so a
+            # rule that waited for an empty hand said nothing for the second wrong brick nor for the right one.
+            self._announced = None
         self._brick_line(step, hand, held, is_step, photo)
         self._placement(step, frame, seq, at, hand, on, photo)
         self._hand_before = hand
 
     def _brick_line(self, step: int, hand: float, held: float, is_step: float, photo: bytes) -> None:
         """A brick held up with the hand away from the plate gets one line: "yes" when it reads as the step's brick at
-        `yes_at` or above, "not that one" at `not_at` or below, nothing in between. One line per pick-up, and two
-        lines at least hold_s apart. The hand on the plate is left out, since there the
-        model read the brick placed as the brick held (the home run of 2026-11-06)."""
-        if self._announced or held < self._sure or hand >= 0.5:
+        `yes_at` or above, "not that one" at `not_at` or below, nothing in between. One line per pick-up, said again
+        only when the verdict flips (another brick in the hand reads the other way), and two lines at least hold_s
+        apart. The hand on the plate is left out, since there the model read the brick placed as the brick held (the
+        home run of 2026-11-06)."""
+        if held < self._sure or hand >= 0.5:
             return
         if is_step >= self._yes_at:
-            line = self.YES
+            kind, line = "yes", self.YES
         elif is_step <= self._not_at:
-            line = self.NOT.format(brick=spoken(self._build.guide.steps[step].brick))
+            kind, line = "not", self.NOT.format(brick=spoken(self._build.guide.steps[step].brick))
         else:
             return
         now = time.monotonic()
-        if now < self._said_until:
+        if kind == self._announced or now < self._said_until:
             return
-        self._said_until, self._announced = now + self._hold_s, True
+        self._said_until, self._announced = now + self._hold_s, kind
         saved = self._record.photo(photo, f"moment{self.count}-s{step + 1}")
         speaking = self._session.agent_state == "speaking"
         logger.info("moments: say %r (held %.2f, is_step %.2f, hand %.2f, photo %s)", line, held, is_step, hand, saved)
