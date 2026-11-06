@@ -125,7 +125,7 @@ class Moments:
         self._task: asyncio.Task | None = None
         self._said_until = 0.0  # the time (monotonic) before which no line is said
         self._announced: str | None = None  # the line said for the brick held now ("yes" or "not"), None when none is
-        self._colour = "none"  # the coarse colour of the brick the line was said for; another colour is another brick
+        self._colour: str | None = None  # the coarse colour of the brick the line was said for, once AGREE frames after the line agree on it; another colour then is another brick
         self._recent: deque = deque(maxlen=AGREE)  # (held, is_step, colour) of the last frames with the plate in view
         self._hand_before = 0.0  # the frame before's probability of a hand on the plate
         self._state_step = -1  # the step the two fields above are about
@@ -189,7 +189,7 @@ class Moments:
         if step != self._build.step:
             return  # the brain moved the progress while the request was out: these answers are about the step before
         if step != self._state_step:
-            self._state_step, self._announced, self._hand_before = step, None, 0.0
+            self._state_step, self._announced, self._colour, self._hand_before = step, None, None, 0.0
             self._recent.clear()
         if plate < 0.5:
             self._recent.clear()
@@ -200,7 +200,7 @@ class Moments:
             # home run of 2026-11-06 00:52 the user swapped bricks for 35 s without "held" ever dropping, so this alone
             # is not enough: a brick of another colour or the other verdict for AGREE frames says again too (_brick_line).
             logger.info("moments: the hand has been empty (held %.2f): the brick line is armed again", held)
-            self._announced = None
+            self._announced, self._colour = None, None
         self._brick_line(step, held, is_step, colour, photo)
         self._placement(step, frame, seq, at, hand, on, photo)
         self._hand_before = hand
@@ -235,12 +235,19 @@ class Moments:
                 kind, line = "not", not_line
             else:
                 return
+            if self._colour is None:
+                # The line's own frame often misreads the colour ("none" with the brick held at 0.95, green for yellow:
+                # the run of 2026-11-06 01:45 said "not that one" twice for one brick six times over), so the brick's
+                # colour is what the first AGREE frames after the line agree on; a different colour counts only after.
+                self._colour = colour
+                logger.info("moments: the brick the line was said for reads %s", colour)
+                return
             if kind == self._announced and colour == self._colour:
                 return
         now = time.monotonic()
         if now < self._said_until:
             return
-        self._said_until, self._announced, self._colour = now + self._hold_s, kind, colour
+        self._said_until, self._announced, self._colour = now + self._hold_s, kind, None
         saved = self._record.photo(photo, f"moment{self.count}-s{step + 1}")
         speaking = self._session.agent_state == "speaking"
         logger.info("moments: say %r (held %.2f, is_step %.2f, colour %s, photo %s)", line, held, is_step, colour, saved)
