@@ -43,6 +43,10 @@ URL = "https://api.openai.com/v1/decisions"
 # change of size is invisible. Coarse, so that a dark red brick does not flicker between two names from frame to frame.
 COLOURS = ["red", "orange", "yellow", "green", "blue", "purple", "pink", "tan or brown", "white", "grey", "black", "none"]
 AGREE = 3  # frames in a row that have to agree before the brick line is said a second time: one frame's reading drifts (below)
+# Colours that are not a brick in the hand: "none" came with "held" at 0.83 to 0.91 on empty hands twice in the home run of
+# 2026-11-06 14:19, and orange is the brick separator, the only orange thing in the kit, which read as a brick held
+# four times over two runs although the question and the task text call it a tool. No line is said about either.
+NO_BRICK = {"none", "orange"}
 # The brick line goes to GPT-Live as a commentary, which is what it speaks; while the voice is talking an appended
 # instruction goes first, which interrupts the speech (OpenAI's live-conversations guide; brain.py CUT_IN does the same
 # for a progress line). An instruction alone that asked the voice to say the line made it break off and say nothing
@@ -113,7 +117,9 @@ class Moments:
     run of 01:03 the same tan brick read as the step's at 0.9 and above and then 0.33 a frame later, and its colour as
     tan and then white, which with single-frame rules gave twenty lines in two minutes. So after a "yes" a "not that
     one" takes AGREE frames, after a "not that one" another comes only for a brick of another colour read for AGREE
-    frames, the hand empty for AGREE frames arms the line afresh, and two lines are at least `hold_s` seconds apart."""
+    frames, the hand empty for AGREE frames arms the line afresh, and two lines are at least `hold_s` seconds apart.
+    A step gets one "yes": the user who lifts the confirmed brick again to move it is not told again (the same run
+    had the white brick confirmed twice, the second time when it was lifted to fix its spacing)."""
 
     YES = "Camera: yes, that's the one; it goes {place}."  # the place, so the voice gives it with the confirmation
     NOT = "Camera: not that one; the step wants the {brick}."
@@ -130,6 +136,7 @@ class Moments:
         self._announced: str | None = None  # the line said for the brick held now ("yes" or "not"), None when none is
         self._colour: str | None = None  # the coarse colour of the brick the line was said for, once AGREE frames after the line agree on it; another colour then is another brick
         self._recent: deque = deque(maxlen=AGREE)  # (held, is_step, colour) of the last frames with the plate in view
+        self._yes_said = False  # the step's brick has been confirmed once; the step gets no second "yes"
         self._hand_before = 0.0  # the frame before's probability of a hand on the plate
         self._state_step = -1  # the step the two fields above are about
         self.count = 0  # requests made, for the record
@@ -193,6 +200,7 @@ class Moments:
             return  # the brain moved the progress while the request was out: these answers are about the step before
         if step != self._state_step:
             self._state_step, self._announced, self._colour, self._hand_before = step, None, None, 0.0
+            self._yes_said = False
             self._recent.clear()
         if plate < 0.5:
             self._recent.clear()
@@ -217,9 +225,11 @@ class Moments:
         talking a cut-in instruction goes first, so the line is not left behind the sentence in progress (the run of
         2026-11-06 01:03 had three queued lines come out as one breath)."""
         here = self._build.guide.steps[step]
+        if colour in NO_BRICK:
+            return  # nothing a line can be about: no colour read, or the orange separator in the hand
         recent = list(self._recent)  # the last frames with the plate in view, this one last
-        low = [h >= self._sure and p <= self._not_at for h, p, _ in recent]
-        if held >= self._sure and is_step >= self._yes_at and self._announced != "yes":
+        low = [h >= self._sure and p <= self._not_at and c not in NO_BRICK for h, p, c in recent]
+        if held >= self._sure and is_step >= self._yes_at and self._announced != "yes" and not self._yes_said:
             kind, line = "yes", self.YES.format(place=here.place)
         elif self._announced is None:
             if len(recent) < 2 or not all(low[-2:]):
@@ -247,6 +257,8 @@ class Moments:
         if now < self._said_until:
             return
         self._said_until, self._announced, self._colour = now + self._hold_s, kind, None
+        if kind == "yes":
+            self._yes_said = True
         saved = self._record.photo(photo, f"moment{self.count}-s{step + 1}")
         speaking = self._session.agent_state == "speaking"
         logger.info("moments: say %r (held %.2f, is_step %.2f, colour %s, photo %s)", line, held, is_step, colour, saved)
