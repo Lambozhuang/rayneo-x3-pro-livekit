@@ -87,17 +87,19 @@ def _jpeg(frame, side: int) -> bytes:
 
 
 class Moments:
-    """Reads every frame with the Decisions API and acts on two moments. `sure` is the probability a yes needs, and
-    one minus it is what a no needs; a pick-up gets one line, the next only once the hand has been empty, and two
-    lines are at least `hold_s` seconds apart."""
+    """Reads every frame with the Decisions API and acts on two moments. `sure` is the probability a brick held and
+    the step's brick on the plate need; `yes_at` is the probability at or above which the brick held is called the
+    step's and `not_at` the one at or below which it is called another, nothing said in between; a pick-up gets one
+    line, the next only once the hand has read empty, and two lines are at least `hold_s` seconds apart."""
 
     YES = "Camera: yes, that's the one."
     NOT = "Camera: not that one; the step wants the {brick}."
 
     def __init__(self, session: AgentSession, build: Build, tap: FrameTap, brain: Brain, record: RunLog, side: int,
-                 sure: float, hold_s: float, model: str, detail: str, timeout: float = 5.0) -> None:
+                 sure: float, yes_at: float, not_at: float, hold_s: float, model: str, detail: str,
+                 timeout: float = 5.0) -> None:
         self._session, self._build, self._tap, self._brain, self._record = session, build, tap, brain, record
-        self._side, self._sure, self._hold_s = side, sure, hold_s
+        self._side, self._sure, self._yes_at, self._not_at, self._hold_s = side, sure, yes_at, not_at, hold_s
         self._model, self._detail, self._timeout = model, detail, timeout
         self._key = os.environ["OPENAI_API_KEY"]
         self._task: asyncio.Task | None = None
@@ -173,14 +175,14 @@ class Moments:
 
     def _brick_line(self, step: int, hand: float, held: float, is_step: float, photo: bytes) -> None:
         """A brick held up with the hand away from the plate gets one line: "yes" when it reads as the step's brick at
-        `sure` or above, "not that one" when it reads as another at one minus `sure` or below, nothing in between. One
-        line per pick-up, and two lines at least hold_s apart. The hand on the plate is left out, since there the
+        `yes_at` or above, "not that one" at `not_at` or below, nothing in between. One line per pick-up, and two
+        lines at least hold_s apart. The hand on the plate is left out, since there the
         model read the brick placed as the brick held (the home run of 2026-11-06)."""
         if self._announced or held < self._sure or hand >= 0.5:
             return
-        if is_step >= self._sure:
+        if is_step >= self._yes_at:
             line = self.YES
-        elif is_step <= 1.0 - self._sure:
+        elif is_step <= self._not_at:
             line = self.NOT.format(brick=spoken(self._build.guide.steps[step].brick))
         else:
             return

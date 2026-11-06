@@ -78,7 +78,8 @@ async def rayneo_assistant(ctx: JobContext) -> None:
     brain = Brain(session, build, tap, model, settings.brain_effort, settings.brain_watch_side,
                   settings.brain_watch_every, lang, settings.brain_timeout, record)
     moments = Moments(session, build, tap, brain, record, settings.moments_side, settings.moments_sure,
-                      settings.moments_hold_s, settings.moments_model, settings.moments_detail)
+                      settings.moments_yes_at, settings.moments_not_at, settings.moments_hold_s, settings.moments_model,
+                      settings.moments_detail)
     persona = voice_persona(guide, lang)
     record.text("brain.txt", brain.instructions)
     record.text("brain-tools.json", json.dumps(
