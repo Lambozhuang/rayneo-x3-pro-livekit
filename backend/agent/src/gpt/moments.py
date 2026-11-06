@@ -4,7 +4,7 @@
         the other, five questions: the plate in view, a hand on the plate, a brick held, which brick, the current
         step's brick on the plate with no hand on it
         --> one commentary to GPT-Live when the step's brick, or another, is held ("Camera: yes, that's the one.")
-        --> Brain.look_now(frame) the moment the step's brick lies on the plate and the hand has gone
+        --> Brain.look_now(frame) the moment the step's brick lies on the plate with no hand on it
 
 The brain (brain.py) keeps judging the plate: what is placed right or wrong, the progress, the answers about the desk.
 This line never judges a placement and never changes the record; it answers the one moment a frame settles fast, the
@@ -134,8 +134,9 @@ class Moments:
         self._announced: str | None = None  # the line said for the brick held now ("yes" or "not"), None when none is
         self._colour: str | None = None  # the coarse colour of the brick the line was said for, once AGREE frames after the line agree on it; another colour then is another brick
         self._recent: deque = deque(maxlen=AGREE)  # (held, is_step, colour) of the last frames with the plate in view
-        self._hand_before = 0.0  # the frame before's probability of a hand on the plate
-        self._state_step = -1  # the step the two fields above are about
+        self._on_before = 0.0  # the frame before's probability of the step's brick on the plate with no hand on it
+        self._looked = False  # the brain has been sent to look at this placement; armed again once "on" drops
+        self._state_step = -1  # the step the fields above are about
         self.count = 0  # requests made, for the record
 
     def start(self) -> None:
@@ -196,7 +197,7 @@ class Moments:
         if step != self._build.step:
             return  # the brain moved the progress while the request was out: these answers are about the step before
         if step != self._state_step:
-            self._state_step, self._announced, self._colour, self._hand_before = step, None, None, 0.0
+            self._state_step, self._announced, self._colour, self._on_before, self._looked = step, None, None, 0.0, False
             self._recent.clear()
         if plate < 0.5:
             self._recent.clear()
@@ -210,7 +211,7 @@ class Moments:
             self._announced, self._colour = None, None
         self._brick_line(step, held, is_step, colour, photo)
         self._placement(step, frame, seq, at, hand, on, photo)
-        self._hand_before = hand
+        self._on_before = on
 
     def _brick_line(self, step: int, held: float, is_step: float, colour: str, photo: bytes) -> None:
         """"Yes" on two frames in a row that read the brick held as the step's at `yes_at` or above, unless the last
@@ -265,14 +266,19 @@ class Moments:
         duplex.append_commentary(line)
 
     def _placement(self, step: int, frame, seq: int, at: float, hand: float, on: float, photo: bytes) -> None:
-        """The hand has just left the plate and the step's brick lies on it: the brain looks now, at this frame. The
-        hand's leaving is the frame before reading a hand on the plate and this one not; the plate's state alone is
-        not enough, since "the step's brick is on the plate" read 0.9 twice on an empty plate (the home run of
-        2026-11-06)."""
-        if self._hand_before >= 0.5 and hand < 0.5 and on >= self._sure:
+        """The step's brick lies on the plate with no hand on it, read on two frames in a row: the brain looks now, at
+        this frame, once per placement, armed again when the reading drops. The hand elsewhere on the plate does not
+        count: in the home run of 2026-11-06 14:47 the user's hand rested on the plate's edge for six seconds after the
+        brick was placed, and a rule that waited for the hand to leave the plate waited those six seconds, while this
+        question read 0.96 to 0.99 throughout; with the hand on the brick itself it read 0.00 to 0.06 in every run. Its
+        false highs were single frames, 0.9 and 0.0 the frame after, which the second frame rules out."""
+        if on >= self._sure and self._on_before >= self._sure and not self._looked:
+            self._looked = True
             saved = self._record.photo(photo, f"moment{self.count}-s{step + 1}")
-            logger.info("moments: the hand left the plate and the step's brick is on it (on %.2f, hand %.2f before "
-                        "%.2f): the brain looks now at frame %d, photo %s", on, hand, self._hand_before, seq, saved)
-            self._record.event("look_now", n=self.count, step=step + 1, frame=seq, on=round(on, 2), hand=round(hand, 2),
-                               hand_before=round(self._hand_before, 2), photo=saved)
+            logger.info("moments: the step's brick is on the plate with no hand on it (on %.2f after %.2f, hand %.2f): the "
+                        "brain looks now at frame %d, photo %s", on, self._on_before, hand, seq, saved)
+            self._record.event("look_now", n=self.count, step=step + 1, frame=seq, on=round(on, 2),
+                               on_before=round(self._on_before, 2), hand=round(hand, 2), photo=saved)
             self._brain.look_now(frame, seq, at)
+        elif on < 0.5 and self._looked:
+            self._looked = False  # the brick is gone or a hand is back on it: the next placement gets a look
