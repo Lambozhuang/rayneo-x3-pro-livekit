@@ -63,7 +63,8 @@ def developer_text(guide: Guide, step: int) -> str:
         f"model, \"{guide.title}\", on a {guide.plate}x{guide.plate} baseplate on a desk; loose bricks lie around the "
         "plate. Directions on the plate are as the builder sees it: up is the far edge, down the near edge; vertical "
         "means a brick's long side runs up and down, horizontal that it runs left and right. A brick's size counts "
-        "its studs: a 1x6 is one stud wide and six long.\n\n"
+        "its studs: a 1x6 is one stud wide and six long. An orange brick separator, a tool, lies among the bricks; it is "
+        "not a brick.\n\n"
         f"The bricks of this build: {', '.join(s.brick for s in steps)}.\n\n"
         f"Placed in the steps before:\n{placed}\n\n"
         f"The current step, step {step + 1}: {cur.brick}, {cur.place}.\n\n"
@@ -81,7 +82,8 @@ def questions() -> list[dict]:
     return [
         p("plate", "The baseplate is in the picture and the picture is sharp enough to see its studs."),
         p("hand", "A hand is on the baseplate or on a brick that is on the baseplate."),
-        p("held", "The builder holds a brick in the air, not resting on the desk or on the baseplate."),
+        p("held", "The builder holds a LEGO brick in the air, not resting on the desk or on the baseplate; the orange "
+                  "brick separator is a tool, not a brick."),
         p("is_step", "The brick the builder holds is the current step's brick: the same colour and the same size."),
         p("on", "The current step's brick is on the baseplate with no hand on it."),
         {"name": "colour", "type": "choice", "instructions": "What colour is the brick the builder holds? \"none\" when no brick is held.",
@@ -104,15 +106,16 @@ def _jpeg(frame, side: int) -> bytes:
 class Moments:
     """Reads every frame with the Decisions API and acts on two moments. `sure` is the probability a brick held and
     the step's brick on the plate need; `yes_at` is the probability at or above which the brick held is called the
-    step's and `not_at` the one at or below which it is called another, nothing said in between. The first line for a
-    brick goes on the first frame that reads so, since speed is what this line is for; saying again waits for AGREE
-    frames in a row, since one frame's reading drifts: in the home run of 2026-11-06 01:03 the same tan brick read as
-    the step's at 0.9 and above and then 0.33 a frame later, and its colour as tan and then white, which with
-    single-frame rules gave twenty lines in two minutes, "yes" and "not that one" for one brick. So after a line the
-    next comes only when the hand has read empty for AGREE frames, or the held brick's colour has differed for AGREE
-    frames, or the verdict has read the other way for AGREE frames; two lines are at least `hold_s` seconds apart."""
+    step's and `not_at` the one at or below which it is called another, nothing said in between. "Yes" goes on the
+    first frame that reads so, whatever was said before, since speed is what this line is for and a wrong brick seldom
+    reads that high even once; "not that one" goes on two frames in a row, since one frame of the step's brick has read
+    0.10 and 0.18 while it was being picked up (the home run of 2026-11-06 13:34). One frame's reading drifts: in the
+    run of 01:03 the same tan brick read as the step's at 0.9 and above and then 0.33 a frame later, and its colour as
+    tan and then white, which with single-frame rules gave twenty lines in two minutes. So after a "yes" a "not that
+    one" takes AGREE frames, after a "not that one" another comes only for a brick of another colour read for AGREE
+    frames, the hand empty for AGREE frames arms the line afresh, and two lines are at least `hold_s` seconds apart."""
 
-    YES = "Camera: yes, that's the one."
+    YES = "Camera: yes, that's the one; it goes {place}."  # the place, so the voice gives it with the confirmation
     NOT = "Camera: not that one; the step wants the {brick}."
 
     def __init__(self, session: AgentSession, build: Build, tap: FrameTap, brain: Brain, record: RunLog, side: int,
@@ -206,44 +209,40 @@ class Moments:
         self._hand_before = hand
 
     def _brick_line(self, step: int, held: float, is_step: float, colour: str, photo: bytes) -> None:
-        """A brick held up gets one line on the first frame that reads it held and the step's brick at `yes_at` or
-        above ("yes") or at `not_at` or below ("not that one"). Once a line has been said, another comes only when
-        AGREE frames in a row have a brick held, of one colour, read the same way, and that differs from the line said,
-        in kind or in the brick's colour, which is another brick in the hand; two lines are at least hold_s apart. The
-        line goes as a commentary; while the voice is talking a cut-in instruction goes first, so the line is not left
-        behind the sentence in progress (the run of 2026-11-06 01:03 had three queued lines come out as one breath)."""
-        not_line = self.NOT.format(brick=spoken(self._build.guide.steps[step].brick))
-        if self._announced is None:
-            if held < self._sure:
+        """"Yes" on the first frame that reads the brick held as the step's at `yes_at` or above, unless the last line
+        was a yes; "not that one" on two frames in a row at `not_at` or below when no line has been said for the brick
+        in the hand, on AGREE frames after a yes, and after a not only for a brick of another colour than the one the
+        first AGREE frames after that line settled on, since a line's own frame misreads the colour ("none" with a
+        brick held at 0.95). Two lines are at least hold_s apart. The line goes as a commentary; while the voice is
+        talking a cut-in instruction goes first, so the line is not left behind the sentence in progress (the run of
+        2026-11-06 01:03 had three queued lines come out as one breath)."""
+        here = self._build.guide.steps[step]
+        recent = list(self._recent)  # the last frames with the plate in view, this one last
+        low = [h >= self._sure and p <= self._not_at for h, p, _ in recent]
+        if held >= self._sure and is_step >= self._yes_at and self._announced != "yes":
+            kind, line = "yes", self.YES.format(place=here.place)
+        elif self._announced is None:
+            if len(recent) < 2 or not all(low[-2:]):
                 return
-            if is_step >= self._yes_at:
-                kind, line = "yes", self.YES
-            elif is_step <= self._not_at:
-                kind, line = "not", not_line
-            else:
+            kind, line = "not", self.NOT.format(brick=spoken(here.brick))
+        elif self._announced == "yes":
+            if len(recent) < AGREE or not all(low):
                 return
+            kind, line = "not", self.NOT.format(brick=spoken(here.brick))
         else:
-            if len(self._recent) < AGREE or any(h < self._sure for h, _, _ in self._recent):
+            if len(recent) < AGREE or not all(low):
                 return
-            colours = {c for _, _, c in self._recent}
+            colours = {c for _, _, c in recent}
             if len(colours) != 1:
                 return
-            colour = colours.pop()
-            if all(p >= self._yes_at for _, p, _ in self._recent):
-                kind, line = "yes", self.YES
-            elif all(p <= self._not_at for _, p, _ in self._recent):
-                kind, line = "not", not_line
-            else:
-                return
+            c = colours.pop()
             if self._colour is None:
-                # The line's own frame often misreads the colour ("none" with the brick held at 0.95, green for yellow:
-                # the run of 2026-11-06 01:45 said "not that one" twice for one brick six times over), so the brick's
-                # colour is what the first AGREE frames after the line agree on; a different colour counts only after.
-                self._colour = colour
-                logger.info("moments: the brick the line was said for reads %s", colour)
+                self._colour = c
+                logger.info("moments: the brick the line was said for reads %s", c)
                 return
-            if kind == self._announced and colour == self._colour:
+            if c == self._colour:
                 return
+            kind, line = "not", self.NOT.format(brick=spoken(here.brick))
         now = time.monotonic()
         if now < self._said_until:
             return
