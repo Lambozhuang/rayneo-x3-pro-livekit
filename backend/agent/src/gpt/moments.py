@@ -25,6 +25,7 @@ import logging
 import os
 import re
 import time
+from collections import deque
 
 import httpx
 from livekit.agents import AgentSession
@@ -41,6 +42,11 @@ URL = "https://api.openai.com/v1/decisions"
 # brick's hue reliably and its size not at all (eval/decisions-frames), so a change of hue is a change of brick while a
 # change of size is invisible. Coarse, so that a dark red brick does not flicker between two names from frame to frame.
 COLOURS = ["red", "orange", "yellow", "green", "blue", "purple", "pink", "tan or brown", "white", "grey", "black", "none"]
+AGREE = 3  # frames in a row that have to agree before the brick line acts: one frame's reading drifts (below)
+# The brick line goes to GPT-Live as an appended instruction, which interrupts speech, not as a commentary, which waits
+# for the sentence in progress and the lines queued before it (OpenAI's live-conversations guide; brain.py CUT_IN).
+SAY_NOW = ('Break off whatever you are saying and say this now, in a few words of your own and nothing more: "{text}" '
+           'This is for this moment only; after it go on as usual.')
 
 
 def developer_text(guide: Guide, step: int) -> str:
@@ -96,12 +102,16 @@ def _jpeg(frame, side: int) -> bytes:
 class Moments:
     """Reads every frame with the Decisions API and acts on two moments. `sure` is the probability a brick held and
     the step's brick on the plate need; `yes_at` is the probability at or above which the brick held is called the
-    step's and `not_at` the one at or below which it is called another, nothing said in between; a pick-up gets one
-    line, the next when the hand has read empty or has been at the plate since, or when the verdict flips, and two
-    lines are at least `hold_s` seconds apart."""
+    step's and `not_at` the one at or below which it is called another, nothing said in between. The brick line acts
+    only when AGREE frames in a row agree on all of it, since one frame's reading drifts: in the home run of
+    2026-11-06 01:03 the same tan brick read as the step's at 0.9 and above and then 0.33 a frame later, and its colour
+    as tan and then white, which with single-frame rules gave twenty lines in two minutes, "yes" and "not that one"
+    for one brick. A pick-up gets one line; the next when the hand has read empty since, or when the held brick's
+    colour has changed for AGREE frames, or when the verdict flips for AGREE frames; two lines are at least `hold_s`
+    seconds apart."""
 
-    YES = "Camera: yes, that's the one."
-    NOT = "Camera: not that one; the step wants the {brick}."
+    YES = "Yes, that's the one."
+    NOT = "Not that one; the step wants the {brick}."
 
     def __init__(self, session: AgentSession, build: Build, tap: FrameTap, brain: Brain, record: RunLog, side: int,
                  sure: float, yes_at: float, not_at: float, hold_s: float, model: str, detail: str,
@@ -113,7 +123,8 @@ class Moments:
         self._task: asyncio.Task | None = None
         self._said_until = 0.0  # the time (monotonic) before which no line is said
         self._announced: str | None = None  # the line said for the brick held now ("yes" or "not"), None when none is
-        self._colour = "none"  # the held brick's coarse colour in the frame before; a change is a change of brick
+        self._colour = "none"  # the coarse colour of the brick the line was said for; another colour is another brick
+        self._recent: deque = deque(maxlen=AGREE)  # (held, is_step, colour) of the last frames with the plate in view
         self._hand_before = 0.0  # the frame before's probability of a hand on the plate
         self._state_step = -1  # the step the two fields above are about
         self.count = 0  # requests made, for the record
@@ -177,48 +188,50 @@ class Moments:
             return  # the brain moved the progress while the request was out: these answers are about the step before
         if step != self._state_step:
             self._state_step, self._announced, self._hand_before = step, None, 0.0
+            self._recent.clear()
         if plate < 0.5:
+            self._recent.clear()
             return
-        if held < 0.5 or hand >= 0.5 or (held >= self._sure and colour != self._colour):
-            # the hand is empty, at the plate putting a brick down or taking one, or holding a brick of another colour
-            # than the frame before: the next brick held up gets a line. In the home run of 2026-11-06 00:52 the user
-            # swapped bricks for 35 s without "held" ever dropping, so a rule that waited for an empty hand said nothing
-            # for the second wrong brick nor for the right one; two wrong bricks swapped on the desk show only as a change
-            # of colour, which is what the model reads best.
-            if self._announced is not None:
-                logger.info("moments: the brick line is armed again (held %.2f, hand %.2f, colour %s after %s)", held, hand,
-                            colour, self._colour)
+        self._recent.append((held, is_step, colour))
+        if held < 0.5 and self._announced is not None:
+            # the hand is empty: the next brick held up gets a line. In the home run of 2026-11-06 00:52 the user swapped
+            # bricks for 35 s without "held" ever dropping, so this alone is not enough: a brick of another colour held
+            # for AGREE frames arms the line again too (_brick_line).
+            logger.info("moments: the hand is empty (held %.2f): the brick line is armed again", held)
             self._announced = None
-        if held >= self._sure:
-            self._colour = colour
-        self._brick_line(step, hand, held, is_step, photo)
+        self._brick_line(step, held, is_step, photo)
         self._placement(step, frame, seq, at, hand, on, photo)
         self._hand_before = hand
 
-    def _brick_line(self, step: int, hand: float, held: float, is_step: float, photo: bytes) -> None:
-        """A brick held up with the hand away from the plate gets one line: "yes" when it reads as the step's brick at
-        `yes_at` or above, "not that one" at `not_at` or below, nothing in between. One line per pick-up, said again
-        only when the verdict flips (another brick in the hand reads the other way), and two lines at least hold_s
-        apart. The hand on the plate is left out, since there the model read the brick placed as the brick held (the
-        home run of 2026-11-06)."""
-        if held < self._sure or hand >= 0.5:
+    def _brick_line(self, step: int, held: float, is_step: float, photo: bytes) -> None:
+        """A brick held up gets one line, once AGREE frames in a row have it held, of one colour, and read the same
+        way: "yes" with every frame at `yes_at` or above, "not that one" with every frame at `not_at` or below, nothing
+        otherwise. The line is said again only when its kind differs from the line said for this brick, or the brick's
+        colour differs from that brick's, which is another brick in the hand; two lines are at least hold_s apart. The
+        line goes as an instruction, so the voice says it at once, where a commentary waited behind the sentence in
+        progress (the run of 2026-11-06 01:03 had three queued lines come out as one breath)."""
+        if len(self._recent) < AGREE or any(h < self._sure for h, _, _ in self._recent):
             return
-        if is_step >= self._yes_at:
+        colours = {c for _, _, c in self._recent}
+        if len(colours) != 1:
+            return
+        colour = colours.pop()
+        if all(p >= self._yes_at for _, p, _ in self._recent):
             kind, line = "yes", self.YES
-        elif is_step <= self._not_at:
+        elif all(p <= self._not_at for _, p, _ in self._recent):
             kind, line = "not", self.NOT.format(brick=spoken(self._build.guide.steps[step].brick))
         else:
             return
         now = time.monotonic()
-        if kind == self._announced or now < self._said_until:
+        if (kind == self._announced and colour == self._colour) or now < self._said_until:
             return
-        self._said_until, self._announced = now + self._hold_s, kind
+        self._said_until, self._announced, self._colour = now + self._hold_s, kind, colour
         saved = self._record.photo(photo, f"moment{self.count}-s{step + 1}")
         speaking = self._session.agent_state == "speaking"
-        logger.info("moments: say %r (held %.2f, is_step %.2f, hand %.2f, photo %s)", line, held, is_step, hand, saved)
+        logger.info("moments: say %r (held %.2f, is_step %.2f, colour %s, photo %s)", line, held, is_step, colour, saved)
         self._record.event("moment_say", n=self.count, step=step + 1, text=line, held=round(held, 2),
-                           is_step=round(is_step, 2), hand=round(hand, 2), photo=saved, voice_speaking=speaking)
-        self._session.current_agent.duplex_session.append_commentary(line)
+                           is_step=round(is_step, 2), colour=colour, photo=saved, voice_speaking=speaking)
+        self._session.current_agent.duplex_session.append_instructions(SAY_NOW.format(text=line))
 
     def _placement(self, step: int, frame, seq: int, at: float, hand: float, on: float, photo: bytes) -> None:
         """The hand has just left the plate and the step's brick lies on it: the brain looks now, at this frame. The
