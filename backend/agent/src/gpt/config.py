@@ -42,6 +42,7 @@ class Settings:
     # probability a brick held and the step's brick on the plate need, the probability at or above which the held
     # brick is called the step's and at or below which it is called another, the fewest seconds between two lines,
     # the model and the image detail.
+    moments_on: bool  # MOMENTS=on runs the second line; off leaves the brick in the hand to the brain
     moments_side: int
     moments_sure: float
     moments_yes_at: float
@@ -62,6 +63,7 @@ class Settings:
             brain_timeout=float(os.environ.get("BRAIN_TIMEOUT", "12")),
             brain_watch_side=int(require_env("BRAIN_WATCH_SIDE")),
             brain_watch_every=float(require_env("BRAIN_WATCH_EVERY")),
+            moments_on=require_env("MOMENTS") == "on",
             moments_side=int(require_env("MOMENTS_SIDE")),
             moments_sure=float(require_env("MOMENTS_SURE")),
             moments_yes_at=float(require_env("MOMENTS_YES_AT")),
@@ -78,6 +80,8 @@ class Settings:
         if s.brain_watch_side <= 0 or s.brain_watch_every <= 0:
             raise RuntimeError(f"BRAIN_WATCH_SIDE={s.brain_watch_side} BRAIN_WATCH_EVERY={s.brain_watch_every}: "
                                "use values above 0")
+        if os.environ["MOMENTS"] not in ("on", "off"):
+            raise RuntimeError(f"MOMENTS={os.environ['MOMENTS']!r}: on or off")
         if s.moments_side <= 0 or not 0.5 <= s.moments_sure <= 1.0 or s.moments_hold_s < 0:
             raise RuntimeError(f"MOMENTS_SIDE={s.moments_side} MOMENTS_SURE={s.moments_sure} MOMENTS_HOLD_S="
                                f"{s.moments_hold_s}: the side above 0, sure between 0.5 and 1, the hold 0 or more")
@@ -85,10 +89,10 @@ class Settings:
             raise RuntimeError(f"MOMENTS_NOT_AT={s.moments_not_at} MOMENTS_YES_AT={s.moments_yes_at}: "
                                "not_at below yes_at, both between 0 and 1")
         logger.info("session model: %s voice=%s brain=%s/%s effort=%s detail=%s watch_side=%d watch_every=%ss "
-                    "moments=%s side=%d sure=%.2f yes_at=%.2f not_at=%.2f hold=%ss", s.live_model, s.voice,
+                    "moments=%s %s side=%d sure=%.2f yes_at=%.2f not_at=%.2f hold=%ss", s.live_model, s.voice,
                     s.brain_provider, s.brain_model, s.brain_effort, s.brain_detail, s.brain_watch_side,
-                    s.brain_watch_every, s.moments_model, s.moments_side, s.moments_sure, s.moments_yes_at,
-                    s.moments_not_at, s.moments_hold_s)
+                    s.brain_watch_every, "on" if s.moments_on else "off", s.moments_model, s.moments_side,
+                    s.moments_sure, s.moments_yes_at, s.moments_not_at, s.moments_hold_s)
         return s
 
     def experiment_line(self, guide: str) -> str:

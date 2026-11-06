@@ -76,7 +76,7 @@ from dataclasses import dataclass, field
 from livekit.agents import AgentSession
 
 from frames import FrameTap, bottom_square
-from gpt.prompts import HANDED, NO_ONE_SPOKE, NO_PHOTO, NO_WORDS_YET, brain_instructions
+from gpt.prompts import CUT_IN, HANDED, NO_ONE_SPOKE, NO_PHOTO, NO_WORDS_YET, brain_instructions, spoken
 from guide import PICTURE_TOPIC, Build, publish_build
 from livekit.agents import get_job_context
 from runlog import RunLog
@@ -91,8 +91,8 @@ def handed_back(last: str | None) -> str:
     what the helper has already told you" made the voice give the next step as if the one before were checked;
     "still looking at it" made it say so even when it knew the answer (eval/voice-script, 2026-11-03); "nothing new
     since the last look; still: ..." made it say "no update from the camera yet" at every hand-over of the run of
-    2026-11-05 15:59, naming the camera."""
-    return "Camera: let me look."
+    2026-11-05 15:59, naming the camera; "Camera: let me look." had it say "Camera says yes" (2026-11-06)."""
+    return "Let me look."
 
 
 # (name, description, JSON schema of the arguments); the same for both providers
@@ -120,8 +120,8 @@ TELL = (
 SAY = (
     "say",
     "Has the assistant tell the user something now, without their asking, in its own words. kind says what it is: "
-    "news, something the user acts on now (the brick in their hand named, a placement wrong, an offer of a picture, "
-    "an answer to them); or waiting, nothing can be told yet (studs unclear, hands in the way, the picture poor), "
+    "news, something the user acts on now (a placement wrong, an offer of a picture, an answer to them); or "
+    "waiting, nothing can be told yet (studs unclear, hands in the way, the picture poor), "
     "said as what is so, with no request to the user.",
     {"type": "object", "properties": {"text": {"type": "string",
                                                "description": "one or two short sentences of plain facts"},
@@ -141,14 +141,6 @@ SHOW = (
                                                               "1; 0 takes the picture away"}},
      "required": ["step"], "additionalProperties": False})
 TOOLS = [SET_PROGRESS, TELL, SAY, SHOW]  # the same for every look, so the cached prefix holds
-
-# Sent as an appended instruction before a progress line while the voice is talking. A commentary waits for the
-# sentence in progress and for the helper lines queued before it; an appended instruction interrupts speech (OpenAI's
-# live-conversations guide, and eval/voice-script's interrupt scripts on the decisions branch, 2026-11-05), so the step
-# done is heard at once and the stale lines go. The last sentence binds it to the moment: appended instructions stay in
-# the model's context, and one without it was applied six seconds late and cut a step instruction short.
-CUT_IN = ("A progress line follows now: break off what you are saying, drop any helper lines you have not said yet, "
-          "and say the progress line. This is for this moment only; finish every later sentence as usual.")
 
 # how a line of the chat history is labelled in a look's message
 WHO = {"user": "User", "assistant": "Assistant"}
@@ -343,7 +335,7 @@ def make_model(provider: str, model: str, detail: str):
 class Brain:
     def __init__(self, session: AgentSession, build: Build, tap: FrameTap, model, effort: str,
                  watch_side: int, watch_every: float, language: str, timeout: float = 12.0,
-                 record: RunLog | None = None) -> None:
+                 record: RunLog | None = None, confirms_bricks: bool = False) -> None:
         self._timeout = timeout
         self._record = record or RunLog(None, "")
         self._session = session
@@ -353,7 +345,8 @@ class Brain:
         self._effort = effort
         self._watch_side = watch_side
         self._watch_every = watch_every
-        self._instructions = brain_instructions(build.guide, language)
+        self._instructions = brain_instructions(build.guide, language, confirms_bricks)
+        self._moved = False  # the look being carried out moved the progress: its line cuts into the voice's speech
         self._looks: list[Look] = []  # the conversation: every look the model answered, in order
         self._seen: set[str] = set()  # ids of the chat history items already in a kept look
         self.voice_now = ""  # what the voice is saying at this moment (agent.py feeds the transcript deltas), until its line is in the history
@@ -429,11 +422,12 @@ class Brain:
             line = " ".join(speak)
             speaking = self._session.agent_state == "speaking"
             duplex = self._session.current_agent.duplex_session
-            if speaking and any(s.startswith("Progress:") for s in speak):
+            if speaking and self._moved:
                 # the step done or the build finished must not queue behind the voice's turn and the lines before it:
                 # pilot 4 had the voice relay an old "hand still on it" for 4 s after the brain recorded the last step
                 self._record.event("cut_in", w=w, text=line)
                 duplex.append_instructions(CUT_IN)
+            self._moved = False
             self._record.event("commentary", w=w, id=None, text=line, voice_speaking=speaking)
             duplex.append_commentary(line)
 
@@ -588,15 +582,15 @@ class Brain:
                     result, line = "Ignored: nothing to say.", None
                 else:
                     self._record.event("say", **{"w" if kind == "watch" else "n": n}, text=said, say_kind="waiting" if waiting else "news")
-                    result, line = "The assistant says it.", f"Camera: {said}"
+                    result, line = "The assistant says it.", said
             elif name == "tell":
                 told = " ".join(str(args.get("text") or "").split())
                 if not told:
                     result, line = "Ignored: nothing to tell.", None
                 else:
                     self._record.event("tell", **{"w" if kind == "watch" else "n": n}, text=told)
-                    self._session.current_agent.duplex_session.append_thinking(f"Camera: {told}")
-                    self._last_line = f"Camera: {told}"
+                    self._session.current_agent.duplex_session.append_thinking(told)
+                    self._last_line = told
                     result, line = "The assistant knows it.", None
             else:
                 result, line = f"No such tool here: {name}.", None
@@ -624,13 +618,19 @@ class Brain:
         else:
             self._record.event("step", done=None, reopened=build.step + 1, now=build.step + 1)
         await publish_build(build)
-        where = (f"all {total} steps done, the build is finished" if build.finished else
-                 f"{build.step} of {total} steps done; the user is on step {build.step + 1} "
-                 f"({build.guide.steps[build.step].brick})")
+        if build.finished:
+            where = f"all {total} steps done, the build is finished"
+            line = f"All {total} steps are done; the build is finished."
+        else:
+            brick = build.guide.steps[build.step].brick
+            where = f"{build.step} of {total} steps done; the user is on step {build.step + 1} ({brick})"
+            line = (f"Step {build.step} is done; the user is on step {build.step + 1}, the {spoken(brick)}." if build.step > before
+                    else f"Step {build.step + 1} is not right after all; the user is back on step {build.step + 1}, the {spoken(brick)}.")
+        self._moved = True
         result = f"Recorded: {where}. The assistant is told."
         if picture:
             result += " The picture is taken off the glasses."
-        return result, f"Progress: {where}."
+        return result, line
 
     async def _show(self, step, kind: str, n: int) -> tuple[str, str | None]:
         """Put the picture of step `step` on the glasses (0: take it away), record and publish it. Returns the
@@ -661,7 +661,7 @@ class Brain:
                            before=before or None, **sent)
         if not step:
             return ("The picture is taken away; the glasses show the camera.",
-                    "Picture: the glasses show the camera again, no picture.")
+                    "The picture is gone; the glasses show the live view again.")
         brick = build.guide.steps[step - 1].brick
         return (f"The glasses show the picture of step {step} ({brick}).",
-                f"Picture: the glasses now show the picture of step {step} ({brick}).")
+                f"The glasses now show the picture of step {step}, the {spoken(brick)}.")

@@ -23,7 +23,6 @@ import base64
 import io
 import logging
 import os
-import re
 import time
 from collections import deque
 
@@ -32,7 +31,9 @@ from livekit.agents import AgentSession
 
 from frames import FrameTap, bottom_square
 from gpt.brain import Brain
+from gpt.prompts import CUT_IN, spoken
 from guide import Build, Guide
+from prompts import DIRECTIONS
 from runlog import RunLog
 
 logger = logging.getLogger("rayneo-agent.moments")
@@ -47,12 +48,6 @@ AGREE = 3  # frames in a row that have to agree before the brick line is said a 
 # 2026-11-06 14:19, and orange is the brick separator, the only orange thing in the kit, which read as a brick held
 # four times over two runs although the question and the task text call it a tool. No line is said about either.
 NO_BRICK = {"none", "orange"}
-# The brick line goes to GPT-Live as a commentary, which is what it speaks; while the voice is talking an appended
-# instruction goes first, which interrupts the speech (OpenAI's live-conversations guide; brain.py CUT_IN does the same
-# for a progress line). An instruction alone that asked the voice to say the line made it break off and say nothing
-# (the home run of 2026-11-06 01:24, first line): an instruction interrupts, a commentary is spoken.
-CUT_IN = ("A camera line follows now: break off what you are saying, drop any helper lines you have not said yet, and "
-          "say the camera line. This is for this moment only; finish every later sentence as usual.")
 
 
 def developer_text(guide: Guide, step: int) -> str:
@@ -63,12 +58,9 @@ def developer_text(guide: Guide, step: int) -> str:
     placed = "\n".join(f"{i}. {s.brick}: {s.place}" for i, s in enumerate(steps[:step], 1)) or "none"
     cur = steps[step]
     return (
-        "You see one photo taken just now by the camera of a pair of AR glasses on a person building a small LEGO "
+        "You see one photo taken just now by the camera of a pair of AR glasses on the user, who is building a small LEGO "
         f"model, \"{guide.title}\", on a {guide.plate}x{guide.plate} baseplate on a desk; loose bricks lie around the "
-        "plate. Directions on the plate are as the builder sees it: up is the far edge, down the near edge; vertical "
-        "means a brick's long side runs up and down, horizontal that it runs left and right. A brick's size counts "
-        "its studs: a 1x6 is one stud wide and six long. An orange brick separator, a tool, lies among the bricks; it is "
-        "not a brick.\n\n"
+        f"plate. {DIRECTIONS} An orange brick separator, a tool, lies among the bricks; it is not a brick.\n\n"
         f"The bricks of this build: {', '.join(s.brick for s in steps)}.\n\n"
         f"Placed in the steps before:\n{placed}\n\n"
         f"The current step, step {step + 1}: {cur.brick}, {cur.place}.\n\n"
@@ -86,19 +78,13 @@ def questions() -> list[dict]:
     return [
         p("plate", "The baseplate is in the picture and the picture is sharp enough to see its studs."),
         p("hand", "A hand is on the baseplate or on a brick that is on the baseplate."),
-        p("held", "The builder holds a LEGO brick in the air, not resting on the desk or on the baseplate; the orange "
+        p("held", "The user holds a LEGO brick in the air, not resting on the desk or on the baseplate; the orange "
                   "brick separator is a tool, not a brick."),
-        p("is_step", "The brick the builder holds is the current step's brick: the same colour and the same size."),
+        p("is_step", "The brick the user holds is the current step's brick: the same colour and the same size."),
         p("on", "The current step's brick is on the baseplate with no hand on it."),
-        {"name": "colour", "type": "choice", "instructions": "What colour is the brick the builder holds? \"none\" when no brick is held.",
+        {"name": "colour", "type": "choice", "instructions": "What colour is the brick the user holds? \"none\" when no brick is held.",
          "choices": [{"value": c} for c in COLOURS]},
     ]
-
-
-def spoken(brick: str) -> str:
-    """A brick's name as the voice should say it: "white 1x6" is "white one by six"."""
-    words = {"1": "one", "2": "two", "3": "three", "4": "four", "6": "six", "8": "eight"}
-    return re.sub(r"(\d)x(\d)", lambda m: f"{words.get(m[1], m[1])} by {words.get(m[2], m[2])}", brick)
 
 
 def _jpeg(frame, side: int) -> bytes:
@@ -119,8 +105,8 @@ class Moments:
     one" takes AGREE frames, after a "not that one" another comes only for a brick of another colour read for AGREE
     frames, the hand empty for AGREE frames arms the line afresh, and two lines are at least `hold_s` seconds apart."""
 
-    YES = "Camera: yes, that's the one; it goes {place}."  # the place, so the voice gives it with the confirmation
-    NOT = "Camera: not that one; the step wants the {brick}."
+    YES = "That's the right brick; it goes {place}."  # the place too, so the voice gives it with the confirmation
+    NOT = "That's not the right brick; this step needs the {brick}."
 
     def __init__(self, session: AgentSession, build: Build, tap: FrameTap, brain: Brain, record: RunLog, side: int,
                  sure: float, yes_at: float, not_at: float, hold_s: float, model: str, detail: str,

@@ -76,10 +76,11 @@ async def rayneo_assistant(ctx: JobContext) -> None:
     session = AgentSession(video_sampler=tap, llm=build_live_model(settings))
     model = make_model(settings.brain_provider, settings.brain_model, settings.brain_detail)
     brain = Brain(session, build, tap, model, settings.brain_effort, settings.brain_watch_side,
-                  settings.brain_watch_every, lang, settings.brain_timeout, record)
+                  settings.brain_watch_every, lang, settings.brain_timeout, record, confirms_bricks=not settings.moments_on)
+    # The second line (moments.py), or none: with MOMENTS=off the brain confirms the brick in the hand itself.
     moments = Moments(session, build, tap, brain, record, settings.moments_side, settings.moments_sure,
                       settings.moments_yes_at, settings.moments_not_at, settings.moments_hold_s, settings.moments_model,
-                      settings.moments_detail)
+                      settings.moments_detail) if settings.moments_on else None
     persona = voice_persona(guide, lang)
     record.text("brain.txt", brain.instructions)
     record.text("brain-tools.json", json.dumps(
@@ -98,7 +99,8 @@ async def rayneo_assistant(ctx: JobContext) -> None:
     @session.on("close")
     def _log_close(ev) -> None:
         brain.stop_watching()  # the call is over: no more looks at a camera that has stopped sending
-        moments.stop()
+        if moments:
+            moments.stop()
         record.event("closed", reason=str(getattr(ev.reason, "value", ev.reason)), error=str(ev.error) if ev.error else None)
         # The call is over when the session is: end the job now, not when livekit-server closes the room, which is
         # 20 s after the glasses leave (departure_timeout), so the record closes and reaches the console at once.
@@ -106,10 +108,11 @@ async def rayneo_assistant(ctx: JobContext) -> None:
 
     async def _log_usage() -> None:
         brain.stop_watching()
-        moments.stop()
-        logger.info("usage: %s camera_frames=%d moments=%d", session.usage, tap.count, moments.count)
+        if moments:
+            moments.stop()
+        logger.info("usage: %s camera_frames=%d moments=%d", session.usage, tap.count, moments.count if moments else 0)
         record.event("end", voice_s=sum(getattr(u, "session_duration", 0) for u in session.usage.model_usage),
-                     camera_frames=tap.count, moments=moments.count)
+                     camera_frames=tap.count, moments=moments.count if moments else 0)
         record.close()
         if lab:
             path = write_report(lab, record.dir, record.wall_ms, round(time.time() * 1000),
@@ -257,7 +260,8 @@ async def rayneo_assistant(ctx: JobContext) -> None:
     record.event("step", done=None, now=1)
     await publish_build(build)
     brain.start_watching()
-    moments.start()
+    if moments:
+        moments.start()
 
     # The task ends by itself: once the brain has recorded the last step as done, the voice says so (the Progress
     # commentary), and when it has stopped speaking the glasses are told to hang up through Build.over in the published
