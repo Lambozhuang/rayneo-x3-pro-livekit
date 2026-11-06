@@ -43,10 +43,12 @@ URL = "https://api.openai.com/v1/decisions"
 # change of size is invisible. Coarse, so that a dark red brick does not flicker between two names from frame to frame.
 COLOURS = ["red", "orange", "yellow", "green", "blue", "purple", "pink", "tan or brown", "white", "grey", "black", "none"]
 AGREE = 3  # frames in a row that have to agree before the brick line is said a second time: one frame's reading drifts (below)
-# The brick line goes to GPT-Live as an appended instruction, which interrupts speech, not as a commentary, which waits
-# for the sentence in progress and the lines queued before it (OpenAI's live-conversations guide; brain.py CUT_IN).
-SAY_NOW = ('Break off whatever you are saying and say this now, in a few words of your own and nothing more: "{text}" '
-           'This is for this moment only; after it go on as usual.')
+# The brick line goes to GPT-Live as a commentary, which is what it speaks; while the voice is talking an appended
+# instruction goes first, which interrupts the speech (OpenAI's live-conversations guide; brain.py CUT_IN does the same
+# for a progress line). An instruction alone that asked the voice to say the line made it break off and say nothing
+# (the home run of 2026-11-06 01:24, first line): an instruction interrupts, a commentary is spoken.
+CUT_IN = ("A camera line follows now: break off what you are saying, drop any helper lines you have not said yet, and "
+          "say the camera line. This is for this moment only; finish every later sentence as usual.")
 
 
 def developer_text(guide: Guide, step: int) -> str:
@@ -110,8 +112,8 @@ class Moments:
     next comes only when the hand has read empty for AGREE frames, or the held brick's colour has differed for AGREE
     frames, or the verdict has read the other way for AGREE frames; two lines are at least `hold_s` seconds apart."""
 
-    YES = "Yes, that's the one."
-    NOT = "Not that one; the step wants the {brick}."
+    YES = "Camera: yes, that's the one."
+    NOT = "Camera: not that one; the step wants the {brick}."
 
     def __init__(self, session: AgentSession, build: Build, tap: FrameTap, brain: Brain, record: RunLog, side: int,
                  sure: float, yes_at: float, not_at: float, hold_s: float, model: str, detail: str,
@@ -208,8 +210,8 @@ class Moments:
         above ("yes") or at `not_at` or below ("not that one"). Once a line has been said, another comes only when
         AGREE frames in a row have a brick held, of one colour, read the same way, and that differs from the line said,
         in kind or in the brick's colour, which is another brick in the hand; two lines are at least hold_s apart. The
-        line goes as an instruction, so the voice says it at once, where a commentary waited behind the sentence in
-        progress (the run of 2026-11-06 01:03 had three queued lines come out as one breath)."""
+        line goes as a commentary; while the voice is talking a cut-in instruction goes first, so the line is not left
+        behind the sentence in progress (the run of 2026-11-06 01:03 had three queued lines come out as one breath)."""
         not_line = self.NOT.format(brick=spoken(self._build.guide.steps[step].brick))
         if self._announced is None:
             if held < self._sure:
@@ -244,7 +246,10 @@ class Moments:
         logger.info("moments: say %r (held %.2f, is_step %.2f, colour %s, photo %s)", line, held, is_step, colour, saved)
         self._record.event("moment_say", n=self.count, step=step + 1, text=line, held=round(held, 2),
                            is_step=round(is_step, 2), colour=colour, photo=saved, voice_speaking=speaking)
-        self._session.current_agent.duplex_session.append_instructions(SAY_NOW.format(text=line))
+        duplex = self._session.current_agent.duplex_session
+        if speaking:
+            duplex.append_instructions(CUT_IN)
+        duplex.append_commentary(line)
 
     def _placement(self, step: int, frame, seq: int, at: float, hand: float, on: float, photo: bytes) -> None:
         """The hand has just left the plate and the step's brick lies on it: the brain looks now, at this frame. The
