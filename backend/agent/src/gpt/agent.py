@@ -202,10 +202,17 @@ async def rayneo_assistant(ctx: JobContext) -> None:
             logger.info("live: sent %s %s", etype, json.dumps({k: v for k, v in event.items() if k != "type"}))
             record.event("live_sent", type=etype, event=event)
 
-    # What the voice is saying right now, for the brain's looks (Brain.voice_now, brain.py _message).
+    # What the voice is saying right now, for the brain's looks (Brain.voice_now, brain.py _message), and every
+    # transcript delta of either side into the record with its time: a `said` event comes only when a turn ends and
+    # holds the whole turn, so a line the voice cut into a sentence (moments.py, brain.py CUT_IN) could not be timed
+    # from the record before 2026-11-06; `start_ms` and `end_ms` are the delta's place on GPT-Live's session timeline.
     def _voice_words(event: dict) -> None:
-        if event.get("type") == "session.output_transcript.delta":
+        etype = event.get("type")
+        if etype == "session.output_transcript.delta":
             brain.voice_now += event.get("delta") or ""
+            record.event("voice_delta", text=event.get("delta"), start_ms=event.get("start_ms"), end_ms=event.get("end_ms"))
+        elif etype == "session.input_transcript.delta":
+            record.event("wearer_delta", text=event.get("delta"), start_ms=event.get("start_ms"), end_ms=event.get("end_ms"))
 
     duplex.on("openai_client_event_queued", _log_live_sent)
     duplex.on("openai_server_event_received", _log_live_event)
