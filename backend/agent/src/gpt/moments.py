@@ -37,6 +37,10 @@ from runlog import RunLog
 logger = logging.getLogger("rayneo-agent.moments")
 
 URL = "https://api.openai.com/v1/decisions"
+# The coarse colours a held brick is sorted into, as the sign that the brick in the hand has changed: the model reads a
+# brick's hue reliably and its size not at all (eval/decisions-frames), so a change of hue is a change of brick while a
+# change of size is invisible. Coarse, so that a dark red brick does not flicker between two names from frame to frame.
+COLOURS = ["red", "orange", "yellow", "green", "blue", "purple", "pink", "tan or brown", "white", "grey", "black", "none"]
 
 
 def developer_text(guide: Guide, step: int) -> str:
@@ -60,8 +64,9 @@ def developer_text(guide: Guide, step: int) -> str:
 
 
 def questions() -> list[dict]:
-    """The five yes-or-no questions, the same for every frame. Whether a placement is right is not asked: the model
-    answered 0.84 to 1.00 on misplaced bricks (eval/decisions-frames), so the plate is the brain's."""
+    """Five yes-or-no questions and the held brick's coarse colour, the same for every frame. Whether a placement is
+    right is not asked: the model answered 0.84 to 1.00 on misplaced bricks (eval/decisions-frames), so the plate is
+    the brain's. The colour decides nothing by itself; it only tells one held brick from the next."""
     def p(name: str, text: str) -> dict:
         return {"name": name, "type": "predicate", "instructions": text}
 
@@ -71,6 +76,8 @@ def questions() -> list[dict]:
         p("held", "The builder holds a brick in the air, not resting on the desk or on the baseplate."),
         p("is_step", "The brick the builder holds is the current step's brick: the same colour and the same size."),
         p("on", "The current step's brick is on the baseplate with no hand on it."),
+        {"name": "colour", "type": "choice", "instructions": "What colour is the brick the builder holds? \"none\" when no brick is held.",
+         "choices": [{"value": c} for c in COLOURS]},
     ]
 
 
@@ -106,6 +113,7 @@ class Moments:
         self._task: asyncio.Task | None = None
         self._said_until = 0.0  # the time (monotonic) before which no line is said
         self._announced: str | None = None  # the line said for the brick held now ("yes" or "not"), None when none is
+        self._colour = "none"  # the held brick's coarse colour in the frame before; a change is a change of brick
         self._hand_before = 0.0  # the frame before's probability of a hand on the plate
         self._state_step = -1  # the step the two fields above are about
         self.count = 0  # requests made, for the record
@@ -156,23 +164,33 @@ class Moments:
         if any(x.get("type") == "refusal" for x in a.values()):
             raise RuntimeError("a question was refused")
         plate, hand, held, is_step, on = (a[k]["probability"] for k in ("plate", "hand", "held", "is_step", "on"))
+        colour = a["colour"]["choice"]
+        colour_p = next((x["probability"] for x in a["colour"]["probabilities"] if x["value"] == colour), 0.0)
         tokens = (data.get("usage") or {}).get("input_tokens")
         self._record.event("moment", n=n, step=step + 1, frame=seq, frame_age_ms=round((time.monotonic() - at) * 1000),
                            prep_ms=round((t_sent - t0) * 1000), ms=ms, tokens=tokens, plate=round(plate, 2),
-                           hand=round(hand, 2), held=round(held, 2), is_step=round(is_step, 2), on=round(on, 2))
-        logger.info("moments: #%d step %d frame %d, %d ms: plate %.2f hand %.2f held %.2f is_step %.2f on %.2f",
-                    n, step + 1, seq, ms, plate, hand, held, is_step, on)
+                           hand=round(hand, 2), held=round(held, 2), is_step=round(is_step, 2), on=round(on, 2),
+                           colour=colour, colour_p=round(colour_p, 2))
+        logger.info("moments: #%d step %d frame %d, %d ms: plate %.2f hand %.2f held %.2f is_step %.2f on %.2f colour %s (%.2f)",
+                    n, step + 1, seq, ms, plate, hand, held, is_step, on, colour, colour_p)
         if step != self._build.step:
             return  # the brain moved the progress while the request was out: these answers are about the step before
         if step != self._state_step:
             self._state_step, self._announced, self._hand_before = step, None, 0.0
         if plate < 0.5:
             return
-        if held < 0.5 or hand >= 0.5:
-            # the hand is empty, or at the plate putting a brick down or taking one: the next brick held up gets a line.
-            # In the home run of 2026-11-06 00:52 the user swapped bricks for 35 s without "held" ever dropping, so a
-            # rule that waited for an empty hand said nothing for the second wrong brick nor for the right one.
+        if held < 0.5 or hand >= 0.5 or (held >= self._sure and colour != self._colour):
+            # the hand is empty, at the plate putting a brick down or taking one, or holding a brick of another colour
+            # than the frame before: the next brick held up gets a line. In the home run of 2026-11-06 00:52 the user
+            # swapped bricks for 35 s without "held" ever dropping, so a rule that waited for an empty hand said nothing
+            # for the second wrong brick nor for the right one; two wrong bricks swapped on the desk show only as a change
+            # of colour, which is what the model reads best.
+            if self._announced is not None:
+                logger.info("moments: the brick line is armed again (held %.2f, hand %.2f, colour %s after %s)", held, hand,
+                            colour, self._colour)
             self._announced = None
+        if held >= self._sure:
+            self._colour = colour
         self._brick_line(step, hand, held, is_step, photo)
         self._placement(step, frame, seq, at, hand, on, photo)
         self._hand_before = hand
