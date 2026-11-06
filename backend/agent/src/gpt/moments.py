@@ -110,16 +110,14 @@ def _jpeg(frame, side: int) -> bytes:
 class Moments:
     """Reads every frame with the Decisions API and acts on two moments. `sure` is the probability a brick held and
     the step's brick on the plate need; `yes_at` is the probability at or above which the brick held is called the
-    step's and `not_at` the one at or below which it is called another, nothing said in between. "Yes" goes on the
-    first frame that reads so, whatever was said before, since speed is what this line is for and a wrong brick seldom
-    reads that high even once; "not that one" goes on two frames in a row, since one frame of the step's brick has read
-    0.10 and 0.18 while it was being picked up (the home run of 2026-11-06 13:34). One frame's reading drifts: in the
+    step's and `not_at` the one at or below which it is called another, nothing said in between. Both lines go on two
+    frames in a row that read so, whatever was said before: one frame misreads at the moment the hand touches a brick
+    on the desk, the step's brick reading 0.10 and 0.18 as it was picked up (the home run of 2026-11-06 13:34) and a
+    brick still on the desk reading as held and the step's at 0.96 (the run of 14:47). One frame's reading drifts: in the
     run of 01:03 the same tan brick read as the step's at 0.9 and above and then 0.33 a frame later, and its colour as
     tan and then white, which with single-frame rules gave twenty lines in two minutes. So after a "yes" a "not that
     one" takes AGREE frames, after a "not that one" another comes only for a brick of another colour read for AGREE
-    frames, the hand empty for AGREE frames arms the line afresh, and two lines are at least `hold_s` seconds apart.
-    A step gets one "yes": the user who lifts the confirmed brick again to move it is not told again (the same run
-    had the white brick confirmed twice, the second time when it was lifted to fix its spacing)."""
+    frames, the hand empty for AGREE frames arms the line afresh, and two lines are at least `hold_s` seconds apart."""
 
     YES = "Camera: yes, that's the one; it goes {place}."  # the place, so the voice gives it with the confirmation
     NOT = "Camera: not that one; the step wants the {brick}."
@@ -136,7 +134,6 @@ class Moments:
         self._announced: str | None = None  # the line said for the brick held now ("yes" or "not"), None when none is
         self._colour: str | None = None  # the coarse colour of the brick the line was said for, once AGREE frames after the line agree on it; another colour then is another brick
         self._recent: deque = deque(maxlen=AGREE)  # (held, is_step, colour) of the last frames with the plate in view
-        self._yes_said = False  # the step's brick has been confirmed once; the step gets no second "yes"
         self._hand_before = 0.0  # the frame before's probability of a hand on the plate
         self._state_step = -1  # the step the two fields above are about
         self.count = 0  # requests made, for the record
@@ -200,7 +197,6 @@ class Moments:
             return  # the brain moved the progress while the request was out: these answers are about the step before
         if step != self._state_step:
             self._state_step, self._announced, self._colour, self._hand_before = step, None, None, 0.0
-            self._yes_said = False
             self._recent.clear()
         if plate < 0.5:
             self._recent.clear()
@@ -217,10 +213,10 @@ class Moments:
         self._hand_before = hand
 
     def _brick_line(self, step: int, held: float, is_step: float, colour: str, photo: bytes) -> None:
-        """"Yes" on the first frame that reads the brick held as the step's at `yes_at` or above, unless the last line
-        was a yes; "not that one" on two frames in a row at `not_at` or below when no line has been said for the brick
-        in the hand, on AGREE frames after a yes, and after a not only for a brick of another colour than the one the
-        first AGREE frames after that line settled on, since a line's own frame misreads the colour ("none" with a
+        """"Yes" on two frames in a row that read the brick held as the step's at `yes_at` or above, unless the last
+        line was a yes; "not that one" on two frames in a row at `not_at` or below when no line has been said for the
+        brick in the hand, on AGREE frames after a yes, and after a not only for a brick of another colour than the one
+        the first AGREE frames after that line settled on, since a line's own frame misreads the colour ("none" with a
         brick held at 0.95). Two lines are at least hold_s apart. The line goes as a commentary; while the voice is
         talking a cut-in instruction goes first, so the line is not left behind the sentence in progress (the run of
         2026-11-06 01:03 had three queued lines come out as one breath)."""
@@ -229,7 +225,8 @@ class Moments:
             return  # nothing a line can be about: no colour read, or the orange separator in the hand
         recent = list(self._recent)  # the last frames with the plate in view, this one last
         low = [h >= self._sure and p <= self._not_at and c not in NO_BRICK for h, p, c in recent]
-        if held >= self._sure and is_step >= self._yes_at and self._announced != "yes" and not self._yes_said:
+        high = [h >= self._sure and p >= self._yes_at and c not in NO_BRICK for h, p, c in recent]
+        if len(recent) >= 2 and all(high[-2:]) and self._announced != "yes":
             kind, line = "yes", self.YES.format(place=here.place)
         elif self._announced is None:
             if len(recent) < 2 or not all(low[-2:]):
@@ -257,8 +254,6 @@ class Moments:
         if now < self._said_until:
             return
         self._said_until, self._announced, self._colour = now + self._hold_s, kind, None
-        if kind == "yes":
-            self._yes_said = True
         saved = self._record.photo(photo, f"moment{self.count}-s{step + 1}")
         speaking = self._session.agent_state == "speaking"
         logger.info("moments: say %r (held %.2f, is_step %.2f, colour %s, photo %s)", line, held, is_step, colour, saved)
