@@ -23,7 +23,6 @@ import io.livekit.android.compose.state.SessionOptions
 import io.livekit.android.compose.state.rememberAgent
 import io.livekit.android.compose.state.rememberLocalMedia
 import io.livekit.android.compose.state.rememberSession
-import io.livekit.android.compose.state.rememberSpeakingParticipants
 import io.livekit.android.example.voiceassistant.CallLog
 import io.livekit.android.example.voiceassistant.Exposure
 import io.livekit.android.example.voiceassistant.FrameDump
@@ -42,9 +41,12 @@ import io.livekit.android.example.voiceassistant.ui.CallLayout
 import io.livekit.android.example.voiceassistant.ui.CameraPreview
 import io.livekit.android.example.voiceassistant.ui.Eyes
 import io.livekit.android.example.voiceassistant.ui.Phase
+import io.livekit.android.example.voiceassistant.ui.rememberAct
 import io.livekit.android.example.voiceassistant.ui.rememberBuildProgress
 import io.livekit.android.example.voiceassistant.ui.rememberPicture
 import io.livekit.android.example.voiceassistant.ui.rememberEngineState
+import io.livekit.android.example.voiceassistant.ui.rememberSeconds
+import io.livekit.android.example.voiceassistant.ui.rememberVoices
 import io.livekit.android.example.voiceassistant.viewmodel.VoiceAssistantViewModel
 import kotlinx.coroutines.delay
 import kotlinx.serialization.Serializable
@@ -86,12 +88,11 @@ fun VoiceAssistantScreen(
  * chat box, control bar, screenshare and camera-flip are gone, and what is
  * left is what a wearer actually needs while talking:
  *
- *   top           the build's title
- *   left column   the steps, all five in view, the current one highlighted; what the camera sees at the bottom
- *   right column  who has the floor (you / listening / thinking / speaking) in a framed head, the agent's
- *                 lines, newest at the bottom and shown whole or not at all, the agent's picture when the
- *                 wearer asked for one, and what the model heard the wearer say along the bottom
- * Nothing scrolls: the glasses have no pointer, so what does not fit is left out, never half shown.
+ *   top band      the build's title; under it the steps, all five in view on one line each, the current one bold,
+ *                 and at the right the square with what the camera sees or, while the agent names one, its picture
+ *   bottom        the five dots that move with the conversation (AgentDots), and a line of words only when the
+ *                 connection or the agent is lost
+ * Nothing scrolls: the glasses have no pointer, so what does not fit is left out, never half shown; see CallLayout.
  *
  * Mic and camera are always on. Toggling them was the starter's idea of a
  * feature; here it is a way to silently break the assistant. The camera's view
@@ -232,13 +233,14 @@ fun VoiceAssistant(
 
         // When the wearer's voice stops at the microphone and when the agent's voice arrives, as wall clock
         // times. See SpeechEdgeLog; the mic's threshold is higher because the room is in it. The agent's edges go
-        // into the lab report; the wearer's stay in logcat.
-        DisposableEffect(micTrack) {
-            val edges = if (micTrack != null) SpeechEdgeLog("wearer", threshold = 1000) else null
-            if (edges != null) micTrack!!.addSink(edges)
-            onDispose { if (edges != null) micTrack!!.removeSink(edges) }
+        // into the lab report; the wearer's stay in logcat. Both sinks are kept in state: the dots along the bottom
+        // move with their levels and their sounding (Voices), and the hang-up on `over` below waits for the agent's
+        // voice to fall silent here.
+        val wearerEdges = remember(micTrack) { if (micTrack != null) SpeechEdgeLog("wearer", threshold = 1000) else null }
+        DisposableEffect(wearerEdges) {
+            if (wearerEdges != null) micTrack!!.addSink(wearerEdges)
+            onDispose { if (wearerEdges != null) micTrack!!.removeSink(wearerEdges) }
         }
-        // The agent's edges are kept in state: the hang-up on `over` below waits for the agent's voice to fall silent here.
         val agentEdges = remember(agentAudio) { if (agentAudio != null) SpeechEdgeLog("agent", threshold = 500, report = true) else null }
         DisposableEffect(agentEdges) {
             if (agentEdges != null) agentAudio!!.addSink(agentEdges)
@@ -272,8 +274,9 @@ fun VoiceAssistant(
             onDispose { if (dump != null) cameraTrack!!.removeRenderer(dump) }
         }
 
-        val speakers by rememberSpeakingParticipants(room)
-        val wearerSpeaking = speakers.any { it.identity == room.localParticipant.identity }
+        val voices by rememberVoices(wearerEdges, agentEdges)
+        val act by rememberAct(agent.agentParticipant)
+        val seconds = rememberSeconds()  // read by the dots while they are drawn, not here, so a frame recomposes nothing
         // Has an agent ever been here? Lets "it left" read differently from
         // "it has not arrived yet"; see Phase.of.
         var sawAgent by remember { mutableStateOf(false) }
@@ -283,7 +286,7 @@ fun VoiceAssistant(
         val engineState by rememberEngineState(room)
         val buildProgress by rememberBuildProgress(agent.agentParticipant)
         val picture by rememberPicture(room, agent.agentParticipant)
-        val phase = Phase.of(agent, wearerSpeaking, session, engineState, sawAgent, localMedia.isMicrophoneEnabled)
+        val phase = Phase.of(agent, voices, act.looking, session, engineState, sawAgent, localMedia.isMicrophoneEnabled)
         val remaining by rememberRemaining(viewModel.route.sid, viewModel.route.runId)
 
         // Every call ends in the glasses' log here, whoever ended it: the console's end_task, the wearer's double tap or
@@ -330,6 +333,15 @@ fun VoiceAssistant(
                 phase = phase,
                 picture = picture,
                 preview = { m -> CameraPreview(track = cameraTrack, modifier = m) },
+                seconds = { seconds.value },
+                level = {
+                    when (phase) {
+                        Phase.SPEAKING -> agentEdges?.level ?: 0f
+                        Phase.LISTENING -> wearerEdges?.level ?: 0f
+                        else -> 0f
+                    }
+                },
+                flash = { act.flash },
                 remaining = remaining,
                 modifier = modifier,
             )

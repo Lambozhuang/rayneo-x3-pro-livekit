@@ -10,8 +10,9 @@
 #                                                 any launch without it turns recording off
 #   .\deploy\glasses.ps1 -MockLab after            open the app on the lab screen as it looks between tasks, without a
 #                                                 console (Lab.mock); also waiting and problem
-#   .\deploy\glasses.ps1 -Mock                    open the app on the mock call screen (MockScreen.kt): the ladder at
-#                                                 step 3 with a fixed conversation, no server needed; double tap leaves
+#   .\deploy\glasses.ps1 -Mock                    open the app on the mock call screen (MockScreen.kt): the gate at
+#                                                 step 2 playing a scene of the call's states on a loop, no server
+#                                                 needed; double tap leaves
 #   .\deploy\glasses.ps1 -Exposure -4             set the camera's exposure compensation for this launch's calls, in
 #                                                 sixths of an EV, -12..12 (Exposure.kt); a launch without it uses -2,
 #                                                 the lab's value since 2026-11-04 (-6 read a yellow brick as orange);
@@ -36,7 +37,7 @@ param(
     [string]$Lab = "",            # the QoE Lab console, <ip> or <ip>:<port>; the Lab entry connects there
     [string]$Task = "",           # a build's name (backend/agent/guides/<name>) to preselect
     [switch]$Record,              # record every call of this launch: camera as the call sees it, mic, agent voice
-    [switch]$Mock,                # open on the static mock of the call screen instead of the build picker
+    [switch]$Mock,                # open on the mock call screen, a scripted scene, instead of the build picker
     [string]$MockLab,             # open on the lab screen in this stage with no console: waiting, after, problem (Lab.mock)
     [int]$Exposure = -2,          # exposure compensation index for the calls, -12..12; the lab's -2 unless given
     [switch]$ExposureSweep,       # record the desk at several compensations, pull the recording, then leave

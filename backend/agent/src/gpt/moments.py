@@ -3,7 +3,8 @@
     FrameTap --the newest frame, bottom square at MOMENTS_SIDE--> POST /v1/decisions (gpt-6-luna), one request after
         the other, five questions: the plate in view, a hand on the plate, a brick held, which brick, the current
         step's brick on the plate with no hand on it
-        --> one commentary to GPT-Live when the step's brick, or another, is held ("Camera: yes, that's the one.")
+        --> one commentary to GPT-Live when the step's brick, or another, is held ("That's the right brick; ...")
+            and, the same instant, "yes n" or "not n" to the glasses (Build.act_now), which flash green or red
         --> Brain.look_now(frame) the moment the step's brick lies on the plate with no hand on it
 
 The brain (brain.py) keeps judging the plate: what is placed right or wrong, the progress, the answers about the desk.
@@ -32,7 +33,7 @@ from livekit.agents import AgentSession
 from frames import FrameTap, bottom_square
 from gpt.brain import Brain
 from gpt.prompts import CUT_IN, spoken
-from guide import Build, Guide
+from guide import Build, Guide, publish_build
 from prompts import DIRECTIONS
 from runlog import RunLog
 
@@ -195,18 +196,19 @@ class Moments:
             # is not enough: a brick of another colour or the other verdict for AGREE frames says again too (_brick_line).
             logger.info("moments: the hand has been empty (held %.2f): the brick line is armed again", held)
             self._announced, self._colour = None, None
-        self._brick_line(step, held, is_step, colour, photo)
+        await self._brick_line(step, held, is_step, colour, photo)
         self._placement(step, frame, seq, at, hand, on, photo)
         self._on_before = on
 
-    def _brick_line(self, step: int, held: float, is_step: float, colour: str, photo: bytes) -> None:
+    async def _brick_line(self, step: int, held: float, is_step: float, colour: str, photo: bytes) -> None:
         """"Yes" on two frames in a row that read the brick held as the step's at `yes_at` or above, unless the last
         line was a yes; "not that one" on two frames in a row at `not_at` or below when no line has been said for the
         brick in the hand, on AGREE frames after a yes, and after a not only for a brick of another colour than the one
         the first AGREE frames after that line settled on, since a line's own frame misreads the colour ("none" with a
-        brick held at 0.95). Two lines are at least hold_s apart. The line goes as a commentary; while the voice is
-        talking a cut-in instruction goes first, so the line is not left behind the sentence in progress (the run of
-        2026-11-06 01:03 had three queued lines come out as one breath)."""
+        brick held at 0.95). Two lines are at least hold_s apart. The glasses get the verdict first, as the attribute
+        `rayneo.agent`, so their element flashes green or red while the voice takes its 0.7 s to reach the line. The
+        line goes as a commentary; while the voice is talking a cut-in instruction goes first, so the line is not left
+        behind the sentence in progress (the run of 2026-11-06 01:03 had three queued lines come out as one breath)."""
         here = self._build.guide.steps[step]
         if colour in NO_BRICK:
             return  # nothing a line can be about: no colour read, or the orange separator in the hand
@@ -246,6 +248,8 @@ class Moments:
         logger.info("moments: say %r (held %.2f, is_step %.2f, colour %s, photo %s)", line, held, is_step, colour, saved)
         self._record.event("moment_say", n=self.count, step=step + 1, text=line, held=round(held, 2),
                            is_step=round(is_step, 2), colour=colour, photo=saved, voice_speaking=speaking)
+        self._build.act_now(kind)
+        await publish_build(self._build)
         duplex = self._session.current_agent.duplex_session
         if speaking:
             duplex.append_instructions(CUT_IN)

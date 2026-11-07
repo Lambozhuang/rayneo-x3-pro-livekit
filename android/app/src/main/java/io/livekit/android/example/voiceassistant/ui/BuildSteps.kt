@@ -30,7 +30,7 @@ import io.livekit.android.util.flow
  * and are re-sent after a reconnect, so this list is right again as soon as the connection is. The picture beside the
  * list is not the build's: the agent sends it as a file and names it in `rayneo.picture` (Pictures.kt).
  * `rayneo.call.over` is "1" once the agent has ended the task, the build finished and said so; the call screen hangs
- * up on it (VoiceAssistantScreen).
+ * up on it (VoiceAssistantScreen). `rayneo.agent`, what the agent does this instant, is read by Act.kt for the dots.
  *
  * @param current index of the step being built, or null when nothing has
  * been published yet; `steps.size` once finished.
@@ -99,10 +99,11 @@ fun StepsHeading(progress: BuildProgress, modifier: Modifier = Modifier) {
 }
 
 /**
- * A numbered list, every step on its own line, all of them in view: a task has five steps and the column has room for
- * five lines at this size, so nothing scrolls and the wearer always sees the whole build. Done steps dim, the current
- * one white and bold, the rest grey; a name may take two lines, which the longest in the tasks, "Dark grey 2x6, right
- * post", does at 16 sp in the column's width. Nothing when the agent has not published a build.
+ * A numbered list, every step on one line, all of them in view: a task has five steps and the band has room for five
+ * lines at this size, so nothing scrolls and the wearer always sees the whole build. Done steps dim, the current one
+ * white and bold, the rest grey. A name takes one line: the list runs from the eye's left edge to the square (about
+ * 400 dp, CallLayout), where the longest name in the tasks, "Dark grey 2x6, right post", takes under 200 dp at 16 sp.
+ * Nothing when the agent has not published a build.
  */
 @Composable
 fun BuildSteps(progress: BuildProgress, modifier: Modifier = Modifier) {
@@ -134,7 +135,7 @@ fun BuildSteps(progress: BuildProgress, modifier: Modifier = Modifier) {
                     fontSize = 16.sp,
                     lineHeight = 21.sp,
                     fontWeight = weight,
-                    maxLines = 2,
+                    maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
                     modifier = Modifier.fillMaxWidth(),
                 )

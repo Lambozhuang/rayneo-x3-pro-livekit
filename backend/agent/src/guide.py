@@ -11,7 +11,9 @@ steps are built; `publish_build` sends the position to the
 glasses. Each step also has a picture, `step-<n>.png` beside the task file,
 drawn by render_pictures.py from the step's colour and cells; the brain sends
 it to the glasses when the wearer asks to see a step (brain.py `show`), and
-`Build.picture` says which one is on the glasses.
+`Build.picture` says which one is on the glasses. `Build.act` tells the
+glasses what the agent does this instant, for the element on their screen
+that moves with the conversation (`act_now`).
 """
 
 from __future__ import annotations
@@ -116,6 +118,8 @@ class Build:
     step_started: float = field(default_factory=time.monotonic)
     picture: int = 0  # the step whose picture the glasses show, numbered as the wearer counts; 0 shows the camera
     over: bool = False  # the task is over: the glasses hang up on seeing it (gpt/agent.py, VoiceAssistantScreen.kt)
+    act: str = ""  # what the agent does this instant, for the glasses' element: "yes 3", "not 4", "looking 5", or nothing
+    acts: int = 0  # how many acts this run has published; the count in the value makes every act a change
 
     @property
     def finished(self) -> bool:
@@ -128,13 +132,16 @@ class Build:
         right after as a byte stream on PICTURE_TOPIC. Only the index and the picture change during a call. Attributes ride
         the signalling channel and are re-sent after a reconnect, which a data message is not, so a wearer who
         dropped out for a while still sees the right step and the right picture. `rayneo.call.over` is "1" once the
-        task is over (the build finished and the voice has said so, gpt/agent.py): the glasses end the call on it."""
+        task is over (the build finished and the voice has said so, gpt/agent.py): the glasses end the call on it.
+        `rayneo.agent` is what the agent does this instant (`act_now`): the glasses' element flashes green or red on
+        "yes n" and "not n" and shows the plate being judged while it reads "looking n" (AgentDots.kt)."""
         return {
             "rayneo.build.title": self.guide.title,
             "rayneo.build.steps": "\n".join(s.name for s in self.guide.steps),
             "rayneo.build.step": str(self.step),
             PICTURE_ATTRIBUTE: self.guide.picture_name(self.picture) if self.picture else "",
             "rayneo.call.over": "1" if self.over else "",
+            "rayneo.agent": self.act,
         }
 
     def where(self) -> str:
@@ -181,6 +188,17 @@ class Build:
         else:
             logger.info("picture of step %d taken off the glasses", self.picture)
         self.picture = step
+
+    def act_now(self, kind: str) -> None:
+        """What the agent does this instant, for the glasses: "yes" or "not" when the second line (gpt/moments.py)
+        says the brick in the hand is or is not the step's, "looking" while the brain judges a placement it was called
+        to (brain.py), "" when that judgement is in. The value carries a running count, so two acts of one kind in a
+        row both reach the glasses as a change of the attribute; publish_build sends it."""
+        if kind:
+            self.acts += 1
+            self.act = f"{kind} {self.acts}"
+        else:
+            self.act = ""
 
     def start(self) -> None:
         """The task begins now: the wearer is in the call. The time it takes is counted from here, not from

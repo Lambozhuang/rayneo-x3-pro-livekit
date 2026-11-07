@@ -415,9 +415,24 @@ class Brain:
 
     async def _watch_look(self, w: int) -> None:
         """One watch look and what comes of it: the reply stays in the brain's conversation; a tell goes to GPT-Live
-        as thinking, a say and a progress moved as one commentary."""
+        as thinking, a say and a progress moved as one commentary. A look called by look_now is shown on the glasses
+        while it lasts (`rayneo.agent` reads "looking n", Build.act_now): set before the request, cleared with the
+        verdict, in the message that moves the step when it does; a look that failed or was cancelled leaves it set,
+        and the next look clears it, or sets it anew when it is itself a look_now."""
+        build = self._build
+        now = self._next is not None
+        if now:
+            build.act_now("looking")
+            await publish_build(build)
+        elif build.act.startswith("looking"):
+            build.act_now("")
+            await publish_build(build)
         text, calls, look = await self._look_once("watch", w, self._watch_side, None, TOOLS)
+        if now:
+            build.act_now("")  # _move publishes it with the step; without a move it goes below
         speak = await self._carry_out(look, calls, "watch", w)
+        if now and not self._moved:
+            await publish_build(build)
         if speak:
             line = " ".join(speak)
             speaking = self._session.agent_state == "speaking"
