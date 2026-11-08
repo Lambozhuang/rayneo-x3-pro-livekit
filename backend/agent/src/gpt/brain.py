@@ -334,7 +334,10 @@ def make_model(provider: str, model: str, detail: str):
 class Brain:
     def __init__(self, session: AgentSession, build: Build, tap: FrameTap, model, effort: str,
                  watch_side: int, watch_every: float, language: str, timeout: float = 12.0,
-                 record: RunLog | None = None, confirms_bricks: bool = False) -> None:
+                 record: RunLog | None = None, confirms_bricks: bool = False, instructions: str | None = None,
+                 tools: list | None = None) -> None:
+        """`instructions` and `tools` replace the build's (brain_instructions, TOOLS) for a session that is not a build,
+        such as free play (gpt/prompts.py free_brain, tell and say only); `confirms_bricks` is the build's choice."""
         self._timeout = timeout
         self._record = record or RunLog(None, "")
         self._session = session
@@ -344,7 +347,8 @@ class Brain:
         self._effort = effort
         self._watch_side = watch_side
         self._watch_every = watch_every
-        self._instructions = brain_instructions(build.guide, language, confirms_bricks)
+        self._instructions = instructions or brain_instructions(build.guide, language, confirms_bricks)
+        self._tools = tools or TOOLS
         self._moved = False  # the look being carried out moved the progress: its line cuts into the voice's speech
         self._looks: list[Look] = []  # the conversation: every look the model answered, in order
         self._seen: set[str] = set()  # ids of the chat history items already in a kept look
@@ -426,7 +430,7 @@ class Brain:
         elif build.act.startswith("looking"):
             build.act_now("")
             await publish_build(build)
-        text, calls, look = await self._look_once("watch", w, self._watch_side, None, TOOLS)
+        text, calls, look = await self._look_once("watch", w, self._watch_side, None, self._tools)
         if now:
             build.act_now("")  # _move publishes it with the step; without a move it goes below
         speak = await self._carry_out(look, calls, "watch", w)

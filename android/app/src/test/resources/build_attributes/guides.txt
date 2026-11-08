@@ -11,6 +11,7 @@ dog
 fish
 flag
 flower
+free
 gate
 key
 ladder

@@ -1,0 +1,11 @@
+# Free play: no steps, no pictures. The voice keeps the user company and answers what it is asked; the brain looks every
+# BRAIN_WATCH_EVERY seconds as always and answers a question about the plate with one line of what it sees, and says
+# nothing unasked; the second line (gpt/moments.py) does not run, having no step's brick to judge. For trying ways of
+# asking under network delay and a bandwidth cap at home before the games' trials are written (2026-11-08). The call
+# ends by the wearer's double tap or the console; it never finishes by itself. `game` makes the agent run this way;
+# the glasses show the title and an empty step list.
+
+game = "free"
+title = "Free play"
+plate = 16
+number = 100

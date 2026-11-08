@@ -19,7 +19,8 @@ words the glasses show above that element.
 A guide can also be one trial of a game of the user study (`Guide.game`): the
 placement game has an `anchor` brick fixed on the plate and its steps are the
 rounds, each the movable brick at one target (gpt/place.py). Its pictures show
-the anchor and the round's target only.
+the anchor and the round's target only. Free play (`game = "free"`) has no
+steps at all: the build never finishes, and the call ends from the glasses.
 """
 
 from __future__ import annotations
@@ -61,7 +62,7 @@ class Guide:
     steps: tuple[Step, ...]
     directory: Path  # where the task file and the step pictures are
     plate: int = 16  # studs per side of the baseplate
-    game: str = ""  # "" for a build; "place" for a trial of the placement game, whose steps are its rounds (gpt/place.py)
+    game: str = ""  # "" for a build; "place" for a trial of the placement game, whose steps are its rounds (gpt/place.py); "free" for free play, no steps
     anchor: Step | None = None  # a brick fixed on the plate before a game begins, drawn in every picture; games only
 
     def picture_name(self, step: int) -> str:
@@ -84,7 +85,7 @@ def load_guide(path: str, pictures: bool = True) -> Guide:
     with toml.open("rb") as f:
         data = tomllib.load(f)
     steps = []
-    for i, s in enumerate(data["steps"], 1):
+    for i, s in enumerate(data.get("steps", []), 1):  # free play has none
         try:
             step = Step(name=s["name"], brick=s["brick"], place=s["place"], color=s["color"], cells=tuple(s["cells"]),
                         offset=str(s.get("offset", "")))
@@ -93,12 +94,12 @@ def load_guide(path: str, pictures: bool = True) -> Guide:
         if not re.fullmatch(r"#[0-9a-f]{6}", step.color) or len(step.cells) != 4:
             raise ValueError(f"{toml}: step {i} has a bad color or cells")
         steps.append(step)
-    if not steps:
+    game = str(data.get("game", ""))
+    if game not in ("", "place", "free"):
+        raise ValueError(f"{toml}: game {game!r} is not one this agent plays")
+    if not steps and game != "free":
         raise ValueError(f"{toml}: guide has no steps")
     steps = tuple(steps)
-    game = str(data.get("game", ""))
-    if game not in ("", "place"):
-        raise ValueError(f"{toml}: game {game!r} is not one this agent plays")
     anchor = None
     if "anchor" in data:
         a = data["anchor"]
@@ -149,7 +150,7 @@ class Build:
 
     @property
     def finished(self) -> bool:
-        return self.step >= len(self.guide.steps)
+        return bool(self.guide.steps) and self.step >= len(self.guide.steps)  # free play has no steps and never finishes
 
     def attributes(self) -> dict[str, str]:
         """The run as participant attributes: the title, every step's name, newline-separated, the index of the
@@ -177,6 +178,8 @@ class Build:
         total = len(self.guide.steps)
         glasses = (f"the glasses show the picture of step {self.picture}" if self.picture else
                    "the glasses show the camera's view, no picture")
+        if not total:
+            return f"free play, no steps; {glasses}"
         if self.finished:
             return f"all {total} steps recorded as done; {glasses}"
         return (f"{self.step} of {total} steps recorded as done; the wearer is on step {self.step + 1} "
@@ -238,6 +241,8 @@ class Build:
         self._log_step_start()
 
     def _log_step_start(self) -> None:
+        if not self.guide.steps:
+            return
         s = self.guide.steps[self.step]
         logger.info("step %d/%d start: %s", self.step + 1, len(self.guide.steps), s.name)
 
