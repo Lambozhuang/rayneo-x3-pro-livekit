@@ -233,11 +233,13 @@ fun VoiceAssistant(
         }
 
         // When the wearer's voice stops at the microphone and when the agent's voice arrives, as wall clock
-        // times. See SpeechEdgeLog; the mic's threshold is higher because the room is in it. The agent's edges go
-        // into the lab report; the wearer's stay in logcat. Both sinks are kept in state: the dots along the bottom
-        // move with their levels and their sounding (Voices), and the hang-up on `over` below waits for the agent's
-        // voice to fall silent here.
-        val wearerEdges = remember(micTrack) { if (micTrack != null) SpeechEdgeLog("wearer", threshold = 1000) else null }
+        // times. See SpeechEdgeLog. The agent's edges go into the lab report; the wearer's stay in logcat. Both sinks
+        // are kept in state: the dots along the bottom move with their levels and their sounding (Voices), and the
+        // hang-up on `over` below waits for the agent's voice to fall silent here. The wearer's voice at the microphone
+        // peaks at an RMS of 1100 to 1700 (the home runs of 2026-11-08), the agent's out of the decoder at 3300 to
+        // 4000, so the mic's threshold and full scale are half the agent's; until then the mic's threshold was 1000,
+        // set for the edge log with the room in mind, and the wearer's bars moved only on the loudest syllables.
+        val wearerEdges = remember(micTrack) { if (micTrack != null) SpeechEdgeLog("wearer", threshold = 500, full = 2000) else null }
         DisposableEffect(wearerEdges) {
             if (wearerEdges != null) micTrack!!.addSink(wearerEdges)
             onDispose { if (wearerEdges != null) micTrack!!.removeSink(wearerEdges) }
