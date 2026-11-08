@@ -290,8 +290,13 @@ class Moments:
             self._record.event("look_now", n=self.count, step=step + 1, frame=seq, on=round(on, 2),
                                on_before=round(self._on_before, 2), hand=round(hand, 2), photo=saved)
             self._brain.look_now(frame, seq, at)
-        elif on < 0.5 and self._looked:
+        elif on < 0.5:
             self._looked = False  # the brick is gone or a hand is back on it: the next placement gets a look
-            lifted = getattr(self._brain, "lifted", None)  # the placement game: the next round's picture waits for this
+            # The placement game: the next round's picture waits for the brick to be lifted, which is this question
+            # dropping on any frame after a "right" (PlaceGame.lifted does nothing at other times). It does not wait for
+            # this round to have read the brick down first: the frames in flight when the round moved are dropped above
+            # as the round before's, so a brick lifted within a second of the "right" was never read as down in the new
+            # round, and the game stalled (the home run of 2026-11-08 21:37 at 100 kbit/s).
+            lifted = getattr(self._brain, "lifted", None)
             if lifted is not None:
                 lifted()
