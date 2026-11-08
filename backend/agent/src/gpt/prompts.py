@@ -7,11 +7,12 @@ label: a line is a fact or a sentence to speak, and the channel, thinking or com
 read out, as "Camera:" was ("Camera says yes", the home run of 2026-11-06 14:47). The voice's instructions cannot
 change once the session has started; the brain's are sent with every request and stay the same, for the prompt cache.
 Both were written anew on 2026-11-06, after a review found the direction words in three places, rules stated twice and
-sentences left from designs since dropped.
+sentences left from designs since dropped. The placement game of the user study (gpt/place.py) has its own voice persona and
+judge instructions at the end of this file.
 """
 
 from guide import Guide
-from prompts import steps_text, task_block
+from prompts import DIRECTIONS, steps_text, task_block
 
 VOICE_PERSONA = """You are the voice of a pair of AR glasses, guiding the user through a small LEGO build, "{title}", {count} steps, one at a time. You hear the user, and you see their table: what the camera sees reaches you as lines of text, and you speak of it as your own seeing. To the user there is only you: never mention a camera, a helper, lines or a system.
 
@@ -80,3 +81,50 @@ def brain_instructions(guide: Guide, language: str, confirms_bricks: bool = Fals
     """The brain's instructions; `confirms_bricks` when the brain, and not the second line, confirms the brick in the
     user's hand (MOMENTS=off)."""
     return BRAIN.format(task=task_block(guide), hand=HAND_YOURS if confirms_bricks else HAND_CONFIRMED, language=language)
+
+
+# Game B of the user study, "place the brick" (gpt/place.py; the study's game-spec.md, outside the repo, fixes what affects
+# the measurement). The voice says the verdict lines as they come and nothing of its own; the judge gets one round's target
+# and one photo, nothing of the rounds before, so it cannot learn that a round's first placement is always off.
+PLACE_PERSONA = """You are the voice of a pair of AR glasses in a short placement game. A {anchor} is fixed on the user's baseplate; six times, a picture on the glasses shows where one {movable} is to go and a line of text under it says where to put it first, the user puts it down and takes their hand away, and the plate is judged; the judgement reaches you as a line. Say each line as it comes, in a few words and at once, nothing added, and otherwise stay silent: you do not see the plate, and you never judge a placement or describe the picture yourself. If the user speaks to you, answer in one short sentence. Never hand the conversation over to anyone and never wait for anyone's reply. Speak {language}."""
+
+PLACE_START = ("Tell the user in one short sentence that the picture on their glasses shows where the {movable} goes and "
+               "that you will say when it is placed. Nothing else: no greeting, no rules.")
+
+PLACE_JUDGE = """You judge one LEGO placement from one photo taken just now by the camera of the user's AR glasses. On a green {plate}x{plate} baseplate lies a {anchor}, fixed in place, {anchor_place}. The user has just put a {movable} on the plate and taken their hand away. The target: the {movable} {target}.
+
+{directions}
+
+Read the {movable}'s position and orientation against the {anchor}, stud by stud: whether it touches the {anchor} or leaves a gap, which ends and sides are level, how many studs it is off. Then call verdict: right when it lies exactly on the target; off when it lies anywhere else, one row or one column away included; cannot_tell when the photo does not let you decide, blurred, the bricks under a hand or out of the picture. Write in {language}."""
+
+# The judge's one tool: the verdict, with what it saw, which labels the saved frame afterwards.
+VERDICT = (
+    "verdict",
+    "Your judgement of the movable brick's position against the target.",
+    {"type": "object", "properties": {
+        "verdict": {"type": "string", "enum": ["right", "off", "cannot_tell"],
+                    "description": "right: exactly on the target; off: anywhere else; cannot_tell: the photo does not show it"},
+        "seen": {"type": "string", "description": "one sentence: where the movable brick lies against the fixed one"}},
+     "required": ["verdict", "seen"], "additionalProperties": False})
+
+# The line the voice gets for each verdict; it says it in its own words, as it does the brain's lines (Lambo's decision
+# of 2026-11-08: no pre-made audio, the voice's wording and timing are part of what is measured).
+PLACE_PHRASES = {"right": "That's right.", "off": "Not quite, it's off the target.", "cannot_tell": "I can't see it clearly, hold on."}
+# Said with the last round's "right", so the user knows the game is over before the call ends (Lambo's decision of 2026-11-08).
+PLACE_DONE = "That was the last one; we're done."
+
+
+def place_persona(guide: Guide, language: str) -> str:
+    return PLACE_PERSONA.format(anchor=guide.anchor.brick, movable=guide.steps[0].brick, language=language)
+
+
+def place_start(guide: Guide) -> str:
+    """What the voice is asked to say as the trial begins, in place of a build's greeting."""
+    return PLACE_START.format(movable=guide.steps[0].brick)
+
+
+def place_judge(guide: Guide, step: int, language: str) -> str:
+    """The judge's instructions for round `step` (as Build counts, from 0): this round's target and nothing of the others."""
+    a, m = guide.anchor, guide.steps[step]
+    return PLACE_JUDGE.format(plate=guide.plate, anchor=a.brick, anchor_place=a.place, movable=m.brick, target=m.place,
+                              directions=DIRECTIONS, language=language)

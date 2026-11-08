@@ -77,8 +77,7 @@ from livekit.agents import AgentSession
 
 from frames import FrameTap, bottom_square
 from gpt.prompts import CUT_IN, HANDED, NO_ONE_SPOKE, NO_PHOTO, NO_WORDS_YET, brain_instructions, spoken
-from guide import PICTURE_TOPIC, Build, publish_build
-from livekit.agents import get_job_context
+from guide import Build, publish_build, send_picture
 from runlog import RunLog
 
 logger = logging.getLogger("rayneo-agent.brain")
@@ -651,8 +650,8 @@ class Brain:
         """Put the picture of step `step` on the glasses (0: take it away), record and publish it. Returns the
         tool's result and the line that tells the voice. The attribute that names the picture goes first, on the
         signalling channel, so the glasses know a picture is coming and show that it is on its way; the bytes
-        follow as a byte stream on PICTURE_TOPIC over the reliable data channel, late under a slow network rather
-        than missing, and the glasses show the picture once they have it. The time the send took is recorded."""
+        follow as a byte stream (guide.py send_picture), and the glasses show the picture once they have it. The time
+        the send took is recorded."""
         build = self._build
         total = len(build.guide.steps)
         if not isinstance(step, int) or not 0 <= step <= total:
@@ -662,16 +661,7 @@ class Brain:
         before = build.picture
         build.show(step)
         await publish_build(build)
-        sent: dict = {}
-        if step:
-            name, data = build.guide.picture_name(step), build.guide.picture(step).read_bytes()
-            t0 = time.perf_counter()
-            writer = await get_job_context().room.local_participant.stream_bytes(
-                name, total_size=len(data), mime_type="image/png", topic=PICTURE_TOPIC)
-            await writer.write(data)
-            await writer.aclose()
-            sent = {"name": name, "bytes": len(data), "send_ms": round((time.perf_counter() - t0) * 1000)}
-            logger.info("picture: %s (%d KB) sent to the glasses in %d ms", name, len(data) // 1024, sent["send_ms"])
+        sent = await send_picture(build, step) if step else {}
         self._record.event("picture", **{"w" if kind == "watch" else "n": n}, step=step or None,
                            before=before or None, **sent)
         if not step:

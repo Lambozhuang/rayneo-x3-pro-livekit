@@ -8,6 +8,7 @@ import androidx.navigation.toRoute
 import io.livekit.android.LiveKit
 import io.livekit.android.LiveKitOverrides
 import io.livekit.android.example.voiceassistant.Recording
+import io.livekit.android.example.voiceassistant.Uplink
 import io.livekit.android.example.voiceassistant.screen.VoiceAssistantRoute
 import io.livekit.android.room.participant.VideoTrackPublishDefaults
 import io.livekit.android.room.track.LocalVideoTrackOptions
@@ -68,7 +69,8 @@ class VoiceAssistantViewModel(application: Application, savedStateHandle: SavedS
             captureParams = VideoCaptureParameter(1920, 1080, Recording.FPS),
         )
         videoTrackPublishDefaults = VideoTrackPublishDefaults(
-            videoEncoding = VideoEncoding(maxBitrate = 4_000_000, maxFps = 15),
+            // 4 Mbps unless the launch capped it (Uplink), which stands in for a link cap at home.
+            videoEncoding = VideoEncoding(maxBitrate = Uplink.maxKbps * 1000, maxFps = 15),
             // VP8 is libvpx in software on this SoC, and 1080p at 15 fps was
             // still mush: it hit the encoder's limit, not the network's. H265
             // goes through the Qualcomm hardware encoder, as H264 did until

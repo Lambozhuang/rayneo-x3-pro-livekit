@@ -5,7 +5,12 @@
 #   .\deploy\glasses.ps1 -Install                 build the debug APK and install it first
 #   .\deploy\glasses.ps1 -Lab 192.168.50.177      name the QoE Lab console (port 8080 unless given) for the menu's Lab
 #                                                 entry, where the console starts and ends the tasks (Lab.kt)
-#   .\deploy\glasses.ps1 -Task flag               preselect a build in the Debug picker (swipe changes it)
+#   .\deploy\glasses.ps1 -Task flag               preselect a build in the Debug picker (swipe changes it); a game's
+#                                                 trial is a build here too (-Task b-1, backend/agent/guides)
+#   .\deploy\glasses.ps1 -Lab <ip> -Game B         make the lab session a block of the user study's game B: the
+#                                                 console's run numbers name the trial files b-1 to b-6 (Lab.kt)
+#   .\deploy\glasses.ps1 -MaxKbps 250             cap the camera track's bitrate for this launch's calls, in kbit/s
+#                                                 (Uplink.kt); 4000 without it; stands in for a link cap at home
 #   .\deploy\glasses.ps1 -Record                  record the calls of this launch on the glasses (Recording.kt);
 #                                                 any launch without it turns recording off
 #   .\deploy\glasses.ps1 -MockLab after            open the app on the lab screen as it looks between tasks, without a
@@ -36,6 +41,8 @@ param(
     [string]$Credential = "",     # AUTH_STATIC_TOKEN when the api runs with AUTH_MODE=static
     [string]$Lab = "",            # the QoE Lab console, <ip> or <ip>:<port>; the Lab entry connects there
     [string]$Task = "",           # a build's name (backend/agent/guides/<name>) to preselect
+    [string]$Game = "",           # A or B: the lab session is a block of that game of the user study (Lab.kt)
+    [int]$MaxKbps = 0,            # cap the camera track's bitrate in kbit/s; 0 = the app's 4000 (Uplink.kt)
     [switch]$Record,              # record every call of this launch: camera as the call sees it, mic, agent voice
     [switch]$Mock,                # open on the mock call screen, a scripted scene, instead of the build picker
     [string]$MockLab,             # open on the lab screen in this stage with no console: waiting, after, problem (Lab.mock)
@@ -123,12 +130,18 @@ $extras = @("-e", "token_endpoint", $Endpoint)
 if ($Credential) { $extras += @("-e", "credential", $Credential) }
 if ($Lab) { $extras += @("-e", "lab_console", "http://$(if ($Lab -match ':') { $Lab } else { "${Lab}:8080" })") }
 if ($Task) { $extras += @("-e", "task", $Task) }
+if ($Game) {
+    if ($Game -notmatch '^[abAB]$') { throw "-Game takes A or B" }
+    if (-not $Lab) { throw "-Game goes with -Lab: the game is a lab session's" }
+    $extras += @("-e", "game", $Game.ToUpper())
+}
+if ($MaxKbps) { $extras += @("--ei", "max_kbps", $MaxKbps) }
 if ($MockLab) { $extras += @("--es", "lab_mock", $MockLab) }
 if ($Record) { $extras += @("--ez", "record", "true") }
 if ($Exposure -lt -12 -or $Exposure -gt 12) { throw "-Exposure takes -12..12 (sixths of an EV)" }
 $extras += @("--ei", "exposure", $Exposure)
-if ($Mock -or $ExposureSweep -or $MockLab -or $Lab) {
-    # The start screen is chosen in onCreate, so a running instance has to go first.
+if ($Mock -or $ExposureSweep -or $MockLab -or $Lab -or $MaxKbps) {
+    # The start screen is chosen in onCreate, so a running instance has to go first; the bitrate cap is read there too.
     & adb shell am force-stop $Pkg
 }
 if ($Mock) { $extras += @("--ez", "mock", "true") }
@@ -138,7 +151,7 @@ if ($ExposureSweep) {
     $extras += @("--ez", "exposure_sweep", "true")
 }
 & adb shell am start -n $Activity @extras | Select-Object -Last 1
-Write-Host "launched -> $(if ($Mock) { 'mock call screen' } elseif ($ExposureSweep) { 'exposure sweep' } else { $Endpoint })$(if ($Lab) { ", console $Lab" })$(if ($Record) { ', recording' }), exposure $Exposure"
+Write-Host "launched -> $(if ($Mock) { 'mock call screen' } elseif ($ExposureSweep) { 'exposure sweep' } else { $Endpoint })$(if ($Lab) { ", console $Lab" })$(if ($Game) { ", game $($Game.ToUpper())" })$(if ($Record) { ', recording' })$(if ($MaxKbps) { ", $MaxKbps kbit/s" }), exposure $Exposure"
 
 if ($ExposureSweep) {
     # The app writes exposure/done when the recording is closed; the sweep holds each of four compensations 5 s.

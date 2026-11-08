@@ -54,7 +54,17 @@ NO_BRICK = {"none", "orange"}
 def developer_text(guide: Guide, step: int) -> str:
     """What the model is told about the build and the step: the scene, the direction words, the build's bricks, the
     steps placed before and the current step (`step` as Build counts it, from 0). The same text for every frame of
-    a step. eval/decisions-frames/probe.py sends the same text."""
+    a step. eval/decisions-frames/probe.py sends the same text. For a trial of the placement game (guide.game,
+    gpt/place.py) it is the anchor and the movable brick instead, "the current step's brick" being the movable one."""
+    if guide.game == "place":
+        a, m = guide.anchor, guide.steps[step]
+        return (
+            "You see one photo taken just now by the camera of a pair of AR glasses on the user, who is placing a LEGO "
+            f"brick on a {guide.plate}x{guide.plate} baseplate on a desk. A {a.brick} is fixed on the plate, {a.place}; "
+            f"the user puts one {m.brick} on the plate, lifts it and puts it down again. {DIRECTIONS} An orange brick "
+            "separator, a tool, may lie on the desk; it is not a brick.\n\n"
+            f"\"The current step's brick\" in the questions means the {m.brick}."
+        )
     steps = guide.steps
     placed = "\n".join(f"{i}. {s.brick}: {s.place}" for i, s in enumerate(steps[:step], 1)) or "none"
     cur = steps[step]
@@ -104,15 +114,19 @@ class Moments:
     run of 01:03 the same tan brick read as the step's at 0.9 and above and then 0.33 a frame later, and its colour as
     tan and then white, which with single-frame rules gave twenty lines in two minutes. So after a "yes" a "not that
     one" takes AGREE frames, after a "not that one" another comes only for a brick of another colour read for AGREE
-    frames, the hand empty for AGREE frames arms the line afresh, and two lines are at least `hold_s` seconds apart."""
+    frames, the hand empty for AGREE frames arms the line afresh, and two lines are at least `hold_s` seconds apart.
+
+    `brain` is what the placement calls: the brain (look_now) or, in the placement game, gpt/place.py's PlaceGame
+    (look_now and lifted), and with `lines` false no brick line is said, the game having none."""
 
     YES = "That's the right brick; it goes {place}."  # the place too, so the voice gives it with the confirmation
     NOT = "That's not the right brick; this step needs the {brick}."
 
     def __init__(self, session: AgentSession, build: Build, tap: FrameTap, brain: Brain, record: RunLog, side: int,
                  sure: float, yes_at: float, not_at: float, hold_s: float, model: str, detail: str,
-                 timeout: float = 5.0) -> None:
+                 timeout: float = 5.0, lines: bool = True) -> None:
         self._session, self._build, self._tap, self._brain, self._record = session, build, tap, brain, record
+        self._lines = lines
         self._side, self._sure, self._yes_at, self._not_at, self._hold_s = side, sure, yes_at, not_at, hold_s
         self._model, self._detail, self._timeout = model, detail, timeout
         self._key = os.environ["OPENAI_API_KEY"]
@@ -196,7 +210,8 @@ class Moments:
             # is not enough: a brick of another colour or the other verdict for AGREE frames says again too (_brick_line).
             logger.info("moments: the hand has been empty (held %.2f): the brick line is armed again", held)
             self._announced, self._colour = None, None
-        await self._brick_line(step, held, is_step, colour, photo)
+        if self._lines:
+            await self._brick_line(step, held, is_step, colour, photo)
         self._placement(step, frame, seq, at, hand, on, photo)
         self._on_before = on
 
@@ -255,6 +270,11 @@ class Moments:
             duplex.append_instructions(CUT_IN)
         duplex.append_commentary(line)
 
+    def rearm(self) -> None:
+        """Let the next two frames that read the brick on the plate with no hand on it call the look again although
+        the reading never dropped: the placement game asks for another judgement after a "cannot tell" (gpt/place.py)."""
+        self._looked = False
+
     def _placement(self, step: int, frame, seq: int, at: float, hand: float, on: float, photo: bytes) -> None:
         """The step's brick lies on the plate with no hand on it, read on two frames in a row: the brain looks now, at
         this frame, once per placement, armed again when the reading drops. The hand elsewhere on the plate does not
@@ -272,3 +292,6 @@ class Moments:
             self._brain.look_now(frame, seq, at)
         elif on < 0.5 and self._looked:
             self._looked = False  # the brick is gone or a hand is back on it: the next placement gets a look
+            lifted = getattr(self._brain, "lifted", None)  # the placement game: the next round's picture waits for this
+            if lifted is not None:
+                lifted()

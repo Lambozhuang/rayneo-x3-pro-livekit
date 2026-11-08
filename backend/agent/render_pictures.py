@@ -4,7 +4,9 @@ file. Run after changing a task file: `python render_pictures.py` in backend/age
 pictures are missing, so a forgotten run shows up when the agent starts, not in a call.
 
 A picture is the build seen from above at step n, as tasks/sheet.html draws it: the plate as a grid of studs, the bricks
-of steps 1 to n in their colours, the brick of step n with a white edge, the bricks still to come left out. The plate is
+of steps 1 to n in their colours, the brick of step n with a white edge, the bricks still to come left out. For a trial of
+the placement game (guide.game, gpt/place.py) it is the anchor brick and the round's target alone, outlined, since the
+movable brick is lifted between rounds. The plate is
 dark grey, not green: the glasses' display is additive, so a bright plate would be a lamp in the wearer's eye and the
 bricks are what has to read. Drawn at four times the size and scaled down, since PIL draws without antialiasing.
 """
@@ -36,7 +38,12 @@ def render(guide: Guide, step: int, side: int = SIDE) -> Image.Image:
     for r in range(guide.plate):
         for c in range(guide.plate):
             _disc(d, (c + 0.5) * cell, (r + 0.5) * cell, cell * 0.18, STUD)
-    for i, b in enumerate(guide.steps[:step], 1):
+    bricks = [(guide.anchor, False)] if guide.anchor else []
+    if guide.game:
+        bricks.append((guide.steps[step - 1], True))
+    else:
+        bricks += [(b, i == step) for i, b in enumerate(guide.steps[:step], 1)]
+    for b, outlined in bricks:
         col0, row0, col1, row1 = b.cells
         x0, y0 = (col0 - 1) * cell, (row0 - 1) * cell
         w, h = (col1 - col0 + 1) * cell, (row1 - row0 + 1) * cell
@@ -53,7 +60,7 @@ def render(guide: Guide, step: int, side: int = SIDE) -> Image.Image:
                 if b.round and hypot(sx - cx, sy - cy) > radius - cell * 0.1:
                     continue  # on a round plate the corner studs are outside the disc
                 _disc(d, sx, sy, cell * 0.22, stud)
-        if i == step:
+        if outlined:
             width = round(px * 2 / 216)  # 2 dp of the glasses' 216 dp square
             if b.round:
                 d.ellipse([cx - radius, cy - radius, cx + radius, cy + radius], outline=EDGE, width=width)

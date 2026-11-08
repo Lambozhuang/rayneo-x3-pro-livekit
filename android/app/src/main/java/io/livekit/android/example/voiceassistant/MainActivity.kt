@@ -51,12 +51,15 @@ class MainActivity : ComponentActivity() {
         // Lets `adb shell am start ... -e token_endpoint <url>` retarget the app
         // without a rebuild (TokenEndpoint), `-e lab_console <url>` name the lab console (Lab), `-e task <name>`
         // preselect a build (Tasks), `--ez record true` record the calls (Recording; off on any launch without it),
-        // and `--ei exposure <n>` set the camera's exposure compensation (Exposure; the camera's own 0 without it).
+        // `--ei exposure <n>` set the camera's exposure compensation (Exposure; the camera's own 0 without it),
+        // `-e game A|B` with the console make the session a game of the user study (Lab), and `--ei max_kbps <n>` cap
+        // the camera track's bitrate (Uplink; 4000 without it).
         TokenEndpoint.applyIntent(this, intent)
         Lab.applyIntent(this, intent)
         Tasks.applyIntent(this, intent)
         Recording.applyIntent(intent)
         Exposure.applyIntent(intent)
+        Uplink.applyIntent(intent)
         // The camera opens through CameraX from here on, so the compensation can be set on it; before any track.
         Exposure.install(this)
 

@@ -31,16 +31,20 @@ import io.livekit.android.util.flow
  * list is not the build's: the agent sends it as a file and names it in `rayneo.picture` (Pictures.kt).
  * `rayneo.call.over` is "1" once the agent has ended the task, the build finished and said so; the call screen hangs
  * up on it (VoiceAssistantScreen). `rayneo.agent`, what the agent does this instant, is read by Act.kt for the dots.
+ * `rayneo.hint` is a line of words for the wearer, what to do now, shown above the dots (PhaseHint); the games of the
+ * user study use it (gpt/place.py).
  *
  * @param current index of the step being built, or null when nothing has
  * been published yet; `steps.size` once finished.
  * @param over whether the agent has ended the task.
+ * @param hint the line of words for the wearer, empty for none.
  */
 data class BuildProgress(
     val title: String,
     val steps: List<String>,
     val current: Int?,
     val over: Boolean = false,
+    val hint: String = "",
 ) {
     companion object {
         val NONE = BuildProgress("", emptyList(), null)
@@ -52,9 +56,11 @@ data class BuildProgress(
                 steps = steps,
                 current = attributes[KEY_STEP]?.toIntOrNull(),
                 over = attributes[KEY_OVER] == "1",
+                hint = attributes[KEY_HINT] ?: "",
             )
         }
 
+        private const val KEY_HINT = "rayneo.hint"
         private const val KEY_OVER = "rayneo.call.over"
         private const val KEY_TITLE = "rayneo.build.title"
         private const val KEY_STEPS = "rayneo.build.steps"

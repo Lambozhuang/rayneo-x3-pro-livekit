@@ -14,6 +14,10 @@ The voice owns the conversation and answers from the steps and from what the
 brain has told it; it is told not to hand anything over, and a hand-over it makes
 all the same is closed at once (brain.py). No VAD is passed to the session: the
 model listens while it speaks and stops on its own.
+
+In a trial of the placement game of the user study (guide.game == "place", gpt/place.py) a judge stands where the brain
+stands: it looks once per placement, when the second line says the brick lies on the plate with the hand gone, and the
+voice says its verdict in a fixed phrase; the second line says nothing about the brick in the hand.
 """
 
 import asyncio
@@ -42,7 +46,8 @@ from frames import FrameTap
 from gpt.brain import TOOLS, Brain, make_model
 from gpt.config import Settings, build_live_model
 from gpt.moments import Moments
-from gpt.prompts import voice_persona
+from gpt.place import PlaceGame
+from gpt.prompts import place_persona, place_start, voice_persona
 from guide import Build, picked_guide, publish_build
 from qoe import LabRun, deliver, write_report
 from runlog import RunLog
@@ -69,19 +74,31 @@ async def rayneo_assistant(ctx: JobContext) -> None:
     record = RunLog(os.environ.get("RUN_DIR"), ctx.room.name)
     if lab and not record.dir:
         raise RuntimeError("a lab run needs RUN_DIR: the record is what goes to the console")
-    record.event("call", wall_ms=record.wall_ms, room=ctx.room.name, lab=asdict(lab) if lab else None, guide=guide.name, language=lang, commit=os.environ.get("GIT_COMMIT") or None,
+    record.event("call", wall_ms=record.wall_ms, room=ctx.room.name, lab=asdict(lab) if lab else None, guide=guide.name, game=guide.game or None, language=lang, commit=os.environ.get("GIT_COMMIT") or None,
                  settings=asdict(settings), steps=[s.name for s in guide.steps])
     tap = FrameTap(on_first=lambda f: record.event("camera", first_frame=f"{f.width}x{f.height}"))
     build = Build(guide=guide, run=ctx.room.name)
     session = AgentSession(video_sampler=tap, llm=build_live_model(settings))
     model = make_model(settings.brain_provider, settings.brain_model, settings.brain_detail)
-    brain = Brain(session, build, tap, model, settings.brain_effort, settings.brain_watch_side,
-                  settings.brain_watch_every, lang, settings.brain_timeout, record, confirms_bricks=not settings.moments_on)
-    # The second line (moments.py), or none: with MOMENTS=off the brain confirms the brick in the hand itself.
+    game = guide.game  # "" for a build; "place" for a trial of the placement game, which gpt/place.py plays
+    if game == "place":
+        # The judge has the brain's surface (start_watching, stop_watching, voice_now, on_delegation, instructions)
+        # and looks once per placement, called by the second line, instead of watching.
+        if not settings.moments_on:
+            raise RuntimeError("the placement game needs MOMENTS=on: the Decisions line is what calls its judgement")
+        brain = PlaceGame(session, build, model, settings.brain_effort, settings.brain_watch_side, lang,
+                          settings.brain_timeout, record)
+    else:
+        brain = Brain(session, build, tap, model, settings.brain_effort, settings.brain_watch_side,
+                      settings.brain_watch_every, lang, settings.brain_timeout, record, confirms_bricks=not settings.moments_on)
+    # The second line (moments.py), or none: with MOMENTS=off the brain confirms the brick in the hand itself. In the
+    # placement game it says nothing of the brick in the hand and only calls the judgement.
     moments = Moments(session, build, tap, brain, record, settings.moments_side, settings.moments_sure,
                       settings.moments_yes_at, settings.moments_not_at, settings.moments_hold_s, settings.moments_model,
-                      settings.moments_detail) if settings.moments_on else None
-    persona = voice_persona(guide, lang)
+                      settings.moments_detail, lines=not game) if settings.moments_on else None
+    if game == "place":
+        brain.moments = moments
+    persona = place_persona(guide, lang) if game == "place" else voice_persona(guide, lang)
     record.text("brain.txt", brain.instructions)
     record.text("brain-tools.json", json.dumps(
         [{"name": n, "description": d, "input_schema": p} for n, d, p in TOOLS], indent=2))
@@ -299,7 +316,7 @@ async def rayneo_assistant(ctx: JobContext) -> None:
 
     # generate_reply on GPT-Live is commentary: a request the model may decline.
     handle = session.generate_reply(
-        instructions=(
+        instructions=place_start(guide) if game == "place" else (
             "Greet the user in one short sentence, say you can see their table, and ask whether to start, as you would "
             "across the table. Nothing else: no task name, no list of what they can do, no step yet; the first step "
             "comes when they say yes."

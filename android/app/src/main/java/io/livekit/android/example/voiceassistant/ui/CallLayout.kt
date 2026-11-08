@@ -33,7 +33,8 @@ import androidx.compose.ui.unit.sp
  * square at the right, which shows what the camera sees ([preview], CameraPreview) or, while the agent names one, the
  * agent's [picture] (Pictures.kt) in its place. Along the bottom edge, in the middle, the five dots that move with the
  * conversation (AgentDots), and above them a line saying what to do when the connection or the agent is lost
- * (PhaseHint), the one state that still gets words.
+ * (PhaseHint), the one state that still gets words, or else the agent's hint line (`rayneo.hint`), which the games of
+ * the user study use to say what to do in a round (gpt/place.py).
  *
  * The layout is the user's choice of 2026-11-06 among mock-ups drawn on a monitor. The two columns of the layout before
  * it, the build's at the left and the agent's at the right, had been drawn for the captions, which the screen has not
@@ -97,7 +98,7 @@ fun CallLayout(
             }
         }
         Column(modifier = Modifier.align(Alignment.BottomCenter), horizontalAlignment = Alignment.CenterHorizontally) {
-            PhaseHint(phase = phase)
+            PhaseHint(phase = phase, hint = progress.hint)
             AgentDots(phase = phase, seconds = seconds, level = level, flash = flash)
         }
     }

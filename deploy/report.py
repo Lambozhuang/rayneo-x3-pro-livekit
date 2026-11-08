@@ -604,6 +604,19 @@ def report(d: str) -> str:
             what = (f"picture of step {e['step']} sent to the glasses, {e.get('bytes', 0) // 1024} KB in {e.get('send_ms')} ms"
                     if e.get("step") else "picture off the glasses, the camera again")
             out.append(f'<div class="row">{t}<span class="ok">{what}</span></div>')
+        # The placement game (gpt/place.py): a round begins, a frame goes to the judge, the verdict comes back.
+        elif k == "round":
+            out.append(f'<div class="row">{t}<b class="ok">round {e["n"]} of {e["total"]}: {esc(e["target"])}; first {esc(e.get("offset") or "")}</b></div>')
+        elif k == "judge_sent":
+            photo = f' <a href="{e["photo"]}">{e["photo"]}</a>' if e.get("photo") else ""
+            out.append(f'<div class="row">{t}<span class="dim">judge #{e["n"]} round {e["round"]}: frame {e["frame"]} ({e["frame_age_ms"]} ms old, '
+                       f'{e["photo_kb"]} KB at {e["side"]} px){photo}</span></div>')
+        elif k == "verdict":
+            colour = {"right": "ok", "off": "bad", "cannot_tell": "dim"}.get(e["verdict"], "dim")
+            out.append(f'<div class="row">{t}<span class="{colour}">judge #{e["n"]} round {e["round"]} after {e["ms"]} ms: {e["verdict"]}'
+                       f'<span class="dim"> ({esc(e.get("seen") or "")})</span></span></div>')
+        elif k == "judge_failed":
+            out.append(f'<div class="row">{t}<span class="bad">judge #{e["n"]} round {e["round"]} failed: {esc(e["error"])}</span></div>')
         elif k in ("wearer", "quality", "camera", "closed", "end") or (
                 k == "live" and e.get("type") in ("error", "session.started", "session.closed")):
             body = {key: v for key, v in e.items() if key not in ("t", "kind")}

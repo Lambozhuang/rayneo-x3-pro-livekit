@@ -1,0 +1,69 @@
+# Game B of the user study, "place the brick", trial 2 of 6 (gpt/place.py; the spec is the study's game-spec.md outside the
+# repo). A blue 2x6 is fixed on the plate before the trial; each round the glasses show where the red 2x4 goes against it,
+# the user puts it beside the target and then on it, the agent says off and then right, and the user lifts it. The six
+# targets are one fixed set in a different order per trial (a Williams square over the six trials); the first four trials
+# are the console's experiment runs 1 to 4, the last two its training runs 1 and 2 (Lab.kt). `game` makes the agent play
+# the game instead of guiding a build, `anchor` is the fixed brick, and each step is one round: `place` is the target the
+# judge is told, `offset` is where the round's hint asks the user to put the brick first (one row or one column off the
+# target), `cells` draws the picture (render_pictures.py), which shows the anchor and this round's target only.
+# Directions as in every task file: the plate as a picture lying in front of the wearer, up = the far edge.
+
+game = "place"
+title = "Place the brick, trial 2"
+plate = 16
+number = 102
+
+[anchor]
+name = "Blue 2x6, fixed"
+brick = "blue 2x6"
+color = "#1e5bc6"
+place = "vertical, in the middle of the plate"
+cells = [7, 6, 8, 11]
+
+[[steps]]
+name = "Round 1"
+brick = "red 2x4"
+color = "#c8102e"
+place = "vertical, to the right of the blue brick and touching it, its bottom end level with the blue brick's bottom end"
+offset = "one row above the target"
+cells = [9, 8, 10, 11]
+
+[[steps]]
+name = "Round 2"
+brick = "red 2x4"
+color = "#c8102e"
+place = "vertical, to the left of the blue brick and touching it, its top end level with the blue brick's top end"
+offset = "one row below the target"
+cells = [5, 6, 6, 9]
+
+[[steps]]
+name = "Round 3"
+brick = "red 2x4"
+color = "#c8102e"
+place = "vertical, to the right of the blue brick and touching it, its top end level with the blue brick's top end"
+offset = "one row below the target"
+cells = [9, 6, 10, 9]
+
+[[steps]]
+name = "Round 4"
+brick = "red 2x4"
+color = "#c8102e"
+place = "vertical, to the left of the blue brick and touching it, its bottom end level with the blue brick's bottom end"
+offset = "one row above the target"
+cells = [5, 8, 6, 11]
+
+[[steps]]
+name = "Round 5"
+brick = "red 2x4"
+color = "#c8102e"
+place = "horizontal, below the blue brick and touching its bottom end, its right end level with the blue brick's right side"
+offset = "one column to the left of the target"
+cells = [5, 12, 8, 13]
+
+[[steps]]
+name = "Round 6"
+brick = "red 2x4"
+color = "#c8102e"
+place = "horizontal, above the blue brick and touching its top end, its left end level with the blue brick's left side"
+offset = "one column to the right of the target"
+cells = [7, 4, 10, 5]

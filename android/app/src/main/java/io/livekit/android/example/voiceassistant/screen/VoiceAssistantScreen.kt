@@ -30,6 +30,7 @@ import io.livekit.android.example.voiceassistant.Lab
 import io.livekit.android.example.voiceassistant.LinkStatsLog
 import io.livekit.android.example.voiceassistant.Recording
 import io.livekit.android.example.voiceassistant.SpeechEdgeLog
+import io.livekit.android.example.voiceassistant.Uplink
 import io.livekit.android.room.track.LocalAudioTrack
 import io.livekit.android.room.track.LocalVideoTrack
 import io.livekit.android.room.track.RemoteAudioTrack
@@ -192,8 +193,8 @@ fun VoiceAssistant(
             session.waitUntilConnected()
             val startsAt = System.currentTimeMillis()
             val codec = room.videoTrackPublishDefaults.videoCodec  // what the camera track is published as
-            Log.i(CALL_TAG, "call starts room=${room.name} codec=$codec at=$startsAt")
-            CallLog.add("call", mapOf("what" to "starts", "room" to room.name, "codec" to codec), startsAt)
+            Log.i(CALL_TAG, "call starts room=${room.name} codec=$codec kbps=${Uplink.maxKbps} at=$startsAt")
+            CallLog.add("call", mapOf("what" to "starts", "room" to room.name, "codec" to codec, "kbps" to Uplink.maxKbps), startsAt)
             session.waitUntilDisconnected()
             onEndCall()
         }

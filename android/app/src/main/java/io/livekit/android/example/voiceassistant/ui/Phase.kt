@@ -80,15 +80,15 @@ enum class Phase(val label: String, val hint: String? = null) {
 }
 
 /**
- * The line above the dots when the phase has one, saying what to do ("Connection lost, trying again"); nothing
- * otherwise. Big enough to catch without focusing on it: the panels are 640x480 at arm's length, so anything under
- * ~18 sp is a squint.
+ * The line above the dots: the phase's words when it has any ("Connection lost, trying again"), else the agent's
+ * [hint] for the wearer (`rayneo.hint`, BuildProgress) when there is one, else nothing. Big enough to catch without
+ * focusing on it: the panels are 640x480 at arm's length, so anything under ~18 sp is a squint.
  */
 @Composable
-fun PhaseHint(phase: Phase, modifier: Modifier = Modifier) {
-    val hint = phase.hint ?: return
+fun PhaseHint(phase: Phase, hint: String = "", modifier: Modifier = Modifier) {
+    val text = phase.hint ?: hint.takeIf { it.isNotEmpty() } ?: return
     Text(
-        text = hint,
+        text = text,
         color = Color(0xFFBDBDBD),
         fontSize = 20.sp,
         lineHeight = 26.sp,

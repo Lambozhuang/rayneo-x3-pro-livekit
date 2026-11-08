@@ -13,7 +13,13 @@ drawn by render_pictures.py from the step's colour and cells; the brain sends
 it to the glasses when the wearer asks to see a step (brain.py `show`), and
 `Build.picture` says which one is on the glasses. `Build.act` tells the
 glasses what the agent does this instant, for the element on their screen
-that moves with the conversation (`act_now`).
+that moves with the conversation (`act_now`), and `Build.hint` is the line of
+words the glasses show above that element.
+
+A guide can also be one trial of a game of the user study (`Guide.game`): the
+placement game has an `anchor` brick fixed on the plate and its steps are the
+rounds, each the movable brick at one target (gpt/place.py). Its pictures show
+the anchor and the round's target only.
 """
 
 from __future__ import annotations
@@ -39,6 +45,9 @@ class Step:
     # and is drawn as a disc.
     color: str
     cells: tuple[int, int, int, int]
+    # In a round of the placement game, where the hint asks the user to put the brick first, one row or one column off
+    # the target ("one row below the target"); empty in a build's step (gpt/place.py).
+    offset: str = ""
 
     @property
     def round(self) -> bool:
@@ -52,6 +61,8 @@ class Guide:
     steps: tuple[Step, ...]
     directory: Path  # where the task file and the step pictures are
     plate: int = 16  # studs per side of the baseplate
+    game: str = ""  # "" for a build; "place" for a trial of the placement game, whose steps are its rounds (gpt/place.py)
+    anchor: Step | None = None  # a brick fixed on the plate before a game begins, drawn in every picture; games only
 
     def picture_name(self, step: int) -> str:
         """File name of the picture of step `step`, numbered as the wearer counts; the glasses show it under this name."""
@@ -75,7 +86,8 @@ def load_guide(path: str, pictures: bool = True) -> Guide:
     steps = []
     for i, s in enumerate(data["steps"], 1):
         try:
-            step = Step(name=s["name"], brick=s["brick"], place=s["place"], color=s["color"], cells=tuple(s["cells"]))
+            step = Step(name=s["name"], brick=s["brick"], place=s["place"], color=s["color"], cells=tuple(s["cells"]),
+                        offset=str(s.get("offset", "")))
         except KeyError as e:
             raise ValueError(f"{toml}: step {i} has no {e.args[0]}") from None
         if not re.fullmatch(r"#[0-9a-f]{6}", step.color) or len(step.cells) != 4:
@@ -84,7 +96,20 @@ def load_guide(path: str, pictures: bool = True) -> Guide:
     if not steps:
         raise ValueError(f"{toml}: guide has no steps")
     steps = tuple(steps)
-    guide = Guide(name=p.stem, title=data["title"], steps=steps, directory=toml.parent, plate=int(data.get("plate", 16)))
+    game = str(data.get("game", ""))
+    if game not in ("", "place"):
+        raise ValueError(f"{toml}: game {game!r} is not one this agent plays")
+    anchor = None
+    if "anchor" in data:
+        a = data["anchor"]
+        try:
+            anchor = Step(name=a.get("name", a["brick"]), brick=a["brick"], place=a["place"], color=a["color"], cells=tuple(a["cells"]))
+        except KeyError as e:
+            raise ValueError(f"{toml}: the anchor has no {e.args[0]}") from None
+    if game == "place" and anchor is None:
+        raise ValueError(f"{toml}: the placement game needs an [anchor] brick")
+    guide = Guide(name=p.stem, title=data["title"], steps=steps, directory=toml.parent, plate=int(data.get("plate", 16)),
+                  game=game, anchor=anchor)
     if pictures:
         missing = [guide.picture_name(n) for n in range(1, len(steps) + 1) if not guide.picture(n).is_file()]
         if missing:
@@ -120,6 +145,7 @@ class Build:
     over: bool = False  # the task is over: the glasses hang up on seeing it (gpt/agent.py, VoiceAssistantScreen.kt)
     act: str = ""  # what the agent does this instant, for the glasses' element: "yes 3", "not 4", "looking 5", or nothing
     acts: int = 0  # how many acts this run has published; the count in the value makes every act a change
+    hint: str = ""  # the line of words the glasses show above the element, what to do now; games only so far (gpt/place.py)
 
     @property
     def finished(self) -> bool:
@@ -134,7 +160,8 @@ class Build:
         dropped out for a while still sees the right step and the right picture. `rayneo.call.over` is "1" once the
         task is over (the build finished and the voice has said so, gpt/agent.py): the glasses end the call on it.
         `rayneo.agent` is what the agent does this instant (`act_now`): the glasses' element flashes green or red on
-        "yes n" and "not n" and shows the plate being judged while it reads "looking n" (AgentDots.kt)."""
+        "yes n" and "not n" and shows the plate being judged while it reads "looking n" (AgentDots.kt). `rayneo.hint`
+        is the line of words above the element, what to do now, empty for none (PhaseHint in Phase.kt)."""
         return {
             "rayneo.build.title": self.guide.title,
             "rayneo.build.steps": "\n".join(s.name for s in self.guide.steps),
@@ -142,6 +169,7 @@ class Build:
             PICTURE_ATTRIBUTE: self.guide.picture_name(self.picture) if self.picture else "",
             "rayneo.call.over": "1" if self.over else "",
             "rayneo.agent": self.act,
+            "rayneo.hint": self.hint,
         }
 
     def where(self) -> str:
@@ -225,3 +253,21 @@ async def publish_build(build: Build) -> None:
     from livekit.agents import get_job_context
 
     await get_job_context().room.local_participant.set_attributes(build.attributes())
+
+
+async def send_picture(build: Build, step: int) -> dict:
+    """Send the picture of step `step` (numbered as the wearer counts) to the glasses as a byte stream on
+    PICTURE_TOPIC, over the reliable data channel, late under a slow network rather than missing; the glasses show it
+    once they have it and its name is the one the attribute published before names (Pictures.kt). Returns the name,
+    the size and the time the send took, for the record."""
+    from livekit.agents import get_job_context
+
+    name, data = build.guide.picture_name(step), build.guide.picture(step).read_bytes()
+    t0 = time.perf_counter()
+    writer = await get_job_context().room.local_participant.stream_bytes(
+        name, total_size=len(data), mime_type="image/png", topic=PICTURE_TOPIC)
+    await writer.write(data)
+    await writer.aclose()
+    sent = {"name": name, "bytes": len(data), "send_ms": round((time.perf_counter() - t0) * 1000)}
+    logger.info("picture: %s (%d KB) sent to the glasses in %d ms", name, len(data) // 1024, sent["send_ms"])
+    return sent
