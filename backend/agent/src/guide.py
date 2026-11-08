@@ -20,7 +20,10 @@ A guide can also be one trial of a game of the user study (`Guide.game`): the
 placement game has an `anchor` brick fixed on the plate and its steps are the
 rounds, each the movable brick at one target (gpt/place.py). Its pictures show
 the anchor and the round's target only. Free play (`game = "free"`) has no
-steps at all: the build never finishes, and the call ends from the glasses.
+steps at all: the build never finishes, and the call ends from the glasses. A
+game can also be the run's rather than the file's: `Build.game` is "report" when
+the glasses asked for game B on an ordinary sheet (gpt/report.py), whose
+pictures are then the three batch pictures, `batch-<k>.png`.
 """
 
 from __future__ import annotations
@@ -113,6 +116,8 @@ def load_guide(path: str, pictures: bool = True) -> Guide:
                   game=game, anchor=anchor)
     if pictures:
         missing = [guide.picture_name(n) for n in range(1, len(steps) + 1) if not guide.picture(n).is_file()]
+        if not game and len(steps) == 5:  # a sheet: game B shows it in three batches, each with its own picture
+            missing += [f"batch-{k}.png" for k in (1, 2, 3) if not (toml.parent / f"batch-{k}.png").is_file()]
         if missing:
             raise ValueError(f"{toml.parent}: no picture {', '.join(missing)}; run `python render_pictures.py` in "
                              "backend/agent")
@@ -126,6 +131,21 @@ def picked_guide(metadata: str) -> Guide:
     if not task:
         raise ValueError("the dispatch metadata names no task")
     return load_guide(f"guides/{task}")
+
+
+# The games of the user study the glasses can ask for on an ordinary sheet (`?game=` on the token request, Lab.kt), as
+# the run's game: B is build and report (gpt/report.py). A, pick the brick, is not built yet.
+GAMES = {"B": "report"}
+
+
+def picked_game(metadata: str) -> str:
+    """The game the glasses asked for this call, "" for a plain build; the api puts {"game": "B"} into the metadata."""
+    game = json.loads(metadata or "{}").get("game")
+    if not game:
+        return ""
+    if game not in GAMES:
+        raise ValueError(f"the dispatch metadata asks for game {game!r}, which this agent does not play")
+    return GAMES[game]
 
 
 @dataclass
@@ -146,7 +166,8 @@ class Build:
     over: bool = False  # the task is over: the glasses hang up on seeing it (gpt/agent.py, VoiceAssistantScreen.kt)
     act: str = ""  # what the agent does this instant, for the glasses' element: "yes 3", "not 4", "looking 5", or nothing
     acts: int = 0  # how many acts this run has published; the count in the value makes every act a change
-    hint: str = ""  # the line of words the glasses show above the element, what to do now; games only so far (gpt/place.py)
+    hint: str = ""  # the line of words the glasses show for the wearer, what to do now; games only so far (gpt/place.py, gpt/report.py)
+    game: str = ""  # the run's game when it is not the guide's: "report" for game B played on a sheet (picked_game, gpt/report.py)
 
     @property
     def finished(self) -> bool:
@@ -167,11 +188,15 @@ class Build:
             "rayneo.build.title": self.guide.title,
             "rayneo.build.steps": "\n".join(s.name for s in self.guide.steps),
             "rayneo.build.step": str(self.step),
-            PICTURE_ATTRIBUTE: self.guide.picture_name(self.picture) if self.picture else "",
+            PICTURE_ATTRIBUTE: self.picture_file(self.picture) if self.picture else "",
             "rayneo.call.over": "1" if self.over else "",
             "rayneo.agent": self.act,
             "rayneo.hint": self.hint,
         }
+
+    def picture_file(self, n: int) -> str:
+        """The file name of picture `n` for this run: a step's picture, or in game B the batch's (render_pictures.py)."""
+        return f"batch-{n}.png" if self.game == "report" else self.guide.picture_name(n)
 
     def where(self) -> str:
         """The recorded progress and what the glasses show, as a model is told it."""
@@ -267,7 +292,8 @@ async def send_picture(build: Build, step: int) -> dict:
     the size and the time the send took, for the record."""
     from livekit.agents import get_job_context
 
-    name, data = build.guide.picture_name(step), build.guide.picture(step).read_bytes()
+    name = build.picture_file(step)
+    data = (build.guide.directory / name).read_bytes()
     t0 = time.perf_counter()
     writer = await get_job_context().room.local_participant.stream_bytes(
         name, total_size=len(data), mime_type="image/png", topic=PICTURE_TOPIC)

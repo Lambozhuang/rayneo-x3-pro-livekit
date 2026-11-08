@@ -19,7 +19,10 @@ In a trial of the placement game of the user study (guide.game == "place", gpt/p
 stands: it looks once per placement, when the second line says the brick lies on the plate with the hand gone, and the
 voice says its verdict in a fixed phrase; the second line says nothing about the brick in the hand. In free play
 (guide.game == "free", a guide with no steps) the brain watches as in a build with rules that answer only what the user
-asks, the voice keeps company, and the second line does not run, having no step's brick to judge.
+asks, the voice keeps company, and the second line does not run, having no step's brick to judge. In game B of the
+user study, build and report (the glasses ask for it on an ordinary sheet, Build.game == "report", gpt/report.py), the
+brain watches the same way with the reporting rules, and the game shows the sheet in three batches and hears the voice's
+sentence for the next one.
 """
 
 import asyncio
@@ -49,8 +52,10 @@ from gpt.brain import SAY, TELL, TOOLS, Brain, make_model
 from gpt.config import Settings, build_live_model
 from gpt.moments import Moments
 from gpt.place import PlaceGame
-from gpt.prompts import FREE_START, free_brain, free_persona, place_persona, place_start, voice_persona
-from guide import Build, picked_guide, publish_build
+from gpt.prompts import (FREE_START, REPORT_START, free_brain, free_persona, place_persona, place_start, report_brain,
+                         report_persona, voice_persona)
+from gpt.report import NEXT_SAID, ReportGame
+from guide import Build, picked_game, picked_guide, publish_build
 from qoe import LabRun, deliver, write_report
 from runlog import RunLog
 
@@ -69,21 +74,28 @@ async def rayneo_assistant(ctx: JobContext) -> None:
     settings = Settings.from_env()
     lang = language()
     guide = picked_guide(ctx.job.metadata)
-    logger.info(settings.experiment_line(guide.name))
+    # "" for a build; "place" or "free" from the guide's file; "report" when the glasses asked for game B on this sheet.
+    game = guide.game or picked_game(ctx.job.metadata)
+    logger.info(settings.experiment_line(guide.name) + (f" game={game}" if game else ""))
     # The lab console's run, when the glasses were started by it (qoe.py); the record goes to the console at the end.
     lab = LabRun.from_metadata(ctx.job.metadata)
     # The call's record (runlog.py): what happened, in order, with every field; deploy/report.py reads it.
     record = RunLog(os.environ.get("RUN_DIR"), ctx.room.name)
     if lab and not record.dir:
         raise RuntimeError("a lab run needs RUN_DIR: the record is what goes to the console")
-    record.event("call", wall_ms=record.wall_ms, room=ctx.room.name, lab=asdict(lab) if lab else None, guide=guide.name, game=guide.game or None, language=lang, commit=os.environ.get("GIT_COMMIT") or None,
+    record.event("call", wall_ms=record.wall_ms, room=ctx.room.name, lab=asdict(lab) if lab else None, guide=guide.name, game=game or None, language=lang, commit=os.environ.get("GIT_COMMIT") or None,
                  settings=asdict(settings), steps=[s.name for s in guide.steps])
     tap = FrameTap(on_first=lambda f: record.event("camera", first_frame=f"{f.width}x{f.height}"))
-    build = Build(guide=guide, run=ctx.room.name)
+    build = Build(guide=guide, run=ctx.room.name, game=game)
     session = AgentSession(video_sampler=tap, llm=build_live_model(settings))
     model = make_model(settings.brain_provider, settings.brain_model, settings.brain_detail)
-    game = guide.game  # "" for a build; "place" for a trial of the placement game, which gpt/place.py plays; "free" for free play
-    if game == "free":
+    if game == "report":
+        # Game B, build and report: the brain watches as in free play, with the reporting rules and no task text (it
+        # does not know the sheet), and the game shows the batches and hears the voice's sentence for the next one.
+        brain = ReportGame(Brain(session, build, tap, model, settings.brain_effort, settings.brain_watch_side,
+                                 settings.brain_watch_every, lang, settings.brain_timeout, record,
+                                 instructions=report_brain(guide, lang), tools=[TELL, SAY]), build, record)
+    elif game == "free":
         brain = Brain(session, build, tap, model, settings.brain_effort, settings.brain_watch_side,
                       settings.brain_watch_every, lang, settings.brain_timeout, record,
                       instructions=free_brain(guide, lang), tools=[TELL, SAY])
@@ -102,13 +114,13 @@ async def rayneo_assistant(ctx: JobContext) -> None:
     # step's brick for it to read, so it does not run.
     moments = Moments(session, build, tap, brain, record, settings.moments_side, settings.moments_sure,
                       settings.moments_yes_at, settings.moments_not_at, settings.moments_hold_s, settings.moments_model,
-                      settings.moments_detail, lines=not game) if settings.moments_on and game != "free" else None
+                      settings.moments_detail, lines=not game) if settings.moments_on and game not in ("free", "report") else None
     if game == "place":
         brain.moments = moments
-    if game == "free" and settings.moments_on:
-        logger.info("free play: the second line does not run, there being no step's brick to read")
+    if game in ("free", "report") and settings.moments_on:
+        logger.info("%s: the second line does not run, there being no step's brick to read", game)
     persona = (place_persona(guide, lang) if game == "place" else free_persona(lang) if game == "free"
-               else voice_persona(guide, lang))
+               else report_persona(lang, NEXT_SAID) if game == "report" else voice_persona(guide, lang))
     record.text("brain.txt", brain.instructions)
     record.text("brain-tools.json", json.dumps(
         [{"name": n, "description": d, "input_schema": p} for n, d, p in TOOLS], indent=2))
@@ -326,7 +338,8 @@ async def rayneo_assistant(ctx: JobContext) -> None:
 
     # generate_reply on GPT-Live is commentary: a request the model may decline.
     handle = session.generate_reply(
-        instructions=place_start(guide) if game == "place" else FREE_START if game == "free" else (
+        instructions=place_start(guide) if game == "place" else FREE_START if game == "free"
+        else REPORT_START if game == "report" else (
             "Greet the user in one short sentence, say you can see their table, and ask whether to start, as you would "
             "across the table. Nothing else: no task name, no list of what they can do, no step yet; the first step "
             "comes when they say yes."

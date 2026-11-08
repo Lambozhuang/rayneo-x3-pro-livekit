@@ -52,7 +52,7 @@ class MainActivity : ComponentActivity() {
         // without a rebuild (TokenEndpoint), `-e lab_console <url>` name the lab console (Lab), `-e task <name>`
         // preselect a build (Tasks), `--ez record true` record the calls (Recording; off on any launch without it),
         // `--ei exposure <n>` set the camera's exposure compensation (Exposure; the camera's own 0 without it),
-        // `-e game A|B` with the console make the session a game of the user study (Lab), and `--ei max_kbps <n>` cap
+        // `-e game A|B` make the launch's calls trials of that game of the user study (Lab), and `--ei max_kbps <n>` cap
         // the camera track's bitrate (Uplink; 4000 without it).
         TokenEndpoint.applyIntent(this, intent)
         Lab.applyIntent(this, intent)
@@ -164,6 +164,7 @@ class MainActivity : ComponentActivity() {
         tokenEndpoint = TokenEndpoint.get(this).trim(),
         credential = TokenEndpoint.getCredential(this).trim(),
         task = run?.task?.name ?: Tasks.pick?.name ?: "",
+        game = Lab.game?.uppercase() ?: "",
         sid = run?.sid ?: "",
         runId = run?.runId ?: 0,
         console = if (run != null) Lab.console ?: "" else "",

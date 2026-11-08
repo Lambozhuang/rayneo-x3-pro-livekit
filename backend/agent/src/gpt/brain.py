@@ -349,6 +349,7 @@ class Brain:
         self._watch_every = watch_every
         self._instructions = instructions or brain_instructions(build.guide, language, confirms_bricks)
         self._tools = tools or TOOLS
+        self.on_say = None  # an async callable a game sets to hear every line the brain gives the voice (gpt/report.py)
         self._moved = False  # the look being carried out moved the progress: its line cuts into the voice's speech
         self._looks: list[Look] = []  # the conversation: every look the model answered, in order
         self._seen: set[str] = set()  # ids of the chat history items already in a kept look
@@ -448,6 +449,8 @@ class Brain:
             self._moved = False
             self._record.event("commentary", w=w, id=None, text=line, voice_speaking=speaking)
             duplex.append_commentary(line)
+            if self.on_say is not None:
+                await self.on_say(line)
 
     # ------------------------------------------------------------------ hand-overs
 

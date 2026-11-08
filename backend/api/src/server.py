@@ -10,8 +10,9 @@ https://docs.livekit.io/frontends/build/authentication/endpoint/
 
 GET /tasks lists the builds the glasses can pick (the numbered task files under
 GUIDES_DIR); /getToken?task=<name> puts the pick into the agent's dispatch
-metadata, and the agent loads that task for the call. A token request without
-a known task is refused. In a lab run the glasses add the console's run,
+metadata, and the agent loads that task for the call; `&game=A|B` makes the
+call a trial of that game of the user study on the task (guide.py picked_game).
+A token request without a known task is refused. In a lab run the glasses add the console's run,
 sid=<id>&run_id=<n>&console=<http://host:port>, which goes into the metadata
 as `qoe` for the agent to report the call to (backend/agent/src/qoe.py); the
 three come together or not at all.
@@ -75,6 +76,11 @@ async def get_token(request: web.Request) -> web.Response:
     if task not in {t["name"] for t in tasks()}:
         raise web.HTTPBadRequest(text=f"no task {task!r}")
     metadata = {"task": task}
+    game = request.query.get("game")
+    if game:
+        if game not in ("A", "B"):
+            raise web.HTTPBadRequest(text=f"game {game!r}: A or B")
+        metadata["game"] = game
     lab = {k: request.query.get(k) for k in ("sid", "run_id", "console")}
     if any(lab.values()):
         if not all(lab.values()) or not lab["run_id"].isdigit() or not lab["console"].startswith(("http://", "https://")):
@@ -113,7 +119,7 @@ async def get_token(request: web.Request) -> web.Response:
         token = token.with_attributes(body["participant_attributes"])
 
     url = require_env("LIVEKIT_PUBLIC_URL")
-    logger.info("issued token: user=%s room=%s url=%s task=%s lab=%s", user, room, url, task, metadata.get("qoe"))
+    logger.info("issued token: user=%s room=%s url=%s task=%s game=%s lab=%s", user, room, url, task, game or "-", metadata.get("qoe"))
     return web.json_response(
         {"server_url": url, "participant_token": token.to_jwt()}, status=201
     )

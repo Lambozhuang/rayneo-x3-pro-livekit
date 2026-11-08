@@ -7,8 +7,9 @@
 #                                                 entry, where the console starts and ends the tasks (Lab.kt)
 #   .\deploy\glasses.ps1 -Task flag               preselect a build in the Debug picker (swipe changes it); a game's
 #                                                 trial is a build here too (-Task b-1, backend/agent/guides)
-#   .\deploy\glasses.ps1 -Lab <ip> -Game B         make the lab session a block of the user study's game B: the
-#                                                 console's run numbers name the trial files b-1 to b-6 (Lab.kt)
+#   .\deploy\glasses.ps1 -Game B                  make this launch's calls trials of the user study's game B on the
+#                                                 sheet picked or named (Lab.kt); with -Lab the console's run numbers
+#                                                 name the sheets as for builds
 #   .\deploy\glasses.ps1 -MaxKbps 250             cap the camera track's bitrate for this launch's calls, in kbit/s
 #                                                 (Uplink.kt); 4000 without it; stands in for a link cap at home
 #   .\deploy\glasses.ps1 -Record                  record the calls of this launch on the glasses (Recording.kt);
@@ -41,7 +42,7 @@ param(
     [string]$Credential = "",     # AUTH_STATIC_TOKEN when the api runs with AUTH_MODE=static
     [string]$Lab = "",            # the QoE Lab console, <ip> or <ip>:<port>; the Lab entry connects there
     [string]$Task = "",           # a build's name (backend/agent/guides/<name>) to preselect
-    [string]$Game = "",           # A or B: the lab session is a block of that game of the user study (Lab.kt)
+    [string]$Game = "",           # A or B: this launch's calls are trials of that game of the user study (Lab.kt)
     [int]$MaxKbps = 0,            # cap the camera track's bitrate in kbit/s; 0 = the app's 4000 (Uplink.kt)
     [switch]$Record,              # record every call of this launch: camera as the call sees it, mic, agent voice
     [switch]$Mock,                # open on the mock call screen, a scripted scene, instead of the build picker
@@ -140,7 +141,6 @@ if ($Lab) { $extras += @("-e", "lab_console", "http://$(if ($Lab -match ':') { $
 if ($Task) { $extras += @("-e", "task", $Task) }
 if ($Game) {
     if ($Game -notmatch '^[abAB]$') { throw "-Game takes A or B" }
-    if (-not $Lab) { throw "-Game goes with -Lab: the game is a lab session's" }
     $extras += @("-e", "game", $Game.ToUpper())
 }
 if ($MaxKbps) { $extras += @("--ei", "max_kbps", $MaxKbps) }
@@ -148,8 +148,8 @@ if ($MockLab) { $extras += @("--es", "lab_mock", $MockLab) }
 if ($Record) { $extras += @("--ez", "record", "true") }
 if ($Exposure -lt -12 -or $Exposure -gt 12) { throw "-Exposure takes -12..12 (sixths of an EV)" }
 $extras += @("--ei", "exposure", $Exposure)
-if ($Mock -or $ExposureSweep -or $MockLab -or $Lab -or $MaxKbps) {
-    # The start screen is chosen in onCreate, so a running instance has to go first; the bitrate cap is read there too.
+if ($Mock -or $ExposureSweep -or $MockLab -or $Lab -or $MaxKbps -or $Game) {
+    # The start screen is chosen in onCreate, so a running instance has to go first; the bitrate cap and the game are read there too.
     & adb shell am force-stop $Pkg
 }
 if ($Mock) { $extras += @("--ez", "mock", "true") }

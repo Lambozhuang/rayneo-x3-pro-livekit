@@ -41,11 +41,10 @@ import org.json.JSONObject
  *                which reports the call's record to the console when the call ends (backend/agent/src/qoe.py).
  *                A start_task during a task means the console has reset that run: the call is left without a
  *                report and the new task starts.
- *                In a game session of the user study (`-e game A|B` with the console, glasses.ps1 -Game; the game
- *                is the glasses' launch parameter, not the console's) the numbers name trial files instead:
- *                experiment run k is trial `<game>-k` (k 1 to GAME_EXPERIMENT_RUNS), training run k is trial
- *                `<game>-(GAME_EXPERIMENT_RUNS + k)`, so the GAME_TRIALS trial files of a game serve one block
- *                (backend/agent/guides/b-1 to b-6 for game B, gpt/place.py).
+ *                In a block of the user study's games (`-e game A|B`, glasses.ps1 -Game; the game is the glasses'
+ *                launch parameter, not the console's) the numbers name the sheets the same way, and the game rides
+ *                in the token request (`&game=`, VoiceAssistantRoute), so the agent plays that game on the sheet
+ *                (gpt/report.py for B).
  *   end_task     the call ends. The call also ends by itself when the agent publishes `rayneo.call.over`, the build
  *                finished and said so (gpt/agent.py, VoiceAssistantScreen); the wearer's double tap does nothing in
  *                lab mode (MainActivity), so a task cannot end by mistake. A triple tap, the experimenter's and
@@ -102,7 +101,8 @@ object Lab {
     /** The console's device server, `http://<host>:8080`, from the launch; null until a launch gave one. */
     var console by mutableStateOf<String?>(null)
         private set
-    /** The game this session's trials are of ("a" or "b"), from the launch that named the console; null for builds. */
+    /** The game this launch's calls are trials of ("a" or "b"), from `-e game`; null for builds. Read by MainActivity
+     *  for every call's route, lab or debug. */
     var game by mutableStateOf<String?>(null)
         private set
     /** One line for the lab screen: what the connection is doing. */
@@ -125,13 +125,13 @@ object Lab {
     private var backoffS = 1L
     private var flushing: Job? = null
 
-    /** Picks up `-e lab_console <url>` from an adb-launched intent and remembers it, and with it `-e game A|B`: a
-     *  launch that names the console without a game is a build session. */
+    /** Picks up `-e lab_console <url>` from an adb-launched intent and remembers it; `-e game A|B` follows every launch,
+     *  given or not, so a launch without it is a session of builds. */
     fun applyIntent(context: Context, intent: Intent?) {
         intent?.getStringExtra(KEY)?.takeIf { it.isNotBlank() }
             ?.let { prefs(context).edit().putString(KEY, it.trim().trimEnd('/')).apply() }
         console = prefs(context).getString(KEY, null)
-        if (intent?.getStringExtra(KEY) != null) {
+        if (intent != null) {
             val g = intent.getStringExtra(KEY_GAME)?.trim()?.lowercase()?.takeIf { it.isNotBlank() }
             prefs(context).edit().apply { if (g != null) putString(KEY_GAME, g) else remove(KEY_GAME) }.apply()
         }
@@ -340,25 +340,12 @@ object Lab {
             run = null
         }
         val g = game
-        val sheet: Int  // the build's number on the task sheet, or the game's trial number
-        val task: Tasks.Task?
-        if (g != null) {
-            sheet = if (runType == "training") number + GAME_EXPERIMENT_RUNS else number
-            val known = sheet in 1..GAME_TRIALS && (runType == "training" || number <= GAME_EXPERIMENT_RUNS)
-            // The trial's file is named by the game and the trial; its number in the task list is 100 + the trial (task.toml).
-            task = if (known) Tasks.Task("$g-$sheet", 100 + sheet, "Game ${g.uppercase()}, trial $sheet") else null
-            if (task == null) {
-                failed(sid, runId, number, "no $runType run $number in game ${g.uppercase()} (trial $sheet)")
-                return
-            }
-        } else {
-            sheet = if (runType == "training") number else number + TRAINING_TASKS
-            task = Tasks.list.firstOrNull { it.number == sheet }?.takeIf { runType != "training" || number <= TRAINING_TASKS }
-            if (task == null) {
-                failed(sid, runId, number, if (Tasks.list.isEmpty()) "the glasses have no task list from the backend"
-                                           else "no $runType task number $number (sheet number $sheet)")
-                return
-            }
+        val sheet = if (runType == "training") number else number + TRAINING_TASKS  // the build's number on the task sheet
+        val task = Tasks.list.firstOrNull { it.number == sheet }?.takeIf { runType != "training" || number <= TRAINING_TASKS }
+        if (task == null) {
+            failed(sid, runId, number, if (Tasks.list.isEmpty()) "the glasses have no task list from the backend"
+                                       else "no $runType task number $number (sheet number $sheet)")
+            return
         }
         val r = Run(sid, runId, runType, number, data.optString("label"), data.optBoolean("log"),
                     data.optInt("max_duration_s"), task, System.currentTimeMillis())
@@ -466,9 +453,6 @@ object Lab {
 
     /** How many builds at the top of the task sheet are the training tasks; the experiment's tasks are the rest (decided 2026-11-03). */
     const val TRAINING_TASKS = 3
-    /** A game's trial files per block, and how many of them the experiment's runs take, the training's runs taking the rest. */
-    const val GAME_TRIALS = 6
-    const val GAME_EXPERIMENT_RUNS = 4
     /** What the console shows for this participant. */
     private const val NAME = "RayNeo X3 Pro"
     private const val KEY = "lab_console"

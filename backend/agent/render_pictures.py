@@ -1,7 +1,9 @@
 """Draws every guide's step pictures, the files the agent sends to the glasses when the wearer asks to see a step
 (brain.py `show`): guides/<task>/step-<n>.png for each step n, 432 px square, from the `color` and `cells` of the task
-file. Run after changing a task file: `python render_pictures.py` in backend/agent. load_guide refuses a guide whose
-pictures are missing, so a forgotten run shows up when the agent starts, not in a call.
+file; and for every five-step sheet the three batch pictures of game B (gpt/report.py), batch-<k>.png, the bricks up to
+the batch's last with the batch's own outlined. Run after changing a task file: `python render_pictures.py` in
+backend/agent. load_guide refuses a guide whose pictures are missing, so a forgotten run shows up when the agent starts,
+not in a call.
 
 A picture is the build seen from above at step n, as tasks/sheet.html draws it: the plate as a grid of studs, the bricks
 of steps 1 to n in their colours, the brick of step n with a white edge, the bricks still to come left out. For a trial of
@@ -28,9 +30,10 @@ EDGE = (0xFF, 0xFF, 0xFF)
 OVERSAMPLE = 4
 
 
-def render(guide: Guide, step: int, side: int = SIDE) -> Image.Image:
+def render(guide: Guide, step: int, side: int = SIDE, outlined: set[int] | None = None) -> Image.Image:
     """The build at `step`, numbered as the wearer counts (1 to the count): the bricks of steps 1 to `step`, the
-    last of them outlined."""
+    last of them outlined, or the steps in `outlined` when given (a batch picture)."""
+    outlined = outlined or {step}
     px = side * OVERSAMPLE
     img = Image.new("RGB", (px, px), PLATE)
     d = ImageDraw.Draw(img)
@@ -42,7 +45,7 @@ def render(guide: Guide, step: int, side: int = SIDE) -> Image.Image:
     if guide.game:
         bricks.append((guide.steps[step - 1], True))
     else:
-        bricks += [(b, i == step) for i, b in enumerate(guide.steps[:step], 1)]
+        bricks += [(b, i in outlined) for i, b in enumerate(guide.steps[:step], 1)]
     for b, outlined in bricks:
         col0, row0, col1, row1 = b.cells
         x0, y0 = (col0 - 1) * cell, (row0 - 1) * cell
@@ -80,4 +83,8 @@ if __name__ == "__main__":
         for n in range(1, len(guide.steps) + 1):
             render(guide, n).save(guide.picture(n), "PNG", optimize=True)
             count += 1
+        if not guide.game and len(guide.steps) == 5:
+            for k, (first, last) in enumerate(((1, 2), (3, 4), (5, 5)), 1):  # gpt/report.py BATCHES
+                render(guide, last, outlined=set(range(first, last + 1))).save(guide.directory / f"batch-{k}.png", "PNG", optimize=True)
+                count += 1
     print(f"{count} pictures written under {Path(__file__).parent / 'guides'}")

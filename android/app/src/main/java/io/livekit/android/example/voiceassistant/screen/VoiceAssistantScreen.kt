@@ -62,6 +62,8 @@ data class VoiceAssistantRoute(
     val credential: String = "",
     /** The build picked on the connect screen (Tasks), or the one the lab console named (Lab). */
     val task: String = "",
+    /** The game of the user study this call is a trial of, "A" or "B" (Lab.game), empty for a plain build. */
+    val game: String = "",
     /** The lab console's run this call is, and the console's address, for the agent to report the call to (Lab);
      *  all empty for a call the glasses started themselves. */
     val sid: String = "",

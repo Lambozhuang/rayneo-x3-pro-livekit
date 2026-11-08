@@ -103,6 +103,7 @@ class VoiceAssistantViewModel(application: Application, savedStateHandle: SavedS
         // The build rides as ?task=, which the api puts into the agent's dispatch metadata; in a lab run the console's
         // run and address ride with it, for the agent to report the call to the console (backend/agent/src/qoe.py).
         var endpoint = route.tokenEndpoint + "?task=" + URLEncoder.encode(route.task, "UTF-8")
+        if (route.game.isNotBlank()) endpoint += "&game=" + route.game  // the game of the user study, if this launch is one
         if (route.sid.isNotBlank()) {
             endpoint += "&sid=" + URLEncoder.encode(route.sid, "UTF-8") + "&run_id=" + route.runId +
                 "&console=" + URLEncoder.encode(route.console, "UTF-8")
