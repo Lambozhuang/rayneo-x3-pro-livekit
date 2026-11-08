@@ -41,7 +41,10 @@ fun rememberVoices(wearer: SpeechEdgeLog?, agent: SpeechEdgeLog?): State<Voices>
             val now = SystemClock.uptimeMillis()
             val w = wearer?.sounding == true
             val a = agent?.sounding == true
-            val agentJustSpoke = agent != null && (a || now - agent.lastLoud < ECHO_MS)
+            // lastLoud is a wall clock time (SpeechEdgeLog stamps its log lines for the record), so it is compared on
+            // that clock: against the uptime clock the difference was always negative, every burst at the microphone
+            // read as the agent's echo once the agent had sounded, and the wearer's bars never showed (2026-11-08).
+            val agentJustSpoke = agent != null && (a || System.currentTimeMillis() - agent.lastLoud < ECHO_MS)
             if (w && !wasSounding) {
                 echo = agentJustSpoke
                 if (!echo) waitingSince = 0L
