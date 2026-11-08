@@ -13,8 +13,10 @@ trial moves on the user's words alone, never on the vision, so it keeps moving u
 block varies. The brain's conversation runs through the trial, so it knows what it has reported. The second line does not
 run, there being no step's brick to read. The record has the question (`said` by the wearer, with its end), the look
 (`watch_sent` with the saved frame), the report (`say` and `commentary`, `voice_delta` for the first spoken word) and
-`batch` for every picture shown; the scoring against the sheet is done afterwards from those. The call ends from the
-glasses or the console, as free play does. Decided 2026-11-09 (the study's game-spec.md, outside the repo), replacing the
+`batch` for every picture shown; the scoring against the sheet is done afterwards from those. After the last batch's
+report the user is asked to have the whole build described; that description, the brain's next line, finishes the
+trial, and the call ends as a finished build's does (gpt/agent.py: the voice's silence after it, then Build.over); the
+console's end_task and the double tap remain. Decided 2026-11-09 (the study's game-spec.md, outside the repo), replacing the
 placement game of 2026-11-08 (gpt/place.py), whose judgements held at 250 and 100 kbit/s while colour and stud counts
 did not: the agent must now describe what was built, from the picture alone.
 """
@@ -22,6 +24,7 @@ did not: the agent must now describe what was built, from the picture alone.
 import asyncio
 import logging
 import re
+import time
 
 from gpt.brain import Brain
 from guide import Build, publish_build, send_picture
@@ -35,7 +38,7 @@ BATCHES = ((1, 2), (3, 4), (5, 5))
 # The hint line through a batch, in Lambo's words (2026-11-09).
 HINT_PLACE = "Place these bricks, then ask the agent what it sees."
 HINT_NEXT = "Say next for the next bricks."
-HINT_WHOLE = "Ask for a description of the whole build if you like."
+HINT_WHOLE = "Now ask the agent to describe the whole build."
 
 # What the voice says, and nothing else, when the user asks for the next bricks (REPORT_PERSONA); heard here in its
 # transcript, letters only, so punctuation and case do not matter.
@@ -53,6 +56,7 @@ class ReportGame:
     def __init__(self, brain: Brain, build: Build, record: RunLog) -> None:
         self._brain, self._build, self._record = brain, build, record
         self._batch = 0  # batches shown so far, 0 before the first
+        self._said = 0  # lines the brain has given the voice in this batch: the report first, then, after the last batch, the description
         self._advanced = False  # the voice's current turn has already moved the batch on
         brain.on_say = self._reported
 
@@ -92,7 +96,7 @@ class ReportGame:
         """Batch `k` begins: the step list marks its first step, its picture and the first hint go to the glasses."""
         build = self._build
         first, last = BATCHES[k - 1]
-        self._batch = k
+        self._batch, self._said = k, 0
         build.step = first - 1  # the list on the glasses marks the batch's first step; the steps before read as done
         build.hint = HINT_PLACE
         build.show(k)
@@ -102,8 +106,18 @@ class ReportGame:
         logger.info("report: batch %d of %d, steps %d to %d, picture %s", k, len(BATCHES), first, last, sent["name"])
 
     async def _reported(self, line: str) -> None:
-        """The brain gave the voice a line, a report or an answer: the hint says what comes next."""
+        """The brain gave the voice a line: a batch's report, after which the hint says what comes next, or, after the
+        last batch's report, the description of the whole build, which finishes the trial."""
         build = self._build
-        build.hint = HINT_WHOLE if self._batch >= len(BATCHES) else HINT_NEXT
+        self._said += 1
+        if self._batch < len(BATCHES):
+            build.hint = HINT_NEXT
+        elif self._said == 1:
+            build.hint = HINT_WHOLE
+        else:
+            build.hint = ""
+            build.step = len(build.guide.steps)  # finished: gpt/agent.py ends the call once the voice has said it
+            self._record.event("build", finished=True, took_s=round(time.monotonic() - build.started, 1))
+            logger.info("report: the whole build is described; the trial is done")
         await publish_build(build)
-        self._record.event("report", batch=self._batch, text=line, hint=build.hint)
+        self._record.event("report", batch=self._batch, n=self._said, text=line, hint=build.hint, finished=build.finished)
