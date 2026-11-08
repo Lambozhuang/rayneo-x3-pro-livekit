@@ -126,19 +126,25 @@ class ReportGame:
         build.hint = HINT_LISTEN
         await publish_build(build)
         self._record.event("report", batch=self._batch, n=self._said, text=line, finished=done)
-        await self._voice_done()
-        build.hint = "" if done else HINT_WHOLE if self._batch >= len(BATCHES) else HINT_NEXT
-        await publish_build(build)
         self._record.event("hint", batch=self._batch, text=build.hint)
+        # The wait for the voice runs as a task of its own: this callback is awaited inside the brain's look, which has
+        # BRAIN_TIMEOUT seconds in all, and a report the voice took ten seconds to say had the look cancelled as timed
+        # out and the hint left on "listen" (the run of 2026-11-09 23:44, batch 2 and the description).
+        after = "" if done else HINT_WHOLE if self._batch >= len(BATCHES) else HINT_NEXT
+        asyncio.create_task(self._after_voice(after), name="report_hint")
 
-    async def _voice_done(self) -> None:
-        """Waits for the voice to say the line it was just given and fall quiet, at most VOICE_WAIT_S; the line reaches
-        the speaker about a second after it is sent, so the wait first sees the voice start."""
+    async def _after_voice(self, hint: str) -> None:
+        """Waits for the voice to say the line it was just given and fall quiet, at most VOICE_WAIT_S (the line reaches
+        the speaker about a second after it is sent, so the wait first sees the voice start), then shows `hint`."""
         t0 = time.monotonic()
         spoke = False
         while time.monotonic() - t0 < VOICE_WAIT_S:
             speaking = self._session.agent_state == "speaking"
             spoke = spoke or speaking
             if spoke and not speaking:
-                return
+                break
             await asyncio.sleep(0.1)
+        build = self._build
+        build.hint = hint
+        await publish_build(build)
+        self._record.event("hint", batch=self._batch, text=hint)
