@@ -17,6 +17,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.drawscope.DrawScope
 import androidx.compose.ui.unit.dp
 import kotlin.math.abs
+import kotlin.math.max
 import kotlin.math.cos
 import kotlin.math.sin
 
@@ -58,7 +59,10 @@ fun AgentDots(
             Phase.READY, Phase.CONNECTING -> xs.forEachIndexed { i, x ->
                 dot(x, cy, r * 0.8f, GREY.copy(alpha = 0.5f + 0.2f * sin(t * 2 + i)))
             }
-            Phase.LISTENING -> bars(xs, cy, r, t, level(), WHITE)
+            // The wearer's bars never drop below LISTEN_FLOOR while they speak: the microphone's level falls to nothing
+            // between syllables (SpeechEdgeLog decays it in about 150 ms), and bars at the dots' height read as the
+            // idle dots, which is what the home runs of 2026-11-08 showed, "the dots do not move when I speak".
+            Phase.LISTENING -> bars(xs, cy, r, t, max(level(), LISTEN_FLOOR), WHITE)
             Phase.SPEAKING -> bars(xs, cy, r, t, level(), BLUE)
             Phase.THINKING -> chase(xs, cy, r, t, WHITE)
             Phase.LOOKING -> chase(xs, cy, r, t, BLUE)
@@ -124,6 +128,7 @@ private const val FLASH_S = 1.2f
 private val DOT = 6.dp
 private val DOT_GAP = 26.dp
 private val BAR_MAX = 56.dp
+private const val LISTEN_FLOOR = 0.3f  // the least of the bars' reach the wearer's bars show while the wearer sounds
 val DOTS_WIDTH = 220.dp
 val DOTS_HEIGHT = 70.dp
 
