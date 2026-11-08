@@ -31,7 +31,7 @@ import io.livekit.android.util.flow
  * list is not the build's: the agent sends it as a file and names it in `rayneo.picture` (Pictures.kt).
  * `rayneo.call.over` is "1" once the agent has ended the task, the build finished and said so; the call screen hangs
  * up on it (VoiceAssistantScreen). `rayneo.agent`, what the agent does this instant, is read by Act.kt for the dots.
- * `rayneo.hint` is a line of words for the wearer, what to do now, shown above the dots (PhaseHint); the games of the
+ * `rayneo.hint` is a line of words for the wearer, what to do now, shown under the band (AgentHint); the games of the
  * user study use it (gpt/place.py).
  *
  * @param current index of the step being built, or null when nothing has

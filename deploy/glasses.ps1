@@ -59,6 +59,14 @@ $Root = Split-Path -Parent $PSScriptRoot
 $Pkg = "com.rayneo.x3pro.assistant"
 $Activity = "$Pkg/io.livekit.android.example.voiceassistant.MainActivity"
 
+# adb refuses every command when more than one device is attached, as when an emulator runs for mock screenshots
+# beside the glasses (2026-11-08): take the first attached device that is not an emulator.
+$attached = @(& adb devices | Select-Object -Skip 1 | Where-Object { $_ -match "`tdevice$" } | ForEach-Object { ($_ -split "`t")[0] })
+if ($attached.Count -gt 1) {
+    $env:ANDROID_SERIAL = $attached | Where-Object { $_ -notmatch '^emulator-' } | Select-Object -First 1
+    Write-Host "several devices attached ($($attached -join ', ')); using $env:ANDROID_SERIAL"
+}
+
 if (-not $Ip) {
     $route = Get-NetRoute -DestinationPrefix "0.0.0.0/0" -AddressFamily IPv4 |
         Sort-Object RouteMetric, InterfaceMetric | Select-Object -First 1

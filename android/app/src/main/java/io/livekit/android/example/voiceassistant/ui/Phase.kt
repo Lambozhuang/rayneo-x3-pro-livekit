@@ -1,10 +1,13 @@
 package io.livekit.android.example.voiceassistant.ui
 
+import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -80,15 +83,15 @@ enum class Phase(val label: String, val hint: String? = null) {
 }
 
 /**
- * The line above the dots: the phase's words when it has any ("Connection lost, trying again"), else the agent's
- * [hint] for the wearer (`rayneo.hint`, BuildProgress) when there is one, else nothing. Big enough to catch without
- * focusing on it: the panels are 640x480 at arm's length, so anything under ~18 sp is a squint.
+ * The line above the dots when the phase has one, saying what to do ("Connection lost, trying again"); nothing
+ * otherwise. Big enough to catch without focusing on it: the panels are 640x480 at arm's length, so anything under
+ * ~18 sp is a squint.
  */
 @Composable
-fun PhaseHint(phase: Phase, hint: String = "", modifier: Modifier = Modifier) {
-    val text = phase.hint ?: hint.takeIf { it.isNotEmpty() } ?: return
+fun PhaseHint(phase: Phase, modifier: Modifier = Modifier) {
+    val hint = phase.hint ?: return
     Text(
-        text = text,
+        text = hint,
         color = Color(0xFFBDBDBD),
         fontSize = 20.sp,
         lineHeight = 26.sp,
@@ -98,3 +101,30 @@ fun PhaseHint(phase: Phase, hint: String = "", modifier: Modifier = Modifier) {
         modifier = modifier.padding(bottom = 4.dp),
     )
 }
+
+/**
+ * The agent's line for the wearer, what to do now (`rayneo.hint`, BuildProgress.hint; the games of the user study use
+ * it, gpt/place.py), across the eye right under the band: white, 24 sp, up to two lines, since the longest hint of game
+ * B runs to 81 characters and one line at this size holds about 50. The wearer has just looked at the picture in the
+ * band's square, so the line sits where their eyes go next. It was above the dots at 20 sp in grey until 2026-11-08,
+ * when the first home run of game B showed it was missed there. Nothing when the agent has published no hint, and
+ * nothing while the phase has words of its own (CallLayout), since those sit just below and matter more.
+ */
+@Composable
+fun AgentHint(text: String, modifier: Modifier = Modifier) {
+    if (text.isEmpty()) return
+    Text(
+        text = text,
+        color = HINT_GREEN,
+        fontSize = 22.sp,
+        lineHeight = 28.sp,
+        fontWeight = FontWeight.Medium,
+        maxLines = 2,
+        overflow = TextOverflow.Ellipsis,
+        textAlign = TextAlign.Center,
+        modifier = modifier.border(2.dp, HINT_GREEN, RoundedCornerShape(8.dp)).padding(horizontal = 14.dp, vertical = 6.dp),
+    )
+}
+
+/** The hint's green, text and frame: a different green from the dots' "yes" flash, so the two do not read as one. */
+private val HINT_GREEN = Color(0xFF66E07A)

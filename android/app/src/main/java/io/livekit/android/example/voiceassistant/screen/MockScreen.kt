@@ -28,7 +28,8 @@ object MockRoute
  * plays one scene of a build on a loop, SCENE_S seconds long: the gate (backend/agent/guides/gate/task.toml) at step 2,
  * the wearer asks and the agent answers, a wrong brick is picked up and flashed red, the right one green, the brick
  * goes down and the brain looks, the step moves to 3 and the picture of step 3 (the gate's step-3.png, copied into the
- * app's resources for this screen only) comes and goes, then the connection drops and comes back. The voices are a
+ * app's resources for this screen only) comes and goes, then the connection drops and comes back; game B's three hint
+ * lines show in turn under the band, though the scene is a build's. The voices are a
  * made-up loudness curve. The camera's square stays empty, there being no camera. `glasses.ps1 -Mock` opens the app on
  * it; a double tap leaves.
  */
@@ -45,6 +46,7 @@ fun MockScreen() {
     val current by remember { derivedStateOf { if (seconds.value % SCENE_S >= STEP_AT) 2 else 1 } }
     val pictureUp by remember { derivedStateOf { (seconds.value % SCENE_S).let { it >= PICTURE_FROM && it < PICTURE_TO } } }
     val picture = if (pictureUp) Picture.Shown("step-3.png", stepPicture) else Picture.None
+    val hint by remember { derivedStateOf { scene.hint(seconds.value % SCENE_S) } }
 
     Eyes {
         CallLayout(
@@ -58,6 +60,7 @@ fun MockScreen() {
                     "Tan 1x6, ground right",
                 ),
                 current = current,
+                hint = hint,
             ),
             phase = phase,
             picture = picture,
@@ -94,8 +97,16 @@ private class Scene {
         41f to Phase.READY,
     )
     private val flashes = listOf(11.5f to false, 15.5f to true)
+    // Game B's three hints in turn (gpt/place.py), the longest first, to look at the hint line's size and wrapping.
+    private val hints = listOf(
+        0f to "Round 3 of 6. Put the red brick one column to the right of the target. Hand away.",
+        STEP_AT to "Now put it on the target. Hand away.",
+        PICTURE_TO to "Lift the brick.",
+    )
 
     fun phase(t: Float): Phase = segments.last { it.first <= t }.second
+
+    fun hint(t: Float): String = hints.last { it.first <= t }.second
 
     /** A made-up loudness curve for the stretches with a voice, from the stretch's start. */
     fun level(t: Float): Float {

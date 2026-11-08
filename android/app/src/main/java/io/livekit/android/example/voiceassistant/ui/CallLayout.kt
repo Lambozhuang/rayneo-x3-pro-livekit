@@ -29,12 +29,17 @@ import androidx.compose.ui.unit.sp
 /**
  * One eye of the call. A band along the top and the agent's dots along the bottom; the rest of the eye is the room.
  * The band: the build's title over a line, with the time left of the lab's limit at its right end during a lab run
- * ([remaining]); under it the step list, all steps in view on one line each, running from the left edge to the one
- * square at the right, which shows what the camera sees ([preview], CameraPreview) or, while the agent names one, the
- * agent's [picture] (Pictures.kt) in its place. Along the bottom edge, in the middle, the five dots that move with the
- * conversation (AgentDots), and above them a line saying what to do when the connection or the agent is lost
- * (PhaseHint), the one state that still gets words, or else the agent's hint line (`rayneo.hint`), which the games of
- * the user study use to say what to do in a round (gpt/place.py).
+ * ([remaining]); under it three equal columns: the step list, all steps in view on one line each; a square in the
+ * middle that holds the agent's [picture] (Pictures.kt) while it shows one and is empty otherwise; and a square at
+ * the right edge with what the camera sees ([preview], CameraPreview), always. Under the band, centred, the agent's
+ * hint line when it has published one (`rayneo.hint`, AgentHint), green in a green frame, which the games of the user
+ * study use to say what to do in a round (gpt/place.py). Along the bottom edge, in the middle, the five dots that move
+ * with the conversation (AgentDots), and above them a line saying what to do when the connection or the agent is lost
+ * (PhaseHint), the one state that still gets words; while it shows, the hint line hides.
+ *
+ * The three columns and the green frame are the user's choice of 2026-11-08 night, from emulator screenshots of the
+ * mock screen, after the first home run of game B: the hint had been a grey line above the dots and was missed, and
+ * the camera and the picture had shared one square at the right, which left the middle of the band empty.
  *
  * The layout is the user's choice of 2026-11-06 among mock-ups drawn on a monitor. The two columns of the layout before
  * it, the build's at the left and the agent's at the right, had been drawn for the captions, which the screen has not
@@ -42,8 +47,8 @@ import androidx.compose.ui.unit.sp
  * screen), and without them the right column held a framed word and nothing else. Everything now sits in the upper
  * part of the eye, which lies over the far desk, and the lower middle, where the wearer sees the plate, holds only the
  * dots, which are small and are there so that a wearer looking at the bricks sees the agent react without looking up.
- * The camera and the picture share a square: while the picture is up, the wearer looks at the picture and has the
- * real table before them, and the voice says when the glasses show a picture and when the live view is back.
+ * The camera's square stays while a picture is up, so the wearer sees both the picture and what the agent sees, and
+ * the voice says when the glasses show a picture and when it is gone.
  *
  * The picture's square also says when a picture is on its way (the agent has named it, its bytes are not here yet) and
  * when one did not arrive, so the wearer can ask for it again. The agent sends a picture only when the wearer asked for
@@ -82,23 +87,34 @@ fun CallLayout(
                 }
                 Hairline(Modifier.fillMaxWidth().height(1.dp))
             }
+            // Three equal columns: the steps at the left; the agent's picture in the middle, when it has sent one, in a
+            // square centred in its column; the camera's view at the right, always, in a square at the eye's edge.
             Row(modifier = Modifier.fillMaxWidth().padding(top = GAP).height(SQUARE)) {
                 Column(modifier = Modifier.weight(1f).fillMaxHeight()) {
                     StepsHeading(progress = progress)
                     BuildSteps(progress = progress, modifier = Modifier.padding(top = 4.dp))
                 }
-                Spacer(Modifier.width(GAP))
-                Box(modifier = Modifier.size(SQUARE).border(1.dp, OUTLINE)) {
-                    if (picture == Picture.None) {
+                Box(modifier = Modifier.weight(1f).fillMaxHeight(), contentAlignment = Alignment.Center) {
+                    if (picture != Picture.None) {
+                        Box(modifier = Modifier.size(SQUARE).border(1.dp, OUTLINE)) {
+                            PictureArea(picture = picture, modifier = Modifier.fillMaxSize())
+                        }
+                    }
+                }
+                Box(modifier = Modifier.weight(1f).fillMaxHeight(), contentAlignment = Alignment.CenterEnd) {
+                    Box(modifier = Modifier.size(SQUARE).border(1.dp, OUTLINE)) {
                         preview(Modifier.fillMaxSize())
-                    } else {
-                        PictureArea(picture = picture, modifier = Modifier.fillMaxSize())
                     }
                 }
             }
+            // The phase's words above the dots take the eye when the connection or the agent is lost; the hint yields to them.
+            Box(modifier = Modifier.fillMaxWidth().padding(start = HINT_INSET, end = HINT_INSET, top = GAP),
+                contentAlignment = Alignment.Center) {
+                AgentHint(text = if (phase.hint == null) progress.hint else "")
+            }
         }
         Column(modifier = Modifier.align(Alignment.BottomCenter), horizontalAlignment = Alignment.CenterHorizontally) {
-            PhaseHint(phase = phase, hint = progress.hint)
+            PhaseHint(phase = phase)
             AgentDots(phase = phase, seconds = seconds, level = level, flash = flash)
         }
     }
@@ -162,12 +178,13 @@ private fun PictureArea(picture: Picture, modifier: Modifier = Modifier) {
     }
 }
 
-/** Side of the square at the right of the band, the camera's view or the picture, and so the band's height under the
- * title; the step list takes the width left of it, about 400 dp, where the longest step name takes under 200 dp. */
-private val SQUARE = 200.dp
+/** Side of the two squares in the band, the picture's and the camera's, and so the band's height under the title; each
+ * of the band's three columns is about 213 dp wide, so the step list has that much for a name. */
+private val SQUARE = 180.dp
 
 /** The space between the title's line and the band, and between the step list and the square. */
 val GAP = 12.dp
+private val HINT_INSET = 16.dp  // the hint line's distance from the eye's edges, so a long one wraps before it touches them
 
 /** The grey of every line and frame on the screen: the hairline and the square's frame. */
 private val OUTLINE = Color(0xFF333333)
