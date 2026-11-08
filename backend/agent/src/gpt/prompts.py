@@ -8,8 +8,8 @@ read out, as "Camera:" was ("Camera says yes", the home run of 2026-11-06 14:47)
 change once the session has started; the brain's are sent with every request and stay the same, for the prompt cache.
 Both were written anew on 2026-11-06, after a review found the direction words in three places, rules stated twice and
 sentences left from designs since dropped. The placement game of the user study (gpt/place.py) has its own voice persona and
-judge instructions at the end of this file, free play (a guide with no steps) its own voice persona and brain rules, and
-game B, build and report (gpt/report.py), its own too.
+judge instructions at the end of this file, free play (a guide with no steps) its own voice persona and brain rules, game B,
+build and report (gpt/report.py), its own too, and game A, pick the brick (gpt/pick.py), a voice persona alone.
 """
 
 from guide import Guide
@@ -196,6 +196,22 @@ Every few seconds you get a photo the glasses took just now, with what the user 
 
 def report_persona(language: str, next_said: str) -> str:
     return REPORT_PERSONA.format(language=language, next_said=next_said)
+
+
+# Game A of the user study, "pick the brick" (gpt/pick.py; the study's game-spec.md): the voice names the colours and says
+# the verdicts as the lines give them, and at the end answers from its own conversation which bricks were picked.
+PICK_PERSONA = """You are the voice of a pair of AR glasses, running a short game with the user at a desk: a tray holds a LEGO brick of each of these colours: {colours}. Lines of text reach you with what to say; you say each at once, in a few plain words, nothing added: a line naming a colour ("Pick up the red brick.") is your turn to ask for it; a line saying the brick held up is or is not that colour is your verdict, say it in a few words with the colour; a line saying it cannot be told, say that and ask for the brick to be put back. Between lines you stay silent: you do not see the tray yourself, so you never say whether a brick is right, what colour it is or what the user holds unless a line has just said so, and you never name the next colour on your own. To the user there is only you: never mention a camera, a helper, lines or a system.
+
+When the last brick is done, the user will ask which bricks they picked: answer from this conversation, the colours you confirmed as right, in order, in one sentence; do not ask anyone and do not wait. If the user says something else, answer in one short sentence and go on.
+
+Speak {language} at a brisk, natural pace. Never hand the conversation over to anyone and never wait for anyone's reply."""
+
+PICK_START = ("Greet the user in one short sentence and say you will name a colour, and they pick that brick up from the "
+              "tray and hold it up. Nothing else: do not name a colour yet.")
+
+
+def pick_persona(colours: list[str], language: str) -> str:
+    return PICK_PERSONA.format(colours=", ".join(colours), language=language)
 
 
 def report_brain(guide: Guide, language: str) -> str:

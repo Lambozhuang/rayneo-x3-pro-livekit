@@ -42,9 +42,10 @@ import org.json.JSONObject
  *                A start_task during a task means the console has reset that run: the call is left without a
  *                report and the new task starts.
  *                In a block of the user study's games (`-e game A|B`, glasses.ps1 -Game; the game is the glasses'
- *                launch parameter, not the console's) the numbers name the sheets the same way, and the game rides
- *                in the token request (`&game=`, VoiceAssistantRoute), so the agent plays that game on the sheet
- *                (gpt/report.py for B).
+ *                launch parameter, not the console's) the game rides in the token request (`&game=`,
+ *                VoiceAssistantRoute). Game B plays on the sheets, named by the numbers the same way (gpt/report.py);
+ *                game A has trial files of its own, `a-1` to `a-6` (gpt/pick.py): experiment run k is trial k and
+ *                training run k is trial GAME_A_EXPERIMENT_RUNS + k.
  *   end_task     the call ends. The call also ends by itself when the agent publishes `rayneo.call.over`, the build
  *                finished and said so (gpt/agent.py, VoiceAssistantScreen); the wearer's double tap does nothing in
  *                lab mode (MainActivity), so a task cannot end by mistake. A triple tap, the experimenter's and
@@ -340,12 +341,24 @@ object Lab {
             run = null
         }
         val g = game
-        val sheet = if (runType == "training") number else number + TRAINING_TASKS  // the build's number on the task sheet
-        val task = Tasks.list.firstOrNull { it.number == sheet }?.takeIf { runType != "training" || number <= TRAINING_TASKS }
-        if (task == null) {
-            failed(sid, runId, number, if (Tasks.list.isEmpty()) "the glasses have no task list from the backend"
-                                       else "no $runType task number $number (sheet number $sheet)")
-            return
+        val sheet: Int  // the build's number on the task sheet, or game A's trial number
+        val task: Tasks.Task?
+        if (g == "a") {
+            sheet = if (runType == "training") number + GAME_A_EXPERIMENT_RUNS else number
+            val known = sheet in 1..GAME_A_TRIALS && (runType == "training" || number <= GAME_A_EXPERIMENT_RUNS)
+            task = if (known) Tasks.list.firstOrNull { it.name == "a-$sheet" } else null
+            if (task == null) {
+                failed(sid, runId, number, "no $runType run $number in game A (trial a-$sheet)")
+                return
+            }
+        } else {
+            sheet = if (runType == "training") number else number + TRAINING_TASKS
+            task = Tasks.list.firstOrNull { it.number == sheet }?.takeIf { runType != "training" || number <= TRAINING_TASKS }
+            if (task == null) {
+                failed(sid, runId, number, if (Tasks.list.isEmpty()) "the glasses have no task list from the backend"
+                                           else "no $runType task number $number (sheet number $sheet)")
+                return
+            }
         }
         val r = Run(sid, runId, runType, number, data.optString("label"), data.optBoolean("log"),
                     data.optInt("max_duration_s"), task, System.currentTimeMillis())
@@ -453,6 +466,9 @@ object Lab {
 
     /** How many builds at the top of the task sheet are the training tasks; the experiment's tasks are the rest (decided 2026-11-03). */
     const val TRAINING_TASKS = 3
+    /** Game A's trial files per block, and how many the experiment's runs take, the training's runs taking the rest. */
+    const val GAME_A_TRIALS = 6
+    const val GAME_A_EXPERIMENT_RUNS = 4
     /** What the console shows for this participant. */
     private const val NAME = "RayNeo X3 Pro"
     private const val KEY = "lab_console"

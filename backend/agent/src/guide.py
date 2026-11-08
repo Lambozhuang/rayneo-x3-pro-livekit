@@ -23,7 +23,9 @@ the anchor and the round's target only. Free play (`game = "free"`) has no
 steps at all: the build never finishes, and the call ends from the glasses. A
 game can also be the run's rather than the file's: `Build.game` is "report" when
 the glasses asked for game B on an ordinary sheet (gpt/report.py), whose
-pictures are then the three batch pictures, `batch-<k>.png`.
+pictures are then the three batch pictures, `batch-<k>.png`. Game A's trial
+files (`game = "pick"`, gpt/pick.py) have a step per pick, the brick's colour,
+and no pictures, so their steps need no colour code or cells.
 """
 
 from __future__ import annotations
@@ -65,7 +67,7 @@ class Guide:
     steps: tuple[Step, ...]
     directory: Path  # where the task file and the step pictures are
     plate: int = 16  # studs per side of the baseplate
-    game: str = ""  # "" for a build; "place" for a trial of the placement game, whose steps are its rounds (gpt/place.py); "free" for free play, no steps
+    game: str = ""  # "" for a build; "place" (gpt/place.py), "pick" (gpt/pick.py) for a trial of a game, whose steps are its rounds or picks; "free" for free play, no steps
     anchor: Step | None = None  # a brick fixed on the plate before a game begins, drawn in every picture; games only
 
     def picture_name(self, step: int) -> str:
@@ -88,18 +90,19 @@ def load_guide(path: str, pictures: bool = True) -> Guide:
     with toml.open("rb") as f:
         data = tomllib.load(f)
     steps = []
+    game = str(data.get("game", ""))
+    if game not in ("", "place", "free", "pick"):
+        raise ValueError(f"{toml}: game {game!r} is not one this agent plays")
     for i, s in enumerate(data.get("steps", []), 1):  # free play has none
         try:
-            step = Step(name=s["name"], brick=s["brick"], place=s["place"], color=s["color"], cells=tuple(s["cells"]),
-                        offset=str(s.get("offset", "")))
+            # a pick (game A) has no picture, so its cells are nothing and its colour code is only a note
+            step = Step(name=s["name"], brick=s["brick"], place=s["place"], color=s.get("color", "#000000") if game == "pick" else s["color"],
+                        cells=tuple(s.get("cells", (0, 0, 0, 0))) if game == "pick" else tuple(s["cells"]), offset=str(s.get("offset", "")))
         except KeyError as e:
             raise ValueError(f"{toml}: step {i} has no {e.args[0]}") from None
         if not re.fullmatch(r"#[0-9a-f]{6}", step.color) or len(step.cells) != 4:
             raise ValueError(f"{toml}: step {i} has a bad color or cells")
         steps.append(step)
-    game = str(data.get("game", ""))
-    if game not in ("", "place", "free"):
-        raise ValueError(f"{toml}: game {game!r} is not one this agent plays")
     if not steps and game != "free":
         raise ValueError(f"{toml}: guide has no steps")
     steps = tuple(steps)
@@ -114,7 +117,7 @@ def load_guide(path: str, pictures: bool = True) -> Guide:
         raise ValueError(f"{toml}: the placement game needs an [anchor] brick")
     guide = Guide(name=p.stem, title=data["title"], steps=steps, directory=toml.parent, plate=int(data.get("plate", 16)),
                   game=game, anchor=anchor)
-    if pictures:
+    if pictures and game != "pick":  # a pick has no picture
         missing = [guide.picture_name(n) for n in range(1, len(steps) + 1) if not guide.picture(n).is_file()]
         if not game and len(steps) == 5:  # a sheet: game B shows it in three batches, each with its own picture
             missing += [f"batch-{k}.png" for k in (1, 2, 3) if not (toml.parent / f"batch-{k}.png").is_file()]
@@ -134,8 +137,9 @@ def picked_guide(metadata: str) -> Guide:
 
 
 # The games of the user study the glasses can ask for on an ordinary sheet (`?game=` on the token request, Lab.kt), as
-# the run's game: B is build and report (gpt/report.py). A, pick the brick, is not built yet.
-GAMES = {"B": "report"}
+# the run's game: A is pick the brick (gpt/pick.py, whose trial files carry the game themselves), B is build and report
+# (gpt/report.py).
+GAMES = {"A": "pick", "B": "report"}
 
 
 def picked_game(metadata: str) -> str:

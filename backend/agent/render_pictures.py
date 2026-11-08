@@ -80,6 +80,8 @@ if __name__ == "__main__":
     count = 0
     for p in sorted(glob.glob(str(Path(__file__).parent / "guides/*"))):
         guide = load_guide(p, pictures=False)
+        if guide.game == "pick":
+            continue  # game A shows no pictures
         for n in range(1, len(guide.steps) + 1):
             render(guide, n).save(guide.picture(n), "PNG", optimize=True)
             count += 1

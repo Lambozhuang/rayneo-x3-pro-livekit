@@ -1,0 +1,47 @@
+# Game A of the user study, "pick the brick", trial 4 of 6 (gpt/pick.py; the spec is the study's game-spec.md outside the
+# repo). A tray holds one 2x4 brick of each of seven colours; the agent names a colour, the user holds that brick up, the
+# Decisions line says whether it is the one, six times, then the user asks which bricks they picked. Each step is one
+# pick: `brick` is the colour named, `name` is what the step list on the glasses shows, which does not give the colour
+# away. The six trials name six of the seven colours each, in the tray's order rotated by the trial, so every trial leaves
+# out a different colour; the first four trials are the console's experiment runs 1 to 4, the last two its training runs
+# 1 and 2 (Lab.kt). No pictures: `game = "pick"` has nothing to show.
+
+game = "pick"
+title = "Pick the brick, trial 4"
+number = 204
+
+[[steps]]
+name = "Brick 1"
+brick = "purple 2x4"
+place = ""
+color = "#5a2d91"
+
+[[steps]]
+name = "Brick 2"
+brick = "pink 2x4"
+place = ""
+color = "#f5a1c8"
+
+[[steps]]
+name = "Brick 3"
+brick = "white 2x4"
+place = ""
+color = "#f4f4f4"
+
+[[steps]]
+name = "Brick 4"
+brick = "light grey 2x4"
+place = ""
+color = "#a0a5a9"
+
+[[steps]]
+name = "Brick 5"
+brick = "red 2x4"
+place = ""
+color = "#c8102e"
+
+[[steps]]
+name = "Brick 6"
+brick = "blue 2x4"
+place = ""
+color = "#1e5bc6"

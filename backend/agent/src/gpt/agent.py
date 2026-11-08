@@ -22,7 +22,8 @@ voice says its verdict in a fixed phrase; the second line says nothing about the
 asks, the voice keeps company, and the second line does not run, having no step's brick to judge. In game B of the
 user study, build and report (the glasses ask for it on an ordinary sheet, Build.game == "report", gpt/report.py), the
 brain watches the same way with the reporting rules, and the game shows the sheet in three batches and hears the voice's
-sentence for the next one.
+sentence for the next one. In game A, pick the brick (guides/a-<k>, gpt/pick.py), no brain runs: the game names the
+colours, reads every frame with the Decisions line's model itself and has the voice say the verdicts.
 """
 
 import asyncio
@@ -52,8 +53,9 @@ from gpt.brain import SAY, TELL, TOOLS, Brain, make_model
 from gpt.config import Settings, build_live_model
 from gpt.moments import Moments
 from gpt.place import PlaceGame
-from gpt.prompts import (FREE_START, REPORT_START, free_brain, free_persona, place_persona, place_start, report_brain,
-                         report_persona, voice_persona)
+from gpt.pick import TRAY, PickGame
+from gpt.prompts import (FREE_START, PICK_START, REPORT_START, free_brain, free_persona, pick_persona, place_persona,
+                         place_start, report_brain, report_persona, voice_persona)
 from gpt.report import NEXT_SAID, ReportGame
 from guide import Build, picked_game, picked_guide, publish_build
 from qoe import LabRun, deliver, write_report
@@ -89,7 +91,13 @@ async def rayneo_assistant(ctx: JobContext) -> None:
     build = Build(guide=guide, run=ctx.room.name, game=game)
     session = AgentSession(video_sampler=tap, llm=build_live_model(settings))
     model = make_model(settings.brain_provider, settings.brain_model, settings.brain_detail)
-    if game == "report":
+    if game == "pick":
+        # Game A, pick the brick: no brain; the game paces the picks, reads the frames with the Decisions model itself
+        # and gives the voice its lines.
+        if not settings.moments_on:
+            raise RuntimeError("the pick game needs MOMENTS=on: the Decisions line is what reads the brick in the hand")
+        brain = PickGame(session, build, tap, record, settings)
+    elif game == "report":
         # Game B, build and report: the brain watches as in free play, with the reporting rules and no task text (it
         # does not know the sheet), and the game shows the batches and hears the voice's sentence for the next one.
         brain = ReportGame(Brain(session, build, tap, model, settings.brain_effort, settings.brain_watch_side,
@@ -114,13 +122,15 @@ async def rayneo_assistant(ctx: JobContext) -> None:
     # step's brick for it to read, so it does not run.
     moments = Moments(session, build, tap, brain, record, settings.moments_side, settings.moments_sure,
                       settings.moments_yes_at, settings.moments_not_at, settings.moments_hold_s, settings.moments_model,
-                      settings.moments_detail, lines=not game) if settings.moments_on and game not in ("free", "report") else None
+                      settings.moments_detail, lines=not game) if settings.moments_on and game not in ("free", "report", "pick") else None
     if game == "place":
         brain.moments = moments
     if game in ("free", "report") and settings.moments_on:
         logger.info("%s: the second line does not run, there being no step's brick to read", game)
     persona = (place_persona(guide, lang) if game == "place" else free_persona(lang) if game == "free"
-               else report_persona(lang, NEXT_SAID) if game == "report" else voice_persona(guide, lang))
+               else report_persona(lang, NEXT_SAID) if game == "report"
+               else pick_persona(list(TRAY), lang) if game == "pick"
+               else voice_persona(guide, lang))
     record.text("brain.txt", brain.instructions)
     record.text("brain-tools.json", json.dumps(
         [{"name": n, "description": d, "input_schema": p} for n, d, p in TOOLS], indent=2))
@@ -168,6 +178,10 @@ async def rayneo_assistant(ctx: JobContext) -> None:
             logger.info("%s: %s", ev.item.role, ev.item.text_content)
             if ev.item.role == "assistant":
                 brain.voice_now = ""  # the turn is in the history now
+            elif ev.item.role == "user":
+                heard = getattr(brain, "wearer_said", None)  # game A hears the question at the end (gpt/pick.py)
+                if heard is not None:
+                    heard(ev.item.text_content or "")
             if ev.item.role in ("user", "assistant"):
                 m = ev.item.metrics or {}
                 record.event("said", who="wearer" if ev.item.role == "user" else "voice", text=ev.item.text_content,
@@ -339,7 +353,7 @@ async def rayneo_assistant(ctx: JobContext) -> None:
     # generate_reply on GPT-Live is commentary: a request the model may decline.
     handle = session.generate_reply(
         instructions=place_start(guide) if game == "place" else FREE_START if game == "free"
-        else REPORT_START if game == "report" else (
+        else REPORT_START if game == "report" else PICK_START if game == "pick" else (
             "Greet the user in one short sentence, say you can see their table, and ask whether to start, as you would "
             "across the table. Nothing else: no task name, no list of what they can do, no step yet; the first step "
             "comes when they say yes."
