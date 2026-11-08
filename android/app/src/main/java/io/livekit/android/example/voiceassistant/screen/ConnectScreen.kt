@@ -36,9 +36,9 @@ import kotlinx.serialization.Serializable
 object ConnectRoute
 
 /**
- * Before a call in debug mode: which build. The list comes from the backend (Tasks); a swipe
- * on the temple moves the pick, a tap starts the call with it, a double tap
- * goes back to the menu (MainActivity). Nothing here takes a touch: the wearer cannot
+ * Before a call started from the glasses: which build, or which trial of the user study's games, by the menu's entry
+ * (Tasks.Kind). The list comes from the backend (Tasks); a swipe on the temple moves the pick, a tap starts the call
+ * with it, a double tap goes back to the menu (MainActivity). Nothing here takes a touch: the wearer cannot
  * see their finger. The backend address and credential come from the adb launch
  * (`glasses.ps1`, TokenEndpoint); there is no keyboard to type them on glasses.
  */
@@ -50,6 +50,7 @@ fun ConnectScreen() {
     val tasks = Tasks.list
     val selected = Tasks.selected
     val problem = Tasks.problem
+    val heading = Tasks.kind.heading
 
     Eyes {
         // One 640x480 panel less the safe-area margin: roughly 592x432 dp.
@@ -58,7 +59,7 @@ fun ConnectScreen() {
             verticalArrangement = Arrangement.Top,
             modifier = Modifier.fillMaxSize()
         ) {
-            Text("Choose a build", color = MaterialTheme.colorScheme.onBackground, fontSize = 20.sp)
+            Text(heading, color = MaterialTheme.colorScheme.onBackground, fontSize = 20.sp)
             Spacer(Modifier.size(10.dp))
             when {
                 problem != null -> Text(
@@ -89,7 +90,7 @@ private fun TaskList(tasks: List<Tasks.Task>, selected: Int, modifier: Modifier 
                     .background(if (on) Blue500 else Color.Transparent, RoundedCornerShape(8.dp))
                     .padding(horizontal = 10.dp, vertical = 3.dp)
             ) {
-                Text("${t.number}.", color = if (on) Color.White else Color(0xFF9E9E9E), fontSize = 18.sp,
+                Text(t.label, color = if (on) Color.White else Color(0xFF9E9E9E), fontSize = 18.sp,
                      modifier = Modifier.width(36.dp))
                 Text(t.title, color = if (on) Color.White else Color(0xFFBDBDBD), fontSize = 18.sp,
                      fontWeight = if (on) FontWeight.Bold else FontWeight.Normal, maxLines = 1,

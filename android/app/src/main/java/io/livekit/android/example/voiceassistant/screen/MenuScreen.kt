@@ -30,18 +30,25 @@ import kotlinx.serialization.Serializable
 object MenuRoute
 
 /**
- * Which of the two ways to run a call the wearer wants; the app opens here. A swipe on the temple moves the pick, a tap
- * enters it, a double tap leaves the app (MainActivity). Process-wide like Tasks, since the screen is composed once per
- * eye and the touchpad is handled outside the Compose tree.
+ * Which of the three ways to run a call the wearer wants; the app opens here. A swipe on the temple moves the pick, a tap
+ * enters it, a double tap leaves the app (MainActivity). Debug lists the builds and Games the user study's games, two
+ * lists kept apart (Tasks.Kind), so the sheets stay a plain list of builds. Process-wide like Tasks, since the screen is
+ * composed once per eye and the touchpad is handled outside the Compose tree.
  */
 object Menu {
     enum class Entry(val title: String, val what: String) {
         LAB("Lab", "the lab console starts and ends the tasks"),
         DEBUG("Debug", "pick a build here and start it"),
+        GAMES("Games", "pick a trial of the user study's games"),
     }
 
     var selected by mutableIntStateOf(0)
         private set
+
+    /** Opens on the entry whose list holds the task the launch named (`-e task a-1` opens on Games). */
+    fun openOn(entry: Entry) {
+        selected = entry.ordinal
+    }
 
     val pick: Entry get() = Entry.entries[selected]
 
@@ -50,7 +57,7 @@ object Menu {
     }
 }
 
-/** The two entries, the pick bright on blue, with the console's address under `Lab` so a wrong launch shows here. */
+/** The entries, the pick bright on blue, with the console's address under `Lab` so a wrong launch shows here. */
 @Composable
 fun MenuScreen() {
     val selected = Menu.selected

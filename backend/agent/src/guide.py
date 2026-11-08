@@ -172,6 +172,7 @@ class Build:
     acts: int = 0  # how many acts this run has published; the count in the value makes every act a change
     hint: str = ""  # the line of words the glasses show for the wearer, what to do now; games only so far (gpt/place.py, gpt/report.py)
     game: str = ""  # the run's game when it is not the guide's: "report" for game B played on a sheet (picked_game, gpt/report.py)
+    span: int = 1  # how many steps from the current one are current: a batch of game B marks two (gpt/report.py)
 
     @property
     def finished(self) -> bool:
@@ -187,11 +188,13 @@ class Build:
         task is over (the build finished and the voice has said so, gpt/agent.py): the glasses end the call on it.
         `rayneo.agent` is what the agent does this instant (`act_now`): the glasses' element flashes green or red on
         "yes n" and "not n" and shows the plate being judged while it reads "looking n" (AgentDots.kt). `rayneo.hint`
-        is the line of words above the element, what to do now, empty for none (PhaseHint in Phase.kt)."""
+        is the line of words for the wearer, what to do now, empty for none (AgentHint in Phase.kt). `rayneo.build.span`
+        is how many steps from the current one the list marks as current, 1 but for a batch of game B."""
         return {
             "rayneo.build.title": self.guide.title,
             "rayneo.build.steps": "\n".join(s.name for s in self.guide.steps),
             "rayneo.build.step": str(self.step),
+            "rayneo.build.span": str(self.span),
             PICTURE_ATTRIBUTE: self.picture_file(self.picture) if self.picture else "",
             "rayneo.call.over": "1" if self.over else "",
             "rayneo.agent": self.act,

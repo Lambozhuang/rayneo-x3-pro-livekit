@@ -26,7 +26,8 @@ import io.livekit.android.util.flow
  *
  * The agent process owns the position (guide.py) and publishes it as its own participant attributes,
  * `rayneo.build.title` (the build's name), `rayneo.build.steps` (step names, one per line) and `rayneo.build.step`
- * (index of the current step; equal to the count once the build is done). Attributes travel on the signalling channel
+ * (index of the current step; equal to the count once the build is done) and `rayneo.build.span` (how many steps from
+ * the current one are current, 1 but for a batch of the study's game B, which marks two). Attributes travel on the signalling channel
  * and are re-sent after a reconnect, so this list is right again as soon as the connection is. The picture beside the
  * list is not the build's: the agent sends it as a file and names it in `rayneo.picture` (Pictures.kt).
  * `rayneo.call.over` is "1" once the agent has ended the task, the build finished and said so; the call screen hangs
@@ -38,6 +39,7 @@ import io.livekit.android.util.flow
  * been published yet; `steps.size` once finished.
  * @param over whether the agent has ended the task.
  * @param hint the line of words for the wearer, empty for none.
+ * @param span how many steps from [current] are current, 1 unless the agent says otherwise.
  */
 data class BuildProgress(
     val title: String,
@@ -45,6 +47,7 @@ data class BuildProgress(
     val current: Int?,
     val over: Boolean = false,
     val hint: String = "",
+    val span: Int = 1,
 ) {
     companion object {
         val NONE = BuildProgress("", emptyList(), null)
@@ -57,10 +60,12 @@ data class BuildProgress(
                 current = attributes[KEY_STEP]?.toIntOrNull(),
                 over = attributes[KEY_OVER] == "1",
                 hint = attributes[KEY_HINT] ?: "",
+                span = attributes[KEY_SPAN]?.toIntOrNull()?.coerceAtLeast(1) ?: 1,
             )
         }
 
         private const val KEY_HINT = "rayneo.hint"
+        private const val KEY_SPAN = "rayneo.build.span"
         private const val KEY_OVER = "rayneo.call.over"
         private const val KEY_TITLE = "rayneo.build.title"
         private const val KEY_STEPS = "rayneo.build.steps"
@@ -107,7 +112,7 @@ fun StepsHeading(progress: BuildProgress, modifier: Modifier = Modifier) {
 /**
  * A numbered list, every step on one line, all of them in view: a task has five steps and the band has room for five
  * lines at this size, so nothing scrolls and the wearer always sees the whole build. Done steps dim, the current one
- * white and bold, the rest grey. A name takes one line: the list runs from the eye's left edge to the square (about
+ * white and bold (the current [BuildProgress.span] of them, two in a batch of game B), the rest grey. A name takes one line: the list runs from the eye's left edge to the square (about
  * 400 dp, CallLayout), where the longest name in the tasks, "Dark grey 2x6, right post", takes under 200 dp at 16 sp.
  * Nothing when the agent has not published a build.
  */
@@ -115,6 +120,7 @@ fun StepsHeading(progress: BuildProgress, modifier: Modifier = Modifier) {
 fun BuildSteps(progress: BuildProgress, modifier: Modifier = Modifier) {
     if (progress.steps.isEmpty()) return
     val current = progress.current ?: -1
+    val now = if (current >= 0) current until current + progress.span else IntRange.EMPTY
     Column(
         modifier = modifier,
         verticalArrangement = Arrangement.spacedBy(2.dp),
@@ -122,10 +128,10 @@ fun BuildSteps(progress: BuildProgress, modifier: Modifier = Modifier) {
         progress.steps.forEachIndexed { i, name ->
             val color = when {
                 i < current -> Color(0xFF5E5E5E)
-                i == current -> Color(0xFFEEEEEE)
+                i in now -> Color(0xFFEEEEEE)
                 else -> Color(0xFF9E9E9E)
             }
-            val weight = if (i == current) FontWeight.Bold else FontWeight.Normal
+            val weight = if (i in now) FontWeight.Bold else FontWeight.Normal
             Row {
                 Text(
                     text = if (i < current) "✓" else "${i + 1}.",

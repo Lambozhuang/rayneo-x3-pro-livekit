@@ -64,11 +64,14 @@ def render(guide: Guide, step: int, side: int = SIDE, outlined: set[int] | None 
                     continue  # on a round plate the corner studs are outside the disc
                 _disc(d, sx, sy, cell * 0.22, stud)
         if outlined:
+            # The outline runs inside the brick, two strokes in from its edge, so two outlined bricks that touch (a
+            # batch of game B) show two outlines with a band of brick between them and not one merged line.
             width = round(px * 2 / 216)  # 2 dp of the glasses' 216 dp square
+            m = 2 * width
             if b.round:
-                d.ellipse([cx - radius, cy - radius, cx + radius, cy + radius], outline=EDGE, width=width)
+                d.ellipse([cx - radius + m, cy - radius + m, cx + radius - m, cy + radius - m], outline=EDGE, width=width)
             else:
-                d.rectangle([x0, y0, x0 + w, y0 + h], outline=EDGE, width=width)
+                d.rectangle([x0 + m, y0 + m, x0 + w - m, y0 + h - m], outline=EDGE, width=width)
     return img.resize((side, side), Image.LANCZOS)
 
 

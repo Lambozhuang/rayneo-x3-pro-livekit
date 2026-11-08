@@ -73,7 +73,8 @@ class MainActivity : ComponentActivity() {
         window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
 
         // The app opens on the menu: `Lab` hands the glasses to the lab console, which starts and ends the tasks
-        // (LabScreen, Lab); `Debug` is the build picker, swipe to choose, tap to start (ConnectScreen). The call
+        // (LabScreen, Lab); `Debug` is the build picker and `Games` the picker of the user study's trials, swipe to
+        // choose, tap to start (ConnectScreen, Tasks.Kind). The call
         // returns to whichever it came from when it ends.
         // `--ez mock true` opens it on the mock call screen instead (MockScreen), to look at the layout without a server;
         // `--ez exposure_sweep true` on the exposure sweep (ExposureScreen), which photographs the desk and leaves.
@@ -85,6 +86,8 @@ class MainActivity : ComponentActivity() {
         val labLaunch = intent.getStringExtra("lab_console") != null
         val labMock = intent.getStringExtra("lab_mock")
         if (labMock != null) Lab.mock(labMock) else if (labLaunch) Lab.start(this)
+        // A launch naming a game's trial (`-e task a-1`, `-e task free`) opens the menu on Games.
+        if (Tasks.saved(this)?.let { it.startsWith("a-") || it == "free" } == true) Menu.openOn(Menu.Entry.GAMES)
         // The lab console's start_task opens the call over the lab screen, its end_task leaves it; the call screen
         // itself tells Lab when it is gone (VoiceAssistantScreen), which is when the run is reported.
         Lab.screens = object : Lab.Screens {
@@ -164,7 +167,8 @@ class MainActivity : ComponentActivity() {
         tokenEndpoint = TokenEndpoint.get(this).trim(),
         credential = TokenEndpoint.getCredential(this).trim(),
         task = run?.task?.name ?: Tasks.pick?.name ?: "",
-        game = Lab.game?.uppercase() ?: "",
+        // In a lab run the launch's game; from the pickers the pick's own (a sheet under Games is game B), else the launch's.
+        game = if (run != null) Lab.game?.uppercase() ?: "" else Tasks.pick?.game?.ifEmpty { Lab.game?.uppercase() ?: "" } ?: "",
         sid = run?.sid ?: "",
         runId = run?.runId ?: 0,
         console = if (run != null) Lab.console ?: "" else "",
@@ -258,7 +262,7 @@ class MainActivity : ComponentActivity() {
         when (g) {
             Gesture.CLICK -> when {
                 onMenu && Menu.pick == Menu.Entry.LAB -> { Lab.start(this); nav.navigate(LabRoute) }
-                onMenu -> nav.navigate(ConnectRoute)
+                onMenu -> { Tasks.kind = if (Menu.pick == Menu.Entry.GAMES) Tasks.Kind.GAMES else Tasks.Kind.BUILDS; nav.navigate(ConnectRoute) }
                 onConnect && Tasks.pick != null -> nav.navigate(route(null))
             }
             Gesture.DOUBLE_CLICK -> when {
