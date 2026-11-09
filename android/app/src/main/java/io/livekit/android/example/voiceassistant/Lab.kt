@@ -86,11 +86,21 @@ object Lab {
         var endedBy = "glasses"  // "console" after its end_task, "finished" after the agent's rayneo.call.over
     }
 
-    /** What the participant reads on the lab screen, one sentence for the stage they are in. */
+    /** What the participant reads on the lab screen, one sentence per line, for the stage they are in; `text` is the
+     *  build session's wording, [wording] the one for the launch's game (the user's words of 2026-11-09). */
     enum class Stage(val text: String) {
         WAITING("Please wait.\nThe experimenter will start the task."),
         AFTER_TASK("The task is over.\nTake the build apart, then answer the questionnaire.\nPlease wait for the next task."),
-        PROBLEM("Something went wrong.\nPlease tell the experimenter."),
+        PROBLEM("Something went wrong.\nPlease tell the experimenter.");
+
+        /** The stage's sentences for [game] ("a", "b" or null for a session of builds). */
+        fun wording(game: String?): String = when {
+            game == null -> text
+            this == WAITING -> "Please wait.\nThe experimenter will start the next trial."
+            this == AFTER_TASK && game == "a" -> "The trial is over.\nPut the bricks back, then answer the questions on the tablet."
+            this == AFTER_TASK -> "The trial is over.\nTake the build apart, then answer the questions on the tablet."
+            else -> text
+        }
     }
 
     /** What MainActivity does when the console speaks: open the call with a run (false if it cannot), or leave it. */
@@ -235,12 +245,12 @@ object Lab {
             flush()
             return
         }
-        if (Tasks.list.isEmpty()) {  // the task list first, so that a start_task can be answered with a call
+        if (!Tasks.loaded) {  // the task list first, so that a start_task can be answered with a call
             status = "loading the task list from ${host(TokenEndpoint.get(app))}"
             scope.launch {
                 Tasks.load(app, TokenEndpoint.get(app))
                 if (!active) return@launch
-                if (Tasks.list.isNotEmpty()) {
+                if (Tasks.loaded) {
                     connect()
                 } else {
                     status = "${Tasks.problem ?: "no task list"}; retrying in $backoffS s"
@@ -346,16 +356,16 @@ object Lab {
         if (g == "a") {
             sheet = if (runType == "training") number + GAME_A_EXPERIMENT_RUNS else number
             val known = sheet in 1..GAME_A_TRIALS && (runType == "training" || number <= GAME_A_EXPERIMENT_RUNS)
-            task = if (known) Tasks.list.firstOrNull { it.name == "a-$sheet" } else null
+            task = if (known) Tasks.named("a-$sheet") else null
             if (task == null) {
                 failed(sid, runId, number, "no $runType run $number in game A (trial a-$sheet)")
                 return
             }
         } else {
             sheet = if (runType == "training") number else number + TRAINING_TASKS
-            task = Tasks.list.firstOrNull { it.number == sheet }?.takeIf { runType != "training" || number <= TRAINING_TASKS }
+            task = Tasks.build(sheet)?.takeIf { runType != "training" || number <= TRAINING_TASKS }
             if (task == null) {
-                failed(sid, runId, number, if (Tasks.list.isEmpty()) "the glasses have no task list from the backend"
+                failed(sid, runId, number, if (!Tasks.loaded) "the glasses have no task list from the backend"
                                            else "no $runType task number $number (sheet number $sheet)")
                 return
             }

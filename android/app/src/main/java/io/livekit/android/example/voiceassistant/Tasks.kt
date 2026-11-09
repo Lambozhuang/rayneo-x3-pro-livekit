@@ -51,6 +51,15 @@ object Tasks {
     /** Whether any list has the task with this name: the launch's `-e task` chooses the menu's entry by it (MainActivity). */
     fun isGame(name: String?) = name != null && games.any { it.name == name } && builds.none { it.name == name }
 
+    /** Whether the backend's list has arrived, whatever kind the picker shows; the lab waits for it before it connects (Lab). */
+    val loaded: Boolean get() = builds.isNotEmpty() || games.isNotEmpty()
+
+    /** The build with this sheet number, and the task with this name in either list: the lab console's start_task is
+     *  mapped through these, not through the kind the picker happens to show (the emulator test of 2026-11-09 night had
+     *  game A's trials not found because the picker's list was the builds'). */
+    fun build(number: Int): Task? = builds.firstOrNull { it.number == number }
+    fun named(name: String): Task? = builds.firstOrNull { it.name == name } ?: games.firstOrNull { it.name == name }
+
     /** Fetch the list from the backend next to the token endpoint and sort it into the two kinds. Network on Dispatchers.IO. */
     suspend fun load(context: Context, tokenEndpoint: String) {
         problem = null
