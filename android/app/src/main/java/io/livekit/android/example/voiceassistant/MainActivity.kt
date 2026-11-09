@@ -120,7 +120,11 @@ class MainActivity : ComponentActivity() {
                 // each eye and none of the inner one. The pair would stop being
                 // mirror-symmetric. Per-eye margins belong to Eyes, which
                 // applies them to each panel evenly.
-                val start: Any = if (sweep) ExposureRoute else if (mock) MockRoute else if (labMock != null || labLaunch) LabRoute else MenuRoute
+                // `--ez start true` with `-e task <name>` (glasses.ps1 -Task crane -Start) opens straight into the call with that
+                // build, for the warm-up before a lab session; only without a console, so a lab launch is never bypassed.
+                val startTask = if (intent.getBooleanExtra("start", false) && !labLaunch && labMock == null) Tasks.saved(this) else null
+                val start: Any = if (sweep) ExposureRoute else if (mock) MockRoute else if (labMock != null || labLaunch) LabRoute
+                    else if (startTask != null) route(null).copy(task = startTask) else MenuRoute
                 NavHost(navController, startDestination = start) {
                     composable<MenuRoute> { MenuScreen() }
                     composable<LabRoute> { LabScreen() }
@@ -133,7 +137,8 @@ class MainActivity : ComponentActivity() {
                         VoiceAssistantScreen(
                             viewModel = viewModel,
                             onEndCall = {
-                                runOnUiThread { navController.navigateUp() }
+                                // A call the launch opened straight into has nothing under it: the menu then.
+                                runOnUiThread { if (!navController.navigateUp()) navController.navigate(MenuRoute) }
                             }
                         )
                     }
@@ -269,7 +274,7 @@ class MainActivity : ComponentActivity() {
                 onMenu || onMock -> finish()
                 onLab -> Log.i(TAG, "double tap on the lab screen: nothing")
                 onCall && Lab.run != null -> Log.i(TAG, "double tap in a lab run: nothing; the console or the finished build ends it")
-                else -> nav.navigateUp()
+                else -> if (!nav.navigateUp()) nav.navigate(MenuRoute)  // a call the launch opened straight into has nothing under it
             }
             Gesture.TRIPLE_CLICK -> when {  // the experimenter's, said nowhere on screen
                 onCall && Lab.run != null -> { Log.i(TAG, "triple tap: the experimenter ends the lab call"); nav.navigateUp() }

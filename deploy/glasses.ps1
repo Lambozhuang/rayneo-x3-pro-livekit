@@ -6,7 +6,9 @@
 #   .\deploy\glasses.ps1 -Lab 192.168.50.177      name the QoE Lab console (port 8080 unless given) for the menu's Lab
 #                                                 entry, where the console starts and ends the tasks (Lab.kt)
 #   .\deploy\glasses.ps1 -Task flag               preselect a build in the Debug picker (swipe changes it); a game's
-#                                                 trial is a build here too (-Task b-1, backend/agent/guides)
+#                                                 trial is a build here too (-Task a-1, backend/agent/guides)
+#   .\deploy\glasses.ps1 -Task crane -Start       open straight into the call with that build, no menu, no tap: the
+#                                                 warm-up before a lab session; ignored with -Lab
 #   .\deploy\glasses.ps1 -Game B                  make this launch's calls trials of the user study's game B on the
 #                                                 sheet picked or named (Lab.kt); with -Lab the console's run numbers
 #                                                 name the sheets as for builds
@@ -43,6 +45,7 @@ param(
     [string]$Lab = "",            # the QoE Lab console, <ip> or <ip>:<port>; the Lab entry connects there
     [string]$Task = "",           # a build's name (backend/agent/guides/<name>) to preselect
     [string]$Game = "",           # A or B: this launch's calls are trials of that game of the user study (Lab.kt)
+    [switch]$Start,               # with -Task: open straight into the call with it (MainActivity); not with -Lab
     [int]$MaxKbps = 0,            # cap the camera track's bitrate in kbit/s; 0 = the app's 4000 (Uplink.kt)
     [switch]$Record,              # record every call of this launch: camera as the call sees it, mic, agent voice
     [switch]$Mock,                # open on the mock call screen, a scripted scene, instead of the build picker
@@ -144,11 +147,16 @@ if ($Game) {
     $extras += @("-e", "game", $Game.ToUpper())
 }
 if ($MaxKbps) { $extras += @("--ei", "max_kbps", $MaxKbps) }
+if ($Start) {
+    if (-not $Task) { throw "-Start needs -Task <build>" }
+    if ($Lab) { throw "-Start is for the warm-up without a console; leave it out with -Lab" }
+    $extras += @("--ez", "start", "true")
+}
 if ($MockLab) { $extras += @("--es", "lab_mock", $MockLab) }
 if ($Record) { $extras += @("--ez", "record", "true") }
 if ($Exposure -lt -12 -or $Exposure -gt 12) { throw "-Exposure takes -12..12 (sixths of an EV)" }
 $extras += @("--ei", "exposure", $Exposure)
-if ($Mock -or $ExposureSweep -or $MockLab -or $Lab -or $MaxKbps -or $Game) {
+if ($Mock -or $ExposureSweep -or $MockLab -or $Lab -or $MaxKbps -or $Game -or $Start) {
     # The start screen is chosen in onCreate, so a running instance has to go first; the bitrate cap and the game are read there too.
     & adb shell am force-stop $Pkg
 }
@@ -159,7 +167,7 @@ if ($ExposureSweep) {
     $extras += @("--ez", "exposure_sweep", "true")
 }
 & adb shell am start -n $Activity @extras | Select-Object -Last 1
-Write-Host "launched -> $(if ($Mock) { 'mock call screen' } elseif ($ExposureSweep) { 'exposure sweep' } else { $Endpoint })$(if ($Lab) { ", console $Lab" })$(if ($Game) { ", game $($Game.ToUpper())" })$(if ($Record) { ', recording' })$(if ($MaxKbps) { ", $MaxKbps kbit/s" }), exposure $Exposure"
+Write-Host "launched -> $(if ($Mock) { 'mock call screen' } elseif ($ExposureSweep) { 'exposure sweep' } elseif ($Start) { "the call with $Task" } else { $Endpoint })$(if ($Lab) { ", console $Lab" })$(if ($Game) { ", game $($Game.ToUpper())" })$(if ($Record) { ', recording' })$(if ($MaxKbps) { ", $MaxKbps kbit/s" }), exposure $Exposure"
 
 if ($ExposureSweep) {
     # The app writes exposure/done when the recording is closed; the sweep holds each of four compensations 5 s.
