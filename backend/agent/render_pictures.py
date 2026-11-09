@@ -1,7 +1,7 @@
 """Draws every guide's step pictures, the files the agent sends to the glasses when the wearer asks to see a step
 (brain.py `show`): guides/<task>/step-<n>.png for each step n, 432 px square, from the `color` and `cells` of the task
-file; and for every five-step sheet the whole figure for game B (gpt/report.py), figure.png, all five bricks and no
-frame. Run after changing a task file: `python render_pictures.py` in
+file; and for every five-step sheet the three batch pictures of game B (gpt/report.py), batch-<k>.png, the bricks up to
+the batch's last with the batch's own outlined. Run after changing a task file: `python render_pictures.py` in
 backend/agent. load_guide refuses a guide whose pictures are missing, so a forgotten run shows up when the agent starts,
 not in a call.
 
@@ -93,6 +93,7 @@ if __name__ == "__main__":
             render(guide, n).save(guide.picture(n), "PNG", optimize=True)
             count += 1
         if not guide.game and len(guide.steps) == 5:
-            render(guide, len(guide.steps), outlined=set()).save(guide.directory / "figure.png", "PNG", optimize=True)
-            count += 1
+            for k, (first, last) in enumerate(((1, 2), (3, 4), (5, 5)), 1):  # gpt/report.py BATCHES
+                render(guide, last, outlined=set(range(first, last + 1))).save(guide.directory / f"batch-{k}.png", "PNG", optimize=True)
+                count += 1
     print(f"{count} pictures written under {Path(__file__).parent / 'guides'}")
