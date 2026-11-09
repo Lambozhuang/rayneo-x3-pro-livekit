@@ -32,7 +32,7 @@ logger = logging.getLogger("rayneo-agent.report")
 
 # The hint line, one text for the build and one after the first answer (the user's wording of 2026-11-09 and 11-10).
 HINT_BUILD = "Build the figure in the picture, then ask the agent what it sees."
-HINT_FIRST = "Now ask the agent which brick you placed first."
+HINT_FIRST = "When it has finished, ask the agent which brick you placed first."
 
 
 class ReportGame:
