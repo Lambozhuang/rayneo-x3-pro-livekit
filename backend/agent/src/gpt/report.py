@@ -1,21 +1,21 @@
 """Game B of the user study, "build and report": the user builds one of the sheets in one go from a picture of the whole
-figure on the glasses, then asks the agent what it sees, then which brick they placed last.
+figure on the glasses, then asks the agent what it sees, then which brick they placed first.
 
     ReportGame --the figure's picture (figure.png) and the hint line--> the glasses (Build.picture, Build.hint)
     wearer builds; the brain watches as in a build and says nothing unasked
     wearer --"what do you see?"--> GPT-Live says "Let me look." --> the brain's next watch look reads the question in the
         history and answers with say: every brick on the plate, its colour, size and place, in its own words
         --> GPT-Live reads it out --> ReportGame.on_say: the hint asks for the second question
-    wearer --"which brick did I place last?"--> the brain's say, from what it saw while the user built --> ReportGame.on_say:
+    wearer --"which brick did I place first?"--> the brain's say, from what it saw while the user built --> ReportGame.on_say:
         the trial is finished, and the call ends as a finished build's does (gpt/agent.py: the voice's silence, then Build.over)
 
 The agent does not know the sheet: the brain gets no task text, only that the user builds from a picture it cannot see.
 The brain's conversation runs through the trial. The second line does not run, there being no step's brick to read. The
-brain's first line is taken as the description and its second as the answer about the last brick, whatever the user
+brain's first line is taken as the description and its second as the answer about the first brick, whatever the user
 asked; a line that answers something else counts all the same, and the console's time limit is the backstop (the user's
 rule of 2026-11-10: no special cases). The record has the questions (`said` by the wearer, with their ends), the looks
 (`watch_sent` with the saved frames), the answers (`say`, `commentary`, `voice_delta` for the first spoken word), `report`
-for each of the brain's lines (`kind` "description" or "last") and `hint` for each hint. The spec is the study's game-spec.md, outside the repo, revised
+for each of the brain's lines (`kind` "description" or "first") and `hint` for each hint. The spec is the study's game-spec.md, outside the repo, revised
 after the first lab pilot of 2026-11-10; the batches and the "next" of 2026-11-09 are gone.
 """
 
@@ -31,7 +31,7 @@ logger = logging.getLogger("rayneo-agent.report")
 
 # The hint line, one text for the build and one after the first answer (the user's wording of 2026-11-09 and 11-10).
 HINT_BUILD = "Build the figure in the picture, then ask the agent what it sees."
-HINT_LAST = "Now ask the agent which brick you placed last."
+HINT_FIRST = "Now ask the agent which brick you placed first."
 
 
 class ReportGame:
@@ -41,7 +41,7 @@ class ReportGame:
 
     def __init__(self, brain: Brain, build: Build, record: RunLog) -> None:
         self._brain, self._build, self._record = brain, build, record
-        self._said = 0  # lines the brain has given the voice: the first is the description, the second the last brick
+        self._said = 0  # lines the brain has given the voice: the first is the description, the second the first brick
         brain.on_say = self._reported
 
     @property
@@ -80,7 +80,7 @@ class ReportGame:
 
     async def _reported(self, line: str) -> None:
         """The brain gave the voice a line: the first is the description, after which the hint asks which brick was
-        placed last; the second is that answer, which finishes the trial. Nothing slow may be awaited here: the brain's
+        placed first; the second is that answer, which finishes the trial. Nothing slow may be awaited here: the brain's
         look has BRAIN_TIMEOUT seconds in all."""
         build = self._build
         self._said += 1
@@ -89,9 +89,9 @@ class ReportGame:
             build.step, build.span = len(build.guide.steps), 1  # finished: gpt/agent.py ends the call once the voice is quiet
             build.hint = ""
             self._record.event("build", finished=True, took_s=round(time.monotonic() - build.started, 1))
-            logger.info("report: the last brick is answered; the trial is done")
+            logger.info("report: the first brick is answered; the trial is done")
         else:
-            build.hint = HINT_LAST
+            build.hint = HINT_FIRST
             self._record.event("hint", text=build.hint)
         await publish_build(build)
-        self._record.event("report", n=self._said, kind="last" if done else "description", text=line, finished=done)
+        self._record.event("report", n=self._said, kind="first" if done else "description", text=line, finished=done)
