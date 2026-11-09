@@ -97,8 +97,8 @@ object Lab {
         fun wording(game: String?): String = when {
             game == null -> text
             this == WAITING -> "Please wait.\nThe experimenter will start the next trial."
-            this == AFTER_TASK && game == "a" -> "The trial is over.\nPut the bricks back, then answer the questions on the tablet."
-            this == AFTER_TASK -> "The trial is over.\nTake the build apart, then answer the questions on the tablet."
+            this == AFTER_TASK && game == "a" -> "The trial is over.\nPut the bricks back, then answer the questions on the laptop."
+            this == AFTER_TASK -> "The trial is over.\nTake the build apart, then answer the questions on the laptop."
             else -> text
         }
     }

@@ -2,7 +2,7 @@
 holds that brick up, the Decisions line says whether it is the one, four times; then the user asks which bricks they
 picked and the voice answers from the conversation.
 
-    PickGame --"Pick up the red brick."--> GPT-Live says it                       (record: name)
+    PickGame --"Pick up a red brick."--> GPT-Live says it                         (record: name)
     glasses --video--> FrameTap --> PickGame._frames: every frame to the Decisions API, three questions:
         a brick is held in the air, the held brick is the named colour, which colour it is
         --first frame held--> record: pick_held
@@ -56,7 +56,7 @@ PAUSE_S = 1.0  # between the hand reading empty and the next colour named
 START_WAIT_S = 6.0  # the most the first colour waits for the greeting to be said
 
 # The lines the voice gets; it says them in its own words (the user's decision of 2026-11-08: no fixed phrases).
-NAME = "Pick up the {colour} brick."
+NAME = "Pick up a {colour} brick."  # "a", not "the": the tray holds many bricks, and "the" read as if there were one
 YES = "That's the {colour} one."
 NOT = "That's not the {colour} one."
 NONE = "I can't tell which one that is; put it back."
