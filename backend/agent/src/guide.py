@@ -23,7 +23,7 @@ the anchor and the round's target only. Free play (`game = "free"`) has no
 steps at all: the build never finishes, and the call ends from the glasses. A
 game can also be the run's rather than the file's: `Build.game` is "report" when
 the glasses asked for game B on an ordinary sheet (gpt/report.py), whose
-pictures are then the three batch pictures, `batch-<k>.png`. Game A's trial
+picture is then the whole figure, `figure.png`. Game A's trial
 files (`game = "pick"`, gpt/pick.py) have a step per pick, the brick's colour,
 and no pictures, so their steps need no colour code or cells.
 """
@@ -119,8 +119,8 @@ def load_guide(path: str, pictures: bool = True) -> Guide:
                   game=game, anchor=anchor)
     if pictures and game != "pick":  # a pick has no picture
         missing = [guide.picture_name(n) for n in range(1, len(steps) + 1) if not guide.picture(n).is_file()]
-        if not game and len(steps) == 5:  # a sheet: game B shows it in three batches, each with its own picture
-            missing += [f"batch-{k}.png" for k in (1, 2, 3) if not (toml.parent / f"batch-{k}.png").is_file()]
+        if not game and len(steps) == 5 and not (toml.parent / "figure.png").is_file():  # a sheet: game B shows the whole figure
+            missing.append("figure.png")
         if missing:
             raise ValueError(f"{toml.parent}: no picture {', '.join(missing)}; run `python render_pictures.py` in "
                              "backend/agent")
@@ -202,8 +202,8 @@ class Build:
         }
 
     def picture_file(self, n: int) -> str:
-        """The file name of picture `n` for this run: a step's picture, or in game B the batch's (render_pictures.py)."""
-        return f"batch-{n}.png" if self.game == "report" else self.guide.picture_name(n)
+        """The file name of picture `n` for this run: a step's picture, or in game B the whole figure's (render_pictures.py)."""
+        return "figure.png" if self.game == "report" else self.guide.picture_name(n)
 
     def where(self) -> str:
         """The recorded progress and what the glasses show, as a model is told it."""

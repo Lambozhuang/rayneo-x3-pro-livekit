@@ -1,29 +1,29 @@
-"""Game A of the user study, "pick the brick": a tray of six 2x4 bricks of six hues, the agent names a colour, the user
-holds that brick up, the Decisions line says whether it is the one, four times; then the user asks which bricks they
-picked and the voice answers from the conversation.
+"""Game A of the user study, "pick the brick": five 2x4 bricks of five hues lie loose on the table, the agent names a
+colour, the user picks a brick up, right or wrong, and holds it over the table, the Decisions line says whether it is the
+named colour, twice; then the user asks what colour the first brick they picked was, and the voice answers from the
+conversation.
 
-    PickGame --"Pick up a red brick."--> GPT-Live says it                         (record: name)
-    glasses --video--> FrameTap --> PickGame._frames: every whole frame, 720 px across, to the Decisions API, three questions:
+    PickGame --"Pick up a red brick."--> GPT-Live says it                                       (record: name)
+    glasses --video--> FrameTap --> PickGame._frames: every frame's bottom square to the Decisions API, three questions:
         a brick is held in the air, the held brick is the named colour, which colour it is
         --first frame held--> record: pick_held
         --two frames held and the named colour at MOMENTS_YES_AT or above, or at MOMENTS_NOT_AT or below-->
-            Build.act_now("yes" | "not") to the glasses (the dots flash green or red)        (record: pick_verdict)
-            "That's the red one." | "That's not the red one." to GPT-Live, which says it
-        --the hand empty for AGREE frames--> the next colour
-    the hint line says what to do while the picks run (HINT_PICK, Build.hint); after the last pick it says to ask which
-    bricks were picked; the user's next turn finishes the build, the voice answers from what it said, and the call ends
-    as a finished build's does (gpt/agent.py)
+            Build.act_now("yes" | "not") to the glasses (the dots flash green or red)                (record: pick_verdict)
+            "That's the red one." | "That's not the red one." to GPT-Live, which says it; the next colour follows at once
+    after the second verdict: the hint asks the user to ask what colour the first brick they picked was (Build.hint); the
+    voice answers from what it said, and the trial ends on that answer: the first line the voice says after its verdict
+    that names one of the five colours (PickGame.voice_now), so nothing rests on reading the user's words
 
 The agent paces the trial and the brain does not run: there is nothing to judge but the brick in the hand, which the
 Decisions line reads in under a second, so the delay the block adds shows in the time from the pick-up to the flash and
-to the voice. A brick held for HELD_MAX_S without a verdict is "none": the voice says it cannot tell and asks for it to be
-put back, and the game moves on. The trial files are guides/a-1 to a-6 (game = "pick", a step per pick with the brick's
-colour, numbers 201 to 206), four picks each from the six colours, no two trials the same four or the same order; the
-spec is the study's game-spec.md, outside the repo (2026-11-08, built 2026-11-09, four picks and six colours from the
-user's first runs the same night).
+to the voice. A pick that never settles is not judged: no timer, no re-ask, the console's time limit ends the trial (the
+user's rule of 2026-11-10). After a verdict the next pick is judged only once the hand has read empty, so the brick
+still in the hand is not judged against the next colour. The trial files are guides/a-1 to a-6 (game = "pick", a step per
+pick with the brick's colour, numbers 201 to 206), two picks each; the spec is the study's game-spec.md, outside the
+repo, revised after the first lab pilot of 2026-11-10.
 
 The class stands where the brain stands for gpt/agent.py (start_watching, stop_watching, voice_now, on_delegation,
-instructions) and hears the wearer's turns (wearer_said) for the question at the end.
+instructions).
 """
 
 import asyncio
@@ -37,7 +37,7 @@ import time
 import httpx
 from livekit.agents import AgentSession
 
-from frames import FrameTap, to_image
+from frames import FrameTap, bottom_square
 from gpt.config import Settings
 from gpt.moments import AGREE, COLOURS, URL, NO_BRICK
 from gpt.prompts import CUT_IN
@@ -46,29 +46,20 @@ from runlog import RunLog
 
 logger = logging.getLogger("rayneo-agent.pick")
 
-# The tray's six colours, one 2x4 brick each (the study's game-spec.md; green went on 2026-11-09, the kit's green being
-# a teal that misleads); a trial names four of them.
-TRAY = ("red", "blue", "purple", "pink", "white", "light grey")
-# The hint line: one text through the picks, then the question (Lambo's wording, 2026-11-09).
-HINT_PICK = "Listen for the colour, pick that brick up and hold it up. Put it back once the agent has confirmed it."
-HINT_ASK = "Now ask the agent which bricks you picked."
-HELD_MAX_S = 5.0  # a brick held this long without a verdict is "none"
-PAUSE_S = 1.0  # between the hand reading empty and the next colour named
-START_WAIT_S = 6.0  # the most the first colour waits for the greeting to be said
-REASK_S = 20.0  # with no brick read as held this long after a colour is named, the game asks again, once
+# The five colours on the table, one 2x4 brick each (the study's game-spec.md, revised 2026-11-09); a trial names two.
+HUES = ("red", "blue", "purple", "pink", "white")
+HUE_WORD = re.compile(r"\b(" + "|".join(HUES) + r")\b", re.I)
 
-# What the wearer's turn after the last pick has to look like to be the question about the bricks they picked: in the
-# pilot of 2026-11-10 three of four runs ended on the wearer's talk about the brick in their hand ("Pink", "Here we go,
-# blue"), which the voice answered with a verdict, and the real question was never asked.
-QUESTION = re.compile(r"\b(which|what|did i|have i|how many|tell me|remind|list|name)\b|\?", re.I)
+# The hint line: one text through the picks, then the question (the user's wording, 2026-11-09).
+HINT_PICK = ("Listen for the colour, pick up that brick and hold it over the table where the camera can see it. "
+             "Put it back once the agent has answered.")
+HINT_ASK = "Now ask the agent what colour the first brick you picked was."
+START_WAIT_S = 6.0  # the most the first colour waits for the greeting to be said
 
 # The lines the voice gets; it says them in its own words (the user's decision of 2026-11-08: no fixed phrases).
-NAME = "Pick up a {colour} brick."  # "a", not "the": the tray holds many bricks, and "the" read as if there were one
-REASK = "Pick up a {colour} brick and hold it up in front of you, where I can see it."  # after REASK_S with nothing held
+NAME = "Pick up a {colour} brick."  # "a", not "the": several bricks lie there, and "the" read as if there were one
 YES = "That's the {colour} one."
 NOT = "That's not the {colour} one."
-NONE = "I can't tell which one that is; put it back."
-LAST = "That was the last one."
 
 
 def _colour(brick: str) -> str:
@@ -77,23 +68,17 @@ def _colour(brick: str) -> str:
 
 
 def _jpeg(frame, side: int) -> bytes:
-    """The whole frame, scaled to `side` across (720x1280 of the glasses' portrait frame), not the bottom square the
-    build's lines read: a brick held up in front of the face sits in the upper half of the frame, above the square's
-    top edge, and in the pilot of 2026-11-10 a pink brick went unread for fifty seconds (held 0.0 on 116 frames) while
-    the bricks that were read all sat in the upper part of the square."""
-    img = to_image(frame)
-    img.thumbnail((side, side * 2))
     buf = io.BytesIO()
-    img.save(buf, "JPEG", quality=85)
+    bottom_square(frame, side).save(buf, "JPEG", quality=85)
     return buf.getvalue()
 
 
-def developer_text(colours: list[str], named: str) -> str:
-    """What the Decisions model is told: the tray, its colours and the colour asked for now."""
+def developer_text(named: str) -> str:
+    """What the Decisions model is told: the bricks on the table and the colour asked for now."""
     return (
-        "You see one photo taken just now by the camera of a pair of AR glasses on the user, who plays a game at a desk: a "
-        f"tray holds LEGO 2x4 bricks, one of each of these colours: {', '.join(colours)}. The user picks one brick up and "
-        f"holds it in the air; there is no baseplate. The colour asked for now: {named}."
+        "You see one photo taken just now by the camera of a pair of AR glasses on the user, who plays a game at a desk: "
+        f"LEGO 2x4 bricks lie loose on the table, one of each of these colours: {', '.join(HUES)}. The user picks one brick "
+        f"up and holds it over the table; there is no baseplate. The colour asked for now: {named}."
     )
 
 
@@ -102,7 +87,7 @@ def questions(named: str) -> list[dict]:
         return {"name": name, "type": "predicate", "instructions": text}
 
     return [
-        p("held", "The user holds a LEGO brick in the air, not resting on the tray or the desk."),
+        p("held", "The user holds a LEGO brick in the air, not resting on the table."),
         p("named", f"The brick the user holds is {named}."),
         {"name": "colour", "type": "choice", "instructions": "What colour is the brick the user holds? \"none\" when no brick is held.",
          "choices": [{"value": c} for c in COLOURS]},
@@ -115,18 +100,18 @@ class PickGame:
         self._session, self._build, self._tap, self._record, self._s = session, build, tap, record, settings
         self._timeout = timeout
         self._key = os.environ["OPENAI_API_KEY"]
-        self.voice_now = ""  # fed by gpt/agent.py as for the brain; not read here
+        self._voice_now = ""
         self._task: asyncio.Task | None = None
-        self._colours = list(TRAY)
-        self._picked: list[str] = []  # the colours confirmed, in order, for closing a hand-over at the end
-        self._asking = False  # the sixth verdict is said and the hint is up: the wearer's next turn is the question
+        self._picked: list[str] = []  # the colour read for each pick, in order, for closing a hand-over at the end
+        self._asking = False  # the second verdict is out and the hint is up
+        self._verdict_turn_done = False  # the voice's turn that carried the second verdict has ended
         self._asks = 0
         # the pick under way, written by the frame loop and read by the pacing loop
         self._n = 0  # requests made
-        self._reading: tuple[float, float, str] | None = None  # (held, named, colour) of the newest frame
+        self._armed = True  # the hand has read empty since the last verdict: the next brick held is this pick's
         self._recent: list[tuple[float, float, str]] = []  # the last AGREE readings
         self._held_at: float | None = None  # monotonic time the brick was first read as held in this pick
-        self._verdict: str | None = None  # "yes", "no" or "none" once this pick is settled
+        self._verdict: tuple[str, str] | None = None  # (yes | no, the colour read) once this pick is settled
 
     @property
     def instructions(self) -> str:
@@ -134,6 +119,28 @@ class PickGame:
                 "(gpt/pick.py); the voice persona is voice.txt.")
 
     # ------------------------------------------------------------------ the surface gpt/agent.py expects
+
+    @property
+    def voice_now(self) -> str:
+        return self._voice_now
+
+    @voice_now.setter
+    def voice_now(self, text: str) -> None:
+        """What the voice is saying, from gpt/agent.py's transcript deltas, cleared when the turn is in the history.
+        After the hint, the voice's first line that names one of the five colours and is not the second verdict's own
+        turn is its answer to the user's question, and the trial is done; the user's words are not read for it."""
+        if self._asking and not self._build.finished:
+            if not text:
+                if not self._verdict_turn_done and HUE_WORD.search(self._voice_now):
+                    self._verdict_turn_done = True  # the turn with the second verdict has been said
+            elif self._verdict_turn_done and HUE_WORD.search(text):
+                self._asking = False
+                self._build.step = len(self._build.guide.steps)  # finished: gpt/agent.py ends the call once the voice is quiet
+                self._record.event("pick_answer", text=text)
+                self._record.event("build", finished=True, took_s=round(time.monotonic() - self._build.started, 1))
+                logger.info("pick: the voice answers (%s); the call ends once it is quiet", text)
+                asyncio.create_task(publish_build(self._build), name="pick_publish")
+        self._voice_now = text
 
     def start_watching(self) -> None:
         self._task = asyncio.create_task(self._run(), name="pick")
@@ -143,37 +150,15 @@ class PickGame:
             self._task.cancel()
 
     def on_delegation(self, d) -> None:
-        """GPT-Live handed the question over although its prompt tells it to answer from the conversation: closed at
-        once with the list the game kept, which the voice says as its answer."""
+        """GPT-Live handed the user's words over although its prompt tells it to answer from the conversation: closed at
+        once, with the colour the game read for the first pick once the hint is up, else with a word to wait on."""
         self._asks += 1
         words = d.pending_transcript.strip()
         logger.info("delegation: %s #%d closed at once, user: %s", d.id, self._asks, words or "(no words came with it)")
         self._record.event("delegation", n=self._asks, id=d.id, words=words)
-        # The list only once the hint has asked for the question; a hand-over in the middle of the picks (the pilot of
-        # 2026-11-10 had "none of those was the one I asked for" said after one wrong brick) gets a word to wait on.
-        if not self._asking:
-            text = "One moment."
-        else:
-            text = (f"You picked {', '.join(self._picked)}." if self._picked else "None of the bricks you held up was the one asked for.")
+        text = f"The first brick you picked was {self._picked[0]}." if self._asking and self._picked else "One moment."
         self._record.event("commentary", n=self._asks, id=d.id, text=text, voice_speaking=self._session.agent_state == "speaking")
         self._session.current_agent.duplex_session.append_commentary(text, delegation_id=d.id)
-
-    def wearer_said(self, text: str) -> None:
-        """A turn of the wearer is in the history: after the hint, a turn that reads as a question (QUESTION) is the
-        question, and the build is finished so that the call ends once the voice has answered (gpt/agent.py); other talk,
-        about the brick still in the hand, say, is left alone and the game keeps waiting."""
-        if not self._asking or self._build.finished:
-            return
-        if not QUESTION.search(text):
-            logger.info("pick: the wearer said %r after the last pick; not a question, waiting on", text)
-            self._record.event("pick_not_question", text=text)
-            return
-        self._asking = False
-        self._build.step = len(self._build.guide.steps)
-        self._record.event("pick_question", text=text)
-        self._record.event("build", finished=True, took_s=round(time.monotonic() - self._build.started, 1))
-        logger.info("pick: the question came (%s); the call ends once the voice has answered", text)
-        asyncio.create_task(publish_build(self._build), name="pick_publish")
 
     # ------------------------------------------------------------------ the trial
 
@@ -187,32 +172,22 @@ class PickGame:
                 colour = _colour(step.brick)
                 build.step = i
                 await publish_build(build)
-                self._reading, self._recent, self._held_at, self._verdict = None, [], None, None
+                self._recent, self._held_at, self._verdict = [], None, None
                 self._record.event("name", n=i + 1, colour=colour)
                 self._speak(NAME.format(colour=colour))
                 logger.info("pick: %d of %d, %s", i + 1, len(build.guide.steps), colour)
-                verdict = await self._settle(colour)
-                if verdict == "yes":
-                    self._picked.append(colour)
-                    build.act_now("yes")
-                    line = YES.format(colour=colour)
-                elif verdict == "no":
-                    build.act_now("not")
-                    line = NOT.format(colour=colour)
-                else:
-                    line = NONE
+                verdict, read = await self._settle()
+                self._picked.append(read)
+                self._armed = False  # the next pick is judged once the hand has read empty
+                build.act_now("yes" if verdict == "yes" else "not")
+                line = (YES if verdict == "yes" else NOT).format(colour=colour)
                 if i == len(build.guide.steps) - 1:
-                    line += " " + LAST
                     build.hint = HINT_ASK
                     self._asking = True
                 await publish_build(build)
                 self._speak(line)
-                if build.act:
-                    build.act_now("")
-                    await publish_build(build)
-                if i < len(build.guide.steps) - 1:
-                    await self._wait_empty()
-                    await asyncio.sleep(PAUSE_S)
+                build.act_now("")
+                await publish_build(build)
         finally:
             frames.cancel()
 
@@ -227,39 +202,11 @@ class PickGame:
                 return
             await asyncio.sleep(0.1)
 
-    async def _settle(self, colour: str) -> str:
-        """Waits for this pick's verdict from the frame loop: yes or no on two agreeing frames, none when the brick has
-        been held HELD_MAX_S without one. With nothing read as held REASK_S after the colour was named, the game asks
-        once more and says where to hold the brick: in the pilot of 2026-11-10 a brick went unread for fifty seconds and
-        the voice, left in silence, named a colour of its own."""
-        named_at = time.monotonic()
-        reasked = False
-        while True:
-            if self._verdict is not None:
-                return self._verdict
-            if self._held_at is None and not reasked and time.monotonic() - named_at >= REASK_S:
-                reasked = True
-                self._record.event("reask", pick=self._build.step + 1, colour=colour)
-                logger.info("pick: nothing held %.0f s after naming %s; asking again", REASK_S, colour)
-                self._speak(REASK.format(colour=colour))
-            if self._held_at is not None and time.monotonic() - self._held_at >= HELD_MAX_S:
-                self._verdict = "none"
-                self._record.event("pick_verdict", n=self._build.step + 1, colour=colour, verdict="none",
-                                   read=self._reading[2] if self._reading else None, held_s=HELD_MAX_S)
-                logger.info("pick: no verdict after %.0f s held: none", HELD_MAX_S)
-                return "none"
+    async def _settle(self) -> tuple[str, str]:
+        """Waits for this pick's verdict from the frame loop, however long it takes."""
+        while self._verdict is None:
             await asyncio.sleep(0.05)
-
-    async def _wait_empty(self) -> None:
-        """Waits until the hand has read empty for AGREE frames, the brick put back."""
-        empty = 0
-        last = None
-        while empty < AGREE:
-            r = self._reading
-            if r is not None and r is not last:
-                last = r
-                empty = empty + 1 if r[0] < 0.5 else 0
-            await asyncio.sleep(0.05)
+        return self._verdict
 
     def _speak(self, line: str) -> None:
         speaking = self._session.agent_state == "speaking"
@@ -298,7 +245,7 @@ class PickGame:
         t0 = time.perf_counter()
         photo = await asyncio.to_thread(_jpeg, frame, self._s.moments_side)
         body = {"model": self._s.moments_model,
-                "input": [{"role": "developer", "content": developer_text(self._colours, named)},
+                "input": [{"role": "developer", "content": developer_text(named)},
                           {"role": "user", "content": [{"type": "input_image", "detail": self._s.moments_detail,
                                                         "image_url": "data:image/jpeg;base64," + base64.b64encode(photo).decode()}]}],
                 "questions": questions(named)}
@@ -316,16 +263,19 @@ class PickGame:
         colour_p = next((x["probability"] for x in a["colour"]["probabilities"] if x["value"] == colour), 0.0)
         self._record.event("pick_frame", n=n, pick=step + 1, named=named, frame=seq, frame_age_ms=round((time.monotonic() - at) * 1000),
                            prep_ms=round((t_sent - t0) * 1000), ms=ms, tokens=(data.get("usage") or {}).get("input_tokens"),
-                           held=round(held, 2), is_named=round(is_named, 2), colour=colour, colour_p=round(colour_p, 2))
-        logger.info("pick: #%d pick %d (%s) frame %d, %d ms: held %.2f named %.2f colour %s (%.2f)", n, step + 1, named, seq,
-                    ms, held, is_named, colour, colour_p)
-        if step != self._build.step:
-            return  # the pick moved on while the request was out
-        reading = (held, is_named, colour)
-        self._reading = reading
-        self._recent = (self._recent + [reading])[-AGREE:]
-        if self._verdict is not None:
+                           held=round(held, 2), is_named=round(is_named, 2), colour=colour, colour_p=round(colour_p, 2),
+                           armed=self._armed)
+        logger.info("pick: #%d pick %d (%s) frame %d, %d ms: held %.2f named %.2f colour %s (%.2f)%s", n, step + 1, named,
+                    seq, ms, held, is_named, colour, colour_p, "" if self._armed else " (waiting for the hand to empty)")
+        if step != self._build.step or self._verdict is not None:
+            return  # the pick moved on while the request was out, or is settled
+        if not self._armed:
+            if held < 0.5:
+                self._armed = True
+                logger.info("pick: the hand reads empty; the next brick held is pick %d's", step + 1)
             return
+        reading = (held, is_named, colour)
+        self._recent = (self._recent + [reading])[-AGREE:]
         if held >= self._s.moments_sure and self._held_at is None:
             self._held_at = time.monotonic()
             self._record.event("pick_held", n=n, pick=step + 1, frame=seq, held=round(held, 2))
@@ -339,7 +289,8 @@ class PickGame:
             verdict = "no"
         else:
             return
-        self._verdict = verdict
+        read = named if verdict == "yes" else colour  # the colour actually picked, for the question at the end
+        self._verdict = (verdict, read)
         saved = self._record.photo(photo, f"pick{n}-p{step + 1}")
         self._record.event("pick_verdict", n=n, pick=step + 1, colour=named, verdict=verdict, is_named=round(is_named, 2),
                            read=colour, frame=seq, photo=saved)

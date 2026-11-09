@@ -1,10 +1,10 @@
 # Game A of the user study, "pick the brick", trial 2 of 6 (gpt/pick.py; the spec is the study's game-spec.md outside the
-# repo). A tray holds one 2x4 brick of each of six colours; the agent names a colour, the user holds that brick up, the
-# Decisions line says whether it is the one, four times, then the user asks which bricks they picked. Each step is one
-# pick: `brick` is the colour named, `name` is what the step list on the glasses shows, which does not give the colour
-# away. The six trials name four of the six colours each, no two trials the same four or the same order; the first four
-# trials are the console's experiment runs 1 to 4, the last two its training runs 1 and 2 (Lab.kt). No pictures:
-# `game = "pick"` has nothing to show.
+# repo, revised after the first lab pilot of 2026-11-10). Five 2x4 bricks lie loose on the table, one of each of red, blue,
+# purple, pink and white; the agent names a colour, the user picks a brick up, right or wrong, and holds it over the table,
+# the Decisions line says whether it is the one, twice; then the user asks what colour the first brick they picked was.
+# Each step is one pick: `brick` is the colour named, `name` is what the step list on the glasses shows, which does not
+# give the colour away. The six trials name six different pairs; the first four trials are the console's experiment
+# runs 1 to 4, the last two its training runs 1 and 2 (Lab.kt). No pictures: `game = "pick"` has nothing to show.
 
 game = "pick"
 title = "Pick the brick, trial 2"
@@ -12,24 +12,12 @@ number = 202
 
 [[steps]]
 name = "Brick 1"
-brick = "pink 2x4"
+brick = "blue 2x4"
 place = ""
-color = "#f5a1c8"
+color = "#1e5bc6"
 
 [[steps]]
 name = "Brick 2"
-brick = "white 2x4"
-place = ""
-color = "#f4f4f4"
-
-[[steps]]
-name = "Brick 3"
-brick = "light grey 2x4"
-place = ""
-color = "#a0a5a9"
-
-[[steps]]
-name = "Brick 4"
 brick = "purple 2x4"
 place = ""
 color = "#5a2d91"

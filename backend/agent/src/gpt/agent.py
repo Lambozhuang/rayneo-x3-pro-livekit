@@ -21,9 +21,9 @@ voice says its verdict in a fixed phrase; the second line says nothing about the
 (guide.game == "free", a guide with no steps) the brain watches as in a build with rules that answer only what the user
 asks, the voice keeps company, and the second line does not run, having no step's brick to judge. In game B of the
 user study, build and report (the glasses ask for it on an ordinary sheet, Build.game == "report", gpt/report.py), the
-brain watches the same way with the reporting rules, and the game shows the sheet in three batches and hears the voice's
-sentence for the next one. In game A, pick the brick (guides/a-<k>, gpt/pick.py), no brain runs: the game names the
-colours, reads every frame with the Decisions line's model itself and has the voice say the verdicts.
+brain watches the same way with the describing rules, and the game shows the whole figure and counts the brain's two
+answers. In game A, pick the brick (guides/a-<k>, gpt/pick.py), no brain runs: the game names the colours, reads every
+frame with the Decisions line's model itself and has the voice say the verdicts.
 """
 
 import asyncio
@@ -53,10 +53,10 @@ from gpt.brain import SAY, TELL, TOOLS, Brain, make_model
 from gpt.config import Settings, build_live_model
 from gpt.moments import Moments
 from gpt.place import PlaceGame
-from gpt.pick import TRAY, PickGame
+from gpt.pick import HUES, PickGame
 from gpt.prompts import (FREE_START, PICK_START, REPORT_START, free_brain, free_persona, pick_persona, place_persona,
                          place_start, report_brain, report_persona, voice_persona)
-from gpt.report import NEXT_SAID, ReportGame
+from gpt.report import ReportGame
 from guide import Build, picked_game, picked_guide, publish_build
 from qoe import LabRun, deliver, write_report
 from runlog import RunLog
@@ -128,8 +128,8 @@ async def rayneo_assistant(ctx: JobContext) -> None:
     if game in ("free", "report") and settings.moments_on:
         logger.info("%s: the second line does not run, there being no step's brick to read", game)
     persona = (place_persona(guide, lang) if game == "place" else free_persona(lang) if game == "free"
-               else report_persona(lang, NEXT_SAID) if game == "report"
-               else pick_persona(list(TRAY), lang) if game == "pick"
+               else report_persona(lang) if game == "report"
+               else pick_persona(list(HUES), lang) if game == "pick"
                else voice_persona(guide, lang))
     record.text("brain.txt", brain.instructions)
     record.text("brain-tools.json", json.dumps(
@@ -178,10 +178,6 @@ async def rayneo_assistant(ctx: JobContext) -> None:
             logger.info("%s: %s", ev.item.role, ev.item.text_content)
             if ev.item.role == "assistant":
                 brain.voice_now = ""  # the turn is in the history now
-            elif ev.item.role == "user":
-                heard = getattr(brain, "wearer_said", None)  # game A hears the question at the end (gpt/pick.py)
-                if heard is not None:
-                    heard(ev.item.text_content or "")
             if ev.item.role in ("user", "assistant"):
                 m = ev.item.metrics or {}
                 record.event("said", who="wearer" if ev.item.role == "user" else "voice", text=ev.item.text_content,
