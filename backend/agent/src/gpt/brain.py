@@ -70,6 +70,7 @@ import base64
 import io
 import json
 import logging
+import re
 import time
 from dataclasses import dataclass, field
 
@@ -143,6 +144,11 @@ TOOLS = [SET_PROGRESS, TELL, SAY, SHOW]  # the same for every look, so the cache
 
 # how a line of the chat history is labelled in a look's message
 WHO = {"user": "User", "assistant": "Assistant"}
+
+# The voice saying it is looking, in the words its personas give it and the ones GPT-Live makes of them: the question is
+# with the brain, and the glasses show the brain at work (Brain.voice_now) until the brain's next line.
+HANDOFF = re.compile(r"\blet me (take a |have a )?(look|see|check)\b|\bi'?m (just )?looking\b|\bi'?ll (take a |have a )?look\b", re.I)
+DEFER_MAX_S = 20.0  # the longest the glasses show the brain at work after a hand-off with no line from it
 
 
 # the result of a tool call the look did not get to carry out (the call ended while it was being done)
@@ -353,7 +359,9 @@ class Brain:
         self._moved = False  # the look being carried out moved the progress: its line cuts into the voice's speech
         self._looks: list[Look] = []  # the conversation: every look the model answered, in order
         self._seen: set[str] = set()  # ids of the chat history items already in a kept look
-        self.voice_now = ""  # what the voice is saying at this moment (agent.py feeds the transcript deltas), until its line is in the history
+        self._voice_now = ""  # what the voice is saying at this moment (agent.py feeds the transcript deltas), until its line is in the history
+        self._deferred = False  # the voice has said it is looking, and the glasses show the brain at work until its next line
+        self._defer_clear: asyncio.Task | None = None
         self._pending: str | None = None  # handed-over words put in a look before the history had them (replays only)
         self._turn = asyncio.Lock()  # one look is built, sent and kept at a time
         self._asks = 0  # hand-overs GPT-Live made all the same, each closed at once
@@ -368,6 +376,38 @@ class Brain:
     @property
     def instructions(self) -> str:
         return self._instructions
+
+    @property
+    def voice_now(self) -> str:
+        return self._voice_now
+
+    @voice_now.setter
+    def voice_now(self, text: str) -> None:
+        """What the voice is saying, from gpt/agent.py's transcript deltas, cleared when the turn is in the history. The
+        moment the voice says it is looking (HANDOFF, "Let me look."), the user's question is with the brain, and the
+        glasses are told so (`rayneo.agent` "looking n", the blue running light, AgentDots.kt) until the brain's next
+        line goes out; before 2026-11-09 the dots sat idle through those two to three seconds, which the user read as
+        nothing happening."""
+        self._voice_now = text
+        if text and not self._deferred and HANDOFF.search(text):
+            self._defer(True)
+
+    def _defer(self, on: bool) -> None:
+        """The glasses show the brain at work, or stop showing it; left on, it clears itself after DEFER_MAX_S."""
+        if on == self._deferred:
+            return
+        self._deferred = on
+        if self._defer_clear is not None:
+            self._defer_clear.cancel()
+            self._defer_clear = None
+        build = self._build
+        build.act_now("looking" if on else "")
+        asyncio.create_task(publish_build(build), name="defer_publish")
+        if on:
+            async def clear() -> None:
+                await asyncio.sleep(DEFER_MAX_S)
+                self._defer(False)
+            self._defer_clear = asyncio.create_task(clear(), name="defer_clear")
 
     # ------------------------------------------------------------------ watch
 
@@ -437,6 +477,8 @@ class Brain:
         speak = await self._carry_out(look, calls, "watch", w)
         if now and not self._moved:
             await publish_build(build)
+        if speak and self._deferred:
+            self._defer(False)  # the answer the voice waited for goes out with this look
         if speak:
             line = " ".join(speak)
             speaking = self._session.agent_state == "speaking"
@@ -462,6 +504,7 @@ class Brain:
         self._asks += 1
         words = d.pending_transcript.strip()  # the turn not yet in the history; often empty
         logger.info("delegation: %s #%d closed at once, user: %s", d.id, self._asks, words or "(no words came with it)")
+        self._defer(True)  # a hand-over is the voice waiting on the brain too
         self._record.event("delegation", n=self._asks, id=d.id, words=words)
         text = handed_back(self._last_line)
         self._record.event("commentary", n=self._asks, id=d.id, text=text,

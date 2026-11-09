@@ -6,7 +6,9 @@ backend/agent. load_guide refuses a guide whose pictures are missing, so a forgo
 not in a call.
 
 A picture is the build seen from above at step n, as tasks/sheet.html draws it: the plate as a grid of studs, the bricks
-of steps 1 to n in their colours, the brick of step n with a white edge, the bricks still to come left out. For a trial of
+of steps 1 to n in their colours, the brick of step n in an orange frame drawn around it, outside its edge, so the brick
+keeps its whole colour (a white edge drawn inside the brick made a white brick unreadable and two touching marked bricks
+one shape, the user's finding of 2026-11-09), the bricks still to come left out. For a trial of
 the placement game (guide.game, gpt/place.py) it is the anchor brick and the round's target alone, outlined, since the
 movable brick is lifted between rounds. The plate is
 dark grey, not green: the glasses' display is additive, so a bright plate would be a lamp in the wearer's eye and the
@@ -26,7 +28,7 @@ from guide import Guide, load_guide  # noqa: E402
 SIDE = 432  # px; the glasses show the picture in a 216 px square, so this is two pixels per pixel shown
 PLATE = (0x1C, 0x1C, 0x1C)
 STUD = (0x33, 0x33, 0x33)
-EDGE = (0xFF, 0xFF, 0xFF)
+FRAME = (0xFF, 0x91, 0x00)  # the frame around a marked brick: orange, a colour no brick of the kit has
 OVERSAMPLE = 4
 
 
@@ -46,6 +48,7 @@ def render(guide: Guide, step: int, side: int = SIDE, outlined: set[int] | None 
         bricks.append((guide.steps[step - 1], True))
     else:
         bricks += [(b, i in outlined) for i, b in enumerate(guide.steps[:step], 1)]
+    frames = []  # the marked bricks' frames, drawn after every brick so that no brick covers one
     for b, outlined in bricks:
         col0, row0, col1, row1 = b.cells
         x0, y0 = (col0 - 1) * cell, (row0 - 1) * cell
@@ -64,14 +67,15 @@ def render(guide: Guide, step: int, side: int = SIDE, outlined: set[int] | None 
                     continue  # on a round plate the corner studs are outside the disc
                 _disc(d, sx, sy, cell * 0.22, stud)
         if outlined:
-            # The outline runs inside the brick, two strokes in from its edge, so two outlined bricks that touch (a
-            # batch of game B) show two outlines with a band of brick between them and not one merged line.
-            width = round(px * 2 / 216)  # 2 dp of the glasses' 216 dp square
-            m = 2 * width
-            if b.round:
-                d.ellipse([cx - radius + m, cy - radius + m, cx + radius - m, cy + radius - m], outline=EDGE, width=width)
-            else:
-                d.rectangle([x0 + m, y0 + m, x0 + w - m, y0 + h - m], outline=EDGE, width=width)
+            frames.append((b.round, x0, y0, w, h, cx, cy, radius))
+    # The frame sits just outside the brick's edge, 3 dp wide, so the brick keeps its whole colour; two marked bricks
+    # that touch (a batch of game B) share the line between them and still read as two.
+    width = round(px * 3 / 216)  # 3 dp of the glasses' 216 dp square
+    for is_round, x0, y0, w, h, cx, cy, radius in frames:
+        if is_round:
+            d.ellipse([cx - radius - width, cy - radius - width, cx + radius + width, cy + radius + width], outline=FRAME, width=width)
+        else:
+            d.rectangle([x0 - width, y0 - width, x0 + w + width, y0 + h + width], outline=FRAME, width=width)
     return img.resize((side, side), Image.LANCZOS)
 
 
