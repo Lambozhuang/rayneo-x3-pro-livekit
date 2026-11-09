@@ -4,19 +4,22 @@ figure on the glasses, then asks the agent what it sees, then which brick they p
     ReportGame --the figure's picture (figure.png) and the hint line--> the glasses (Build.picture, Build.hint)
     wearer builds; the brain watches as in a build and says nothing unasked
     wearer --"what do you see?"--> GPT-Live says "Let me look." and hands the question over; the hand-over stays open
-        (Brain answer_delegations) and the brain's next look, sent at once, answers with say: every brick on the plate,
-        its colour, size and place, in its own words --> the line goes back as the hand-over's reply and GPT-Live reads
-        it out --> ReportGame.on_say: the hint asks for the second question
-    wearer --"which brick did I place first?"--> the brain's say, from what it saw while the user built --> ReportGame.on_say:
-        the trial is finished, and the call ends as a finished build's does (gpt/agent.py: the voice's silence, then Build.over)
+        (Brain answer_delegations) and the brain's next look, sent at once, answers with say, tagged what_is_on_the_plate:
+        every brick on the plate, its colour, size and place, in its own words --> the line goes back as the hand-over's
+        reply and GPT-Live reads it out --> ReportGame.on_say: the hint asks for the second question
+    wearer --"which brick did I place first?"--> the brain's say, tagged which_brick_was_placed_first, from what it saw
+        while the user built --> ReportGame.on_say: the trial is finished, and the call ends as a finished build's does
+        (gpt/agent.py: the voice's silence, then Build.over); a say tagged something_else changes nothing
 
 The agent does not know the sheet: the brain gets no task text, only that the user builds from a picture it cannot see.
 The brain's conversation runs through the trial. The second line does not run, there being no step's brick to read. The
-brain's first line is taken as the description and its second as the answer about the first brick, whatever the user
-asked; a line that answers something else counts all the same, and the console's time limit is the backstop (the user's
-rule of 2026-11-10: no special cases). The record has the questions (`said` by the wearer, with their ends), the looks
-(`watch_sent` with the saved frames), the answers (`say`, `commentary`, `voice_delta` for the first spoken word), `report`
-for each of the brain's lines (`answer` "description" or "first") and `hint` for each hint. The spec is the study's game-spec.md, outside the repo, revised
+brain says with every line which question it answers (the say tool's `answering`, brain.py SAY_ANSWERING): a line
+answering what_is_on_the_plate moves the hint to the second question, one answering which_brick_was_placed_first
+finishes the trial, and something_else changes nothing; nothing of the user's speech is read, and a line the brain tags
+wrong leaves the trial to the console's time limit (the user's rule of 2026-11-10, the one change after the freeze).
+The record has the questions (`said` by the wearer, with their ends), the looks (`watch_sent` with the saved frames),
+the answers (`say` with `answering`, `commentary`, `voice_delta` for the first spoken word), `report` for each of the
+brain's lines (`answer` as the brain tagged it) and `hint` for each hint. The spec is the study's game-spec.md, outside the repo, revised
 after the first lab pilot of 2026-11-10; the batches and the "next" of 2026-11-09 are gone.
 """
 
@@ -36,13 +39,13 @@ HINT_FIRST = "When it has finished, ask the agent which brick you placed first."
 
 
 class ReportGame:
-    """Shows the figure and counts the brain's lines; the brain inside does the looking and the answers. Stands where
-    the brain stands for gpt/agent.py (start_watching, stop_watching, voice_now, on_delegation, instructions) and
-    passes those on."""
+    """Shows the figure and follows the brain's lines by what they answer; the brain inside does the looking and the
+    answers. Stands where the brain stands for gpt/agent.py (start_watching, stop_watching, voice_now, on_delegation,
+    instructions) and passes those on."""
 
     def __init__(self, brain: Brain, build: Build, record: RunLog) -> None:
         self._brain, self._build, self._record = brain, build, record
-        self._said = 0  # lines the brain has given the voice: the first is the description, the second the first brick
+        self._said = 0  # lines the brain has given the voice, for the record
         brain.on_say = self._reported
 
     @property
@@ -79,21 +82,23 @@ class ReportGame:
         self._record.event("hint", text=build.hint)
         logger.info("report: the figure of %s is on the glasses", build.guide.name)
 
-    async def _reported(self, line: str) -> None:
-        """The brain gave the voice a line: the first is the description, after which the hint asks which brick was
-        placed first; the second is that answer, which finishes the trial. Nothing slow may be awaited here: the brain's
-        look has BRAIN_TIMEOUT seconds in all."""
+    async def _reported(self, line: str, answering: str | None) -> None:
+        """The brain gave the voice a line and said what it answers: the description of the plate moves the hint to the
+        second question; the answer about the first brick finishes the trial; anything else changes nothing. Nothing slow
+        may be awaited here: the brain's look has BRAIN_TIMEOUT seconds in all."""
         build = self._build
         self._said += 1
-        done = self._said >= 2
-        if done:
+        done = False
+        if answering == "which_brick_was_placed_first" and not build.finished:
+            done = True
             build.step, build.span = len(build.guide.steps), 1  # finished: gpt/agent.py ends the call once the voice is quiet
             build.hint = ""
             self._record.event("build", finished=True, took_s=round(time.monotonic() - build.started, 1))
             logger.info("report: the first brick is answered; the trial is done")
-        else:
+            await publish_build(build)
+        elif answering == "what_is_on_the_plate" and build.hint != HINT_FIRST and not build.finished:
             build.hint = HINT_FIRST
             self._record.event("hint", text=build.hint)
-        await publish_build(build)
+            await publish_build(build)
         # `answer`, not `kind`: RunLog.event's first parameter is `kind`, and a `kind=` here raised a TypeError (2026-11-10)
-        self._record.event("report", n=self._said, answer="first" if done else "description", text=line, finished=done)
+        self._record.event("report", n=self._said, answer=answering, text=line, finished=done)

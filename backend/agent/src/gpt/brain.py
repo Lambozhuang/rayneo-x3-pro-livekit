@@ -140,6 +140,18 @@ SHOW = (
                                                "description": "the step's number as the user counts them, from "
                                                               "1; 0 takes the picture away"}},
      "required": ["step"], "additionalProperties": False})
+# Game B's say (gpt/report.py): the same line to the user, with `answering` naming which of the user's two questions it
+# answers, so the game moves on the brain's own word and reads nothing of the user's speech (the user's rule, 2026-11-10).
+ANSWERING = ("what_is_on_the_plate", "which_brick_was_placed_first", "something_else")
+SAY_ANSWERING = (
+    "say",
+    "Has the assistant tell the user something now, in its own words: the answer to what they asked. answering says which "
+    "question this line answers: what_is_on_the_plate for the description of the bricks on the plate, "
+    "which_brick_was_placed_first for the brick that came first, something_else for anything else.",
+    {"type": "object", "properties": {"text": {"type": "string", "description": "plain sentences, complete"},
+                                      "answering": {"type": "string", "enum": list(ANSWERING),
+                                                    "description": "which of the user's questions this line answers"}},
+     "required": ["text", "answering"], "additionalProperties": False})
 TOOLS = [SET_PROGRESS, TELL, SAY, SHOW]  # the same for every look, so the cached prefix holds
 
 # how a line of the chat history is labelled in a look's message
@@ -356,7 +368,8 @@ class Brain:
         self._watch_every = watch_every
         self._instructions = instructions or brain_instructions(build.guide, language, confirms_bricks)
         self._tools = tools or TOOLS
-        self.on_say = None  # an async callable a game sets to hear every line the brain gives the voice (gpt/report.py)
+        self.on_say = None  # an async callable(line, answering) a game sets to hear every line the brain gives the voice (gpt/report.py)
+        self._answering: str | None = None  # the `answering` of the say call the look being carried out made (SAY_ANSWERING)
         # With `answer_delegations` a hand-over GPT-Live makes stays open until this brain's next line, which goes back as
         # the hand-over's reply, so the voice waits instead of answering from its own head; a build closes hand-overs at
         # once (on_delegation). `_open` is the hand-over waiting for a line.
@@ -483,6 +496,7 @@ class Brain:
         elif build.act.startswith("looking"):
             build.act_now("")
             await publish_build(build)
+        self._answering = None
         text, calls, look = await self._look_once("watch", w, self._watch_side, None, self._tools)
         if now:
             build.act_now("")  # _move publishes it with the step; without a move it goes below
@@ -512,7 +526,7 @@ class Brain:
                 duplex.append_commentary(line)
             self._moved = False
             if self.on_say is not None:
-                await self.on_say(line)
+                await self.on_say(line, self._answering)
 
     # ------------------------------------------------------------------ hand-overs
 
@@ -674,10 +688,14 @@ class Brain:
                 # runs, and the repeats they held were asked for by the prompt itself, which now says a thing once.
                 said = " ".join(str(args.get("text") or "").split())
                 waiting = args.get("kind") == "waiting"
+                answering = args.get("answering")  # game B's say names the question it answers (SAY_ANSWERING)
                 if not said:
                     result, line = "Ignored: nothing to say.", None
                 else:
-                    self._record.event("say", **{"w" if kind == "watch" else "n": n}, text=said, say_kind="waiting" if waiting else "news")
+                    self._record.event("say", **{"w" if kind == "watch" else "n": n}, text=said,
+                                       say_kind="waiting" if waiting else "news", answering=answering)
+                    if answering and self._answering is None:
+                        self._answering = answering
                     result, line = "The assistant says it.", said
             elif name == "tell":
                 told = " ".join(str(args.get("text") or "").split())

@@ -49,7 +49,7 @@ from livekit.agents.metrics import RealtimeModelMetrics
 from camera import watch_camera
 from env import language, require_env
 from frames import FrameTap
-from gpt.brain import SAY, TELL, TOOLS, Brain, make_model
+from gpt.brain import SAY, SAY_ANSWERING, TELL, TOOLS, Brain, make_model
 from gpt.config import Settings, build_live_model
 from gpt.moments import Moments
 from gpt.place import PlaceGame
@@ -102,7 +102,7 @@ async def rayneo_assistant(ctx: JobContext) -> None:
         # does not know the sheet), and the game shows the batches and hears the voice's sentence for the next one.
         brain = ReportGame(Brain(session, build, tap, model, settings.brain_effort, settings.brain_watch_side,
                                  settings.brain_watch_every, lang, settings.brain_timeout, record,
-                                 instructions=report_brain(guide, lang), tools=[TELL, SAY], answer_delegations=True),
+                                 instructions=report_brain(guide, lang), tools=[TELL, SAY_ANSWERING], answer_delegations=True),
                            build, record)
     elif game == "free":
         brain = Brain(session, build, tap, model, settings.brain_effort, settings.brain_watch_side,
