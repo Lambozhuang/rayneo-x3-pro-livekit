@@ -104,8 +104,8 @@ fun PhaseHint(phase: Phase, modifier: Modifier = Modifier) {
 
 /**
  * The agent's line for the wearer, what to do now (`rayneo.hint`, BuildProgress.hint; the games of the user study use
- * it, gpt/place.py), across the eye right under the band: white, 24 sp, up to two lines, since the longest hint of game
- * B runs to 81 characters and one line at this size holds about 50. The wearer has just looked at the picture in the
+ * it, gpt/place.py), across the eye right under the band: 22 sp, up to three lines, since the longest hint of game B
+ * runs to 107 characters and one line at this size holds about 50. The wearer has just looked at the picture in the
  * band's square, so the line sits where their eyes go next. It was above the dots at 20 sp in grey until 2026-11-08,
  * when the first home run of game B showed it was missed there. Nothing when the agent has published no hint, and
  * nothing while the phase has words of its own (CallLayout), since those sit just below and matter more.
@@ -119,7 +119,7 @@ fun AgentHint(text: String, modifier: Modifier = Modifier) {
         fontSize = 22.sp,
         lineHeight = 28.sp,
         fontWeight = FontWeight.Medium,
-        maxLines = 2,
+        maxLines = 3,
         overflow = TextOverflow.Ellipsis,
         textAlign = TextAlign.Center,
         modifier = modifier.border(2.dp, HINT_GREEN, RoundedCornerShape(8.dp)).padding(horizontal = 14.dp, vertical = 6.dp),
