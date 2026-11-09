@@ -142,12 +142,12 @@ SHOW = (
      "required": ["step"], "additionalProperties": False})
 # Game B's say (gpt/report.py): the same line to the user, with `answering` naming which of the user's two questions it
 # answers, so the game moves on the brain's own word and reads nothing of the user's speech (the user's rule, 2026-11-10).
-ANSWERING = ("what_is_on_the_plate", "which_brick_was_placed_first", "something_else")
+ANSWERING = ("what_is_on_the_plate", "in_what_order_were_the_bricks_placed", "something_else")
 SAY_ANSWERING = (
     "say",
     "Has the assistant tell the user something now, in its own words: the answer to what they asked. answering says which "
     "question this line answers: what_is_on_the_plate for the description of the bricks on the plate, "
-    "which_brick_was_placed_first for the brick that came first, something_else for anything else.",
+    "in_what_order_were_the_bricks_placed for the order in which the bricks appeared, something_else for anything else.",
     {"type": "object", "properties": {"text": {"type": "string", "description": "plain sentences, complete"},
                                       "answering": {"type": "string", "enum": list(ANSWERING),
                                                     "description": "which of the user's questions this line answers"}},

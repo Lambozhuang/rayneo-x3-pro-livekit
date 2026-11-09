@@ -1,5 +1,5 @@
 """Game B of the user study, "build and report": the user builds one of the sheets in one go from a picture of the whole
-figure on the glasses, then asks the agent what it sees, then which brick they placed first.
+figure on the glasses, then asks the agent what it sees, then in what order they placed the bricks.
 
     ReportGame --the figure's picture (figure.png) and the hint line--> the glasses (Build.picture, Build.hint)
     wearer builds; the brain watches as in a build and says nothing unasked
@@ -7,17 +7,21 @@ figure on the glasses, then asks the agent what it sees, then which brick they p
         (Brain answer_delegations) and the brain's next look, sent at once, answers with say, tagged what_is_on_the_plate:
         every brick on the plate, its colour, size and place, in its own words --> the line goes back as the hand-over's
         reply and GPT-Live reads it out --> ReportGame.on_say: the hint asks for the second question
-    wearer --"which brick did I place first?"--> the brain's say, tagged which_brick_was_placed_first, from what it saw
-        while the user built --> ReportGame.on_say: the trial is finished, and the call ends as a finished build's does
-        (gpt/agent.py: the voice's silence, then Build.over); a say tagged something_else changes nothing
+    wearer --"in what order did I place the bricks?"--> the brain's say, tagged in_what_order_were_the_bricks_placed,
+        from what it saw while the user built, bricks that came in one look said to have appeared together
+        --> ReportGame.on_say: the trial is finished, and the call ends as a finished build's does (gpt/agent.py: the
+        voice's silence, then Build.over); a say tagged something_else changes nothing
 
 The agent does not know the sheet: the brain gets no task text, only that the user builds from a picture it cannot see.
 The brain's conversation runs through the trial. The second line does not run, there being no step's brick to read. The
 brain says with every line which question it answers (the say tool's `answering`, brain.py SAY_ANSWERING): a line
-answering what_is_on_the_plate moves the hint to the second question, one answering which_brick_was_placed_first
+answering what_is_on_the_plate moves the hint to the second question, one answering in_what_order_were_the_bricks_placed
 finishes the trial, and something_else changes nothing; nothing of the user's speech is read, and a line the brain tags
-wrong leaves the trial to the console's time limit (the user's rule of 2026-11-10, the one change after the freeze).
-The record has the questions (`said` by the wearer, with their ends), the looks (`watch_sent` with the saved frames),
+wrong leaves the trial to the console's time limit (the user's rule of 2026-11-10). The description leaves the order
+out, which is the second question's answer. The brain's tell tool is not in this game (gpt/agent.py): the voice hears
+nothing but the say lines, each the reply to its hand-over; in the run of 2026-11-10 14:49 a tell about the first brick
+had reached it before the question was asked, and it answered from that without the brain's say, which is what ends
+the trial. The record has the questions (`said` by the wearer, with their ends), the looks (`watch_sent` with the saved frames),
 the answers (`say` with `answering`, `commentary`, `voice_delta` for the first spoken word), `report` for each of the
 brain's lines (`answer` as the brain tagged it) and `hint` for each hint. The spec is the study's game-spec.md, outside the repo, revised
 after the first lab pilot of 2026-11-10; the batches and the "next" of 2026-11-09 are gone.
@@ -35,7 +39,7 @@ logger = logging.getLogger("rayneo-agent.report")
 
 # The hint line, one text for the build and one after the first answer (the user's wording of 2026-11-09 and 11-10).
 HINT_BUILD = "Build the figure in the picture, then ask the agent what it sees."
-HINT_FIRST = "When it has finished, ask the agent which brick you placed first."
+HINT_ORDER = "When it has finished, ask the agent in what order you placed the bricks."
 
 
 class ReportGame:
@@ -84,20 +88,20 @@ class ReportGame:
 
     async def _reported(self, line: str, answering: str | None) -> None:
         """The brain gave the voice a line and said what it answers: the description of the plate moves the hint to the
-        second question; the answer about the first brick finishes the trial; anything else changes nothing. Nothing slow
+        second question; the answer about the order finishes the trial; anything else changes nothing. Nothing slow
         may be awaited here: the brain's look has BRAIN_TIMEOUT seconds in all."""
         build = self._build
         self._said += 1
         done = False
-        if answering == "which_brick_was_placed_first" and not build.finished:
+        if answering == "in_what_order_were_the_bricks_placed" and not build.finished:
             done = True
             build.step, build.span = len(build.guide.steps), 1  # finished: gpt/agent.py ends the call once the voice is quiet
             build.hint = ""
             self._record.event("build", finished=True, took_s=round(time.monotonic() - build.started, 1))
-            logger.info("report: the first brick is answered; the trial is done")
+            logger.info("report: the order is answered; the trial is done")
             await publish_build(build)
-        elif answering == "what_is_on_the_plate" and build.hint != HINT_FIRST and not build.finished:
-            build.hint = HINT_FIRST
+        elif answering == "what_is_on_the_plate" and build.hint != HINT_ORDER and not build.finished:
+            build.hint = HINT_ORDER
             self._record.event("hint", text=build.hint)
             await publish_build(build)
         # `answer`, not `kind`: RunLog.event's first parameter is `kind`, and a `kind=` here raised a TypeError (2026-11-10)
