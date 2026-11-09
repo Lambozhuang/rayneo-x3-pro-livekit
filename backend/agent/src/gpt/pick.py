@@ -1,5 +1,5 @@
-"""Game A of the user study, "pick the brick": a tray of seven 2x4 bricks of seven hues, the agent names a colour, the
-user holds that brick up, the Decisions line says whether it is the one, six times; then the user asks which bricks they
+"""Game A of the user study, "pick the brick": a tray of six 2x4 bricks of six hues, the agent names a colour, the user
+holds that brick up, the Decisions line says whether it is the one, four times; then the user asks which bricks they
 picked and the voice answers from the conversation.
 
     PickGame --"Pick up the red brick."--> GPT-Live says it                       (record: name)
@@ -10,14 +10,17 @@ picked and the voice answers from the conversation.
             Build.act_now("yes" | "not") to the glasses (the dots flash green or red)        (record: pick_verdict)
             "That's the red one." | "That's not the red one." to GPT-Live, which says it
         --the hand empty for AGREE frames--> the next colour
-    after the sixth: the hint "Now ask the agent which bricks you picked" (Build.hint); the user's next turn finishes the
-    build, the voice answers from what it said, and the call ends as a finished build's does (gpt/agent.py)
+    the hint line says what to do while the picks run (HINT_PICK, Build.hint); after the last pick it says to ask which
+    bricks were picked; the user's next turn finishes the build, the voice answers from what it said, and the call ends
+    as a finished build's does (gpt/agent.py)
 
 The agent paces the trial and the brain does not run: there is nothing to judge but the brick in the hand, which the
 Decisions line reads in under a second, so the delay the block adds shows in the time from the pick-up to the flash and
 to the voice. A brick held for HELD_MAX_S without a verdict is "none": the voice says it cannot tell and asks for it to be
 put back, and the game moves on. The trial files are guides/a-1 to a-6 (game = "pick", a step per pick with the brick's
-colour, numbers 201 to 206); the spec is the study's game-spec.md, outside the repo (2026-11-08, built 2026-11-09).
+colour, numbers 201 to 206), four picks each from the six colours, no two trials the same four or the same order; the
+spec is the study's game-spec.md, outside the repo (2026-11-08, built 2026-11-09, four picks and six colours from the
+user's first runs the same night).
 
 The class stands where the brain stands for gpt/agent.py (start_watching, stop_watching, voice_now, on_delegation,
 instructions) and hears the wearer's turns (wearer_said) for the question at the end.
@@ -42,9 +45,12 @@ from runlog import RunLog
 
 logger = logging.getLogger("rayneo-agent.pick")
 
-# The tray's seven colours, one 2x4 brick each (the study's game-spec.md); a trial names six of them.
-TRAY = ("red", "blue", "green", "purple", "pink", "white", "light grey")
-HINT_ASK = "Now ask the agent which bricks you picked"
+# The tray's six colours, one 2x4 brick each (the study's game-spec.md; green went on 2026-11-09, the kit's green being
+# a teal that misleads); a trial names four of them.
+TRAY = ("red", "blue", "purple", "pink", "white", "light grey")
+# The hint line: one text through the picks, then the question (Lambo's wording, 2026-11-09).
+HINT_PICK = "Listen for the colour, pick that brick up and hold it up. Put it back once the agent has confirmed it."
+HINT_ASK = "Now ask the agent which bricks you picked."
 HELD_MAX_S = 5.0  # a brick held this long without a verdict is "none"
 PAUSE_S = 1.0  # between the hand reading empty and the next colour named
 START_WAIT_S = 6.0  # the most the first colour waits for the greeting to be said
@@ -152,6 +158,7 @@ class PickGame:
         try:
             await self._wait_quiet(START_WAIT_S)
             build = self._build
+            build.hint = HINT_PICK
             for i, step in enumerate(build.guide.steps):
                 colour = _colour(step.brick)
                 build.step = i
