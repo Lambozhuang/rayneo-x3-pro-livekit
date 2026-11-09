@@ -149,6 +149,7 @@ WHO = {"user": "User", "assistant": "Assistant"}
 # with the brain, and the glasses show the brain at work (Brain.voice_now) until the brain's next line.
 HANDOFF = re.compile(r"\blet me (take a |have a )?(look|see|check)\b|\bi'?m (just )?looking\b|\bi'?ll (take a |have a )?look\b", re.I)
 DEFER_MAX_S = 20.0  # the longest the glasses show the brain at work after a hand-off with no line from it
+CANNOT_SEE = "I can't see that clearly right now."  # closes a hand-over whose look failed or timed out (answer_delegations)
 
 
 # the result of a tool call the look did not get to carry out (the call ended while it was being done)
@@ -341,7 +342,7 @@ class Brain:
     def __init__(self, session: AgentSession, build: Build, tap: FrameTap, model, effort: str,
                  watch_side: int, watch_every: float, language: str, timeout: float = 12.0,
                  record: RunLog | None = None, confirms_bricks: bool = False, instructions: str | None = None,
-                 tools: list | None = None) -> None:
+                 tools: list | None = None, answer_delegations: bool = False) -> None:
         """`instructions` and `tools` replace the build's (brain_instructions, TOOLS) for a session that is not a build,
         such as free play (gpt/prompts.py free_brain, tell and say only); `confirms_bricks` is the build's choice."""
         self._timeout = timeout
@@ -356,6 +357,11 @@ class Brain:
         self._instructions = instructions or brain_instructions(build.guide, language, confirms_bricks)
         self._tools = tools or TOOLS
         self.on_say = None  # an async callable a game sets to hear every line the brain gives the voice (gpt/report.py)
+        # With `answer_delegations` a hand-over GPT-Live makes stays open until this brain's next line, which goes back as
+        # the hand-over's reply, so the voice waits instead of answering from its own head; a build closes hand-overs at
+        # once (on_delegation). `_open` is the hand-over waiting for a line.
+        self._answer_delegations = answer_delegations
+        self._open = None
         self._moved = False  # the look being carried out moved the progress: its line cuts into the voice's speech
         self._looks: list[Look] = []  # the conversation: every look the model answered, in order
         self._seen: set[str] = set()  # ids of the chat history items already in a kept look
@@ -456,6 +462,12 @@ class Brain:
         except Exception as e:
             logger.warning("watch: #%d failed (%s: %s)", w, type(e).__name__, str(e)[:200])
             self._record.event("watch_failed", w=w, error=f"{type(e).__name__}: {e}"[:500])
+            if self._open is not None:
+                # the look the open hand-over waited on failed or timed out: it is closed with that, so the voice is not left waiting
+                open_, self._open = self._open, None
+                self._record.event("commentary", w=w, id=open_.id, text=CANNOT_SEE, voice_speaking=self._session.agent_state == "speaking")
+                self._session.current_agent.duplex_session.append_commentary(CANNOT_SEE, delegation_id=open_.id)
+                self._defer(False)
 
     async def _watch_look(self, w: int) -> None:
         """One watch look and what comes of it: the reply stays in the brain's conversation; a tell goes to GPT-Live
@@ -483,29 +495,49 @@ class Brain:
             line = " ".join(speak)
             speaking = self._session.agent_state == "speaking"
             duplex = self._session.current_agent.duplex_session
-            if speaking and self._moved:
-                # the step done or the build finished must not queue behind the voice's turn and the lines before it:
-                # pilot 4 had the voice relay an old "hand still on it" for 4 s after the brain recorded the last step
-                self._record.event("cut_in", w=w, text=line)
-                duplex.append_instructions(CUT_IN)
+            open_ = self._open
+            if open_ is not None:
+                # The line answers the hand-over the voice is waiting on: it goes back as that hand-over's reply, and
+                # the voice, which held its turn for it, says it (the games of the user study, 2026-11-10).
+                self._open = None
+                self._record.event("commentary", w=w, id=open_.id, text=line, voice_speaking=speaking)
+                duplex.append_commentary(line, delegation_id=open_.id)
+            else:
+                if speaking and self._moved:
+                    # the step done or the build finished must not queue behind the voice's turn and the lines before it:
+                    # pilot 4 had the voice relay an old "hand still on it" for 4 s after the brain recorded the last step
+                    self._record.event("cut_in", w=w, text=line)
+                    duplex.append_instructions(CUT_IN)
+                self._record.event("commentary", w=w, id=None, text=line, voice_speaking=speaking)
+                duplex.append_commentary(line)
             self._moved = False
-            self._record.event("commentary", w=w, id=None, text=line, voice_speaking=speaking)
-            duplex.append_commentary(line)
             if self.on_say is not None:
                 await self.on_say(line)
 
     # ------------------------------------------------------------------ hand-overs
 
     def on_delegation(self, d) -> None:
-        """GPT-Live handed the user's words over although its prompt tells it not to: close the hand-over at once
-        with the last line again (handed_back), so it answers from what it has been told, and count it. No request is made and the watch
-        is not touched; the words it came with go into the record, since the next watch look reads them from the
-        history anyway."""
+        """GPT-Live handed the user's words over. In a build, where its prompt tells it not to, the hand-over is closed
+        at once with the last line again (handed_back), so it answers from what it has been told; no request is made and
+        the watch is not touched, since the next watch look reads the words from the history anyway. With
+        `answer_delegations` (the games) the hand-over stays open and the next look goes out at once: its line comes back
+        as the hand-over's reply (_watch_look), and a failed look closes it with CANNOT_SEE (_watch). While a hand-over is
+        open the voice holds its turn, which is what keeps it from answering an eyes question from its own head (the
+        runs of 2026-11-10: "On the baseplate, a red 2 by 4 plate..." before any line had come). A second hand-over while
+        one is open replaces it; the earlier one is closed with the same line when it comes."""
         self._asks += 1
         words = d.pending_transcript.strip()  # the turn not yet in the history; often empty
-        logger.info("delegation: %s #%d closed at once, user: %s", d.id, self._asks, words or "(no words came with it)")
         self._defer(True)  # a hand-over is the voice waiting on the brain too
-        self._record.event("delegation", n=self._asks, id=d.id, words=words)
+        self._record.event("delegation", n=self._asks, id=d.id, words=words, kept_open=self._answer_delegations)
+        if self._answer_delegations:
+            if self._open is not None:
+                stale, self._open = self._open, None
+                self._session.current_agent.duplex_session.append_commentary(handed_back(None), delegation_id=stale.id)
+            self._open = d
+            self._wake.set()  # the next look now, not at the next tick
+            logger.info("delegation: %s #%d kept open for the brain's next line, user: %s", d.id, self._asks, words or "(no words came with it)")
+            return
+        logger.info("delegation: %s #%d closed at once, user: %s", d.id, self._asks, words or "(no words came with it)")
         text = handed_back(self._last_line)
         self._record.event("commentary", n=self._asks, id=d.id, text=text,
                            voice_speaking=self._session.agent_state == "speaking")

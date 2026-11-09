@@ -3,9 +3,10 @@ figure on the glasses, then asks the agent what it sees, then which brick they p
 
     ReportGame --the figure's picture (figure.png) and the hint line--> the glasses (Build.picture, Build.hint)
     wearer builds; the brain watches as in a build and says nothing unasked
-    wearer --"what do you see?"--> GPT-Live says "Let me look." --> the brain's next watch look reads the question in the
-        history and answers with say: every brick on the plate, its colour, size and place, in its own words
-        --> GPT-Live reads it out --> ReportGame.on_say: the hint asks for the second question
+    wearer --"what do you see?"--> GPT-Live says "Let me look." and hands the question over; the hand-over stays open
+        (Brain answer_delegations) and the brain's next look, sent at once, answers with say: every brick on the plate,
+        its colour, size and place, in its own words --> the line goes back as the hand-over's reply and GPT-Live reads
+        it out --> ReportGame.on_say: the hint asks for the second question
     wearer --"which brick did I place first?"--> the brain's say, from what it saw while the user built --> ReportGame.on_say:
         the trial is finished, and the call ends as a finished build's does (gpt/agent.py: the voice's silence, then Build.over)
 
@@ -15,7 +16,7 @@ brain's first line is taken as the description and its second as the answer abou
 asked; a line that answers something else counts all the same, and the console's time limit is the backstop (the user's
 rule of 2026-11-10: no special cases). The record has the questions (`said` by the wearer, with their ends), the looks
 (`watch_sent` with the saved frames), the answers (`say`, `commentary`, `voice_delta` for the first spoken word), `report`
-for each of the brain's lines (`kind` "description" or "first") and `hint` for each hint. The spec is the study's game-spec.md, outside the repo, revised
+for each of the brain's lines (`answer` "description" or "first") and `hint` for each hint. The spec is the study's game-spec.md, outside the repo, revised
 after the first lab pilot of 2026-11-10; the batches and the "next" of 2026-11-09 are gone.
 """
 
@@ -94,4 +95,5 @@ class ReportGame:
             build.hint = HINT_FIRST
             self._record.event("hint", text=build.hint)
         await publish_build(build)
-        self._record.event("report", n=self._said, kind="first" if done else "description", text=line, finished=done)
+        # `answer`, not `kind`: RunLog.event's first parameter is `kind`, and a `kind=` here raised a TypeError (2026-11-10)
+        self._record.event("report", n=self._said, answer="first" if done else "description", text=line, finished=done)
