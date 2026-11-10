@@ -487,13 +487,16 @@ class Brain:
         as thinking, a say and a progress moved as one commentary. A look called by look_now is shown on the glasses
         while it lasts (`rayneo.agent` reads "looking n", Build.act_now): set before the request, cleared with the
         verdict, in the message that moves the step when it does; a look that failed or was cancelled leaves it set,
-        and the next look clears it, or sets it anew when it is itself a look_now."""
+        and the next look clears it, or sets it anew when it is itself a look_now. While the voice has said it is
+        looking (`_deferred`) the next routine look leaves it: it stays until the brain's line for the voice goes out,
+        below, or until `_defer` clears it by itself; before 2026-11-10 that look cleared it at once, and the dots sat
+        idle until the report came."""
         build = self._build
         now = self._next is not None
         if now:
             build.act_now("looking")
             await publish_build(build)
-        elif build.act.startswith("looking"):
+        elif build.act.startswith("looking") and not self._deferred:
             build.act_now("")
             await publish_build(build)
         self._answering = None
