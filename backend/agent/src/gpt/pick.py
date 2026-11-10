@@ -17,10 +17,13 @@ conversation.
 The agent paces the trial and the brain does not run: there is nothing to judge but the brick in the hand, which the
 Decisions line reads in under a second, so the delay the block adds shows in the time from the pick-up to the flash and
 to the voice. A pick that never settles is not judged: no timer, no re-ask, the console's time limit ends the trial (the
-user's rule of 2026-11-09). After a verdict the next pick is judged only once the hand has read empty, so the brick
-still in the hand is not judged against the next colour. The trial files are guides/a-1 to a-6 (game = "pick", a step per
-pick with the brick's colour, numbers 201 to 206), two picks each; the spec is the study's game-spec.md, outside the
-repo, revised after the first lab pilot of 2026-11-09.
+user's rule of 2026-11-09). After a verdict the next pick is judged only once a frame no longer shows the brick just
+judged: the hand reads empty, or the colour read is none or another brick's; so the brick still in the hand is not judged
+against the next colour, and a brick swapped for another without the hand ever reading empty is judged all the same (in
+the run 20261110-152453 a white brick and then a blue one were held 15 s unjudged under the first rule, which waited for
+the empty hand alone). The hint line is on the glasses from the start of the trial, before the greeting. The trial files
+are guides/a-1 to a-6 (game = "pick", a step per pick with the brick's colour, numbers 201 to 206), two picks each; the
+spec is the study's game-spec.md, outside the repo, revised after the first lab pilot of 2026-11-09.
 
 The class stands where the brain stands for gpt/agent.py (start_watching, stop_watching, voice_now, on_delegation,
 instructions).
@@ -50,7 +53,8 @@ logger = logging.getLogger("rayneo-agent.pick")
 HUES = ("red", "blue", "purple", "pink", "white")
 HUE_WORD = re.compile(r"\b(" + "|".join(HUES) + r")\b", re.I)
 
-# The hint line: one text through the picks, then the question (the user's wording, 2026-11-09).
+# The hint line: one text from the start of the trial through the picks, then the question (the user's wording,
+# 2026-11-09).
 HINT_PICK = ("Listen for the colour, pick up that brick and hold it over the table where the camera can see it. "
              "Put it back once the agent has answered.")
 HINT_ASK = "Now ask the agent what colour the first brick you picked was."
@@ -108,7 +112,8 @@ class PickGame:
         self._asks = 0
         # the pick under way, written by the frame loop and read by the pacing loop
         self._n = 0  # requests made
-        self._armed = True  # the hand has read empty since the last verdict: the next brick held is this pick's
+        self._armed = True  # a frame since the last verdict no longer showed the brick judged: the next brick held is this pick's
+        self._judged = ""  # the colour read for the brick judged last, in the frame of its verdict
         self._recent: list[tuple[float, float, str]] = []  # the last AGREE readings
         self._held_at: float | None = None  # monotonic time the brick was first read as held in this pick
         self._verdict: tuple[str, str] | None = None  # (yes | no, the colour read) once this pick is settled
@@ -165,9 +170,10 @@ class PickGame:
     async def _run(self) -> None:
         frames = asyncio.create_task(self._frames(), name="pick_frames")
         try:
-            await self._wait_quiet(START_WAIT_S)
             build = self._build
-            build.hint = HINT_PICK
+            build.hint = HINT_PICK  # on the glasses from the start of the trial, before the greeting, as game B's is
+            await publish_build(build)
+            await self._wait_quiet(START_WAIT_S)
             for i, step in enumerate(build.guide.steps):
                 colour = _colour(step.brick)
                 build.step = i
@@ -178,7 +184,7 @@ class PickGame:
                 logger.info("pick: %d of %d, %s", i + 1, len(build.guide.steps), colour)
                 verdict, read = await self._settle()
                 self._picked.append(read)
-                self._armed = False  # the next pick is judged once the hand has read empty
+                self._armed = False  # the next pick is judged once a frame no longer shows this brick
                 build.act_now("yes" if verdict == "yes" else "not")
                 line = (YES if verdict == "yes" else NOT).format(colour=colour)
                 if i == len(build.guide.steps) - 1:
@@ -266,13 +272,16 @@ class PickGame:
                            held=round(held, 2), is_named=round(is_named, 2), colour=colour, colour_p=round(colour_p, 2),
                            armed=self._armed)
         logger.info("pick: #%d pick %d (%s) frame %d, %d ms: held %.2f named %.2f colour %s (%.2f)%s", n, step + 1, named,
-                    seq, ms, held, is_named, colour, colour_p, "" if self._armed else " (waiting for the hand to empty)")
+                    seq, ms, held, is_named, colour, colour_p, "" if self._armed else " (waiting for the judged brick to go)")
         if step != self._build.step or self._verdict is not None:
             return  # the pick moved on while the request was out, or is settled
         if not self._armed:
-            if held < 0.5:
+            # The brick just judged is gone when the hand reads empty or the colour read is no longer the one read at
+            # its verdict, none or another brick's; this frame arms the pick, and the frames after it are read for it.
+            if held < 0.5 or colour != self._judged:
                 self._armed = True
-                logger.info("pick: the hand reads empty; the next brick held is pick %d's", step + 1)
+                logger.info("pick: the %s brick just judged is gone (held %.2f, colour %s); the next brick held is pick %d's",
+                            self._judged, held, colour, step + 1)
             return
         reading = (held, is_named, colour)
         self._recent = (self._recent + [reading])[-AGREE:]
@@ -290,6 +299,7 @@ class PickGame:
         else:
             return
         read = named if verdict == "yes" else colour  # the colour actually picked, for the question at the end
+        self._judged = colour
         self._verdict = (verdict, read)
         saved = self._record.photo(photo, f"pick{n}-p{step + 1}")
         self._record.event("pick_verdict", n=n, pick=step + 1, colour=named, verdict=verdict, is_named=round(is_named, 2),
