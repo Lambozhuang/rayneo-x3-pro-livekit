@@ -488,9 +488,9 @@ class Brain:
         while it lasts (`rayneo.agent` reads "looking n", Build.act_now): set before the request, cleared with the
         verdict, in the message that moves the step when it does; a look that failed or was cancelled leaves it set,
         and the next look clears it, or sets it anew when it is itself a look_now. While the voice has said it is
-        looking (`_deferred`) the next routine look leaves it: it stays until the brain's line for the voice goes out,
-        below, or until `_defer` clears it by itself; before 2026-11-10 that look cleared it at once, and the dots sat
-        idle until the report came."""
+        looking (`_deferred`) no look clears it, neither the next routine look nor a look_now look that ends without a
+        line: it stays until the brain's line for the voice goes out, below, or until `_defer` clears it by itself;
+        before 2026-11-10 the next routine look cleared it at once, and the dots sat idle until the report came."""
         build = self._build
         now = self._next is not None
         if now:
@@ -501,7 +501,7 @@ class Brain:
             await publish_build(build)
         self._answering = None
         text, calls, look = await self._look_once("watch", w, self._watch_side, None, self._tools)
-        if now:
+        if now and not self._deferred:
             build.act_now("")  # _move publishes it with the step; without a move it goes below
         speak = await self._carry_out(look, calls, "watch", w)
         if now and not self._moved:
