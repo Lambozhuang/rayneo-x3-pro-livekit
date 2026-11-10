@@ -9,7 +9,8 @@ conversation.
         --first frame held--> record: pick_held
         --two frames held and the named colour at MOMENTS_YES_AT or above, or at MOMENTS_NOT_AT or below-->
             Build.act_now("yes" | "not") to the glasses (the dots flash green or red)                (record: pick_verdict)
-            "That's the red one." | "That's not the red one." to GPT-Live, which says it; the next colour follows at once
+            "That's the red one." | "That's not the red one, it's white." to GPT-Live, which says it; the next colour
+            follows at once
     after the second verdict: the hint asks the user to ask what colour the first brick they picked was (Build.hint); the
     voice answers from what it said, and the trial ends on that answer: the first line the voice says after its verdict
     that names one of the five colours (PickGame.voice_now), so nothing rests on reading the user's words
@@ -21,9 +22,13 @@ user's rule of 2026-11-09). After a verdict the next pick is judged only once a 
 judged: the hand reads empty, or the colour read is none or another brick's; so the brick still in the hand is not judged
 against the next colour, and a brick swapped for another without the hand ever reading empty is judged all the same (in
 the run 20261110-152453 a white brick and then a blue one were held 15 s unjudged under the first rule, which waited for
-the empty hand alone). The hint line is on the glasses from the start of the trial, before the greeting. The trial files
-are guides/a-1 to a-6 (game = "pick", a step per pick with the brick's colour, numbers 201 to 206), two picks each; the
-spec is the study's game-spec.md, outside the repo, revised after the first lab pilot of 2026-11-09.
+the empty hand alone). The hint line is on the glasses from the start of the trial, before the greeting. A verdict of not
+also tells the voice which colour the brick is, as the verdict's frame read it, so the colour actually held is in the
+voice's conversation for the last question: the game measures how fast the voice answers by itself, so that answer must
+not need a hand-over (the user's decision of 2026-11-10; in the run 20261110-154832 the voice, told only "That's not the
+red one.", answered "Purple." for a tan brick). The trial files are guides/a-1 to a-6 (game = "pick", a step per pick
+with the brick's colour, numbers 201 to 206), two picks each; the spec is the study's game-spec.md, outside the repo,
+revised after the first lab pilot of 2026-11-09.
 
 The class stands where the brain stands for gpt/agent.py (start_watching, stop_watching, voice_now, on_delegation,
 instructions).
@@ -63,7 +68,11 @@ START_WAIT_S = 6.0  # the most the first colour waits for the greeting to be sai
 # The lines the voice gets; it says them in its own words (the user's decision of 2026-11-08: no fixed phrases).
 NAME = "Pick up a {colour} brick."  # "a", not "the": several bricks lie there, and "the" read as if there were one
 YES = "That's the {colour} one."
-NOT = "That's not the {colour} one."
+NOT = "That's not the {colour} one, it's {read}."  # read: the colour the verdict's frame read, as SAID gives it
+# How a colour read by the Decisions line is said to the voice: its choice "tan or brown" is one answer and is said as
+# tan, the task files' bricks of that answer being tan but for one dark brown; every other colour is said as the choice
+# reads.
+SAID = {"tan or brown": "tan"}
 
 
 def _colour(brick: str) -> str:
@@ -186,7 +195,7 @@ class PickGame:
                 self._picked.append(read)
                 self._armed = False  # the next pick is judged once a frame no longer shows this brick
                 build.act_now("yes" if verdict == "yes" else "not")
-                line = (YES if verdict == "yes" else NOT).format(colour=colour)
+                line = YES.format(colour=colour) if verdict == "yes" else NOT.format(colour=colour, read=SAID.get(read, read))
                 if i == len(build.guide.steps) - 1:
                     build.hint = HINT_ASK
                     self._asking = True
