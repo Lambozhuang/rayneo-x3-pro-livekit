@@ -13,7 +13,8 @@ conversation.
             follows at once
     after the second verdict: the hint asks the user to ask what colour the first brick they picked was (Build.hint); the
     voice answers from what it said, and the trial ends on that answer: the first line the voice says after its verdict
-    that names one of the five colours (PickGame.voice_now), so nothing rests on reading the user's words
+    that names one of the five colours or the colour the voice was given for the first pick, which a wrong brick's may
+    be none of the five (PickGame.voice_now), so nothing rests on reading the user's words
 
 The agent paces the trial and the brain does not run: there is nothing to judge but the brick in the hand, which the
 Decisions line reads in under a second, so the delay the block adds shows in the time from the pick-up to the flash and
@@ -119,6 +120,7 @@ class PickGame:
         self._asking = False  # the second verdict is out and the hint is up
         self._verdict_turn_done = False  # the voice's turn that carried the second verdict has ended
         self._asks = 0
+        self._answer = HUE_WORD  # the colour words that make a line of the voice the answer; set when the hint goes up
         # the pick under way, written by the frame loop and read by the pacing loop
         self._n = 0  # requests made
         self._armed = True  # a frame since the last verdict no longer showed the brick judged: the next brick held is this pick's
@@ -141,13 +143,14 @@ class PickGame:
     @voice_now.setter
     def voice_now(self, text: str) -> None:
         """What the voice is saying, from gpt/agent.py's transcript deltas, cleared when the turn is in the history.
-        After the hint, the voice's first line that names one of the five colours and is not the second verdict's own
+        After the hint, the voice's first line that names one of the five colours, or the colour it was given for the
+        first pick (a wrong brick's may be none of the five: "tan"), and is not the second verdict's own
         turn is its answer to the user's question, and the trial is done; the user's words are not read for it."""
         if self._asking and not self._build.finished:
             if not text:
                 if not self._verdict_turn_done and HUE_WORD.search(self._voice_now):
                     self._verdict_turn_done = True  # the turn with the second verdict has been said
-            elif self._verdict_turn_done and HUE_WORD.search(text):
+            elif self._verdict_turn_done and self._answer.search(text):
                 self._asking = False
                 self._build.step = len(self._build.guide.steps)  # finished: gpt/agent.py ends the call once the voice is quiet
                 self._record.event("pick_answer", text=text)
@@ -198,6 +201,8 @@ class PickGame:
                 line = YES.format(colour=colour) if verdict == "yes" else NOT.format(colour=colour, read=SAID.get(read, read))
                 if i == len(build.guide.steps) - 1:
                     build.hint = HINT_ASK
+                    first = SAID.get(self._picked[0], self._picked[0])  # the first pick's colour as the voice was given it
+                    self._answer = re.compile(r"\b(" + "|".join((*HUES, re.escape(first))) + r")\b", re.I)
                     self._asking = True
                 await publish_build(build)
                 self._speak(line)
