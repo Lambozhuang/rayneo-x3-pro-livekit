@@ -163,7 +163,7 @@ class Build:
 
     guide: Guide
     run: str
-    step: int = 0  # index of the current step; len(steps) once finished
+    step: int = 0  # index of the current step; len(steps) once every step is done
     started: float = field(default_factory=time.monotonic)
     step_started: float = field(default_factory=time.monotonic)
     picture: int = 0  # the step whose picture the glasses show, numbered as the wearer counts; 0 shows the camera
@@ -173,10 +173,13 @@ class Build:
     hint: str = ""  # the line of words the glasses show for the wearer, what to do now; games only so far (gpt/place.py, gpt/report.py)
     game: str = ""  # the run's game when it is not the guide's: "report" for game B played on a sheet (picked_game, gpt/report.py)
     span: int = 1  # how many steps from the current one are current: a batch of game B marks two (gpt/report.py)
+    asking: bool = False  # game A: both picks are done and the trial waits for the voice's answer to the last question (gpt/pick.py)
 
     @property
     def finished(self) -> bool:
-        return bool(self.guide.steps) and self.step >= len(self.guide.steps)  # free play has no steps and never finishes
+        # Free play has no steps and never finishes. In game A every step is done with the second verdict, and the
+        # task is finished only once the last question is answered (`asking`).
+        return bool(self.guide.steps) and self.step >= len(self.guide.steps) and not self.asking
 
     def attributes(self) -> dict[str, str]:
         """The run as participant attributes: the title, every step's name, newline-separated, the index of the

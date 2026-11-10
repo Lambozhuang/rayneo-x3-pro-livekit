@@ -11,7 +11,8 @@ conversation.
             Build.act_now("yes" | "not") to the glasses (the dots flash green or red)                (record: pick_verdict)
             "That's the red one." | "That's not the red one, it's white." to GPT-Live, which says it; the next colour
             follows at once
-    after the second verdict: the hint asks the user to ask what colour the first brick they picked was (Build.hint); the
+    after the second verdict: its step is ticked on the glasses as the first one's was, and the task is not finished yet
+    (Build.asking); the hint asks the user to ask what colour the first brick they picked was (Build.hint); the
     voice answers from what it said, and the trial ends on that answer: the first line the voice says after its verdict
     that names one of the five colours or the colour the voice was given for the first pick, which a wrong brick's may
     be none of the five (PickGame.voice_now), so nothing rests on reading the user's words
@@ -152,7 +153,7 @@ class PickGame:
                     self._verdict_turn_done = True  # the turn with the second verdict has been said
             elif self._verdict_turn_done and self._answer.search(text):
                 self._asking = False
-                self._build.step = len(self._build.guide.steps)  # finished: gpt/agent.py ends the call once the voice is quiet
+                self._build.asking = False  # finished: gpt/agent.py ends the call once the voice is quiet
                 self._record.event("pick_answer", text=text)
                 self._record.event("build", finished=True, took_s=round(time.monotonic() - self._build.started, 1))
                 logger.info("pick: the voice answers (%s); the call ends once it is quiet", text)
@@ -201,6 +202,9 @@ class PickGame:
                 line = YES.format(colour=colour) if verdict == "yes" else NOT.format(colour=colour, read=SAID.get(read, read))
                 if i == len(build.guide.steps) - 1:
                     build.hint = HINT_ASK
+                    # The last pick's step is ticked with its verdict, as the first one's is; the task is not finished
+                    # until the voice has answered the question (Build.asking).
+                    build.step, build.asking = len(build.guide.steps), True
                     first = SAID.get(self._picked[0], self._picked[0])  # the first pick's colour as the voice was given it
                     self._answer = re.compile(r"\b(" + "|".join((*HUES, re.escape(first))) + r")\b", re.I)
                     self._asking = True
