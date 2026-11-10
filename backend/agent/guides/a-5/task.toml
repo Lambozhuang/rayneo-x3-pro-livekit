@@ -1,5 +1,5 @@
 # Game A of the user study, "pick the brick", trial 5 of 6 (gpt/pick.py; the spec is the study's game-spec.md outside the
-# repo, revised after the first lab pilot of 2026-11-10). Five 2x4 bricks lie loose on the table, one of each of red, blue,
+# repo, revised after the first lab pilot of 2026-11-09). Five 2x4 bricks lie loose on the table, one of each of red, blue,
 # purple, pink and white; the agent names a colour, the user picks a brick up, right or wrong, and holds it over the table,
 # the Decisions line says whether it is the one, twice; then the user asks what colour the first brick they picked was.
 # Each step is one pick: `brick` is the colour named, `name` is what the step list on the glasses shows, which does not

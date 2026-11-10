@@ -17,10 +17,10 @@ conversation.
 The agent paces the trial and the brain does not run: there is nothing to judge but the brick in the hand, which the
 Decisions line reads in under a second, so the delay the block adds shows in the time from the pick-up to the flash and
 to the voice. A pick that never settles is not judged: no timer, no re-ask, the console's time limit ends the trial (the
-user's rule of 2026-11-10). After a verdict the next pick is judged only once the hand has read empty, so the brick
+user's rule of 2026-11-09). After a verdict the next pick is judged only once the hand has read empty, so the brick
 still in the hand is not judged against the next colour. The trial files are guides/a-1 to a-6 (game = "pick", a step per
 pick with the brick's colour, numbers 201 to 206), two picks each; the spec is the study's game-spec.md, outside the
-repo, revised after the first lab pilot of 2026-11-10.
+repo, revised after the first lab pilot of 2026-11-09.
 
 The class stands where the brain stands for gpt/agent.py (start_watching, stop_watching, voice_now, on_delegation,
 instructions).

@@ -17,17 +17,17 @@ carries `answering` (brain.py SAY_ANSWERING), a line tagged report_of_the_bricks
 finishes the trial, and the call ends as a finished build's does (gpt/agent.py: the voice's silence after it, then
 Build.over); a line tagged something_else changes nothing, and nothing of the user's speech is read for the end. There
 is no description of the whole build and no question about the order. The brain's tell tool is not in this game
-(gpt/agent.py): the voice hears nothing but the say lines, each the reply to its hand-over; in the run of 2026-11-10
+(gpt/agent.py): the voice hears nothing but the say lines, each the reply to its hand-over; in the run of 2026-11-09
 14:49 a tell had reached it before the question was asked and it answered from that without the brain's say. The brain's
 conversation runs through the trial, so it knows what it has reported. The second line does not run, there being no
 step's brick to read. The record has the questions (`said` by the wearer, with their ends), the looks (`watch_sent` with
 the saved frames), the reports (`say` with `answering`, `commentary`, `voice_delta` for the first spoken word), `report`
 for each of the brain's lines (`batch`, `answer` as the brain tagged it, `finished`) and `batch` and `hint` for every
-picture shown; the scoring against the sheet is done afterwards from those. The three batches are the structure of
-2026-11-09 (c2cdd65), to which the user returned on 2026-11-10 evening after pilot 5: at 0.15 Mbit/s one description of
-five bricks left sizes out without the loss showing, while reports of the one or two bricks just placed showed it; the
-whole-figure version of that afternoon, with its two questions, is gone, and so is the description of the whole build
-that c2cdd65 asked for after the last report.
+picture shown; the scoring against the sheet is done afterwards from those. The three batches are the structure the
+game had before the lab pilot of 2026-11-09 morning (c2cdd65), to which the user returned that evening, after pilot 5:
+at 0.15 Mbit/s one description of five bricks left sizes out without the loss showing, while reports of the one or two
+bricks just placed showed it; the whole-figure version of that afternoon, with its two questions, is gone, and so is
+the description of the whole build that c2cdd65 asked for after the last report.
 """
 
 import asyncio
@@ -46,7 +46,7 @@ BATCHES = ((1, 2), (3, 4), (5, 5))
 
 # The hint line of a batch, one fixed text for the whole batch (the user's wording of 2026-11-09 night, after two runs in
 # which a hint that changed with the voice's turns was missed or stuck): what to do, in order, for this batch. The last
-# batch's asks for no "next" and for nothing after the report (the user's wording of 2026-11-10 evening).
+# batch's asks for no "next" and for nothing after the report (the user's wording of 2026-11-09 evening).
 HINT_BATCH = "Place these bricks, then ask the agent what it sees. When it has answered, say next."
 HINT_LAST = "Place this brick, then ask the agent what it sees."
 
@@ -134,5 +134,5 @@ class ReportGame:
             self._record.event("build", finished=True, took_s=round(time.monotonic() - build.started, 1))
             logger.info("report: the last batch is reported; the trial is done")
             await publish_build(build)
-        # `answer`, not `kind`: RunLog.event's first parameter is `kind`, and a `kind=` here raised a TypeError (2026-11-10)
+        # `answer`, not `kind`: RunLog.event's first parameter is `kind`, and a `kind=` here raised a TypeError (2026-11-09)
         self._record.event("report", batch=self._batch, n=self._said, answer=answering, text=line, finished=done)

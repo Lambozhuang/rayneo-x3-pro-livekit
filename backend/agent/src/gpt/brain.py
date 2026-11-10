@@ -141,7 +141,7 @@ SHOW = (
                                                               "1; 0 takes the picture away"}},
      "required": ["step"], "additionalProperties": False})
 # Game B's say (gpt/report.py): the same line to the user, with `answering` saying whether it is a batch's report or
-# something else, so the trial ends on the brain's own word and reads nothing of the user's speech (the user's rule, 2026-11-10).
+# something else, so the trial ends on the brain's own word and reads nothing of the user's speech (the user's rule, 2026-11-09).
 ANSWERING = ("report_of_the_bricks_just_added", "something_else")
 SAY_ANSWERING = (
     "say",
@@ -512,7 +512,7 @@ class Brain:
             open_ = self._open
             if open_ is not None:
                 # The line answers the hand-over the voice is waiting on: it goes back as that hand-over's reply, and
-                # the voice, which held its turn for it, says it (the games of the user study, 2026-11-10).
+                # the voice, which held its turn for it, says it (the games of the user study, 2026-11-09).
                 self._open = None
                 self._record.event("commentary", w=w, id=open_.id, text=line, voice_speaking=speaking)
                 duplex.append_commentary(line, delegation_id=open_.id)
@@ -537,7 +537,7 @@ class Brain:
         `answer_delegations` (the games) the hand-over stays open and the next look goes out at once: its line comes back
         as the hand-over's reply (_watch_look), and a failed look closes it with CANNOT_SEE (_watch). While a hand-over is
         open the voice holds its turn, which is what keeps it from answering an eyes question from its own head (the
-        runs of 2026-11-10: "On the baseplate, a red 2 by 4 plate..." before any line had come). A second hand-over while
+        runs of 2026-11-09: "On the baseplate, a red 2 by 4 plate..." before any line had come). A second hand-over while
         one is open replaces it; the earlier one is closed with the same line when it comes."""
         self._asks += 1
         words = d.pending_transcript.strip()  # the turn not yet in the history; often empty

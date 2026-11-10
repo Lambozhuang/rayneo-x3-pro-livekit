@@ -102,7 +102,7 @@ async def rayneo_assistant(ctx: JobContext) -> None:
         # Game B, build and report: the brain watches as in free play, with the reporting rules and no task text (it
         # does not know the sheet), and say is its one tool: the voice hears nothing but the answers to its hand-overs,
         # since a tell reaches it as a silent fact and it answered the second question from one before the brain's say,
-        # which is what ends the trial (the run of 2026-11-10 14:49). The game shows the batches, hears the voice's
+        # which is what ends the trial (the run of 2026-11-09 14:49). The game shows the batches, hears the voice's
         # sentence for the next one and ends the trial on the brain's report of the last.
         brain = ReportGame(Brain(session, build, tap, model, settings.brain_effort, settings.brain_watch_side,
                                  settings.brain_watch_every, lang, settings.brain_timeout, record,
